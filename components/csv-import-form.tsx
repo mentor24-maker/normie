@@ -2,8 +2,13 @@
 
 import { FormEvent, useState } from "react";
 
-export function CsvImportForm() {
-  const [adminKey, setAdminKey] = useState("");
+type CsvImportFormProps = {
+  adminKey: string;
+  onAdminKeyChange: (value: string) => void;
+  onImported?: () => Promise<void> | void;
+};
+
+export function CsvImportForm({ adminKey, onAdminKeyChange, onImported }: CsvImportFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -40,6 +45,8 @@ export function CsvImportForm() {
       }
 
       setMessage(`Imported ${data.createdCount ?? 0} poll rows.`);
+      setFile(null);
+      await onImported?.();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Import failed.");
     } finally {
@@ -54,7 +61,7 @@ export function CsvImportForm() {
         <input
           type="password"
           value={adminKey}
-          onChange={(event) => setAdminKey(event.target.value)}
+          onChange={(event) => onAdminKeyChange(event.target.value)}
           placeholder="Matches IMPORT_ADMIN_KEY"
           required
         />

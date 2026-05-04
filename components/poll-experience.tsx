@@ -96,47 +96,30 @@ export function PollExperience() {
   return (
     <main className="page-shell">
       <section className="hero hero-card">
-        <div className="hero-logo-shell hero-banner-shell">
-          <div className="hero-logo-card hero-banner-card">
-            <Image src={logoBanner} alt="Normie banner" className="hero-logo hero-banner" priority />
+        <div className="hero-top-row">
+          <div className="hero-logo-group">
+            <div className="hero-logo-shell hero-banner-shell">
+              <div className="hero-logo-card hero-banner-card">
+                <Image src={logoBanner} alt="Normie banner" className="hero-logo hero-banner" priority />
+              </div>
+            </div>
+            <div className="page-eyebrow hero-logo-caption">Personality Polls</div>
+          </div>
+          <div className="hero-copy hero-copy-compact">
+            <p className="page-copy">
+              Explore what people believe. Discover where you align. And keep answering questions
+              designed to spark awareness and perspective.
+            </p>
+            <div className="hero-chip-row">
+              <span className="hero-chip chip-sky">Knowledge</span>
+              <span className="hero-chip chip-gold">Awareness</span>
+              <span className="hero-chip chip-cloud">Growth</span>
+            </div>
           </div>
         </div>
-        <div className="hero-copy">
-          <div className="page-eyebrow">Normie Polls</div>
+        <div className="hero-headline-row">
           <h1>Curiosity with a pulse.</h1>
-          <p className="page-copy">
-            Explore what people believe, notice where you align, and keep moving through questions
-            designed to spark awareness, perspective, and discovery.
-          </p>
-          <div className="hero-chip-row">
-            <span className="hero-chip chip-sky">Knowledge</span>
-            <span className="hero-chip chip-gold">Awareness</span>
-            <span className="hero-chip chip-cloud">Growth</span>
-          </div>
         </div>
-      </section>
-
-      <section className="intro-grid">
-        <article className="intro-panel intro-panel-blue">
-          <div className="panel-label">How It Works</div>
-          <h2>Look left, vote right, keep unfolding the story.</h2>
-          <p className="panel-copy">
-            Each screen shows the community response to the previous prompt while inviting you into
-            the next one.
-          </p>
-        </article>
-        <article className="intro-panel intro-panel-yellow">
-          <div className="panel-label">Why It Feels Different</div>
-          <p className="panel-copy">
-            Instead of isolated polls, the experience becomes a guided sequence that builds
-            curiosity and reflection one question at a time.
-          </p>
-          <div className="orb-row">
-            <span className="orb orb-blue" />
-            <span className="orb orb-yellow" />
-            <span className="orb orb-white" />
-          </div>
-        </article>
       </section>
 
       {error ? <div className="notice error">{error}</div> : null}
@@ -174,9 +157,11 @@ export function PollExperience() {
               </>
             ) : (
               <>
-                <h2>No previous poll yet</h2>
+                <div className="panel-label">How It Works</div>
+                <h2>Look left, vote right, keep unfolding the story.</h2>
                 <p className="panel-copy">
-                  This is the first question in the sequence, so results will appear here after the next step.
+                  Each screen shows the community response to the previous prompt while inviting
+                  you into the next one.
                 </p>
               </>
             )}
@@ -206,6 +191,21 @@ export function PollExperience() {
       ) : (
         <div className="notice">No published polls are available yet.</div>
       )}
+
+      <section className="solo-info-row">
+        <article className="intro-panel intro-panel-yellow solo-info-panel">
+          <div className="panel-label">Why It Feels Different</div>
+          <p className="panel-copy">
+            Instead of isolated polls, the experience becomes a guided sequence that builds
+            curiosity and reflection one question at a time.
+          </p>
+          <div className="orb-row">
+            <span className="orb orb-blue" />
+            <span className="orb orb-yellow" />
+            <span className="orb orb-white" />
+          </div>
+        </article>
+      </section>
     </main>
   );
 }
