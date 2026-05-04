@@ -2,6 +2,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.polls (
   id uuid primary key default gen_random_uuid(),
+  category varchar,
   question text not null,
   order_index integer not null unique,
   is_published boolean not null default true,

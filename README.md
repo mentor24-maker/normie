@@ -53,26 +53,20 @@ Use a long random string for `IMPORT_ADMIN_KEY`. That key is required to upload 
 
 ## 3. CSV format
 
-The importer accepts either:
+The importer expects a header row like:
 
 ```csv
-question,option_1,option_2,option_3
-What is your favorite season?,Spring,Summer,Fall
-Do you prefer cats or dogs?,Cats,Dogs,Neither
-```
-
-Or a CSV with no header row:
-
-```csv
-What is your favorite season?,Spring,Summer,Fall
-Do you prefer cats or dogs?,Cats,Dogs,Neither
+ID,Category,Question,Option_A,Option_B
+001,Identity & Psychology,Would you rather be misunderstood or overlooked?,Misunderstood,Overlooked
+002,Money & Success,Would you rather succeed early or succeed late?,Early,Late
 ```
 
 Rules:
 
-- Column 1 must be the question
-- Columns 2+ are the answer options
-- Each row needs at least 2 options
+- `Category` and `Question` are written to `polls`
+- `Option_A`, `Option_B`, and any additional `Option_*` columns are written to `poll_options`
+- `ID` is ignored by the importer
+- Each row needs at least 2 non-empty option values
 - Imported rows are appended in order as new polls
 
 ## 4. Run locally

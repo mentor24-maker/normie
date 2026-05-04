@@ -1,8 +1,8 @@
-insert into public.polls (question, order_index, is_published)
+insert into public.polls (category, question, order_index, is_published)
 values
-  ('How do you usually get your news?', 1, true),
-  ('Which screen size feels best for reading long articles?', 2, true),
-  ('What matters most when you try a new site?', 3, true);
+  ('Media Habits', 'How do you usually get your news?', 1, true),
+  ('Reading Preferences', 'Which screen size feels best for reading long articles?', 2, true),
+  ('Product Experience', 'What matters most when you try a new site?', 3, true);
 
 with ordered_polls as (
   select id, order_index from public.polls

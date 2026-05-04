@@ -71,7 +71,7 @@ export function CsvImportForm() {
       </label>
 
       <div className="csv-help">
-        Example columns: <code>question,option_1,option_2,option_3</code>
+        Example columns: <code>ID,Category,Question,Option_A,Option_B</code>
       </div>
 
       <button className="submit-button" disabled={isSubmitting} type="submit">
