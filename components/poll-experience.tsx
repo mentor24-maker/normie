@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import logoWide from "@/images/logo_normie_wide.png";
+import logoBanner from "@/images/logo_normie_3_1600x500.png";
 
 type PollOption = {
   id: string;
@@ -96,6 +96,11 @@ export function PollExperience() {
   return (
     <main className="page-shell">
       <section className="hero hero-card">
+        <div className="hero-logo-shell hero-banner-shell">
+          <div className="hero-logo-card hero-banner-card">
+            <Image src={logoBanner} alt="Normie banner" className="hero-logo hero-banner" priority />
+          </div>
+        </div>
         <div className="hero-copy">
           <div className="page-eyebrow">Normie Polls</div>
           <h1>Curiosity with a pulse.</h1>
@@ -107,16 +112,6 @@ export function PollExperience() {
             <span className="hero-chip chip-sky">Knowledge</span>
             <span className="hero-chip chip-gold">Awareness</span>
             <span className="hero-chip chip-cloud">Growth</span>
-          </div>
-        </div>
-        <div className="hero-logo-shell">
-          <div className="hero-logo-card">
-            <Image
-              src={logoWide}
-              alt="Normie One logo"
-              className="hero-logo"
-              priority
-            />
           </div>
         </div>
       </section>
