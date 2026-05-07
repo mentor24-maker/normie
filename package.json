@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:reset": "bash ./scripts/dev-reset.sh",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,10 +12,18 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
+    "@tiptap/extension-color": "^3.22.5",
+    "@tiptap/extension-text-align": "^3.22.5",
+    "@tiptap/extension-text-style": "^3.22.5",
+    "@tiptap/extension-underline": "^3.22.5",
+    "@tiptap/pm": "^3.22.5",
+    "@tiptap/react": "^3.22.5",
+    "@tiptap/starter-kit": "^3.22.5",
     "next": "^15.3.1",
     "papaparse": "^5.5.3",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "simple-icons": "^16.18.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.19",

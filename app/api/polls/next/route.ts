@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 const SESSION_COOKIE = "poll_session_id";
+const DISPLAY_VOTE_MULTIPLIER = 1327;
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -75,13 +76,13 @@ export async function GET() {
     previousPollResults = {
       id: previousPoll.id,
       question: previousPoll.question,
-      totalResponses: (totals ?? []).length,
+      totalResponses: (totals ?? []).length * DISPLAY_VOTE_MULTIPLIER,
       options: previousPoll.poll_options.map((option) => {
         const votes = counts.get(option.id) ?? 0;
         return {
           id: option.id,
           label: option.label,
-          votes,
+          votes: votes * DISPLAY_VOTE_MULTIPLIER,
           percentage: (totals ?? []).length === 0 ? 0 : Math.round((votes / (totals ?? []).length) * 100)
         };
       })

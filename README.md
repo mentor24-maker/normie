@@ -36,9 +36,6 @@ Fill in:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `IMPORT_ADMIN_KEY`
-
-Use a long random string for `IMPORT_ADMIN_KEY`. That key is required to upload CSV files from `/admin/import`.
 
 ## 2. Set up Supabase
 
@@ -102,7 +99,6 @@ git push -u origin main
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `IMPORT_ADMIN_KEY`
 5. Deploy.
 
 Vercel will automatically redeploy when you push updates to GitHub.
@@ -111,12 +107,11 @@ Vercel will automatically redeploy when you push updates to GitHub.
 
 1. Prepare a CSV file.
 2. Visit `/admin/import`.
-3. Enter the `IMPORT_ADMIN_KEY`.
-4. Upload the file.
-5. Refresh the main poll page and test the sequence.
+3. Upload the file.
+4. Refresh the main poll page and test the sequence.
 
 ## Notes
 
 - This version does not include a poll builder backend yet.
-- The importer is protected only by the shared import key. If you later want stronger security, the next step would be Supabase Auth or Vercel authentication middleware.
+- The admin tools are currently open for solo hobby development. If you later want stronger security, the next step would be Supabase Auth or Vercel authentication middleware.
 - Responses are tied to a browser session cookie, so a visitor answers each poll once per browser/session identity.

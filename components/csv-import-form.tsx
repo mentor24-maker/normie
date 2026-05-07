@@ -3,12 +3,10 @@
 import { FormEvent, useState } from "react";
 
 type CsvImportFormProps = {
-  adminKey: string;
-  onAdminKeyChange: (value: string) => void;
   onImported?: () => Promise<void> | void;
 };
 
-export function CsvImportForm({ adminKey, onAdminKeyChange, onImported }: CsvImportFormProps) {
+export function CsvImportForm({ onImported }: CsvImportFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -32,9 +30,6 @@ export function CsvImportForm({ adminKey, onAdminKeyChange, onImported }: CsvImp
 
       const response = await fetch("/api/import", {
         method: "POST",
-        headers: {
-          "x-import-admin-key": adminKey
-        },
         body: formData
       });
 
@@ -56,17 +51,6 @@ export function CsvImportForm({ adminKey, onAdminKeyChange, onImported }: CsvImp
 
   return (
     <form className="import-form" onSubmit={handleSubmit}>
-      <label className="field">
-        <span>Import admin key</span>
-        <input
-          type="password"
-          value={adminKey}
-          onChange={(event) => onAdminKeyChange(event.target.value)}
-          placeholder="Matches IMPORT_ADMIN_KEY"
-          required
-        />
-      </label>
-
       <label className="field">
         <span>CSV file</span>
         <input

@@ -1,0 +1,101 @@
+ID,Category,Question,Option_A,Option_B
+001,Identity & Psychology,Would you rather be misunderstood or overlooked?,Misunderstood,Overlooked
+002,Identity & Psychology,Would you rather feel everything deeply or nothing at all?,Feel deeply,Feel nothing
+003,Identity & Psychology,Would you rather always doubt yourself or never question yourself?,Doubt yourself,Never question
+004,Identity & Psychology,Would you rather be predictable or confusing to others?,Predictable,Confusing
+005,Identity & Psychology,Would you rather know yourself completely or never fully understand yourself?,Know yourself,Never fully understand
+006,Identity & Psychology,Would you rather be emotionally strong or mentally sharp?,Emotionally strong,Mentally sharp
+007,Identity & Psychology,Would you rather trust your gut or trust logic every time?,Trust gut,Trust logic
+008,Identity & Psychology,Would you rather overthink everything or act without thinking?,Overthink,Act without thinking
+009,Identity & Psychology,Would you rather be self-aware or completely confident?,Self-aware,Confident
+010,Identity & Psychology,Would you rather feel in control or feel free?,In control,Free
+011,Money & Success,Would you rather make $1M quietly or $100K publicly praised?,$1M quietly,$100K praised
+012,Money & Success,Would you rather succeed early or succeed late?,Early,Late
+013,Money & Success,Would you rather be respected for your work or envied for your lifestyle?,Respected work,Envied lifestyle
+014,Money & Success,Would you rather never worry about money or always be driven by it?,Never worry,Always driven
+015,Money & Success,Would you rather be rich and stressed or comfortable and calm?,Rich stressed,Comfortable calm
+016,Money & Success,Would you rather earn everything yourself or inherit success?,Earn it,Inherit it
+017,Money & Success,Would you rather have financial freedom or unlimited opportunity?,Financial freedom,Unlimited opportunity
+018,Money & Success,Would you rather win big once or earn steadily forever?,Win big once,Earn steadily
+019,Money & Success,Would you rather be known as lucky or talented?,Lucky,Talented
+020,Money & Success,Would you rather lose money or lose time?,Lose money,Lose time
+021,Dark / Truth,Would you rather be secretly disliked or openly criticized?,Secretly disliked,Openly criticized
+022,Dark / Truth,Would you rather know who hates you or never find out?,Know,Never find out
+023,Dark / Truth,Would you rather be judged unfairly or ignored completely?,Judged unfairly,Ignored
+024,Dark / Truth,Would you rather expose someone’s secret or protect it forever?,Expose it,Protect it
+025,Dark / Truth,Would you rather be honest and lose people or fake and keep them?,Honest and lose,Fake and keep
+026,Dark / Truth,Would you rather be right alone or wrong with everyone?,Right alone,Wrong with everyone
+027,Dark / Truth,Would you rather disappoint others or disappoint yourself?,Disappoint others,Disappoint yourself
+028,Dark / Truth,Would you rather hide your flaws or reveal them?,Hide flaws,Reveal flaws
+029,Dark / Truth,Would you rather be feared or forgotten?,Feared,Forgotten
+030,Dark / Truth,Would you rather know uncomfortable truths or live peacefully unaware?,Know truths,Peacefully unaware
+031,Social & Relationships,Would you rather be loved deeply by one person or liked by many?,Loved by one,Liked by many
+032,Social & Relationships,Would you rather always say what you feel or always filter yourself?,Say feelings,Filter yourself
+033,Social & Relationships,Would you rather be needed or wanted?,Needed,Wanted
+034,Social & Relationships,Would you rather lead or belong?,Lead,Belong
+035,Social & Relationships,Would you rather always stand out or always fit in?,Stand out,Fit in
+036,Social & Relationships,Would you rather lose your closest friend or never make new ones?,Lose closest friend,Never make new ones
+037,Social & Relationships,Would you rather be emotionally independent or deeply connected?,Independent,Connected
+038,Social & Relationships,Would you rather have fewer real friends or many casual ones?,Fewer real,Many casual
+039,Social & Relationships,Would you rather be understood or admired?,Understood,Admired
+040,Social & Relationships,Would you rather be the funny one or the serious one?,Funny,Serious
+041,Life Tradeoffs,Would you rather have more time or more energy?,More time,More energy
+042,Life Tradeoffs,Would you rather relive your best moment or erase your worst?,Relive best,Erase worst
+043,Life Tradeoffs,Would you rather control your future or fix your past?,Control future,Fix past
+044,Life Tradeoffs,Would you rather know everything or experience everything?,Know everything,Experience everything
+045,Life Tradeoffs,Would you rather have certainty or possibility?,Certainty,Possibility
+046,Life Tradeoffs,Would you rather always play it safe or always take risks?,Play safe,Take risks
+047,Life Tradeoffs,Would you rather be consistent or spontaneous?,Consistent,Spontaneous
+048,Life Tradeoffs,Would you rather feel stable or feel excited?,Stable,Excited
+049,Life Tradeoffs,Would you rather finish everything you start or start everything you want?,Finish everything,Start everything
+050,Life Tradeoffs,Would you rather be comfortable or challenged?,Comfortable,Challenged
+051,Future / Power,Would you rather read minds or influence decisions?,Read minds,Influence decisions
+052,Future / Power,Would you rather pause time or speed it up?,Pause time,Speed it up
+053,Future / Power,Would you rather always know what to say or always know what to do?,Know what to say,Know what to do
+054,Future / Power,Would you rather control your emotions or others’ emotions?,Your emotions,Others’ emotions
+055,Future / Power,Would you rather never feel fear or never feel regret?,No fear,No regret
+056,Future / Power,Would you rather see outcomes or change them?,See outcomes,Change outcomes
+057,Future / Power,Would you rather be invisible or unforgettable?,Invisible,Unforgettable
+058,Future / Power,Would you rather have unlimited knowledge or unlimited influence?,Knowledge,Influence
+059,Future / Power,Would you rather control one person or inspire millions?,Control one,Inspire millions
+060,Future / Power,Would you rather know your purpose or create it?,Know purpose,Create purpose
+061,Self-Perception,Would you rather see yourself how others see you or how you truly are?,How others see you,How you truly are
+062,Self-Perception,Would you rather know your biggest flaw or your biggest strength?,Biggest flaw,Biggest strength
+063,Self-Perception,Would you rather feel confident or be competent?,Feel confident,Be competent
+064,Self-Perception,Would you rather believe in yourself or be validated by others?,Believe in yourself,Validated by others
+065,Self-Perception,Would you rather feel special or feel understood?,Special,Understood
+066,Self-Perception,Would you rather improve slowly or transform instantly?,Improve slowly,Transform instantly
+067,Self-Perception,Would you rather always be growing or finally feel enough?,Always growing,Feel enough
+068,Self-Perception,Would you rather be self-critical or self-accepting?,Self-critical,Self-accepting
+069,Self-Perception,Would you rather be aware of your limits or ignore them?,Aware,Ignore them
+070,Self-Perception,Would you rather feel proud or feel peaceful?,Proud,Peaceful
+071,Behavior & Habits,Would you rather have perfect discipline or perfect motivation?,Discipline,Motivation
+072,Behavior & Habits,Would you rather wake up early or stay up late?,Wake early,Stay late
+073,Behavior & Habits,Would you rather plan everything or go with the flow?,Plan everything,Go with flow
+074,Behavior & Habits,Would you rather focus deeply or multitask easily?,Focus deeply,Multitask easily
+075,Behavior & Habits,Would you rather finish quickly or perfect slowly?,Finish quickly,Perfect slowly
+076,Behavior & Habits,Would you rather be consistent or intense?,Consistent,Intense
+077,Behavior & Habits,Would you rather follow routines or break them?,Follow routines,Break routines
+078,Behavior & Habits,Would you rather be productive or creative?,Productive,Creative
+079,Behavior & Habits,Would you rather think fast or think deeply?,Think fast,Think deeply
+080,Behavior & Habits,Would you rather take action or wait for the right moment?,Take action,Wait
+081,Modern Life / Digital,Would you rather lose your phone or your identity online?,Lose phone,Lose online identity
+082,Modern Life / Digital,Would you rather go viral once or stay unknown forever?,Go viral,Stay unknown
+083,Modern Life / Digital,Would you rather always be connected or always be present?,Connected,Present
+084,Modern Life / Digital,Would you rather have followers or real influence?,Followers,Real influence
+085,Modern Life / Digital,Would you rather share everything or keep everything private?,Share everything,Private
+086,Modern Life / Digital,Would you rather be seen or understood online?,Seen,Understood
+087,Modern Life / Digital,Would you rather scroll endlessly or disconnect completely?,Scroll endlessly,Disconnect
+088,Modern Life / Digital,Would you rather have attention or respect online?,Attention,Respect
+089,Modern Life / Digital,Would you rather be authentic or successful online?,Authentic,Successful
+090,Modern Life / Digital,Would you rather build a brand or live a private life?,Build brand,Private life
+091,Absurd but Revealing,Would you rather always feel slightly late or slightly early?,Slightly late,Slightly early
+092,Absurd but Revealing,Would you rather always have something to say or never need to speak?,Always something to say,Never need speak
+093,Absurd but Revealing,Would you rather always be watched or always be alone?,Watched,Alone
+094,Absurd but Revealing,Would you rather always win small or lose big occasionally?,Win small,Lose big occasionally
+095,Absurd but Revealing,Would you rather always feel busy or always feel bored?,Busy,Bored
+096,Absurd but Revealing,Would you rather always expect the worst or hope for the best?,Expect worst,Hope best
+097,Absurd but Revealing,Would you rather always know the answer or always ask the question?,Know answer,Ask question
+098,Absurd but Revealing,Would you rather always blend in or always stand out?,Blend in,Stand out
+099,Absurd but Revealing,Would you rather always be calm or always feel alive?,Calm,Feel alive
+100,Absurd but Revealing,Would you rather always be right or always be growing?,Always right,Always growing

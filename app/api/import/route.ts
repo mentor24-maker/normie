@@ -1,5 +1,7 @@
 import Papa from "papaparse";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
@@ -13,9 +15,10 @@ function normalizeHeader(value: string) {
 }
 
 export async function POST(request: Request) {
-  const adminKey = request.headers.get("x-import-admin-key");
+  const cookieStore = await cookies();
+  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
 
-  if (!process.env.IMPORT_ADMIN_KEY || adminKey !== process.env.IMPORT_ADMIN_KEY) {
+  if (!admin) {
     return NextResponse.json({ error: "Unauthorized import request." }, { status: 401 });
   }
 

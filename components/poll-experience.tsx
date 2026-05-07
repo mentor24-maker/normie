@@ -145,7 +145,7 @@ export function PollExperience() {
                       <div className="result-meta">
                         <span>{option.label}</span>
                         <span>
-                          {option.percentage}% · {option.votes}
+                          {option.votes} · {option.percentage}%
                         </span>
                       </div>
                       <div className="result-bar">

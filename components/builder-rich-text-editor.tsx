@@ -1,0 +1,448 @@
+"use client";
+
+import { Extension } from "@tiptap/core";
+import Color from "@tiptap/extension-color";
+import { EditorContent, useEditor } from "@tiptap/react";
+import TextAlign from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Underline from "@tiptap/extension-underline";
+import StarterKit from "@tiptap/starter-kit";
+import { useEffect, useRef, useState } from "react";
+import { formatRichTextContent } from "@/lib/builder-template";
+
+type BuilderRichTextEditorProps = {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+};
+
+const FontSizeStyle = Extension.create({
+  name: "fontSizeStyle",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) =>
+              attributes.fontSize ? { style: `font-size: ${attributes.fontSize}` } : {}
+          }
+        }
+      }
+    ];
+  }
+});
+
+const TextShadowStyle = Extension.create({
+  name: "textShadowStyle",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          textShadow: {
+            default: null,
+            parseHTML: (element) => element.style.textShadow || null,
+            renderHTML: (attributes) =>
+              attributes.textShadow ? { style: `text-shadow: ${attributes.textShadow}` } : {}
+          }
+        }
+      }
+    ];
+  }
+});
+
+const TextOutlineStyle = Extension.create({
+  name: "textOutlineStyle",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          textOutline: {
+            default: null,
+            parseHTML: (element) =>
+              element.style.getPropertyValue("-webkit-text-stroke") ||
+              element.style.webkitTextStroke ||
+              null,
+            renderHTML: (attributes) =>
+              attributes.textOutline
+                ? { style: `-webkit-text-stroke: ${attributes.textOutline}` }
+                : {}
+          }
+        }
+      }
+    ];
+  }
+});
+
+const LineHeightStyle = Extension.create({
+  name: "lineHeightStyle",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          lineHeight: {
+            default: null,
+            parseHTML: (element) => element.style.lineHeight || null,
+            renderHTML: (attributes) =>
+              attributes.lineHeight ? { style: `line-height: ${attributes.lineHeight}` } : {}
+          }
+        }
+      }
+    ];
+  }
+});
+
+export function BuilderRichTextEditor({
+  value,
+  onChange,
+  placeholder = "Enter content"
+}: BuilderRichTextEditorProps) {
+  const fontSizeOptions = ["14", "16", "18", "20", "24", "28", "32"];
+  const lineHeightOptions = ["1.2", "1.4", "1.6", "1.8", "2"];
+  const [activeFontSize, setActiveFontSize] = useState("16");
+  const [activeLineHeight, setActiveLineHeight] = useState("default");
+  const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3, 4, 5, 6]
+        }
+      }),
+      TextStyle,
+      FontSizeStyle,
+      TextShadowStyle,
+      TextOutlineStyle,
+      LineHeightStyle,
+      Color,
+      Underline,
+      TextAlign.configure({
+        types: ["heading", "paragraph"]
+      })
+    ],
+    content: formatRichTextContent(value) || "<p></p>",
+    onUpdate: ({ editor: currentEditor }) => {
+      onChange(currentEditor.getHTML());
+    }
+  });
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const normalizedValue = formatRichTextContent(value) || "<p></p>";
+
+    if (editor.getHTML() !== normalizedValue) {
+      editor.commands.setContent(normalizedValue, { emitUpdate: false });
+    }
+  }, [editor, value]);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const syncFontSize = () => {
+      const nextFontSize = String(editor.getAttributes("textStyle").fontSize || "16px").replace("px", "");
+      setActiveFontSize(fontSizeOptions.includes(nextFontSize) ? nextFontSize : "16");
+      const nextLineHeight = String(editor.getAttributes("textStyle").lineHeight || "");
+      setActiveLineHeight(lineHeightOptions.includes(nextLineHeight) ? nextLineHeight : "default");
+      lastSelectionRef.current = {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to
+      };
+    };
+
+    syncFontSize();
+    editor.on("selectionUpdate", syncFontSize);
+    editor.on("transaction", syncFontSize);
+
+    return () => {
+      editor.off("selectionUpdate", syncFontSize);
+      editor.off("transaction", syncFontSize);
+    };
+  }, [editor]);
+
+  const hasTextAlign = typeof (editor?.commands as { setTextAlign?: unknown } | undefined)?.setTextAlign === "function";
+  const hasTextColor = typeof (editor?.commands as { setColor?: unknown } | undefined)?.setColor === "function";
+  const hasTextShadow = String(editor?.getAttributes("textStyle").textShadow || "").length > 0;
+  const hasTextOutline = String(editor?.getAttributes("textStyle").textOutline || "").length > 0;
+
+  function chainWithSelection() {
+    if (!editor) {
+      return null;
+    }
+
+    const chain = editor.chain().focus();
+    const selection = lastSelectionRef.current;
+
+    if (selection) {
+      return chain.setTextSelection(selection);
+    }
+
+    return chain;
+  }
+
+  function applyFontSize(nextSize: string) {
+    const chain = chainWithSelection();
+
+    if (!chain) {
+      return;
+    }
+
+    setActiveFontSize(nextSize);
+
+    if (nextSize === "16") {
+      chain.setMark("textStyle", { fontSize: null }).removeEmptyTextStyle().run();
+      return;
+    }
+
+    chain.setMark("textStyle", { fontSize: `${nextSize}px` }).run();
+  }
+
+  function applyLineHeight(nextValue: string) {
+    const chain = chainWithSelection();
+
+    if (!chain) {
+      return;
+    }
+
+    setActiveLineHeight(nextValue || "default");
+
+    if (!nextValue) {
+      chain.setMark("textStyle", { lineHeight: null }).removeEmptyTextStyle().run();
+      return;
+    }
+
+    chain.setMark("textStyle", { lineHeight: nextValue }).run();
+  }
+
+  function toggleTextShadow() {
+    if (!editor) {
+      return;
+    }
+
+    if (hasTextShadow) {
+      editor.chain().focus().setMark("textStyle", { textShadow: null }).removeEmptyTextStyle().run();
+      return;
+    }
+
+    editor
+      .chain()
+      .focus()
+      .setMark("textStyle", { textShadow: "0 2px 10px rgba(9, 16, 24, 0.18)" })
+      .run();
+  }
+
+  function toggleTextOutline() {
+    if (!editor) {
+      return;
+    }
+
+    if (hasTextOutline) {
+      editor.chain().focus().setMark("textStyle", { textOutline: null }).removeEmptyTextStyle().run();
+      return;
+    }
+
+    editor
+      .chain()
+      .focus()
+      .setMark("textStyle", { textOutline: "1px rgba(9, 16, 24, 0.45)" })
+      .run();
+  }
+
+  if (!editor) {
+    return (
+      <div className="builder-rich-text-shell">
+        <div className="builder-rich-text-loading">{placeholder}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="builder-rich-text-shell">
+      <div className="builder-rich-text-toolbar">
+        <button
+          className={!editor.isActive("heading") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().setParagraph().run()}
+          title="Paragraph"
+          type="button"
+        >
+          P
+        </button>
+        {[1, 2, 3, 4, 5, 6].map((level) => (
+          <button
+            key={level}
+            className={editor.isActive("heading", { level }) ? "is-active" : undefined}
+            onClick={() => editor.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run()}
+            title={`Heading ${level}`}
+            type="button"
+          >
+            {`H${level}`}
+          </button>
+        ))}
+        <button
+          className={editor.isActive("bold") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          title="Bold"
+          type="button"
+        >
+          <strong>B</strong>
+        </button>
+        <button
+          className={editor.isActive("italic") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          title="Italic"
+          type="button"
+        >
+          <em>I</em>
+        </button>
+        <button
+          className={editor.isActive("underline") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          title="Underline"
+          type="button"
+        >
+          <span className="builder-rich-text-icon-underline">U</span>
+        </button>
+        <button
+          className={hasTextShadow ? "is-active" : undefined}
+          onClick={toggleTextShadow}
+          title="Drop shadow"
+          type="button"
+        >
+          S
+        </button>
+        <button
+          className={hasTextOutline ? "is-active" : undefined}
+          onClick={toggleTextOutline}
+          title="Outline"
+          type="button"
+        >
+          O
+        </button>
+        <button
+          className={hasTextAlign && editor.isActive({ textAlign: "left" }) ? "is-active" : undefined}
+          disabled={!hasTextAlign}
+          onClick={() =>
+            hasTextAlign
+              ? (editor.commands as { setTextAlign: (value: "left" | "center" | "right" | "justify") => boolean }).setTextAlign("left")
+              : undefined
+          }
+          title="Align left"
+          type="button"
+        >
+          ≡
+        </button>
+        <button
+          className={hasTextAlign && editor.isActive({ textAlign: "center" }) ? "is-active" : undefined}
+          disabled={!hasTextAlign}
+          onClick={() =>
+            hasTextAlign
+              ? (editor.commands as { setTextAlign: (value: "left" | "center" | "right" | "justify") => boolean }).setTextAlign("center")
+              : undefined
+          }
+          title="Align center"
+          type="button"
+        >
+          ≣
+        </button>
+        <button
+          className={hasTextAlign && editor.isActive({ textAlign: "right" }) ? "is-active" : undefined}
+          disabled={!hasTextAlign}
+          onClick={() =>
+            hasTextAlign
+              ? (editor.commands as { setTextAlign: (value: "left" | "center" | "right" | "justify") => boolean }).setTextAlign("right")
+              : undefined
+          }
+          title="Align right"
+          type="button"
+        >
+          ☰
+        </button>
+        <label className="builder-rich-text-color" title="Text color">
+          <select
+            aria-label="Font size"
+            className="builder-rich-text-select"
+            onChange={(event) => applyFontSize(event.target.value)}
+            value={activeFontSize}
+          >
+            {fontSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size}px
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="builder-rich-text-color" title="Line height">
+          <select
+            aria-label="Line height"
+            className="builder-rich-text-select"
+            onChange={(event) => applyLineHeight(event.target.value)}
+            value={activeLineHeight}
+          >
+            <option value="default">LH</option>
+            {lineHeightOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="builder-rich-text-color" title="Text color">
+          <span>A</span>
+          <input
+            aria-label="Text color"
+            disabled={!hasTextColor}
+            onChange={(event) =>
+              hasTextColor
+                ? chainWithSelection()?.setColor(event.target.value).run()
+                : undefined
+            }
+            type="color"
+            value={String(editor.getAttributes("textStyle").color || "#18324a")}
+          />
+        </label>
+        <button
+          className={editor.isActive("bulletList") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          title="Bullet list"
+          type="button"
+        >
+          ••
+        </button>
+        <button
+          className={editor.isActive("orderedList") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          title="Numbered list"
+          type="button"
+        >
+          1.
+        </button>
+        <button
+          className={editor.isActive("blockquote") ? "is-active" : undefined}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          title="Block quote"
+          type="button"
+        >
+          ❝
+        </button>
+        <button
+          onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().setParagraph().run()}
+          title="Clear formatting"
+          type="button"
+        >
+          ⨯
+        </button>
+      </div>
+      <EditorContent className="builder-rich-text-content" editor={editor} />
+    </div>
+  );
+}

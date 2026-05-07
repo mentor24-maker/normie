@@ -1,13 +1,13 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-function isAuthorized(request: Request) {
-  const adminKey = request.headers.get("x-import-admin-key");
-  return Boolean(process.env.IMPORT_ADMIN_KEY && adminKey === process.env.IMPORT_ADMIN_KEY);
-}
+export async function GET() {
+  const cookieStore = await cookies();
+  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
 
-export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!admin) {
     return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
   }
 
@@ -30,7 +30,10 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isAuthorized(request)) {
+  const cookieStore = await cookies();
+  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+
+  if (!admin) {
     return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
   }
 

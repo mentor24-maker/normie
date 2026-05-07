@@ -1,0 +1,283 @@
+import type {
+  BackgroundSettings,
+  BuilderPageRecord,
+  BuilderTemplateLayout,
+  BuilderTemplateModuleType,
+  BuilderTemplateRecord
+} from "@/lib/builder-template";
+
+export type ModulePaletteGroup = BuilderTemplateModuleType;
+
+export type GalleryTarget =
+  | { kind: "module"; sectionId: string; moduleId: string }
+  | { kind: "section-background"; sectionId: string };
+
+export type ModulePaletteItem = {
+  id: string;
+  type: BuilderTemplateModuleType;
+  group: ModulePaletteGroup;
+  label: string;
+  icon: string;
+  description: string;
+  name: string;
+  text: string;
+  settings?: Record<string, string>;
+};
+
+export type BuilderDraft = {
+  id: string;
+  name: string;
+  pageBackground: BackgroundSettings;
+  layoutSections: import("@/lib/builder-template").BuilderTemplateSection[];
+};
+
+export const layoutOptions: Array<{ value: BuilderTemplateLayout; label: string }> = [
+  { value: "single", label: "Single Column" },
+  { value: "two-column", label: "Two Column" },
+  { value: "three-column", label: "Three Column" },
+  { value: "two-four", label: "2 / 4 Split" },
+  { value: "four-two", label: "4 / 2 Split" },
+  { value: "one-five", label: "1 / 5 Split" },
+  { value: "five-one", label: "5 / 1 Split" }
+];
+
+export const modulePaletteGroups: Array<{
+  value: ModulePaletteGroup;
+  label: string;
+  icon: string;
+  description: string;
+}> = [
+  { value: "heading", label: "Headings", icon: "H", description: "Titles, labels, and section headers." },
+  { value: "text", label: "Text", icon: "T", description: "Paragraphs, intros, and supporting copy." },
+  { value: "image", label: "Image", icon: "I", description: "Visual media, logos, and video blocks." },
+  { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
+  { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
+  { value: "previous-results", label: "Results", icon: "R", description: "Live community results from the previous poll." },
+  { value: "current-poll", label: "Polls", icon: "P?", description: "The current live poll with vote actions." },
+  { value: "social", label: "Social", icon: "@", description: "Linked rows of social icons and profile badges." },
+  { value: "table", label: "Tables", icon: "⊞", description: "Data tables with configurable columns and rows." },
+  { value: "slider", label: "Sliders", icon: "⇆", description: "Horizontally scrollable bars of managed cards." }
+];
+
+export const modulePaletteItems: ModulePaletteItem[] = [
+  {
+    id: "heading-eyebrow",
+    type: "heading",
+    group: "heading",
+    label: "Eyebrow",
+    icon: "Ey",
+    description: "Small label above a larger message.",
+    name: "",
+    text: "",
+    settings: { variant: "eyebrow", level: "h6", fontSize: "14", bold: "true" }
+  },
+  {
+    id: "heading-section",
+    type: "heading",
+    group: "heading",
+    label: "Section Heading",
+    icon: "H2",
+    description: "Primary heading for a pod or section.",
+    name: "",
+    text: "",
+    settings: { variant: "section", level: "h2", fontSize: "32", bold: "true" }
+  },
+  {
+    id: "heading-hero",
+    type: "heading",
+    group: "heading",
+    label: "Hero Title",
+    icon: "H1",
+    description: "Large, high-impact headline treatment.",
+    name: "",
+    text: "",
+    settings: { variant: "hero", level: "h1", fontSize: "56", bold: "true" }
+  },
+  {
+    id: "text-paragraph",
+    type: "text",
+    group: "text",
+    label: "Paragraph",
+    icon: "P",
+    description: "Standard body copy block.",
+    name: "",
+    text: "",
+    settings: { variant: "paragraph" }
+  },
+  {
+    id: "text-intro",
+    type: "text",
+    group: "text",
+    label: "Intro Copy",
+    icon: "In",
+    description: "Slightly larger intro or lead copy.",
+    name: "",
+    text: "",
+    settings: { variant: "intro" }
+  },
+  {
+    id: "text-caption",
+    type: "text",
+    group: "text",
+    label: "Caption",
+    icon: "Cp",
+    description: "Smaller utility or supporting note.",
+    name: "",
+    text: "",
+    settings: { variant: "caption" }
+  },
+  {
+    id: "image-standard",
+    type: "image",
+    group: "image",
+    label: "Image",
+    icon: "Img",
+    description: "Standard image block with caption support.",
+    name: "",
+    text: "",
+    settings: { variant: "image", url: "", alt: "" }
+  },
+  {
+    id: "image-logo",
+    type: "image",
+    group: "image",
+    label: "Logo",
+    icon: "Lg",
+    description: "Compact brand or partner mark.",
+    name: "",
+    text: "",
+    settings: { variant: "logo", url: "", alt: "" }
+  },
+  {
+    id: "image-video",
+    type: "image",
+    group: "image",
+    label: "Video",
+    icon: "Vid",
+    description: "Video URL rendered as a media block.",
+    name: "",
+    text: "",
+    settings: { variant: "video", url: "", alt: "" }
+  },
+  {
+    id: "quote-pull",
+    type: "quote",
+    group: "quote",
+    label: "Pull Quote",
+    icon: "Qt",
+    description: "Stylized editorial quotation.",
+    name: "",
+    text: "",
+    settings: { variant: "pull" }
+  },
+  {
+    id: "quote-testimonial",
+    type: "quote",
+    group: "quote",
+    label: "Testimonial",
+    icon: "Tm",
+    description: "Customer or audience endorsement.",
+    name: "",
+    text: "",
+    settings: { variant: "testimonial" }
+  },
+  {
+    id: "quote-stat",
+    type: "quote",
+    group: "quote",
+    label: "Stat Callout",
+    icon: "St",
+    description: "Short statistic or proof point.",
+    name: "",
+    text: "",
+    settings: { variant: "stat" }
+  },
+  {
+    id: "button-primary",
+    type: "button",
+    group: "button",
+    label: "Primary CTA",
+    icon: "Go",
+    description: "Main call to action button.",
+    name: "",
+    text: "",
+    settings: { variant: "primary", href: "", buttonColor: "#214c71", buttonHoverColor: "#0f4f8f", textColor: "#ffffff", textHoverColor: "#ffffff", borderColor: "#214c71", paddingX: "24", paddingY: "12" }
+  },
+  {
+    id: "button-secondary",
+    type: "button",
+    group: "button",
+    label: "Secondary CTA",
+    icon: "Alt",
+    description: "Lower emphasis alternate action.",
+    name: "",
+    text: "",
+    settings: { variant: "secondary", href: "", buttonColor: "transparent", buttonHoverColor: "#eaf4ff", textColor: "#214c71", textHoverColor: "#0f4f8f", borderColor: "#214c71", paddingX: "24", paddingY: "12" }
+  },
+  {
+    id: "button-anchor",
+    type: "button",
+    group: "button",
+    label: "Anchor Link",
+    icon: "Jump",
+    description: "Jump to another section on the page.",
+    name: "",
+    text: "",
+    settings: { variant: "anchor", href: "", buttonColor: "transparent", buttonHoverColor: "transparent", textColor: "#214c71", textHoverColor: "#0f4f8f", borderColor: "transparent", paddingX: "16", paddingY: "8" }
+  },
+  {
+    id: "poll-previous-results",
+    type: "previous-results",
+    group: "previous-results",
+    label: "Previous Results",
+    icon: "PR",
+    description: "Live result bars from the previous poll in the sequence.",
+    name: "",
+    text: "",
+    settings: {}
+  },
+  {
+    id: "poll-current",
+    type: "current-poll",
+    group: "current-poll",
+    label: "Current Poll",
+    icon: "CP",
+    description: "The live current poll with answer choices.",
+    name: "",
+    text: "",
+    settings: {}
+  },
+  {
+    id: "social-icons-row",
+    type: "social",
+    group: "social",
+    label: "Social Icons",
+    icon: "@",
+    description: "A ready-to-edit strip of social media icons with links.",
+    name: "",
+    text: "",
+    settings: { variant: "icons-row" }
+  },
+  {
+    id: "table-standard",
+    type: "table",
+    group: "table",
+    label: "Data Table",
+    icon: "⊞",
+    description: "A configurable data table with headers.",
+    name: "",
+    text: "",
+    settings: { variant: "standard" }
+  },
+  {
+    id: "slider-standard",
+    type: "slider",
+    group: "slider",
+    label: "Card Slider",
+    icon: "⇆",
+    description: "A horizontal scroller of cards that can hold linked visual highlights.",
+    name: "",
+    text: "",
+    settings: { variant: "standard" }
+  }
+];
