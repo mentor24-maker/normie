@@ -1,6 +1,11 @@
 import Link from "next/link";
 
-const siteNavItems = [
+export type SiteNavItem = {
+  href: string;
+  label: string;
+};
+
+export const defaultSiteNavItems: SiteNavItem[] = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/tokenomics", label: "Tokenomics" },
@@ -9,10 +14,10 @@ const siteNavItems = [
   { href: "/contact", label: "Contact" }
 ];
 
-export function SiteNav() {
+export function SiteNav({ items = defaultSiteNavItems }: { items?: SiteNavItem[] }) {
   return (
     <nav className="site-nav" aria-label="Main navigation">
-      {siteNavItems.map((item) => (
+      {items.map((item) => (
         <Link className="site-nav-link" href={item.href} key={item.href}>
           {item.label}
         </Link>

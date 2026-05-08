@@ -78,14 +78,96 @@ export function getImageModuleStyle(settings: Record<string, string>): CSSProper
   const size = Number.parseInt(settings.size ?? "100", 10);
   const borderThickness = Number.parseInt(settings.borderThickness ?? "0", 10);
   const borderRadius = Number.parseInt(settings.borderRadius ?? "18", 10);
+  const positionMode = getImagePositionMode(settings);
 
   return {
-    width: `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`,
+    width:
+      positionMode === "overlay"
+        ? "100%"
+        : `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`,
     border: `${Math.max(Number.isFinite(borderThickness) ? borderThickness : 0, 0)}px solid ${
       settings.borderColor || "#0f4f8f"
     }`,
     borderRadius: `${Math.max(Number.isFinite(borderRadius) ? borderRadius : 18, 0)}px`
   };
+}
+
+export function getImagePositionMode(settings: Record<string, string>): "inline" | "overlay" {
+  return settings.positionMode === "overlay" ? "overlay" : "inline";
+}
+
+export function getImageOverlayStyle(settings: Record<string, string>): CSSProperties {
+  const x = Number.parseInt(settings.offsetX ?? "0", 10);
+  const y = Number.parseInt(settings.offsetY ?? "0", 10);
+  const zIndex = Number.parseInt(settings.zIndex ?? "2", 10);
+  const size = Number.parseInt(settings.size ?? "100", 10);
+  const offsetX = Number.isFinite(x) ? x : 0;
+  const offsetY = Number.isFinite(y) ? y : 0;
+  const anchor = settings.overlayAnchor ?? "center";
+  const width = `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`;
+
+  const style: CSSProperties = {
+    position: "absolute",
+    zIndex: Number.isFinite(zIndex) ? zIndex : 2,
+    width
+  };
+
+  if (anchor === "top-left") {
+    style.left = `${offsetX}px`;
+    style.top = `${offsetY}px`;
+    return style;
+  }
+
+  if (anchor === "top-center") {
+    style.left = "50%";
+    style.top = `${offsetY}px`;
+    style.transform = `translateX(calc(-50% + ${offsetX}px))`;
+    return style;
+  }
+
+  if (anchor === "top-right") {
+    style.right = `${offsetX}px`;
+    style.top = `${offsetY}px`;
+    return style;
+  }
+
+  if (anchor === "center-left") {
+    style.left = `${offsetX}px`;
+    style.top = "50%";
+    style.transform = `translateY(calc(-50% + ${offsetY}px))`;
+    return style;
+  }
+
+  if (anchor === "center-right") {
+    style.right = `${offsetX}px`;
+    style.top = "50%";
+    style.transform = `translateY(calc(-50% + ${offsetY}px))`;
+    return style;
+  }
+
+  if (anchor === "bottom-left") {
+    style.left = `${offsetX}px`;
+    style.bottom = `${offsetY}px`;
+    return style;
+  }
+
+  if (anchor === "bottom-center") {
+    style.left = "50%";
+    style.bottom = `${offsetY}px`;
+    style.transform = `translateX(calc(-50% + ${offsetX}px))`;
+    return style;
+  }
+
+  if (anchor === "bottom-right") {
+    style.right = `${offsetX}px`;
+    style.bottom = `${offsetY}px`;
+    return style;
+  }
+
+  style.left = "50%";
+  style.top = "50%";
+  style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+  return style;
 }
 
 export function getModuleBackgroundSettings(settings: Record<string, string>): BackgroundSettings {

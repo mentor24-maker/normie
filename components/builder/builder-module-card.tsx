@@ -14,6 +14,8 @@ import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
 import {
   getAlignmentClass,
   getHeadingModuleStyle,
+  getImageOverlayStyle,
+  getImagePositionMode,
   getImageModuleStyle,
   getModuleAlignment,
   getModuleBackgroundSettings,
@@ -85,30 +87,40 @@ function renderModulePreview(module: BuilderTemplateModule) {
   if (module.type === "image") {
     const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
     const imageStyle = getImageModuleStyle(module.settings);
+    const imagePositionMode = getImagePositionMode(module.settings);
 
     return (
-      <figure
-        className={`builder-preview-image builder-module-preview-image builder-module-preview-image-${variant || "default"}`}
-        style={imageStyle}
+      <div
+        className={`builder-module-preview-image-shell ${
+          imagePositionMode === "overlay" ? "builder-module-preview-image-shell-overlay" : ""
+        }`}
+        style={imagePositionMode === "overlay" ? getImageOverlayStyle(module.settings) : undefined}
       >
-        {mediaUrl ? (
-          isVideoMedia(mediaUrl) ? (
-            <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
+        <figure
+          className={`builder-preview-image builder-module-preview-image builder-module-preview-image-${variant || "default"}`}
+          style={imageStyle}
+        >
+          {mediaUrl ? (
+            isVideoMedia(mediaUrl) ? (
+              <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
+            ) : (
+              <div className="builder-preview-image-frame builder-module-preview-frame">
+                <Image
+                  alt={module.settings.alt || module.text || "Selected media"}
+                  fill
+                  sizes="(max-width: 900px) 100vw, 420px"
+                  src={mediaUrl}
+                  unoptimized
+                />
+              </div>
+            )
           ) : (
-            <div className="builder-preview-image-frame builder-module-preview-frame">
-              <Image
-                alt={module.settings.alt || module.text || "Selected media"}
-                fill
-                sizes="(max-width: 900px) 100vw, 420px"
-                src={mediaUrl}
-                unoptimized
-              />
-            </div>
+            <div className="builder-module-preview-placeholder">Choose an image or video</div>
           )
-        ) : (
-          <div className="builder-module-preview-placeholder">Choose an image or video</div>
-        )}
-      </figure>
+          }
+        </figure>
+        {imagePositionMode === "overlay" ? <small className="builder-overlay-badge">Overlay mode</small> : null}
+      </div>
     );
   }
 
@@ -1555,6 +1567,24 @@ export function BuilderModuleCard({
                   </select>
                 </label>
                 <label className="field">
+                  <span>Position</span>
+                  <select
+                    value={module.settings.positionMode ?? "inline"}
+                    onChange={(event) =>
+                      onUpdateModule((current) => ({
+                        ...current,
+                        settings: {
+                          ...current.settings,
+                          positionMode: event.target.value
+                        }
+                      }))
+                    }
+                  >
+                    <option value="inline">Inline</option>
+                    <option value="overlay">Overlay</option>
+                  </select>
+                </label>
+                <label className="field">
                   <span>Border thickness</span>
                   <input
                     type="range"
@@ -1609,6 +1639,91 @@ export function BuilderModuleCard({
                   />
                 </label>
               </div>
+              {module.settings.positionMode === "overlay" ? (
+                <div className="builder-image-controls-grid">
+                  <label className="field">
+                    <span>Anchor</span>
+                    <select
+                      value={module.settings.overlayAnchor ?? "center"}
+                      onChange={(event) =>
+                        onUpdateModule((current) => ({
+                          ...current,
+                          settings: {
+                            ...current.settings,
+                            overlayAnchor: event.target.value
+                          }
+                        }))
+                      }
+                    >
+                      <option value="center">Center</option>
+                      <option value="top-left">Top left</option>
+                      <option value="top-center">Top center</option>
+                      <option value="top-right">Top right</option>
+                      <option value="center-left">Center left</option>
+                      <option value="center-right">Center right</option>
+                      <option value="bottom-left">Bottom left</option>
+                      <option value="bottom-center">Bottom center</option>
+                      <option value="bottom-right">Bottom right</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>X offset</span>
+                    <input
+                      type="number"
+                      value={module.settings.offsetX ?? "0"}
+                      onChange={(event) =>
+                        onUpdateModule((current) => ({
+                          ...current,
+                          settings: {
+                            ...current.settings,
+                            offsetX: event.target.value
+                          }
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Y offset</span>
+                    <input
+                      type="number"
+                      value={module.settings.offsetY ?? "0"}
+                      onChange={(event) =>
+                        onUpdateModule((current) => ({
+                          ...current,
+                          settings: {
+                            ...current.settings,
+                            offsetY: event.target.value
+                          }
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Z index</span>
+                    <select
+                      value={module.settings.zIndex ?? "2"}
+                      onChange={(event) =>
+                        onUpdateModule((current) => ({
+                          ...current,
+                          settings: {
+                            ...current.settings,
+                            zIndex: event.target.value
+                          }
+                        }))
+                      }
+                    >
+                      <option value="0">0</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                    </select>
+                  </label>
+                </div>
+              ) : null}
             </>
           )}
 

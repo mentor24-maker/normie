@@ -47,6 +47,7 @@ export const modulePaletteGroups: Array<{
   icon: string;
   description: string;
 }> = [
+  { value: "navigation", label: "Navigation", icon: "≡", description: "Menus, link bars, and top navigation." },
   { value: "heading", label: "Headings", icon: "H", description: "Titles, labels, and section headers." },
   { value: "text", label: "Text", icon: "T", description: "Paragraphs, intros, and supporting copy." },
   { value: "image", label: "Image", icon: "I", description: "Visual media, logos, and video blocks." },
@@ -60,6 +61,17 @@ export const modulePaletteGroups: Array<{
 ];
 
 export const modulePaletteItems: ModulePaletteItem[] = [
+  {
+    id: "navigation-site-menu",
+    type: "navigation",
+    group: "navigation",
+    label: "Top Menu",
+    icon: "≡",
+    description: "The main site navigation menu used across the public pages.",
+    name: "",
+    text: "",
+    settings: { variant: "site-nav" }
+  },
   {
     id: "heading-eyebrow",
     type: "heading",

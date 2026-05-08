@@ -49,15 +49,64 @@ input {
 }
 
 .site-shell {
-  width: min(1120px, 100%);
+  width: min(1560px, calc(100vw - 48px));
   margin: 0 auto;
   display: grid;
   gap: 24px;
 }
 
+.site-shell-nav-group {
+  display: grid;
+  gap: 10px;
+}
+
+.site-shell-topbar {
+  position: relative;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 20px;
+  padding-top: 6px;
+  min-height: 120px;
+}
+
+.site-shell-logo-link {
+  display: inline-flex;
+  justify-content: flex-start;
+  text-decoration: none;
+  flex: 0 1 auto;
+}
+
+.site-shell-logo {
+  display: block;
+  width: min(320px, 38vw);
+  height: auto;
+}
+
+.site-shell-login-link {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #214c71;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  flex: 0 0 auto;
+}
+
+.site-shell-login-link:hover {
+  color: #0a8fc4;
+}
+
 .hero,
 .admin-shell {
-  width: min(1120px, 100%);
+  width: min(1560px, calc(100vw - 48px));
   margin: 0 auto;
 }
 
@@ -638,11 +687,28 @@ h2 {
 }
 
 .poll-grid {
-  width: min(1120px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: 48px;
+  position: relative;
+}
+
+.poll-grid-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -52%);
+  z-index: 3;
+  pointer-events: none;
+  width: clamp(72px, 10vw, 118px);
+}
+
+.poll-grid-logo-image {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .panel,
@@ -1385,6 +1451,7 @@ h2 {
 .builder-preview-section {
   border-radius: 24px;
   padding: 18px;
+  overflow: visible;
 }
 
 .builder-section-card,
@@ -1396,6 +1463,12 @@ h2 {
   display: grid;
   gap: 16px;
   align-content: start;
+}
+
+.builder-column-card,
+.builder-preview-column {
+  position: relative;
+  overflow: visible;
 }
 
 .builder-module-stack-item {
@@ -2190,7 +2263,7 @@ h2 {
 .builder-columns,
 .builder-preview-columns {
   display: grid;
-  gap: 16px;
+  gap: 48px;
 }
 
 .is-align-left {
@@ -2366,6 +2439,39 @@ h2 {
 .builder-preview-module-shell {
   border-radius: 20px;
   padding: 14px;
+}
+
+.builder-preview-module-shell-poll {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.builder-preview-module-shell-overlay {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  overflow: visible;
+}
+
+.builder-module-preview-image-shell {
+  display: grid;
+  gap: 8px;
+}
+
+.builder-module-preview-image-shell-overlay {
+  position: relative;
+  min-height: 180px;
+  overflow: visible;
+}
+
+.builder-overlay-badge {
+  color: #214c71;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .builder-preview-image-frame {

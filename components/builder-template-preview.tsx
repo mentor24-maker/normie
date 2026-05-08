@@ -14,7 +14,12 @@ import {
   type BuilderTemplateSection
 } from "@/lib/builder-template";
 import { BuilderPollModuleRuntime } from "@/components/builder-poll-runtime";
-import { getModuleAlignment } from "@/components/builder/builder-utils";
+import {
+  getImageModuleStyle,
+  getImageOverlayStyle,
+  getImagePositionMode,
+  getModuleAlignment
+} from "@/components/builder/builder-utils";
 
 function getAlignmentClass(alignment: BuilderTemplateSection["alignment"]) {
   if (alignment === "center") {
@@ -30,20 +35,6 @@ function getAlignmentClass(alignment: BuilderTemplateSection["alignment"]) {
 
 function getSectionBackgroundStyle(section: BuilderTemplateSection): CSSProperties | undefined {
   return getBuilderBackgroundStyle(section.background);
-}
-
-function getImageModuleStyle(settings: Record<string, string>): CSSProperties {
-  const size = Number.parseInt(settings.size ?? "100", 10);
-  const borderThickness = Number.parseInt(settings.borderThickness ?? "0", 10);
-  const borderRadius = Number.parseInt(settings.borderRadius ?? "18", 10);
-
-  return {
-    width: `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`,
-    border: `${Math.max(Number.isFinite(borderThickness) ? borderThickness : 0, 0)}px solid ${
-      settings.borderColor || "#0f4f8f"
-    }`,
-    borderRadius: `${Math.max(Number.isFinite(borderRadius) ? borderRadius : 18, 0)}px`
-  };
 }
 
 function getHeadingModuleStyle(settings: Record<string, string>): CSSProperties {
@@ -218,9 +209,17 @@ function renderTableCellModule(module: BuilderTemplateModule, key: string) {
   if (module.type === "image") {
     const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
     const imageStyle = getImageModuleStyle(module.settings);
+    const imagePositionMode = getImagePositionMode(module.settings);
+    const overlayStyle = imagePositionMode === "overlay" ? getImageOverlayStyle(module.settings) : undefined;
 
     return (
-      <div className={`builder-preview-module-shell ${moduleAlignmentClass}`} key={key} style={moduleBackgroundStyle}>
+      <div
+        className={`builder-preview-module-shell ${moduleAlignmentClass} ${
+          imagePositionMode === "overlay" ? "builder-preview-module-shell-overlay" : ""
+        }`}
+        key={key}
+        style={imagePositionMode === "overlay" ? { ...moduleBackgroundStyle, ...overlayStyle } : moduleBackgroundStyle}
+      >
         <figure
           className={`builder-preview-image builder-preview-image-${variant || "default"}`}
           style={imageStyle}
@@ -301,7 +300,11 @@ function renderTableCellModule(module: BuilderTemplateModule, key: string) {
 
   if (module.type === "previous-results") {
     return (
-      <div className={`builder-preview-module-shell ${moduleAlignmentClass}`} key={key} style={moduleBackgroundStyle}>
+      <div
+        className={`builder-preview-module-shell builder-preview-module-shell-poll ${moduleAlignmentClass}`}
+        key={key}
+        style={moduleBackgroundStyle}
+      >
         <BuilderPollModuleRuntime className="builder-live-poll-module" kind="previous-results" />
       </div>
     );
@@ -309,7 +312,11 @@ function renderTableCellModule(module: BuilderTemplateModule, key: string) {
 
   if (module.type === "current-poll") {
     return (
-      <div className={`builder-preview-module-shell ${moduleAlignmentClass}`} key={key} style={moduleBackgroundStyle}>
+      <div
+        className={`builder-preview-module-shell builder-preview-module-shell-poll ${moduleAlignmentClass}`}
+        key={key}
+        style={moduleBackgroundStyle}
+      >
         <BuilderPollModuleRuntime className="builder-live-poll-module" kind="current-poll" />
       </div>
     );
@@ -486,7 +493,8 @@ export function BuilderTemplatePreview({
                                         style={{
                                           border: `${borderW}px solid ${borderC}`,
                                           padding: `${cellPad}px`,
-                                          verticalAlign: "top"
+                                          verticalAlign: "top",
+                                          position: "relative"
                                         }}
                                       >
                                         {cellMods.length > 0
@@ -589,9 +597,24 @@ export function BuilderTemplatePreview({
 
                       return (
                         <div
-                          className={`builder-preview-module-shell ${moduleAlignmentClass}`}
+                          className={`builder-preview-module-shell ${moduleAlignmentClass} ${
+                            module.type === "previous-results" || module.type === "current-poll"
+                              ? "builder-preview-module-shell-poll"
+                              : ""
+                          } ${
+                            module.type === "image" && getImagePositionMode(module.settings) === "overlay"
+                              ? "builder-preview-module-shell-overlay"
+                              : ""
+                          }`}
                           key={module.id}
-                          style={moduleBackgroundStyle}
+                          style={
+                            module.type === "image" && getImagePositionMode(module.settings) === "overlay"
+                              ? {
+                                  ...moduleBackgroundStyle,
+                                  ...getImageOverlayStyle(module.settings)
+                                }
+                              : moduleBackgroundStyle
+                          }
                         >
                           {renderedModule}
                         </div>

@@ -12,6 +12,7 @@ export type BuilderTemplateLayout =
 export type BackgroundStylePreset = "blue-yellow-circles";
 
 export type BuilderTemplateModuleType =
+  | "navigation"
   | "heading"
   | "text"
   | "image"
@@ -385,6 +386,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
   const type = safeText(value, 40).toLowerCase();
 
   if (
+    type === "navigation" ||
     type === "heading" ||
     type === "image" ||
     type === "quote" ||
@@ -527,7 +529,12 @@ export function createEmptyModule(
           size: "100",
           borderThickness: "0",
           borderColor: "#0f4f8f",
-          borderRadius: "18"
+          borderRadius: "18",
+          positionMode: "inline",
+          overlayAnchor: "center",
+          offsetX: "0",
+          offsetY: "0",
+          zIndex: "2"
         }
       : type === "button"
         ? {

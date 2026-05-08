@@ -1,3 +1,5 @@
+import Image from "next/image";
+import chooseLogo from "@/images/logo_normie_choose.png";
 import type { PollPayload } from "@/src/site/home/types";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
@@ -27,6 +29,14 @@ export function PollStage({ isLoading, isSubmitting, payload, onSubmit }: PollSt
           isSubmitting={isSubmitting}
           onSubmit={onSubmit}
         />
+        <div className="poll-grid-logo">
+          <Image
+            alt="Normie choose logo"
+            className="poll-grid-logo-image"
+            priority
+            src={chooseLogo}
+          />
+        </div>
       </section>
     );
   }

@@ -37,6 +37,23 @@ Fill in:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+## Security: environment secrets
+
+- Never commit `.env`, `.env.local`, or any file containing live keys.
+- Keep local secrets only in `.env.local` (already gitignored).
+- Treat `SUPABASE_SERVICE_ROLE_KEY` as highly sensitive (server-only).
+- If a key is ever exposed (chat screenshot, logs, pasted file, or commit), rotate it immediately.
+
+### Secret rotation checklist (Supabase + Vercel)
+
+1. In Supabase, rotate:
+   - `anon` public key
+   - `service_role` secret key
+2. Update local `.env.local` with the new values.
+3. Update the same env vars in Vercel project settings.
+4. Redeploy and verify the site and admin flows.
+5. Invalidate old keys and confirm old values no longer work.
+
 ## 2. Set up Supabase
 
 1. Create a new Supabase project.
