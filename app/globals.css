@@ -2916,3 +2916,46 @@ code {
     max-width: 12ch;
   }
 }
+
+@keyframes normie-bounce {
+  0%,  100% { transform: translateY(0);    animation-timing-function: ease-in;  }
+  50%        { transform: translateY(-18px); animation-timing-function: ease-out; }
+}
+
+.normie-effect-bounce {
+  animation: normie-bounce 1.6s infinite;
+}
+
+@keyframes normie-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.normie-effect-spin {
+  animation: normie-spin 2.4s linear infinite;
+}
+
+@keyframes normie-cruise {
+  0%   { transform: translateX(-100vw); }
+  100% { transform: translateX(100vw); }
+}
+
+.normie-effect-cruise {
+  animation: normie-cruise 8s linear infinite;
+}
+
+@keyframes normie-tumbleweed {
+  0%   { transform: translateX(-100vw) translateY(0)     rotate(0deg); }
+  12.5%{ transform: translateX(-75vw)  translateY(-18px) rotate(180deg); }
+  25%  { transform: translateX(-50vw)  translateY(0)     rotate(360deg); }
+  37.5%{ transform: translateX(-25vw)  translateY(-18px) rotate(540deg); }
+  50%  { transform: translateX(0)      translateY(0)     rotate(720deg); }
+  62.5%{ transform: translateX(25vw)   translateY(-18px) rotate(900deg); }
+  75%  { transform: translateX(50vw)   translateY(0)     rotate(1080deg); }
+  87.5%{ transform: translateX(75vw)   translateY(-18px) rotate(1260deg); }
+  100% { transform: translateX(100vw)  translateY(0)     rotate(1440deg); }
+}
+
+.normie-effect-tumbleweed {
+  animation: normie-tumbleweed 8s linear infinite;
+}

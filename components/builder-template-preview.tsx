@@ -210,6 +210,16 @@ function renderTableCellModule(module: BuilderTemplateModule, key: string) {
     const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
     const imageStyle = getImageModuleStyle(module.settings);
     const imagePositionMode = getImagePositionMode(module.settings);
+    const effectClass =
+      module.settings.effect === "bounce"
+        ? " normie-effect-bounce"
+        : module.settings.effect === "spin"
+        ? " normie-effect-spin"
+        : module.settings.effect === "cruise"
+        ? " normie-effect-cruise"
+        : module.settings.effect === "tumbleweed"
+        ? " normie-effect-tumbleweed"
+        : "";
     const overlayStyle = imagePositionMode === "overlay" ? getImageOverlayStyle(module.settings) : undefined;
 
     return (
@@ -221,7 +231,7 @@ function renderTableCellModule(module: BuilderTemplateModule, key: string) {
         style={imagePositionMode === "overlay" ? { ...moduleBackgroundStyle, ...overlayStyle } : moduleBackgroundStyle}
       >
         <figure
-          className={`builder-preview-image builder-preview-image-${variant || "default"}`}
+          className={`builder-preview-image builder-preview-image-${variant || "default"}${effectClass}`}
           style={imageStyle}
         >
           {mediaUrl ? (
@@ -418,9 +428,19 @@ export function BuilderTemplatePreview({
                       } else if (module.type === "image") {
                         const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
                         const imageStyle = getImageModuleStyle(module.settings);
+                        const effectClass =
+                          module.settings.effect === "bounce"
+                            ? " normie-effect-bounce"
+                            : module.settings.effect === "spin"
+                            ? " normie-effect-spin"
+                            : module.settings.effect === "cruise"
+                            ? " normie-effect-cruise"
+                            : module.settings.effect === "tumbleweed"
+                            ? " normie-effect-tumbleweed"
+                            : "";
                         renderedModule = (
                           <figure
-                            className={`builder-preview-image builder-preview-image-${variant || "default"}`}
+                            className={`builder-preview-image builder-preview-image-${variant || "default"}${effectClass}`}
                             style={imageStyle}
                           >
                             {mediaUrl ? (

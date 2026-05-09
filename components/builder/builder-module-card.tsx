@@ -88,6 +88,16 @@ function renderModulePreview(module: BuilderTemplateModule) {
     const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
     const imageStyle = getImageModuleStyle(module.settings);
     const imagePositionMode = getImagePositionMode(module.settings);
+    const effectClass =
+      module.settings.effect === "bounce"
+        ? " normie-effect-bounce"
+        : module.settings.effect === "spin"
+        ? " normie-effect-spin"
+        : module.settings.effect === "cruise"
+        ? " normie-effect-cruise"
+        : module.settings.effect === "tumbleweed"
+        ? " normie-effect-tumbleweed"
+        : "";
 
     return (
       <div
@@ -97,7 +107,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
         style={imagePositionMode === "overlay" ? getImageOverlayStyle(module.settings) : undefined}
       >
         <figure
-          className={`builder-preview-image builder-module-preview-image builder-module-preview-image-${variant || "default"}`}
+          className={`builder-preview-image builder-module-preview-image builder-module-preview-image-${variant || "default"}${effectClass}`}
           style={imageStyle}
         >
           {mediaUrl ? (
@@ -116,8 +126,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
             )
           ) : (
             <div className="builder-module-preview-placeholder">Choose an image or video</div>
-          )
-          }
+          )}
         </figure>
         {imagePositionMode === "overlay" ? <small className="builder-overlay-badge">Overlay mode</small> : null}
       </div>
@@ -857,7 +866,6 @@ function TableModuleEditor({
   function removeColumn() {
     if (colCount <= 1) return;
     const newCells = { ...td.cells };
-    // Remove cells in the last column
     for (let r = 0; r < td.rowCount; r++) {
       delete newCells[`${r}-${colCount - 1}`];
     }
@@ -1637,6 +1645,27 @@ export function BuilderModuleCard({
                       }))
                     }
                   />
+                </label>
+                <label className="field">
+                  <span>Effect</span>
+                  <select
+                    value={module.settings.effect ?? "none"}
+                    onChange={(event) =>
+                      onUpdateModule((current) => ({
+                        ...current,
+                        settings: {
+                          ...current.settings,
+                          effect: event.target.value
+                        }
+                      }))
+                    }
+                  >
+                    <option value="none">None</option>
+                    <option value="bounce">Bounce</option>
+                    <option value="spin">Spin</option>
+                    <option value="cruise">Cruise</option>
+                    <option value="tumbleweed">Tumbleweed</option>
+                  </select>
                 </label>
               </div>
               {module.settings.positionMode === "overlay" ? (
