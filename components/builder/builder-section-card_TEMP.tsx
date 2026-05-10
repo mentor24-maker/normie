@@ -4,7 +4,7 @@ import type {
   BuilderTemplateModule,
   BuilderTemplateSection
 } from "@/lib/builder-template";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { CSSProperties, DragEvent } from "react";
 import {
   createDefaultBackgroundSettings,
@@ -80,25 +80,6 @@ export function BuilderSectionCard({
 }: BuilderSectionCardProps) {
   const columns = getLayoutColumns(section.layout);
   const [collapsedCellPanels, setCollapsedCellPanels] = useState<Record<string, { styles: boolean; content: boolean }>>({});
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
-
-  const displayTitle = section.title?.trim() || `Section ${sectionIndex + 1}`;
-
-  function handleTitleClick() {
-    setIsEditingTitle(true);
-    setTimeout(() => titleInputRef.current?.select(), 0);
-  }
-
-  function handleTitleBlur() {
-    setIsEditingTitle(false);
-  }
-
-  function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" || event.key === "Escape") {
-      setIsEditingTitle(false);
-    }
-  }
 
   const columnModuleMap = useMemo(
     () =>
@@ -175,31 +156,7 @@ export function BuilderSectionCard({
     >
       <div className="builder-section-header">
         <div className="builder-section-title">
-          {isEditingTitle ? (
-            <input
-              ref={titleInputRef}
-              className="builder-section-title-input"
-              type="text"
-              value={section.title ?? ""}
-              onChange={(event) =>
-                onUpdateSection((current) => ({ ...current, title: event.target.value }))
-              }
-              onBlur={handleTitleBlur}
-              onKeyDown={handleTitleKeyDown}
-              placeholder={`Section ${sectionIndex + 1}`}
-              autoFocus
-            />
-          ) : (
-            <button
-              className="builder-section-title-label"
-              onClick={handleTitleClick}
-              title="Click to rename"
-              type="button"
-            >
-              <strong>{displayTitle}</strong>
-              <span className="builder-section-title-edit-hint">✎</span>
-            </button>
-          )}
+          <strong>Section {sectionIndex + 1}</strong>
         </div>
         <div className="builder-section-actions">
           <button
@@ -244,6 +201,17 @@ export function BuilderSectionCard({
       {!isCollapsed ? (
         <>
           <div className="builder-section-controls">
+            <label className="field">
+              <span>Section title</span>
+              <input
+                type="text"
+                value={section.title}
+                onChange={(event) =>
+                  onUpdateSection((current) => ({ ...current, title: event.target.value }))
+                }
+                placeholder="Hero"
+              />
+            </label>
             <label className="field">
               <span>Layout</span>
               <select

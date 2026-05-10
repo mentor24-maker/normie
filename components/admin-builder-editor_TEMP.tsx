@@ -120,10 +120,7 @@ export function AdminBuilderEditor() {
   }, []);
 
   useEffect(() => {
-    if (builderMode === "templates") {
-      setDraft(createDraftFromTemplate(selectedTemplate));
-      setCollapsedSectionIds(selectedTemplate?.layoutSections.map((s) => s.id) ?? []);
-    }
+    if (builderMode === "templates") setDraft(createDraftFromTemplate(selectedTemplate));
   }, [builderMode, selectedTemplate]);
 
   useEffect(() => {
@@ -132,7 +129,6 @@ export function AdminBuilderEditor() {
       setPageSlug(selectedPage?.slug ?? "");
       setPageTemplateId(selectedPage?.templateId ?? "");
       setIsPublishedPage(selectedPage?.isPublished ?? true);
-      setCollapsedSectionIds(selectedPage?.layoutSections.map((s) => s.id) ?? []);
     }
   }, [builderMode, selectedPage]);
 
@@ -173,28 +169,40 @@ export function AdminBuilderEditor() {
   function updateCellPadding(sectionId: string, column: string, value: string) {
     updateSection(sectionId, (s) => ({
       ...s,
-      cellPadding: { ...s.cellPadding, [column]: value }
+      cellPadding: {
+        ...s.cellPadding,
+        [column]: value
+      }
     }));
   }
 
   function updateCellBorderWidth(sectionId: string, column: string, value: string) {
     updateSection(sectionId, (s) => ({
       ...s,
-      cellBorderWidth: { ...s.cellBorderWidth, [column]: value }
+      cellBorderWidth: {
+        ...s.cellBorderWidth,
+        [column]: value
+      }
     }));
   }
 
   function updateCellBorderColor(sectionId: string, column: string, value: string) {
     updateSection(sectionId, (s) => ({
       ...s,
-      cellBorderColor: { ...s.cellBorderColor, [column]: value }
+      cellBorderColor: {
+        ...s.cellBorderColor,
+        [column]: value
+      }
     }));
   }
 
   function updateCellBorderRadius(sectionId: string, column: string, value: string) {
     updateSection(sectionId, (s) => ({
       ...s,
-      cellBorderRadius: { ...s.cellBorderRadius, [column]: value }
+      cellBorderRadius: {
+        ...s.cellBorderRadius,
+        [column]: value
+      }
     }));
   }
 
@@ -227,7 +235,6 @@ export function AdminBuilderEditor() {
     setDraft((c) => ({ ...c, layoutSections: [...c.layoutSections, newSection] }));
     setCollapsedSectionIds((c) => [...c, newSection.id]);
   }
-
   function removeSection(sectionId: string) {
     setDraft((c) => ({ ...c, layoutSections: c.layoutSections.filter((s) => s.id !== sectionId) }));
   }
@@ -281,17 +288,26 @@ export function AdminBuilderEditor() {
       const sourceSection = current.layoutSections.find((section) => section.id === sourceSectionId);
       const targetSection = current.layoutSections.find((section) => section.id === targetSectionId);
 
-      if (!sourceSection || !targetSection) return current;
+      if (!sourceSection || !targetSection) {
+        return current;
+      }
 
       const sourceModule = sourceSection.modules.find((module) => module.id === moduleId);
-      if (!sourceModule) return current;
+      if (!sourceModule) {
+        return current;
+      }
 
-      const movedModule: BuilderTemplateModule = { ...sourceModule, column: targetColumn };
+      const movedModule: BuilderTemplateModule = {
+        ...sourceModule,
+        column: targetColumn
+      };
 
       return {
         ...current,
         layoutSections: current.layoutSections.map((section) => {
-          if (section.id !== sourceSectionId && section.id !== targetSectionId) return section;
+          if (section.id !== sourceSectionId && section.id !== targetSectionId) {
+            return section;
+          }
 
           if (sourceSectionId === targetSectionId && section.id === sourceSectionId) {
             const remaining = section.modules.filter((module) => module.id !== moduleId);
@@ -299,25 +315,33 @@ export function AdminBuilderEditor() {
               ? Math.max(remaining.findIndex((module) => module.id === targetBeforeModuleId), 0)
               : (() => {
                   const lastIndexInColumn = Math.max(
-                    ...remaining.map((module, index) => (module.column === targetColumn ? index : -1)).filter((index) => index >= 0),
+                    ...remaining
+                      .map((module, index) => (module.column === targetColumn ? index : -1))
+                      .filter((index) => index >= 0),
                     -1
                   );
                   return lastIndexInColumn >= 0 ? lastIndexInColumn + 1 : remaining.length;
                 })();
+
             const nextModules = [...remaining];
             nextModules.splice(insertAt, 0, movedModule);
             return { ...section, modules: nextModules };
           }
 
           if (section.id === sourceSectionId) {
-            return { ...section, modules: section.modules.filter((module) => module.id !== moduleId) };
+            return {
+              ...section,
+              modules: section.modules.filter((module) => module.id !== moduleId)
+            };
           }
 
           const insertAt = targetBeforeModuleId
             ? Math.max(section.modules.findIndex((module) => module.id === targetBeforeModuleId), 0)
             : (() => {
                 const lastIndexInColumn = Math.max(
-                  ...section.modules.map((module, index) => (module.column === targetColumn ? index : -1)).filter((index) => index >= 0),
+                  ...section.modules
+                    .map((module, index) => (module.column === targetColumn ? index : -1))
+                    .filter((index) => index >= 0),
                   -1
                 );
                 return lastIndexInColumn >= 0 ? lastIndexInColumn + 1 : section.modules.length;
@@ -418,7 +442,7 @@ export function AdminBuilderEditor() {
       const uploaded = data.media;
       setGalleryMedia((c) => [...c.filter((i) => i.path !== uploaded.path), uploaded].sort((a, b) => a.name.localeCompare(b.name)));
       onSuccess(uploaded);
-      setMessage(`Uploaded ${uploaded.name} to gallery.`);
+      setMessage(`Uploaded ${uploaded.name} to /images/gallery.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to upload media.");
     } finally {

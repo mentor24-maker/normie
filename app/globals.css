@@ -2946,16 +2946,47 @@ code {
 
 @keyframes normie-tumbleweed {
   0%   { transform: translateX(-100vw) translateY(0)     rotate(0deg); }
-  12.5%{ transform: translateX(-75vw)  translateY(-18px) rotate(180deg); }
+  12.5%{ transform: translateX(-75vw)  translateY(-80px) rotate(180deg); }
   25%  { transform: translateX(-50vw)  translateY(0)     rotate(360deg); }
-  37.5%{ transform: translateX(-25vw)  translateY(-18px) rotate(540deg); }
+  37.5%{ transform: translateX(-25vw)  translateY(-80px) rotate(540deg); }
   50%  { transform: translateX(0)      translateY(0)     rotate(720deg); }
-  62.5%{ transform: translateX(25vw)   translateY(-18px) rotate(900deg); }
+  62.5%{ transform: translateX(25vw)   translateY(-80px) rotate(900deg); }
   75%  { transform: translateX(50vw)   translateY(0)     rotate(1080deg); }
-  87.5%{ transform: translateX(75vw)   translateY(-18px) rotate(1260deg); }
+  87.5%{ transform: translateX(75vw)   translateY(-80px) rotate(1260deg); }
   100% { transform: translateX(100vw)  translateY(0)     rotate(1440deg); }
 }
 
 .normie-effect-tumbleweed {
   animation: normie-tumbleweed 8s linear infinite;
+}
+.builder-section-title-edit-hint {
+  display: none;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.builder-gallery-card,
+.builder-gallery-card-static {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.builder-gallery-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f0f4f8;
+}
+
+.builder-gallery-thumb img {
+  object-fit: contain !important;
+  padding: 8px;
 }

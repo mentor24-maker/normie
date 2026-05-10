@@ -29,7 +29,7 @@ type PollPayload = {
   error?: string;
 };
 
-export function PollExperience() {
+export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,35 +93,8 @@ export function PollExperience() {
     }
   }
 
-  return (
-    <main className="page-shell">
-      <section className="hero hero-card">
-        <div className="hero-top-row">
-          <div className="hero-logo-group">
-            <div className="hero-logo-shell hero-banner-shell">
-              <div className="hero-logo-card hero-banner-card">
-                <Image src={logoBanner} alt="Normie banner" className="hero-logo hero-banner" priority />
-              </div>
-            </div>
-            <div className="page-eyebrow hero-logo-caption">Personality Polls</div>
-          </div>
-          <div className="hero-copy hero-copy-compact">
-            <p className="page-copy">
-              Explore what people believe. Discover where you align. And keep answering questions
-              designed to spark awareness and perspective.
-            </p>
-            <div className="hero-chip-row">
-              <span className="hero-chip chip-sky">Knowledge</span>
-              <span className="hero-chip chip-gold">Awareness</span>
-              <span className="hero-chip chip-cloud">Growth</span>
-            </div>
-          </div>
-        </div>
-        <div className="hero-headline-row">
-          <h1>Curiosity with a pulse.</h1>
-        </div>
-      </section>
-
+  const pollBody = (
+    <>
       {error ? <div className="notice error">{error}</div> : null}
 
       {isLoading ? (
@@ -191,6 +164,43 @@ export function PollExperience() {
       ) : (
         <div className="notice">No published polls are available yet.</div>
       )}
+    </>
+  );
+
+  if (bare) {
+    return pollBody;
+  }
+
+  return (
+    <main className="page-shell">
+      <section className="hero hero-card">
+        <div className="hero-top-row">
+          <div className="hero-logo-group">
+            <div className="hero-logo-shell hero-banner-shell">
+              <div className="hero-logo-card hero-banner-card">
+                <Image src={logoBanner} alt="Normie banner" className="hero-logo hero-banner" priority />
+              </div>
+            </div>
+            <div className="page-eyebrow hero-logo-caption">Personality Polls</div>
+          </div>
+          <div className="hero-copy hero-copy-compact">
+            <p className="page-copy">
+              Explore what people believe. Discover where you align. And keep answering questions
+              designed to spark awareness and perspective.
+            </p>
+            <div className="hero-chip-row">
+              <span className="hero-chip chip-sky">Knowledge</span>
+              <span className="hero-chip chip-gold">Awareness</span>
+              <span className="hero-chip chip-cloud">Growth</span>
+            </div>
+          </div>
+        </div>
+        <div className="hero-headline-row">
+          <h1>Curiosity with a pulse.</h1>
+        </div>
+      </section>
+
+      {pollBody}
 
       <section className="solo-info-row">
         <article className="intro-panel intro-panel-yellow solo-info-panel">
