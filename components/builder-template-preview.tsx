@@ -112,6 +112,10 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
     );
   }
 
+  if (module.type === "headline-rotator") {
+    return <HeadlineRotatorPreview module={module} />;
+  }
+
   if (module.type === "text") {
     return (
       <div
@@ -209,6 +213,113 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   }
 
   return null;
+}
+
+type HeadlineEntry = { id: string; label: string; href: string };
+
+function parseHeadlineEntries(raw: string): HeadlineEntry[] {
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item, index) => {
+        const r = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        return {
+          id: String(r.id || `headline-${index + 1}`),
+          label: String(r.label || ""),
+          href: String(r.href || "")
+        };
+      })
+      .filter((entry) => entry.label.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function HeadlineRotatorPreview({
+  module
+}: {
+  module: import("@/lib/builder-template").BuilderTemplateModule;
+}) {
+  const entries = parseHeadlineEntries(module.settings.headlines ?? "");
+  const fadeDuration = Math.max(Number.parseInt(module.settings.fadeDuration ?? "800", 10) || 800, 0);
+  const displaySpeed = Math.max(Number.parseInt(module.settings.displaySpeed ?? "3000", 10) || 3000, 200);
+  const fontSize = Number.parseInt(module.settings.fontSize ?? "32", 10) || 32;
+  const color = module.settings.color || "#18324a";
+  const isBold = module.settings.bold !== "false";
+  const horizontal = getModuleAlignment(module.settings);
+  const verticalAlignment =
+    (module.settings.verticalAlignment as "top" | "center" | "bottom") || "center";
+  const minHeight = Math.max(Number.parseInt(module.settings.minHeight ?? "0", 10) || 0, 0);
+  const justify =
+    verticalAlignment === "top" ? "flex-start" : verticalAlignment === "bottom" ? "flex-end" : "center";
+  const alignSelf =
+    horizontal === "left" ? "flex-start" : horizontal === "right" ? "flex-end" : "center";
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (entries.length <= 1) {
+      setActiveIndex(0);
+      setVisible(true);
+      return;
+    }
+
+    let cancelled = false;
+    const showTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      setVisible(false);
+      window.setTimeout(() => {
+        if (cancelled) return;
+        setActiveIndex((current) => (current + 1) % entries.length);
+        setVisible(true);
+      }, fadeDuration);
+    }, displaySpeed);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(showTimer);
+    };
+  }, [activeIndex, entries.length, fadeDuration, displaySpeed]);
+
+  const containerStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: justify,
+    minHeight: minHeight ? `${minHeight}px` : undefined,
+    textAlign: horizontal,
+    color,
+    fontSize: `${fontSize}px`,
+    fontWeight: isBold ? 700 : 400
+  };
+
+  if (entries.length === 0) {
+    return (
+      <div className="builder-preview-headline-rotator" style={containerStyle}>
+        <span style={{ alignSelf }}>Add headlines in the editor</span>
+      </div>
+    );
+  }
+
+  const current = entries[Math.min(activeIndex, entries.length - 1)];
+  const innerStyle: CSSProperties = {
+    transition: `opacity ${fadeDuration}ms ease`,
+    opacity: visible ? 1 : 0,
+    alignSelf
+  };
+
+  return (
+    <div className="builder-preview-headline-rotator" style={containerStyle}>
+      {current.href ? (
+        <Link href={current.href} style={{ ...innerStyle, color, textDecoration: "none" }}>
+          {current.label}
+        </Link>
+      ) : (
+        <span style={innerStyle}>{current.label}</span>
+      )}
+    </div>
+  );
 }
 
 function NavigationModulePreview({ variant }: { variant: string }) {

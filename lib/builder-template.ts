@@ -14,6 +14,7 @@ export type BackgroundStylePreset = "blue-yellow-circles";
 export type BuilderTemplateModuleType =
   | "navigation"
   | "heading"
+  | "headline-rotator"
   | "text"
   | "image"
   | "quote"
@@ -388,6 +389,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
   if (
     type === "navigation" ||
     type === "heading" ||
+    type === "headline-rotator" ||
     type === "image" ||
     type === "quote" ||
     type === "button" ||
@@ -582,6 +584,16 @@ export function createEmptyModule(
                   ? {
                       showPromptCopy: "true"
                     }
+                  : type === "headline-rotator"
+                    ? {
+                        fontSize: "32",
+                        color: "#18324a",
+                        bold: "true",
+                        alignment: "center",
+                        fadeDuration: "800",
+                        displaySpeed: "3000",
+                        headlines: JSON.stringify([])
+                      }
           : {};
 
   return {

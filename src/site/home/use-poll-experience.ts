@@ -14,7 +14,11 @@ export function usePollExperience() {
     setError(null);
 
     try {
-      const response = await fetch("/api/polls/next", { cache: "no-store" });
+      const category = new URLSearchParams(window.location.search).get("category");
+      const url = category
+        ? `/api/polls/next?category=${encodeURIComponent(category)}`
+        : "/api/polls/next";
+      const response = await fetch(url, { cache: "no-store" });
       const data = (await response.json()) as PollPayload;
 
       if (!response.ok) {

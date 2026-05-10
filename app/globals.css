@@ -2990,3 +2990,24 @@ code {
   object-fit: contain !important;
   padding: 8px;
 }
+
+.builder-preview-heading {
+  max-width: none;
+}
+
+.builder-preview-heading {
+  max-width: none;
+  text-shadow: inherit;
+}
+
+.builder-preview-button-small {
+  font-size: 0.85rem;
+}
+
+.builder-preview-button-medium {
+  font-size: 1rem;
+}
+
+.builder-preview-button-large {
+  font-size: 1.2rem;
+}

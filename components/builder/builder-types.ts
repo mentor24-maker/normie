@@ -49,6 +49,7 @@ export const modulePaletteGroups: Array<{
 }> = [
   { value: "navigation", label: "Navigation", icon: "≡", description: "Menus, link bars, and top navigation." },
   { value: "heading", label: "Headings", icon: "H", description: "Titles, labels, and section headers." },
+  { value: "headline-rotator", label: "Headline Rotator", icon: "↻", description: "Cycles through a list of headlines with a fade transition." },
   { value: "text", label: "Text", icon: "T", description: "Paragraphs, intros, and supporting copy." },
   { value: "image", label: "Image", icon: "I", description: "Visual media, logos, and video blocks." },
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
@@ -104,6 +105,25 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "",
     text: "",
     settings: { variant: "hero", level: "h1", fontSize: "56", bold: "true" }
+  },
+  {
+    id: "headline-rotator-default",
+    type: "headline-rotator",
+    group: "headline-rotator",
+    label: "Headline Rotator",
+    icon: "↻",
+    description: "Cycles through headlines with a fade transition.",
+    name: "",
+    text: "",
+    settings: {
+      fontSize: "32",
+      color: "#18324a",
+      bold: "true",
+      alignment: "center",
+      fadeDuration: "800",
+      displaySpeed: "3000",
+      headlines: JSON.stringify([])
+    }
   },
   {
     id: "text-paragraph",

@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 const SESSION_COOKIE = "poll_session_id";
 const DISPLAY_VOTE_MULTIPLIER = 1327;
 
-export async function GET() {
+export async function GET(request: Request) {
   const cookieStore = await cookies();
   let sessionId = cookieStore.get(SESSION_COOKIE)?.value;
 
@@ -13,15 +13,23 @@ export async function GET() {
     sessionId = crypto.randomUUID();
   }
 
+  const category = new URL(request.url).searchParams.get("category")?.trim() || "";
+
   const supabase = createAdminClient();
+
+  let pollsQuery = supabase
+    .from("polls")
+    .select("id, question, category, order_index, is_published, poll_options(id, label, sort_order)")
+    .eq("is_published", true)
+    .order("order_index", { ascending: true });
+
+  if (category) {
+    pollsQuery = pollsQuery.eq("category", category);
+  }
 
   const [{ data: polls, error: pollsError }, { data: responses, error: responseError }] =
     await Promise.all([
-      supabase
-        .from("polls")
-        .select("id, question, order_index, is_published, poll_options(id, label, sort_order)")
-        .eq("is_published", true)
-        .order("order_index", { ascending: true }),
+      pollsQuery,
       supabase.from("responses").select("poll_id").eq("session_id", sessionId)
     ]);
 

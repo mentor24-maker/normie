@@ -62,6 +62,42 @@ function renderModulePreview(module: BuilderTemplateModule) {
     );
   }
 
+  if (module.type === "headline-rotator") {
+    const items = parseHeadlineItems(module.settings);
+    const fontSize = Number.parseInt(module.settings.fontSize ?? "32", 10) || 32;
+    const color = module.settings.color || "#18324a";
+    const isBold = module.settings.bold !== "false";
+    const horizontal = getModuleAlignment(module.settings);
+    const verticalAlignment =
+      (module.settings.verticalAlignment as "top" | "center" | "bottom") || "center";
+    const minHeight = Math.max(Number.parseInt(module.settings.minHeight ?? "0", 10) || 0, 0);
+    const justify =
+      verticalAlignment === "top" ? "flex-start" : verticalAlignment === "bottom" ? "flex-end" : "center";
+    const first = items[0]?.label || "Headline Rotator";
+
+    return (
+      <div className="builder-module-preview-copy">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: justify,
+            minHeight: minHeight ? `${minHeight}px` : undefined,
+            textAlign: horizontal,
+            color,
+            fontSize: `${fontSize}px`,
+            fontWeight: isBold ? 700 : 400
+          }}
+        >
+          {first}
+        </div>
+        <div className="builder-module-editor-copy">
+          {items.length > 0 ? `${items.length} headline${items.length === 1 ? "" : "s"}` : "No headlines yet"}
+        </div>
+      </div>
+    );
+  }
+
   if (module.type === "button") {
     const s = module.settings;
     const btnStyle = {
@@ -346,6 +382,38 @@ type NavItem = {
   label: string;
   href: string;
 };
+
+type HeadlineItem = {
+  id: string;
+  label: string;
+  href: string;
+};
+
+function parseHeadlineItems(settings: Record<string, string>): HeadlineItem[] {
+  try {
+    const items = JSON.parse(settings.headlines || "[]");
+
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items.map((item, index) => {
+      const raw = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+
+      return {
+        id: String(raw.id || `headline-${index + 1}`),
+        label: String(raw.label || ""),
+        href: String(raw.href || "")
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function serializeHeadlineItems(items: HeadlineItem[]) {
+  return JSON.stringify(items);
+}
 
 function parseNavItems(settings: Record<string, string>): NavItem[] {
   try {
@@ -1469,6 +1537,179 @@ function NavModuleEditor({
   );
 }
 
+function HeadlineRotatorModuleEditor({
+  module,
+  onUpdateModule
+}: {
+  module: BuilderTemplateModule;
+  onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+}) {
+  const items = parseHeadlineItems(module.settings);
+
+  function persist(nextItems: HeadlineItem[]) {
+    onUpdateModule((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        headlines: serializeHeadlineItems(nextItems)
+      }
+    }));
+  }
+
+  function updateItem(id: string, updates: Partial<HeadlineItem>) {
+    persist(items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+  }
+
+  function moveItem(id: string, direction: -1 | 1) {
+    const index = items.findIndex((item) => item.id === id);
+    const target = index + direction;
+
+    if (index < 0 || target < 0 || target >= items.length) {
+      return;
+    }
+
+    const nextItems = [...items];
+    const [moved] = nextItems.splice(index, 1);
+    nextItems.splice(target, 0, moved);
+    persist(nextItems);
+  }
+
+  function removeItem(id: string) {
+    persist(items.filter((item) => item.id !== id));
+  }
+
+  function addItem() {
+    persist([
+      ...items,
+      {
+        id: `headline-${Date.now()}-${items.length + 1}`,
+        label: "",
+        href: ""
+      }
+    ]);
+  }
+
+  function updateSetting(key: string, value: string) {
+    onUpdateModule((current) => ({
+      ...current,
+      settings: { ...current.settings, [key]: value }
+    }));
+  }
+
+  return (
+    <>
+      <div className="builder-slider-design-grid">
+        <label className="field">
+          <span>Font size (px)</span>
+          <input
+            type="number"
+            min="10"
+            max="120"
+            value={module.settings.fontSize ?? "32"}
+            onChange={(e) => updateSetting("fontSize", e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>Color</span>
+          <input
+            type="text"
+            value={module.settings.color ?? "#18324a"}
+            onChange={(e) => updateSetting("color", e.target.value)}
+            placeholder="#18324a"
+          />
+        </label>
+        <label className="field builder-checkbox-field">
+          <span>Bold</span>
+          <input
+            type="checkbox"
+            checked={module.settings.bold !== "false"}
+            onChange={(e) => updateSetting("bold", e.target.checked ? "true" : "false")}
+          />
+        </label>
+        <label className="field">
+          <span>Vertical alignment</span>
+          <select
+            value={module.settings.verticalAlignment ?? "center"}
+            onChange={(e) => updateSetting("verticalAlignment", e.target.value)}
+          >
+            <option value="top">Top</option>
+            <option value="center">Center</option>
+            <option value="bottom">Bottom</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Min height (px)</span>
+          <input
+            type="number"
+            min="0"
+            max="600"
+            step="4"
+            value={module.settings.minHeight ?? "0"}
+            onChange={(e) => updateSetting("minHeight", e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>Fade duration (ms)</span>
+          <input
+            type="number"
+            min="0"
+            max="5000"
+            step="50"
+            value={module.settings.fadeDuration ?? "800"}
+            onChange={(e) => updateSetting("fadeDuration", e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>Display speed (ms)</span>
+          <input
+            type="number"
+            min="500"
+            max="20000"
+            step="100"
+            value={module.settings.displaySpeed ?? "3000"}
+            onChange={(e) => updateSetting("displaySpeed", e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="builder-slider-items">
+        {items.map((item, index) => (
+          <div key={item.id} className="builder-slider-item-card">
+            <div className="builder-slider-item-header">
+              <strong>{item.label || `Headline ${index + 1}`}</strong>
+              <div className="builder-section-actions">
+                <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, -1)} title="Move up">
+                  ↑
+                </button>
+                <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, 1)} title="Move down">
+                  ↓
+                </button>
+                <button type="button" className="builder-icon-button builder-icon-button-danger" onClick={() => removeItem(item.id)} title="Delete headline">
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="builder-slider-item-grid">
+              <label className="field">
+                <span>Headline</span>
+                <input type="text" value={item.label} onChange={(e) => updateItem(item.id, { label: e.target.value })} />
+              </label>
+              <label className="field">
+                <span>Link (optional)</span>
+                <input type="text" value={item.href} onChange={(e) => updateItem(item.id, { href: e.target.value })} placeholder="/path-or-url" />
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" className="secondary-button" onClick={addItem}>
+        Add Headline
+      </button>
+    </>
+  );
+}
+
 export function BuilderModuleCard({
   module,
   sectionId,
@@ -2131,6 +2372,10 @@ export function BuilderModuleCard({
             <NavModuleEditor module={module} onUpdateModule={onUpdateModule} />
           )}
 
+          {module.type === "headline-rotator" && (
+            <HeadlineRotatorModuleEditor module={module} onUpdateModule={onUpdateModule} />
+          )}
+
           {(module.type === "previous-results" || module.type === "current-poll") && (
             <div className="builder-module-runtime-note">
               <strong>Live poll module</strong>
@@ -2146,6 +2391,7 @@ export function BuilderModuleCard({
           module.type !== "slider" &&
           module.type !== "social" &&
           module.type !== "navigation" &&
+          module.type !== "headline-rotator" &&
           module.type !== "previous-results" &&
           module.type !== "current-poll" ? (
             <label className="field">
