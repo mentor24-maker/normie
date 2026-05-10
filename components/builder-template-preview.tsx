@@ -145,7 +145,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
     } as CSSProperties;
     return (
       <Link
-        className={`builder-preview-button builder-preview-button-styled builder-preview-button-${variant || "default"}`}
+        className={`builder-preview-button builder-preview-button-styled builder-preview-button-${variant || "default"} builder-preview-button-${s.buttonSize ?? "medium"}`}
         href={module.settings.href || "#"}
         style={btnStyle}
       >
