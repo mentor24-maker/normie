@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 import type { BuilderTemplateSection } from "@/lib/builder-template";
 import {
   formatRichTextContent,
@@ -29,6 +29,104 @@ type BuilderTemplatePreviewProps = {
   showShell?: boolean;
 };
 
+type ContactFormField = {
+  id: string;
+  label: string;
+  type: "text" | "email" | "tel";
+};
+
+function getContactFormMode(settings: Record<string, string>): "squeeze" | "standard" | "custom" {
+  return settings.formMode === "standard" || settings.formMode === "custom"
+    ? settings.formMode
+    : "squeeze";
+}
+
+function getContactFormFields(mode: "squeeze" | "standard" | "custom"): ContactFormField[] {
+  const standardFields: ContactFormField[] = [
+    { id: "firstName", label: "First name", type: "text" },
+    { id: "lastName", label: "Last name", type: "text" },
+    { id: "email", label: "Email", type: "email" },
+    { id: "phone", label: "Phone", type: "tel" }
+  ];
+
+  if (mode === "squeeze") {
+    return [standardFields[0], standardFields[2]];
+  }
+
+  return standardFields;
+}
+
+function ContactFormPreview({ settings }: { settings: Record<string, string> }) {
+  const mode = getContactFormMode(settings);
+  const fields = getContactFormFields(mode);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function submitContactForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          formMode: mode,
+          firstName: values.firstName ?? "",
+          lastName: values.lastName ?? "",
+          email: values.email ?? "",
+          phone: values.phone ?? ""
+        })
+      });
+      const data = (await response.json()) as { message?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to submit the form.");
+      }
+
+      setMessage(data.message ?? "Thanks. Your information has been saved.");
+      setValues({});
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to submit the form.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="builder-contact-form" onSubmit={submitContactForm}>
+      {message ? <div className="builder-contact-form-message">{message}</div> : null}
+      {error ? <div className="builder-contact-form-error">{error}</div> : null}
+      <div className="builder-contact-form-fields">
+        {fields.map((field) => (
+          <label className="builder-contact-form-field" key={field.id}>
+            <span>{field.label}</span>
+            <input
+              type={field.type}
+              placeholder={field.label}
+              value={values[field.id] ?? ""}
+              onChange={(event) => setValues((current) => ({ ...current, [field.id]: event.target.value }))}
+              required={field.id === "firstName" || field.id === "email"}
+            />
+          </label>
+        ))}
+      </div>
+      {mode === "custom" ? (
+        <div className="builder-contact-form-stub">Custom form builder coming soon. Standard fields are shown for now.</div>
+      ) : null}
+      <button className="builder-contact-form-submit" disabled={isSubmitting} type="submit">
+        {isSubmitting ? "Submitting..." : "Submit"}
+      </button>
+    </form>
+  );
+}
+
 export function BuilderTemplatePreview({
   layoutSections,
   pageBackground,
@@ -48,8 +146,9 @@ export function BuilderTemplatePreview({
 function BuilderSectionPreview({ section }: { section: BuilderTemplateSection }) {
   const sectionStyle = getBuilderBackgroundStyle(section.background);
   const columnKeys = getLayoutColumns(section.layout);
+  const isNavigationSection = section.modules.length > 0 && section.modules.every((module) => module.type === "navigation");
   const gridStyle: CSSProperties = {
-    ...sectionStyle,
+    ...(isNavigationSection ? {} : sectionStyle),
     display: "grid",
     gridTemplateColumns: getLayoutGridTemplate(section.layout),
     gap: "16px"
@@ -57,26 +156,33 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
 
   return (
     <section
-      className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"}`}
+      className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"} ${
+        isNavigationSection ? "builder-preview-section-navigation" : ""
+      }`}
       style={gridStyle}
     >
       {columnKeys.map((columnKey) => {
         const columnModules = section.modules.filter((module) => module.column === columnKey);
+        const isNavigationColumn = columnModules.length > 0 && columnModules.every((module) => module.type === "navigation");
         const columnBackground = section.cellBackgrounds?.[columnKey];
         const padding = section.cellPadding?.[columnKey] ?? "0";
         const borderWidth = section.cellBorderWidth?.[columnKey] ?? "0";
         const borderColor = section.cellBorderColor?.[columnKey] ?? "#d9e4ef";
         const borderRadius = section.cellBorderRadius?.[columnKey] ?? "0";
         const columnStyle: CSSProperties = {
-          ...(columnBackground ? getBuilderBackgroundStyle(columnBackground) : {}),
-          padding: `${padding}px`,
-          border: Number(borderWidth) > 0 ? `${borderWidth}px solid ${borderColor}` : undefined,
-          borderRadius: `${borderRadius}px`,
+          ...(isNavigationColumn || !columnBackground ? {} : getBuilderBackgroundStyle(columnBackground)),
+          padding: isNavigationColumn ? 0 : `${padding}px`,
+          border: isNavigationColumn || Number(borderWidth) <= 0 ? undefined : `${borderWidth}px solid ${borderColor}`,
+          borderRadius: isNavigationColumn ? 0 : `${borderRadius}px`,
           position: "relative"
         };
 
         return (
-          <div key={columnKey} className="builder-preview-column" style={columnStyle}>
+          <div
+            key={columnKey}
+            className={`builder-preview-column ${isNavigationColumn ? "builder-preview-column-navigation" : ""}`}
+            style={columnStyle}
+          >
             {columnModules.map((module) => (
               <div
                 key={module.id}
@@ -152,6 +258,10 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
         {module.text || ""}
       </Link>
     );
+  }
+
+  if (module.type === "contact-form") {
+    return <ContactFormPreview settings={module.settings} />;
   }
 
   if (module.type === "image") {

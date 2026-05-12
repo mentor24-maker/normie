@@ -3,7 +3,6 @@
 import type { DragEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
-import { BuilderTemplatePreview } from "@/components/builder-template-preview";
 import {
   BUILDER_PREVIEW_STORAGE_KEY,
   createDefaultBackgroundSettings,
@@ -14,6 +13,7 @@ import {
   getLayoutGridTemplate,
   normalizeBuilderAssetUrl,
   type BackgroundSettings,
+  type BuilderCellModuleRecord,
   type BuilderPageRecord,
   type BuilderTemplateLayout,
   type BuilderTemplateModule,
@@ -35,6 +35,7 @@ export function AdminBuilderEditor() {
   const [builderMode, setBuilderMode] = useState<"templates" | "pages">("templates");
   const [pageTemplates, setPageTemplates] = useState<BuilderTemplateRecord[]>([]);
   const [pages, setPages] = useState<BuilderPageRecord[]>([]);
+  const [cellModules, setCellModules] = useState<BuilderCellModuleRecord[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedPageId, setSelectedPageId] = useState("");
   const [pageSlug, setPageSlug] = useState("");
@@ -103,7 +104,22 @@ export function AdminBuilderEditor() {
     }
   }
 
-  useEffect(() => { void loadPageTemplates(); void loadPages(); }, []);
+  async function loadCellModules() {
+    try {
+      const response = await fetch("/api/admin/cell-modules", { cache: "no-store" });
+      const data = (await response.json()) as { cellModules?: BuilderCellModuleRecord[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Failed to load saved cell modules.");
+      setCellModules(data.cellModules ?? []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load saved cell modules.";
+      if (!message.includes("builder_cell_modules")) {
+        setError(message);
+      }
+      setCellModules([]);
+    }
+  }
+
+  useEffect(() => { void loadPageTemplates(); void loadPages(); void loadCellModules(); }, []);
 
   useEffect(() => {
     async function loadMediaLibrary() {
@@ -232,6 +248,22 @@ export function AdminBuilderEditor() {
     setDraft((c) => ({ ...c, layoutSections: c.layoutSections.filter((s) => s.id !== sectionId) }));
   }
 
+  function cloneSection(sectionId: string) {
+    setDraft((c) => {
+      const idx = c.layoutSections.findIndex((s) => s.id === sectionId);
+      if (idx < 0) return c;
+      const source = c.layoutSections[idx];
+      const cloned = {
+        ...source,
+        id: crypto.randomUUID(),
+        modules: source.modules.map((m) => ({ ...m, id: crypto.randomUUID() }))
+      };
+      const arr = [...c.layoutSections];
+      arr.splice(idx + 1, 0, cloned);
+      return { ...c, layoutSections: arr };
+    });
+  }
+
   function moveSection(sectionId: string, direction: -1 | 1) {
     setDraft((c) => {
       const idx = c.layoutSections.findIndex((s) => s.id === sectionId);
@@ -256,6 +288,75 @@ export function AdminBuilderEditor() {
       ...s,
       modules: [...s.modules, { ...mod, name: item.name, text: item.text, settings: { ...mod.settings, ...item.settings } }]
     }));
+  }
+
+  function cloneModulesForColumn(modules: BuilderTemplateModule[], column: string) {
+    return modules.map((module, index) => ({
+      ...module,
+      id: `${module.type}-${Date.now()}-${index}`,
+      column,
+      settings: { ...module.settings }
+    }));
+  }
+
+  async function saveCellModules(sectionId: string, column: string) {
+    const section = draft.layoutSections.find((candidate) => candidate.id === sectionId);
+    const modules = section?.modules.filter((module) => module.column === column) ?? [];
+
+    if (modules.length === 0) {
+      setError("Cell has no modules to save.");
+      return;
+    }
+
+    const fallbackName = `${draft.name || "Untitled"} ${column} cell`;
+    const name = window.prompt("Name this saved cell module set", fallbackName)?.trim();
+
+    if (!name) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/cell-modules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name,
+          modules
+        })
+      });
+      const data = (await response.json()) as { cellModule?: BuilderCellModuleRecord; error?: string };
+
+      if (!response.ok || !data.cellModule) {
+        throw new Error(data.error ?? "Failed to save cell module.");
+      }
+
+      setCellModules((current) => [data.cellModule!, ...current]);
+      setMessage(`Saved "${data.cellModule.name}" to the module repository.`);
+      setError(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save cell module.");
+    }
+  }
+
+  function insertCellModule(sectionId: string, column: string, cellModuleId: string) {
+    if (!cellModuleId) {
+      return;
+    }
+
+    const saved = cellModules.find((candidate) => candidate.id === cellModuleId);
+
+    if (!saved) {
+      return;
+    }
+
+    updateSection(sectionId, (section) => ({
+      ...section,
+      modules: [...section.modules, ...cloneModulesForColumn(saved.modules, column)]
+    }));
+    setMessage(`Inserted "${saved.name}" into the ${column} cell.`);
+    setError(null);
   }
 
   function moveModule(sectionId: string, moduleId: string, direction: -1 | 1) {
@@ -328,6 +429,23 @@ export function AdminBuilderEditor() {
           return { ...section, modules: nextModules };
         })
       };
+    });
+  }
+
+  function cloneModule(sectionId: string, moduleId: string) {
+    updateSection(sectionId, (s) => {
+      const index = s.modules.findIndex((m) => m.id === moduleId);
+      if (index < 0) return s;
+      const original = s.modules[index];
+      const clone = {
+        ...original,
+        id: `${original.type}-${Date.now()}`,
+        name: original.name ? `${original.name} (copy)` : "",
+        settings: { ...original.settings }
+      };
+      const nextModules = [...s.modules];
+      nextModules.splice(index + 1, 0, clone);
+      return { ...s, modules: nextModules };
     });
   }
 
@@ -644,6 +762,7 @@ export function AdminBuilderEditor() {
                   onMoveDown={() => moveSection(section.id, 1)}
                   onRemove={() => removeSection(section.id)}
                   onUpdateSection={(updater) => updateSection(section.id, updater)}
+                  onCloneSection={() => cloneSection(section.id)}
                   onUpdateCellBackground={(col, updater) => updateCellBackground(section.id, col, updater)}
                   onUpdateCellPadding={(col, value) => updateCellPadding(section.id, col, value)}
                   onUpdateCellBorderWidth={(col, value) => updateCellBorderWidth(section.id, col, value)}
@@ -655,6 +774,11 @@ export function AdminBuilderEditor() {
                   onMoveModule={(moduleId, dir) => moveModule(section.id, moduleId, dir)}
                   onDropModule={dropModule}
                   onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
+                  onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
+                  cellModules={cellModules}
+                  onSaveCellModules={(col) => void saveCellModules(section.id, col)}
+                  onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
+                  
                   onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
                   onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
                   onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
@@ -666,8 +790,6 @@ export function AdminBuilderEditor() {
           )}
         </div>
       </div>
-
-      <BuilderTemplatePreview pageBackground={draft.pageBackground} layoutSections={draft.layoutSections} />
 
       {draft.id ? (
         <div className="builder-footer-actions">

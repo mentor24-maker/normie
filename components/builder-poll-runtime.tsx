@@ -14,6 +14,10 @@ type PollRuntimeState = {
 
 type PollModuleKind = "previous-results" | "current-poll";
 
+function getPollModuleLabel(kind: PollModuleKind) {
+  return kind === "previous-results" ? "Poll Slider" : "Current Poll";
+}
+
 const initialState: PollRuntimeState = {
   payload: null,
   isLoading: true,
@@ -159,7 +163,7 @@ export function BuilderPollModuleRuntime({
   if (isLoading) {
     return (
       <article className={className ? `${className} panel` : "panel"}>
-        <div className="panel-label">{kind === "previous-results" ? "Previous Results" : "Current Poll"}</div>
+        <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">Loading polls...</p>
       </article>
     );
@@ -168,7 +172,7 @@ export function BuilderPollModuleRuntime({
   if (error) {
     return (
       <article className={className ? `${className} panel` : "panel"}>
-        <div className="panel-label">{kind === "previous-results" ? "Previous Results" : "Current Poll"}</div>
+        <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">{error}</p>
       </article>
     );
@@ -177,7 +181,7 @@ export function BuilderPollModuleRuntime({
   if (payload?.done) {
     return (
       <article className={className ? `${className} panel` : "panel"}>
-        <div className="panel-label">{kind === "previous-results" ? "Previous Results" : "Current Poll"}</div>
+        <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">You&apos;re done. Thanks for finishing the full poll sequence.</p>
       </article>
     );

@@ -10,7 +10,7 @@ export function CurrentPollPanel({ currentPoll, isSubmitting, onSubmit }: Curren
   return (
     <article className="panel action-panel">
       <div className="panel-label">Current Poll</div>
-      <h2>{currentPoll.question}</h2>
+      <h2 className="poll-question">{currentPoll.question}</h2>
       <div className="option-list">
         {currentPoll.options.map((option) => (
           <button

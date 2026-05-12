@@ -19,6 +19,7 @@ export type BuilderTemplateModuleType =
   | "image"
   | "quote"
   | "button"
+  | "contact-form"
   | "table"
   | "slider"
   | "social"
@@ -53,6 +54,11 @@ export type BuilderTemplateSection = {
   cellBorderWidth: Record<string, string>;
   cellBorderColor: Record<string, string>;
   cellBorderRadius: Record<string, string>;
+  cellBorderStyle: Record<string, string>;
+  cellShadow: Record<string, string>;
+  cellOpacity: Record<string, string>;
+  cellHAlign: Record<string, string>;
+  cellVAlign: Record<string, string>;
   modules: BuilderTemplateModule[];
 };
 
@@ -76,6 +82,14 @@ export type BuilderPageRecord = {
   createdAt: string;
   updatedAt: string;
   isPublished: boolean;
+};
+
+export type BuilderCellModuleRecord = {
+  id: string;
+  name: string;
+  modules: BuilderTemplateModule[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export const BUILDER_PREVIEW_STORAGE_KEY = "normie_builder_preview_draft";
@@ -393,6 +407,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "image" ||
     type === "quote" ||
     type === "button" ||
+    type === "contact-form" ||
     type === "table" ||
     type === "slider" ||
     type === "social" ||
@@ -423,6 +438,44 @@ export function normalizeModuleSettings(value: unknown) {
       return [normalizedKey, normalizedValue];
     })
   );
+}
+
+export function normalizeBuilderModules(
+  value: unknown,
+  fallbackColumn = "main"
+): BuilderTemplateModule[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((module, moduleIndex) => {
+      if (!module || typeof module !== "object" || Array.isArray(module)) {
+        return null;
+      }
+
+      const normalizedModule = module as Record<string, unknown>;
+
+      return {
+        id: safeText(normalizedModule.id, 120) || `module-${moduleIndex + 1}`,
+        type: normalizeModuleType(normalizedModule.type),
+        column: safeText(normalizedModule.column, 40) || fallbackColumn,
+        name: safeText(normalizedModule.name, 255),
+        text: safeText(normalizedModule.text, 10000),
+        settings: normalizeModuleSettings(normalizedModule.settings)
+      } satisfies BuilderTemplateModule;
+    })
+    .filter((module): module is BuilderTemplateModule => Boolean(module));
+}
+
+export function rowToBuilderCellModule(row: Record<string, unknown>): BuilderCellModuleRecord {
+  return {
+    id: safeText(row.id, 120),
+    name: safeText(row.name, 255),
+    modules: normalizeBuilderModules(row.modules),
+    createdAt: safeText(row.created_at ?? row.createdAt, 120),
+    updatedAt: safeText(row.updated_at ?? row.updatedAt, 120)
+  };
 }
 
 export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[] {
@@ -484,6 +537,11 @@ export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[
         cellBorderWidth: normalizeCellMetric(normalizedSection.cellBorderWidth, layout, "1", 0, 20),
         cellBorderColor: normalizeCellColor(normalizedSection.cellBorderColor, layout, "#d9e4ef"),
         cellBorderRadius: normalizeCellMetric(normalizedSection.cellBorderRadius, layout, "24", 0, 60),
+        cellBorderStyle: normalizeCellColor(normalizedSection.cellBorderStyle, layout, "solid"),
+        cellShadow: normalizeCellColor(normalizedSection.cellShadow, layout, "none"),
+        cellOpacity: normalizeCellColor(normalizedSection.cellOpacity, layout, "1"),
+        cellHAlign: normalizeCellColor(normalizedSection.cellHAlign, layout, "left"),
+        cellVAlign: normalizeCellColor(normalizedSection.cellVAlign, layout, "top"),
         modules
       } satisfies BuilderTemplateSection;
     })
@@ -504,6 +562,11 @@ export function createEmptySection(layout: BuilderTemplateLayout = "single"): Bu
     cellBorderWidth: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "1"])),
     cellBorderColor: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "#d9e4ef"])),
     cellBorderRadius: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "24"])),
+    cellBorderStyle: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "solid"])),
+    cellShadow: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "none"])),
+    cellOpacity: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "1"])),
+    cellHAlign: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "left"])),
+    cellVAlign: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "top"])),
     modules: []
   };
 }
@@ -549,6 +612,10 @@ export function createEmptyModule(
             paddingX: "24",
             paddingY: "12"
           }
+        : type === "contact-form"
+          ? {
+              formMode: "squeeze"
+            }
         : type === "table"
           ? {
               columns: "3",

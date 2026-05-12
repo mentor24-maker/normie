@@ -35,6 +35,37 @@ const FontSizeStyle = Extension.create({
   }
 });
 
+const BlockStyle = Extension.create({
+  name: "blockStyle",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) =>
+              attributes.fontSize ? { style: `font-size: ${attributes.fontSize}` } : {}
+          },
+          lineHeight: {
+            default: null,
+            parseHTML: (element) => element.style.lineHeight || null,
+            renderHTML: (attributes) =>
+              attributes.lineHeight ? { style: `line-height: ${attributes.lineHeight}` } : {}
+          },
+          color: {
+            default: null,
+            parseHTML: (element) => element.style.color || null,
+            renderHTML: (attributes) =>
+              attributes.color ? { style: `color: ${attributes.color}` } : {}
+          }
+        }
+      }
+    ];
+  }
+});
+
 const TextShadowStyle = Extension.create({
   name: "textShadowStyle",
   addGlobalAttributes() {
@@ -107,6 +138,8 @@ export function BuilderRichTextEditor({
   const [activeFontSize, setActiveFontSize] = useState("16");
   const [activeLineHeight, setActiveLineHeight] = useState("default");
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
+  const [isCodeView, setIsCodeView] = useState(false);
+  const [codeViewValue, setCodeViewValue] = useState("");
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -117,6 +150,7 @@ export function BuilderRichTextEditor({
       }),
       TextStyle,
       FontSizeStyle,
+      BlockStyle,
       TextShadowStyle,
       TextOutlineStyle,
       LineHeightStyle,
@@ -150,9 +184,12 @@ export function BuilderRichTextEditor({
     }
 
     const syncFontSize = () => {
-      const nextFontSize = String(editor.getAttributes("textStyle").fontSize || "16px").replace("px", "");
+      const blockAttributes = editor.getAttributes(editor.isActive("heading") ? "heading" : "paragraph");
+      const nextFontSize = String(
+        editor.getAttributes("textStyle").fontSize || blockAttributes.fontSize || "16px"
+      ).replace("px", "");
       setActiveFontSize(fontSizeOptions.includes(nextFontSize) ? nextFontSize : "16");
-      const nextLineHeight = String(editor.getAttributes("textStyle").lineHeight || "");
+      const nextLineHeight = String(editor.getAttributes("textStyle").lineHeight || blockAttributes.lineHeight || "");
       setActiveLineHeight(lineHeightOptions.includes(nextLineHeight) ? nextLineHeight : "default");
       lastSelectionRef.current = {
         from: editor.state.selection.from,
@@ -216,7 +253,7 @@ export function BuilderRichTextEditor({
 
     setActiveLineHeight(nextValue || "default");
 
-    if (!nextValue) {
+    if (!nextValue || nextValue === "default") {
       chain.setMark("textStyle", { lineHeight: null }).removeEmptyTextStyle().run();
       return;
     }
@@ -224,6 +261,35 @@ export function BuilderRichTextEditor({
     chain.setMark("textStyle", { lineHeight: nextValue }).run();
   }
 
+  function formatHTML(html: string): string {
+    let indent = 0;
+    return html
+      .replace(/></g, ">\n<")
+      .split("\n")
+      .map((line) => {
+        const trimmed = line.trim();
+        if (/^<\//.test(trimmed)) indent = Math.max(0, indent - 1);
+        const result = "  ".repeat(indent) + trimmed;
+        if (/^<[^/!][^>]*[^/]>$/.test(trimmed) && !/^<(br|hr|img|input|link|meta)/.test(trimmed)) indent++;
+        return result;
+      })
+      .join("\n");
+  }
+
+  function toggleCodeView() {
+    if (!editor) {
+      return;
+    }
+
+    if (!isCodeView) {
+      setCodeViewValue(formatHTML(editor.getHTML()));
+      setIsCodeView(true);
+    } else {
+      editor.commands.setContent(codeViewValue, { emitUpdate: true });
+      setIsCodeView(false);
+    }
+  }
+  
   function toggleTextShadow() {
     if (!editor) {
       return;
@@ -367,6 +433,14 @@ export function BuilderRichTextEditor({
         >
           ☰
         </button>
+        <button
+          className={isCodeView ? "is-active" : undefined}
+          onClick={toggleCodeView}
+          title="Code view"
+          type="button"
+        >
+          {"</>"}
+        </button>
         <label className="builder-rich-text-color" title="Text color">
           <select
             aria-label="Font size"
@@ -442,7 +516,16 @@ export function BuilderRichTextEditor({
           ⨯
         </button>
       </div>
-      <EditorContent className="builder-rich-text-content" editor={editor} />
-    </div>
+
+      {isCodeView ? (
+        <textarea
+          className="builder-rich-text-code-view"
+          value={codeViewValue}
+          onChange={(e) => setCodeViewValue(e.target.value)}
+        />
+      ) : (
+        <EditorContent className="builder-rich-text-content" editor={editor} />
+      )}
+      </div>
   );
 }

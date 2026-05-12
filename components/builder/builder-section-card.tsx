@@ -1,6 +1,7 @@
 import type {
   BackgroundSettings,
   BuilderTemplateLayout,
+  BuilderCellModuleRecord,
   BuilderTemplateModule,
   BuilderTemplateSection
 } from "@/lib/builder-template";
@@ -26,6 +27,7 @@ type BuilderSectionCardProps = {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  onCloneSection: () => void;
   onUpdateSection: (updater: (section: BuilderTemplateSection) => BuilderTemplateSection) => void;
   onUpdateCellBackground: (column: string, updater: (bg: BackgroundSettings) => BackgroundSettings) => void;
   onUpdateCellPadding: (column: string, value: string) => void;
@@ -44,6 +46,10 @@ type BuilderSectionCardProps = {
     targetBeforeModuleId?: string
   ) => void;
   onRemoveModule: (moduleId: string) => void;
+  onCloneModule: (sectionId: string, moduleId: string) => void;
+  cellModules: BuilderCellModuleRecord[];
+  onSaveCellModules: (column: string) => void;
+  onInsertCellModule: (column: string, cellModuleId: string) => void;
   onOpenGallery: (moduleId: string) => void;
   onUploadMediaForModule: (moduleId: string, file: File | null) => void;
   onOpenSectionBackgroundGallery: () => void;
@@ -60,6 +66,7 @@ export function BuilderSectionCard({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onCloneSection,
   onUpdateSection,
   onUpdateCellBackground,
   onUpdateCellPadding,
@@ -72,6 +79,10 @@ export function BuilderSectionCard({
   onMoveModule,
   onDropModule,
   onRemoveModule,
+  onCloneModule,
+  cellModules,
+  onSaveCellModules,
+  onInsertCellModule,
   onOpenGallery,
   onUploadMediaForModule,
   onOpenSectionBackgroundGallery,
@@ -123,17 +134,41 @@ export function BuilderSectionCard({
     });
   }
 
+  function updateCellSetting(column: string, key: string, value: string) {
+    onUpdateSection((current) => ({
+      ...current,
+      [`cell${key.charAt(0).toUpperCase()}${key.slice(1)}`]: {
+        ...(current as unknown as Record<string, Record<string, string>>)[`cell${key.charAt(0).toUpperCase()}${key.slice(1)}`],
+        [column]: value
+      }
+    }));
+  }
+
   function getCellStyle(column: string): CSSProperties {
+    const borderStyle = (section as unknown as Record<string, Record<string, string>>).cellBorderStyle?.[column] ?? "solid";
     const borderWidth = Number.parseInt(section.cellBorderWidth[column] ?? "1", 10);
     const borderRadius = Number.parseInt(section.cellBorderRadius[column] ?? "24", 10);
+    const shadow = (section as unknown as Record<string, Record<string, string>>).cellShadow?.[column] ?? "none";
+    const opacity = (section as unknown as Record<string, Record<string, string>>).cellOpacity?.[column];
+
+    const shadowMap: Record<string, string> = {
+      none: "none",
+      light: "0 2px 8px rgba(0,0,0,0.08)",
+      medium: "0 4px 16px rgba(0,0,0,0.14)",
+      heavy: "0 8px 32px rgba(0,0,0,0.22)"
+    };
 
     return {
       ...getBuilderBackgroundStyle(section.cellBackgrounds[column]),
       padding: `${section.cellPadding[column] ?? "18"}px`,
-      borderStyle: "solid",
-      borderWidth: `${Math.max(Number.isFinite(borderWidth) ? borderWidth : 1, 0)}px`,
+      borderStyle: borderStyle === "none" ? "none" : borderStyle,
+      borderWidth: borderStyle === "none" ? 0 : `${Math.max(Number.isFinite(borderWidth) ? borderWidth : 1, 0)}px`,
       borderColor: section.cellBorderColor[column] ?? "#d9e4ef",
-      borderRadius: `${Math.max(Number.isFinite(borderRadius) ? borderRadius : 24, 0)}px`
+      borderRadius: `${Math.max(Number.isFinite(borderRadius) ? borderRadius : 24, 0)}px`,
+      boxShadow: shadowMap[shadow] ?? "none",
+      opacity: opacity ? Number.parseFloat(opacity) : undefined,
+      alignItems: (section as unknown as Record<string, Record<string, string>>).cellAlignItems?.[column] ?? undefined,
+      justifyContent: (section as unknown as Record<string, Record<string, string>>).cellJustifyContent?.[column] ?? undefined
     };
   }
 
@@ -162,17 +197,26 @@ export function BuilderSectionCard({
     event.preventDefault();
     event.stopPropagation();
     const payload = readDragPayload(event);
-    if (!payload?.moduleId || !payload?.sourceSectionId) {
-      return;
-    }
+    if (!payload?.moduleId || !payload?.sourceSectionId) return;
     onDropModule(payload.moduleId, payload.sourceSectionId, section.id, targetColumn, targetBeforeModuleId);
   }
 
+  function getCellExtra(column: string, key: string, fallback = "") {
+    return (section as unknown as Record<string, Record<string, string>>)[key]?.[column] ?? fallback;
+  }
+
+  function setCellExtra(column: string, key: string, value: string) {
+    onUpdateSection((current) => ({
+      ...current,
+      [key]: {
+        ...((current as unknown as Record<string, Record<string, string>>)[key] ?? {}),
+        [column]: value
+      }
+    }));
+  }
+
   return (
-    <article
-      className="builder-section-card"
-      style={getSectionBackgroundStyle(section)}
-    >
+    <article className="builder-section-card" style={getSectionBackgroundStyle(section)}>
       <div className="builder-section-header">
         <div className="builder-section-title">
           {isEditingTitle ? (
@@ -202,42 +246,11 @@ export function BuilderSectionCard({
           )}
         </div>
         <div className="builder-section-actions">
-          <button
-            aria-label={isCollapsed ? "Expand section" : "Collapse section"}
-            className="builder-icon-button"
-            onClick={onToggleCollapsed}
-            title={isCollapsed ? "Expand section" : "Collapse section"}
-            type="button"
-          >
-            {isCollapsed ? "▸" : "▾"}
-          </button>
-          <button
-            aria-label="Move section up"
-            className="builder-icon-button"
-            onClick={onMoveUp}
-            title="Move section up"
-            type="button"
-          >
-            ↑
-          </button>
-          <button
-            aria-label="Move section down"
-            className="builder-icon-button"
-            onClick={onMoveDown}
-            title="Move section down"
-            type="button"
-          >
-            ↓
-          </button>
-          <button
-            aria-label="Delete section"
-            className="builder-icon-button builder-icon-button-danger"
-            onClick={onRemove}
-            title="Delete section"
-            type="button"
-          >
-            ✕
-          </button>
+          <button aria-label={isCollapsed ? "Expand section" : "Collapse section"} className="builder-icon-button" onClick={onToggleCollapsed} title={isCollapsed ? "Expand section" : "Collapse section"} type="button">{isCollapsed ? "▸" : "▾"}</button>
+          <button aria-label="Move section up" className="builder-icon-button" onClick={onMoveUp} title="Move section up" type="button">↑</button>
+          <button aria-label="Move section down" className="builder-icon-button" onClick={onMoveDown} title="Move section down" type="button">↓</button>
+          <button aria-label="Clone section" className="builder-icon-button" onClick={onCloneSection} title="Clone section" type="button">⧉</button>
+          <button aria-label="Delete section" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete section" type="button">✕</button>
         </div>
       </div>
 
@@ -256,17 +269,13 @@ export function BuilderSectionCard({
                     layout: nextLayout,
                     modules: current.modules.map((module) => ({
                       ...module,
-                      column: allowedColumns.has(module.column)
-                        ? module.column
-                        : getLayoutColumns(nextLayout)[0]
+                      column: allowedColumns.has(module.column) ? module.column : getLayoutColumns(nextLayout)[0]
                     }))
                   }));
                 }}
               >
                 {layoutOptions.map((layout) => (
-                  <option key={layout.value} value={layout.value}>
-                    {layout.label}
-                  </option>
+                  <option key={layout.value} value={layout.value}>{layout.label}</option>
                 ))}
               </select>
             </label>
@@ -290,12 +299,7 @@ export function BuilderSectionCard({
               label="Row Background"
               background={section.background}
               compact
-              onChange={(updater) =>
-                onUpdateSection((current) => ({
-                  ...current,
-                  background: updater(current.background)
-                }))
-              }
+              onChange={(updater) => onUpdateSection((current) => ({ ...current, background: updater(current.background) }))}
               onChooseImage={onOpenSectionBackgroundGallery}
               onUploadImage={onUploadSectionBackgroundMedia}
             />
@@ -308,16 +312,18 @@ export function BuilderSectionCard({
             {columns.map((column) => {
               const columnModules = columnModuleMap[column] ?? [];
               const cellPanels = getCellPanelState(column);
+              const borderStyle = getCellExtra(column, "cellBorderStyle", "solid");
+              const shadow = getCellExtra(column, "cellShadow", "none");
+              const opacity = getCellExtra(column, "cellOpacity", "1");
+              const hAlign = getCellExtra(column, "cellHAlign", "left");
+              const vAlign = getCellExtra(column, "cellVAlign", "top");
 
               return (
                 <div
                   className="builder-column-card"
                   key={column}
                   style={getCellStyle(column)}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }}
+                  onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }}
                   onDrop={(event) => handleModuleDrop(event, column)}
                 >
                   {columnModules.length > 0 ? (
@@ -338,57 +344,140 @@ export function BuilderSectionCard({
                     </button>
 
                     {!cellPanels.styles ? (
-                      <div className="builder-cell-settings-row">
-                        <BuilderBackgroundControls
-                          label={`${column} Cell Background`}
-                          background={section.cellBackgrounds[column] ?? createDefaultBackgroundSettings()}
-                          compact
-                          onChange={(updater) => onUpdateCellBackground(column, updater)}
-                        />
-                        <label className="field builder-cell-padding-field">
-                          <span>Padding</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="50"
-                            step="1"
-                            value={section.cellPadding[column] ?? "18"}
-                            onChange={(event) => onUpdateCellPadding(column, event.target.value)}
+                      <div className="builder-cell-styles-grid">
+
+                        {/* BORDER */}
+                        <div className="builder-cell-style-group">
+                          <div className="builder-cell-style-group-label">Border</div>
+                          <label className="field">
+                            <span>Style</span>
+                            <select
+                              value={borderStyle}
+                              onChange={(e) => setCellExtra(column, "cellBorderStyle", e.target.value)}
+                            >
+                              <option value="none">None</option>
+                              <option value="solid">Solid</option>
+                              <option value="dashed">Dashed</option>
+                              <option value="dotted">Dotted</option>
+                            </select>
+                          </label>
+                          {borderStyle !== "none" ? (
+                            <>
+                              <label className="field">
+                                <span>Width</span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="20"
+                                  step="1"
+                                  value={section.cellBorderWidth[column] ?? "1"}
+                                  onChange={(e) => onUpdateCellBorderWidth(column, e.target.value)}
+                                />
+                                <small>{section.cellBorderWidth[column] ?? "1"}px</small>
+                              </label>
+                              <label className="field">
+                                <span>Color</span>
+                                <input
+                                  type="color"
+                                  value={section.cellBorderColor[column] ?? "#d9e4ef"}
+                                  onChange={(e) => onUpdateCellBorderColor(column, e.target.value)}
+                                />
+                              </label>
+                            </>
+                          ) : null}
+                          <label className="field">
+                            <span>Radius</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="60"
+                              step="1"
+                              value={section.cellBorderRadius[column] ?? "24"}
+                              onChange={(e) => onUpdateCellBorderRadius(column, e.target.value)}
+                            />
+                            <small>{section.cellBorderRadius[column] ?? "24"}px</small>
+                          </label>
+                          <label className="field">
+                            <span>Shadow</span>
+                            <select
+                              value={shadow}
+                              onChange={(e) => setCellExtra(column, "cellShadow", e.target.value)}
+                            >
+                              <option value="none">None</option>
+                              <option value="light">Light</option>
+                              <option value="medium">Medium</option>
+                              <option value="heavy">Heavy</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        {/* BACKGROUND */}
+                        <div className="builder-cell-style-group">
+                          <div className="builder-cell-style-group-label">Background</div>
+                          <BuilderBackgroundControls
+                            label=""
+                            background={section.cellBackgrounds[column] ?? createDefaultBackgroundSettings()}
+                            compact
+                            onChange={(updater) => onUpdateCellBackground(column, updater)}
                           />
-                          <small>{section.cellPadding[column] ?? "18"}px</small>
-                        </label>
-                        <label className="field builder-cell-border-field">
-                          <span>Border</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="20"
-                            step="1"
-                            value={section.cellBorderWidth[column] ?? "1"}
-                            onChange={(event) => onUpdateCellBorderWidth(column, event.target.value)}
-                          />
-                          <small>{section.cellBorderWidth[column] ?? "1"}px</small>
-                        </label>
-                        <label className="field builder-cell-color-field">
-                          <span>Border color</span>
-                          <input
-                            type="color"
-                            value={section.cellBorderColor[column] ?? "#d9e4ef"}
-                            onChange={(event) => onUpdateCellBorderColor(column, event.target.value)}
-                          />
-                        </label>
-                        <label className="field builder-cell-radius-field">
-                          <span>Radius</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="60"
-                            step="1"
-                            value={section.cellBorderRadius[column] ?? "24"}
-                            onChange={(event) => onUpdateCellBorderRadius(column, event.target.value)}
-                          />
-                          <small>{section.cellBorderRadius[column] ?? "24"}px</small>
-                        </label>
+                          <label className="field">
+                            <span>Opacity</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={opacity}
+                              onChange={(e) => setCellExtra(column, "cellOpacity", e.target.value)}
+                            />
+                            <small>{Math.round(Number.parseFloat(opacity) * 100)}%</small>
+                          </label>
+                        </div>
+
+                        {/* PADDING */}
+                        <div className="builder-cell-style-group">
+                          <div className="builder-cell-style-group-label">Padding</div>
+                          <label className="field">
+                            <span>Size</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="50"
+                              step="1"
+                              value={section.cellPadding[column] ?? "18"}
+                              onChange={(e) => onUpdateCellPadding(column, e.target.value)}
+                            />
+                            <small>{section.cellPadding[column] ?? "18"}px</small>
+                          </label>
+                        </div>
+
+                        {/* ALIGNMENT */}
+                        <div className="builder-cell-style-group">
+                          <div className="builder-cell-style-group-label">Alignment</div>
+                          <label className="field">
+                            <span>Horizontal</span>
+                            <select
+                              value={hAlign}
+                              onChange={(e) => setCellExtra(column, "cellHAlign", e.target.value)}
+                            >
+                              <option value="left">Left</option>
+                              <option value="center">Center</option>
+                              <option value="right">Right</option>
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>Vertical</span>
+                            <select
+                              value={vAlign}
+                              onChange={(e) => setCellExtra(column, "cellVAlign", e.target.value)}
+                            >
+                              <option value="top">Top</option>
+                              <option value="center">Center</option>
+                              <option value="bottom">Bottom</option>
+                            </select>
+                          </label>
+                        </div>
+
                       </div>
                     ) : null}
                   </div>
@@ -406,12 +495,35 @@ export function BuilderSectionCard({
 
                     {!cellPanels.content ? (
                       <>
-                        {columnModules.length === 0 ? (
+                        <div className="builder-cell-repository-actions">
                           <button
-                            className="builder-column-empty-button"
-                            onClick={() => onOpenModulePalette(column)}
+                            className="secondary-button"
+                            disabled={columnModules.length === 0}
+                            onClick={() => onSaveCellModules(column)}
                             type="button"
                           >
+                            Save cell
+                          </button>
+                          <label className="field builder-cell-repository-select">
+                            <span>Insert saved</span>
+                            <select
+                              value=""
+                              onChange={(event) => {
+                                onInsertCellModule(column, event.target.value);
+                                event.currentTarget.value = "";
+                              }}
+                            >
+                              <option value="">Choose saved cell</option>
+                              {cellModules.map((cellModule) => (
+                                <option key={cellModule.id} value={cellModule.id}>
+                                  {cellModule.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        {columnModules.length === 0 ? (
+                          <button className="builder-column-empty-button" onClick={() => onOpenModulePalette(column)} type="button">
                             <span className="builder-column-empty-plus">+</span>
                           </button>
                         ) : (
@@ -423,10 +535,7 @@ export function BuilderSectionCard({
                                 key={module.id}
                                 onDragStart={(event) => {
                                   event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData(
-                                    "application/normie-builder-module",
-                                    encodeDragPayload(module.id, column)
-                                  );
+                                  event.dataTransfer.setData("application/normie-builder-module", encodeDragPayload(module.id, column));
                                 }}
                                 onDragOver={(event) => {
                                   event.preventDefault();
@@ -445,18 +554,12 @@ export function BuilderSectionCard({
                                   onMoveUp={() => onMoveModule(module.id, -1)}
                                   onMoveDown={() => onMoveModule(module.id, 1)}
                                   onRemove={() => onRemoveModule(module.id)}
+                                  onClone={() => onCloneModule(section.id, module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
                                   onUploadMedia={(file) => onUploadMediaForModule(module.id, file)}
                                 />
                                 {moduleIndex === columnModules.length - 1 ? (
-                                  <button
-                                    aria-label="Add module"
-                                    className="builder-column-add-circle builder-column-add-button-inline"
-                                    onClick={() => onOpenModulePalette(column)}
-                                    type="button"
-                                  >
-                                    +
-                                  </button>
+                                  <button aria-label="Add module" className="builder-column-add-circle builder-column-add-button-inline" onClick={() => onOpenModulePalette(column)} type="button">+</button>
                                 ) : null}
                               </div>
                             ))}

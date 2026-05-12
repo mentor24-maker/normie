@@ -23,12 +23,12 @@ export function PollStage({ isLoading, isSubmitting, payload, onSubmit }: PollSt
   if (payload?.currentPoll) {
     return (
       <section className="poll-grid">
-        <PreviousResultsPanel previousPoll={payload.previousPoll} />
         <CurrentPollPanel
           currentPoll={payload.currentPoll}
           isSubmitting={isSubmitting}
           onSubmit={onSubmit}
         />
+        <PreviousResultsPanel previousPoll={payload.previousPoll} />
         <div className="poll-grid-logo">
           <Image
             alt="Normie choose logo"

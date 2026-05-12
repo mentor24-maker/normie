@@ -56,6 +56,14 @@ create table if not exists public.users (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.builder_cell_modules (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  modules jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists responses_poll_id_idx on public.responses (poll_id);
 create index if not exists responses_session_id_idx on public.responses (session_id);
 create index if not exists poll_options_poll_id_idx on public.poll_options (poll_id);
@@ -63,6 +71,7 @@ create index if not exists page_templates_updated_at_idx on public.page_template
 create index if not exists pages_updated_at_idx on public.pages (updated_at desc);
 create index if not exists pages_slug_idx on public.pages (slug);
 create index if not exists users_role_idx on public.users (role);
+create index if not exists builder_cell_modules_updated_at_idx on public.builder_cell_modules (updated_at desc);
 
 alter table public.polls enable row level security;
 alter table public.poll_options enable row level security;
@@ -70,6 +79,7 @@ alter table public.responses enable row level security;
 alter table public.page_templates enable row level security;
 alter table public.pages enable row level security;
 alter table public.users enable row level security;
+alter table public.builder_cell_modules enable row level security;
 
 drop policy if exists "published polls are readable" on public.polls;
 create policy "published polls are readable"

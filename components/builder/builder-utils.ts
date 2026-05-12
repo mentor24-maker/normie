@@ -182,15 +182,22 @@ export function getModuleBackgroundSettings(settings: Record<string, string>): B
 
 export function getHeadingModuleStyle(settings: Record<string, string>): CSSProperties {
   const fontSize = Number.parseInt(settings.fontSize ?? "32", 10);
+  const color = settings.color || "#18324a";
+
+  // 135 degrees: offset-x = cos(135°) * 5 ≈ -3.54, offset-y = sin(135°) * 5 ≈ 3.54
+  const dropShadow = settings.dropShadow === "true"
+  ? `2px 2px 3px rgba(0, 0, 0, 0.8)`
+  : "none";
 
   return {
     fontSize: `${Math.max(Number.isFinite(fontSize) ? fontSize : 32, 10)}px`,
-    color: settings.color || "#18324a",
+    color,
     fontWeight: settings.bold === "false" ? 500 : 800,
     fontStyle: settings.italic === "true" ? "italic" : "normal",
     textDecoration: settings.underline === "true" ? "underline" : "none",
-    textShadow: settings.dropShadow === "true" ? "0 2px 10px rgba(9, 16, 24, 0.18)" : "none",
-    WebkitTextStroke: settings.outline === "true" ? "1px rgba(9, 16, 24, 0.45)" : undefined
+    textDecorationColor: settings.underline === "true" ? color : undefined,
+    textShadow: dropShadow,
+    WebkitTextStroke: settings.outline === "true" ? `2px ${color}` : undefined
   };
 }
 

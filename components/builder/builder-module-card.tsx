@@ -34,7 +34,70 @@ type BuilderModuleCardProps = {
   onRemove: () => void;
   onOpenGallery: () => void;
   onUploadMedia: (file: File | null) => void;
+  onClone: () => void;
 };
+
+type ContactFormField = {
+  id: string;
+  label: string;
+  type: "text" | "email" | "tel";
+};
+
+function getContactFormMode(settings: Record<string, string>): "squeeze" | "standard" | "custom" {
+  return settings.formMode === "standard" || settings.formMode === "custom"
+    ? settings.formMode
+    : "squeeze";
+}
+
+function getContactFormFields(mode: "squeeze" | "standard" | "custom"): ContactFormField[] {
+  const standardFields: ContactFormField[] = [
+    { id: "firstName", label: "First name", type: "text" },
+    { id: "lastName", label: "Last name", type: "text" },
+    { id: "email", label: "Email", type: "email" },
+    { id: "phone", label: "Phone", type: "tel" }
+  ];
+
+  if (mode === "squeeze") {
+    return [standardFields[0], standardFields[2]];
+  }
+
+  return standardFields;
+}
+
+function renderContactFormPreview(settings: Record<string, string>, interactive = false) {
+  const mode = getContactFormMode(settings);
+  const fields = getContactFormFields(mode);
+  const Tag = interactive ? "form" : "div";
+
+  return (
+    <Tag className="builder-contact-form" onSubmit={interactive ? (event) => event.preventDefault() : undefined}>
+      <div className="builder-contact-form-fields">
+        {fields.map((field) => (
+          <label className="builder-contact-form-field" key={field.id}>
+            <span>{field.label}</span>
+            {interactive ? (
+              <input type={field.type} placeholder={field.label} />
+            ) : (
+              <span className="builder-contact-form-input-preview">{field.label}</span>
+            )}
+          </label>
+        ))}
+      </div>
+      {mode === "custom" ? (
+        <div className="builder-contact-form-stub">Custom form builder coming soon. Standard fields are shown for now.</div>
+      ) : null}
+      {interactive ? (
+        <button className="builder-contact-form-submit" type="submit">
+          Submit
+        </button>
+      ) : (
+        <span className="builder-contact-form-submit builder-contact-form-submit-preview">
+          Submit
+        </span>
+      )}
+    </Tag>
+  );
+}
 
 function renderModulePreview(module: BuilderTemplateModule) {
   const variant = module.settings.variant ?? "";
@@ -119,6 +182,10 @@ function renderModulePreview(module: BuilderTemplateModule) {
         </span>
       </div>
     );
+  }
+
+  if (module.type === "contact-form") {
+    return renderContactFormPreview(module.settings);
   }
 
   if (module.type === "image") {
@@ -303,33 +370,44 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "previous-results") {
     return (
-      <article className="panel result-panel builder-module-preview-poll">
-        <div className="panel-label">Previous Results</div>
-        <h2>Live result bars from the previous community poll.</h2>
-        <p className="panel-copy">
-          This module renders the real previous-poll results in page preview and on the live site.
-        </p>
-        <div className="result-list">
-          <div className="result-row">
-            <div className="result-meta">
-              <span>Option A</span>
-              <span>124 · 62%</span>
+      <div className="poll-grid builder-module-preview-poll-slider">
+        <article className="panel action-panel builder-module-preview-poll">
+          <div className="panel-label">Current Poll</div>
+          <h2>Live current poll prompt with answer choices.</h2>
+          <div className="option-list">
+            <div className="option-button">Option One</div>
+            <div className="option-button">Option Two</div>
+          </div>
+          <p className="panel-copy">
+            This module renders the real poll flow in page preview and on the live site.
+          </p>
+        </article>
+
+        <article className="panel result-panel builder-module-preview-poll">
+          <div className="panel-label">Previous Results</div>
+          <h2>Live result bars from the previous community poll.</h2>
+          <div className="result-list">
+            <div className="result-row">
+              <div className="result-meta">
+                <span>Option A</span>
+                <span>124 · 62%</span>
+              </div>
+              <div className="result-bar">
+                <div className="result-bar-fill" style={{ width: "62%" }} />
+              </div>
             </div>
-            <div className="result-bar">
-              <div className="result-bar-fill" style={{ width: "62%" }} />
+            <div className="result-row">
+              <div className="result-meta">
+                <span>Option B</span>
+                <span>76 · 38%</span>
+              </div>
+              <div className="result-bar">
+                <div className="result-bar-fill" style={{ width: "38%" }} />
+              </div>
             </div>
           </div>
-          <div className="result-row">
-            <div className="result-meta">
-              <span>Option B</span>
-              <span>76 · 38%</span>
-            </div>
-            <div className="result-bar">
-              <div className="result-bar-fill" style={{ width: "38%" }} />
-            </div>
-          </div>
-        </div>
-      </article>
+        </article>
+      </div>
     );
   }
 
@@ -522,6 +600,14 @@ function serializeTableData(td: ParsedTableData): string {
   return JSON.stringify({ headers: td.headers, cells: td.cells, rowCount: td.rowCount });
 }
 
+function cloneTableCellModule(module: BuilderTemplateModule, suffix: string): BuilderTemplateModule {
+  return {
+    ...module,
+    id: `${module.type}-${Date.now()}-${suffix}`,
+    settings: { ...module.settings }
+  };
+}
+
 /* ---------- Inline palette for table cells ---------- */
 
 function TableCellInlinePalette({
@@ -534,7 +620,7 @@ function TableCellInlinePalette({
   position: { top: number; left: number };
 }) {
   const [group, setGroup] = useState<ModulePaletteGroup | null>(null);
-  const groups = modulePaletteGroups.filter((g) => g.value !== "table");
+  const groups = modulePaletteGroups.filter((g) => g.value !== "table" && g.value !== "contact-form");
   const items = group ? modulePaletteItems.filter((item) => item.group === group) : [];
 
   return (
@@ -838,6 +924,37 @@ function TableModuleEditor({
     persist({ ...td, rowCount: td.rowCount + 1 });
   }
 
+  function cloneRow(rowIndex: number) {
+    if (td.rowCount >= 100) return;
+
+    const nextCells: ParsedTableData["cells"] = {};
+
+    for (const [key, modules] of Object.entries(td.cells)) {
+      const [rawRow, rawCol] = key.split("-");
+      const sourceRow = Number.parseInt(rawRow, 10);
+
+      if (!Number.isFinite(sourceRow)) {
+        nextCells[key] = modules;
+        continue;
+      }
+
+      if (sourceRow <= rowIndex) {
+        nextCells[key] = modules;
+      } else {
+        nextCells[`${sourceRow + 1}-${rawCol}`] = modules;
+      }
+    }
+
+    for (let col = 0; col < colCount; col++) {
+      const sourceModules = td.cells[`${rowIndex}-${col}`] || [];
+      nextCells[`${rowIndex + 1}-${col}`] = sourceModules.map((mod, moduleIndex) =>
+        cloneTableCellModule(mod, `${rowIndex + 1}-${col}-${moduleIndex}`)
+      );
+    }
+
+    persist({ ...td, cells: nextCells, rowCount: td.rowCount + 1 });
+  }
+
   function removeRow() {
     if (td.rowCount <= 1) return;
     const newCells = { ...td.cells };
@@ -875,6 +992,7 @@ function TableModuleEditor({
         <table className="builder-table-editor builder-table-editor-modules">
           <thead>
             <tr>
+              <th className="builder-table-row-action-heading">Row</th>
               {td.headers.map((h, i) => (
                 <th key={i}>
                   <input type="text" value={h} onChange={(e) => updateHeader(i, e.target.value)} placeholder={`Header ${i + 1}`} />
@@ -885,6 +1003,11 @@ function TableModuleEditor({
           <tbody>
             {Array.from({ length: td.rowCount }, (_, ri) => (
               <tr key={ri}>
+                <td className="builder-table-row-actions">
+                  <button type="button" className="builder-icon-button" onClick={() => cloneRow(ri)} disabled={td.rowCount >= 100} title="Clone row">
+                    ⧉
+                  </button>
+                </td>
                 {td.headers.map((_, ci) => (
                   <td key={ci} className="builder-table-editor-cell">
                     <TableCellModules cellKey={`${ri}-${ci}`} modules={td.cells[`${ri}-${ci}`] || []} onUpdate={updateCellModules} />
@@ -1184,9 +1307,10 @@ export function BuilderModuleCard({
   onMoveDown,
   onRemove,
   onOpenGallery,
-  onUploadMedia
+  onUploadMedia,
+  onClone
 }: BuilderModuleCardProps) {
-  const moduleAlignment = getModuleAlignment(module.settings);
+    const moduleAlignment = getModuleAlignment(module.settings);
 
   return (
     <div
@@ -1202,6 +1326,15 @@ export function BuilderModuleCard({
           <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
           <button aria-label="Move module up" className="builder-icon-button" onClick={onMoveUp} title="Move module up" type="button">↑</button>
           <button aria-label="Move module down" className="builder-icon-button" onClick={onMoveDown} title="Move module down" type="button">↓</button>
+          <button
+            aria-label="Clone module"
+            className="builder-icon-button"
+            onClick={onClone}
+            title="Clone module"
+            type="button"
+          >
+            ⧉
+          </button>
           <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
         </div>
       </div>
@@ -1300,6 +1433,33 @@ export function BuilderModuleCard({
               <label className="field"><span>Border color</span><input type="color" value={module.settings.borderColor ?? "#214c71"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, borderColor: e.target.value } }))} /></label>
               <label className="field"><span>H padding</span><input type="range" min="4" max="60" step="2" value={module.settings.paddingX ?? "24"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, paddingX: e.target.value } }))} /></label>
               <label className="field"><span>V padding</span><input type="range" min="2" max="40" step="2" value={module.settings.paddingY ?? "12"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, paddingY: e.target.value } }))} /></label>
+            </div>
+          )}
+
+          {module.type === "contact-form" && (
+            <div className="builder-contact-form-settings">
+              <label className="field">
+                <span>Form type</span>
+                <select
+                  value={getContactFormMode(module.settings)}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, formMode: event.target.value }
+                    }))
+                  }
+                >
+                  <option value="squeeze">Squeeze</option>
+                  <option value="standard">Standard</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              {getContactFormMode(module.settings) === "custom" ? (
+                <div className="builder-module-runtime-note">
+                  <strong>Custom form builder stub</strong>
+                  <p>Custom starts from the standard form. Field adding and advanced form types will be wired in next.</p>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -1417,6 +1577,7 @@ export function BuilderModuleCard({
           )}
 
           {module.type !== "image" &&
+          module.type !== "contact-form" &&
           module.type !== "table" &&
           module.type !== "slider" &&
           module.type !== "social" &&

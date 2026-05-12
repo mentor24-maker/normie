@@ -4,6 +4,60 @@ import { createAdminClient } from "@/lib/supabase-admin";
 
 const SESSION_COOKIE = "poll_session_id";
 const DISPLAY_VOTE_MULTIPLIER = 1327;
+const ZERO_COUNT_RATIO = 0.37;
+
+function getDisplayVoteOffset(seed: string) {
+  let hash = 0;
+
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+
+  return (hash % 100) + 1;
+}
+
+function getDisplayPollResults(
+  pollId: string,
+  options: Array<{ id: string; label: string }>,
+  counts: Map<string, number>
+) {
+  const baseVotes = options.map((option) => ({
+    id: option.id,
+    label: option.label,
+    votes: (counts.get(option.id) ?? 0) * DISPLAY_VOTE_MULTIPLIER
+  }));
+
+  const adjustedBaseVotes = baseVotes.map((option, index) => {
+    if (option.votes > 0) {
+      return option.votes;
+    }
+
+    const otherVotes = baseVotes
+      .filter((_, otherIndex) => otherIndex !== index)
+      .map((otherOption) => otherOption.votes);
+    const largestOtherVote = Math.max(...otherVotes, 0);
+
+    return largestOtherVote > 0 ? Math.round(largestOtherVote * ZERO_COUNT_RATIO) : 0;
+  });
+
+  const displayVotes = adjustedBaseVotes.map((votes, index) =>
+    votes + getDisplayVoteOffset(`${pollId}:${options[index]?.id ?? index}`)
+  );
+  const totalResponses = displayVotes.reduce((sum, votes) => sum + votes, 0);
+
+  return {
+    totalResponses,
+    options: options.map((option, index) => ({
+      id: option.id,
+      label: option.label,
+      votes: displayVotes[index] ?? 0,
+      percentage:
+        totalResponses === 0
+          ? 0
+          : Math.round(((displayVotes[index] ?? 0) / totalResponses) * 100)
+    }))
+  };
+}
 
 export async function GET(request: Request) {
   const cookieStore = await cookies();
@@ -81,19 +135,13 @@ export async function GET(request: Request) {
       counts.set(row.option_id, (counts.get(row.option_id) ?? 0) + 1);
     }
 
+    const displayResults = getDisplayPollResults(previousPoll.id, previousPoll.poll_options, counts);
+
     previousPollResults = {
       id: previousPoll.id,
       question: previousPoll.question,
-      totalResponses: (totals ?? []).length * DISPLAY_VOTE_MULTIPLIER,
-      options: previousPoll.poll_options.map((option) => {
-        const votes = counts.get(option.id) ?? 0;
-        return {
-          id: option.id,
-          label: option.label,
-          votes: votes * DISPLAY_VOTE_MULTIPLIER,
-          percentage: (totals ?? []).length === 0 ? 0 : Math.round((votes / (totals ?? []).length) * 100)
-        };
-      })
+      totalResponses: displayResults.totalResponses,
+      options: displayResults.options
     };
   }
 
