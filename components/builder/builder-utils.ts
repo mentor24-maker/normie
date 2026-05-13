@@ -8,7 +8,8 @@ import type {
 import {
   createDefaultBackgroundSettings,
   getBuilderBackgroundStyle,
-  normalizeBuilderAssetUrl
+  normalizeBuilderAssetUrl,
+  normalizeSpacingValue
 } from "@/lib/builder-template";
 import type { BuilderDraft } from "./builder-types";
 
@@ -68,6 +69,15 @@ export function getModuleAlignment(settings: Record<string, string>): "left" | "
   }
 
   return "left";
+}
+
+export function getVerticalMarginStyle(value: unknown): CSSProperties {
+  const margin = normalizeSpacingValue(value, "0", 0, 160);
+
+  return {
+    marginTop: `${margin}px`,
+    marginBottom: `${margin}px`
+  };
 }
 
 export function getSectionBackgroundStyle(section: BuilderTemplateSection): CSSProperties | undefined {

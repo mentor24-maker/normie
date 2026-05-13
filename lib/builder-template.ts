@@ -48,9 +48,11 @@ export type BuilderTemplateSection = {
   title: string;
   layout: BuilderTemplateLayout;
   alignment: "left" | "center" | "right";
+  verticalMargin: string;
   background: BackgroundSettings;
   cellBackgrounds: Record<string, BackgroundSettings>;
   cellPadding: Record<string, string>;
+  cellVerticalMargin: Record<string, string>;
   cellBorderWidth: Record<string, string>;
   cellBorderColor: Record<string, string>;
   cellBorderRadius: Record<string, string>;
@@ -232,6 +234,16 @@ export function normalizeAlignment(value: unknown): BuilderTemplateSection["alig
   return "left";
 }
 
+export function normalizeSpacingValue(value: unknown, fallback = "0", min = 0, max = 160) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  const fallbackValue = Number.parseInt(fallback, 10);
+  const normalized = Number.isFinite(parsed)
+    ? Math.min(Math.max(parsed, min), max)
+    : Math.min(Math.max(Number.isFinite(fallbackValue) ? fallbackValue : min, min), max);
+
+  return String(normalized);
+}
+
 export function normalizeBackgroundMode(
   value: unknown
 ): BackgroundSettings["mode"] {
@@ -369,9 +381,7 @@ function normalizeCellMetric(
 
   return Object.fromEntries(
     columns.map((column) => {
-      const parsed = Number.parseInt(String(raw[column] ?? fallback), 10);
-      const normalized = Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), max) : Number.parseInt(fallback, 10);
-      return [column, String(normalized)];
+      return [column, normalizeSpacingValue(raw[column], fallback, min, max)];
     })
   );
 }
@@ -531,9 +541,11 @@ export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[
         title: safeText(normalizedSection.title, 255),
         layout,
         alignment: normalizeAlignment(normalizedSection.alignment),
+        verticalMargin: normalizeSpacingValue(normalizedSection.verticalMargin, "0", 0, 160),
         background: normalizeBackgroundSettings(normalizedSection.background),
         cellBackgrounds: normalizeCellBackgrounds(normalizedSection.cellBackgrounds, layout),
         cellPadding: normalizeCellPadding(normalizedSection.cellPadding, layout),
+        cellVerticalMargin: normalizeCellMetric(normalizedSection.cellVerticalMargin, layout, "0", 0, 160),
         cellBorderWidth: normalizeCellMetric(normalizedSection.cellBorderWidth, layout, "1", 0, 20),
         cellBorderColor: normalizeCellColor(normalizedSection.cellBorderColor, layout, "#d9e4ef"),
         cellBorderRadius: normalizeCellMetric(normalizedSection.cellBorderRadius, layout, "24", 0, 60),
@@ -554,11 +566,13 @@ export function createEmptySection(layout: BuilderTemplateLayout = "single"): Bu
     title: "",
     layout,
     alignment: "left",
+    verticalMargin: "0",
     background: createDefaultBackgroundSettings(),
     cellBackgrounds: Object.fromEntries(
       getLayoutColumns(layout).map((column) => [column, createDefaultBackgroundSettings()])
     ),
     cellPadding: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "18"])),
+    cellVerticalMargin: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "0"])),
     cellBorderWidth: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "1"])),
     cellBorderColor: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "#d9e4ef"])),
     cellBorderRadius: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "24"])),
@@ -669,7 +683,7 @@ export function createEmptyModule(
     column,
     name: "",
     text: "",
-    settings: defaults
+    settings: { verticalMargin: "0", ...defaults }
   };
 }
 

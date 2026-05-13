@@ -20,6 +20,7 @@ import {
   getImagePositionMode,
   getModuleAlignment,
   getModuleBackgroundSettings,
+  getVerticalMarginStyle,
   isVideoMedia
 } from "@/components/builder/builder-utils";
 
@@ -149,6 +150,7 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
   const isNavigationSection = section.modules.length > 0 && section.modules.every((module) => module.type === "navigation");
   const gridStyle: CSSProperties = {
     ...(isNavigationSection ? {} : sectionStyle),
+    ...getVerticalMarginStyle(section.verticalMargin),
     display: "grid",
     gridTemplateColumns: getLayoutGridTemplate(section.layout),
     gap: "16px"
@@ -166,11 +168,13 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
         const isNavigationColumn = columnModules.length > 0 && columnModules.every((module) => module.type === "navigation");
         const columnBackground = section.cellBackgrounds?.[columnKey];
         const padding = section.cellPadding?.[columnKey] ?? "0";
+        const verticalMargin = section.cellVerticalMargin?.[columnKey] ?? "0";
         const borderWidth = section.cellBorderWidth?.[columnKey] ?? "0";
         const borderColor = section.cellBorderColor?.[columnKey] ?? "#d9e4ef";
         const borderRadius = section.cellBorderRadius?.[columnKey] ?? "0";
         const columnStyle: CSSProperties = {
           ...(isNavigationColumn || !columnBackground ? {} : getBuilderBackgroundStyle(columnBackground)),
+          ...getVerticalMarginStyle(verticalMargin),
           padding: isNavigationColumn ? 0 : `${padding}px`,
           border: isNavigationColumn || Number(borderWidth) <= 0 ? undefined : `${borderWidth}px solid ${borderColor}`,
           borderRadius: isNavigationColumn ? 0 : `${borderRadius}px`,
@@ -187,7 +191,10 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
               <div
                 key={module.id}
                 className={`builder-preview-module ${getAlignmentClass(getModuleAlignment(module.settings))}`}
-                style={getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings))}
+                style={{
+                  ...(getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
+                  ...getVerticalMarginStyle(module.settings.verticalMargin)
+                }}
               >
                 <BuilderModulePreview module={module} />
               </div>

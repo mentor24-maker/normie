@@ -35,7 +35,11 @@ export function SiteShell({
           </div>
         ) : null}
         {children}
+        <footer className="site-shell-footer">
+          <Link className="site-shell-footer-link" href="/privacy">privacy</Link>
+          <Link className="site-shell-footer-link" href="/terms">terms</Link>
+        </footer>
       </div>
-    </main>
+    </main>  
   );
 }

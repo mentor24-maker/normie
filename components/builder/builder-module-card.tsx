@@ -19,6 +19,7 @@ import {
   getImageModuleStyle,
   getModuleAlignment,
   getModuleBackgroundSettings,
+  getVerticalMarginStyle,
   isVideoMedia
 } from "./builder-utils";
 
@@ -1315,7 +1316,10 @@ export function BuilderModuleCard({
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
-      style={getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings))}
+      style={{
+        ...(getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
+        ...getVerticalMarginStyle(module.settings.verticalMargin)
+      }}
     >
       <div className="builder-module-header">
         <div className="builder-module-title">
@@ -1390,6 +1394,23 @@ export function BuilderModuleCard({
                 ))}
               </div>
             </div>
+            <label className="field builder-module-vertical-margin-field">
+              <span>Vertical margin</span>
+              <input
+                type="range"
+                min="0"
+                max="160"
+                step="1"
+                value={module.settings.verticalMargin ?? "0"}
+                onChange={(event) =>
+                  onUpdateModule((current) => ({
+                    ...current,
+                    settings: { ...current.settings, verticalMargin: event.target.value }
+                  }))
+                }
+              />
+              <small>{module.settings.verticalMargin ?? "0"}px</small>
+            </label>
           </div>
 
           {(module.type === "image" || module.type === "button") && (

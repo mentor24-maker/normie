@@ -15,7 +15,7 @@ import {
 } from "@/lib/builder-template";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { BuilderModuleCard } from "./builder-module-card";
-import { getAlignmentClass, getSectionBackgroundStyle } from "./builder-utils";
+import { getAlignmentClass, getSectionBackgroundStyle, getVerticalMarginStyle } from "./builder-utils";
 import { layoutOptions } from "./builder-types";
 
 type BuilderSectionCardProps = {
@@ -160,6 +160,7 @@ export function BuilderSectionCard({
 
     return {
       ...getBuilderBackgroundStyle(section.cellBackgrounds[column]),
+      ...getVerticalMarginStyle(section.cellVerticalMargin?.[column] ?? "0"),
       padding: `${section.cellPadding[column] ?? "18"}px`,
       borderStyle: borderStyle === "none" ? "none" : borderStyle,
       borderWidth: borderStyle === "none" ? 0 : `${Math.max(Number.isFinite(borderWidth) ? borderWidth : 1, 0)}px`,
@@ -169,6 +170,13 @@ export function BuilderSectionCard({
       opacity: opacity ? Number.parseFloat(opacity) : undefined,
       alignItems: (section as unknown as Record<string, Record<string, string>>).cellAlignItems?.[column] ?? undefined,
       justifyContent: (section as unknown as Record<string, Record<string, string>>).cellJustifyContent?.[column] ?? undefined
+    };
+  }
+
+  function getSectionStyle(): CSSProperties {
+    return {
+      ...(getSectionBackgroundStyle(section) ?? {}),
+      ...getVerticalMarginStyle(section.verticalMargin)
     };
   }
 
@@ -216,7 +224,7 @@ export function BuilderSectionCard({
   }
 
   return (
-    <article className="builder-section-card" style={getSectionBackgroundStyle(section)}>
+    <article className="builder-section-card" style={getSectionStyle()}>
       <div className="builder-section-header">
         <div className="builder-section-title">
           {isEditingTitle ? (
@@ -294,6 +302,23 @@ export function BuilderSectionCard({
                 <option value="center">Center</option>
                 <option value="right">Right</option>
               </select>
+            </label>
+            <label className="field">
+              <span>Vertical margin</span>
+              <input
+                type="range"
+                min="0"
+                max="160"
+                step="1"
+                value={section.verticalMargin ?? "0"}
+                onChange={(event) =>
+                  onUpdateSection((current) => ({
+                    ...current,
+                    verticalMargin: event.target.value
+                  }))
+                }
+              />
+              <small>{section.verticalMargin ?? "0"}px</small>
             </label>
             <BuilderBackgroundControls
               label="Row Background"
@@ -448,6 +473,18 @@ export function BuilderSectionCard({
                               onChange={(e) => onUpdateCellPadding(column, e.target.value)}
                             />
                             <small>{section.cellPadding[column] ?? "18"}px</small>
+                          </label>
+                          <label className="field">
+                            <span>Vertical margin</span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="160"
+                              step="1"
+                              value={getCellExtra(column, "cellVerticalMargin", "0")}
+                              onChange={(e) => setCellExtra(column, "cellVerticalMargin", e.target.value)}
+                            />
+                            <small>{getCellExtra(column, "cellVerticalMargin", "0")}px</small>
                           </label>
                         </div>
 
