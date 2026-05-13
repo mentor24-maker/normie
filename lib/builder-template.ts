@@ -95,6 +95,7 @@ export type BuilderCellModuleRecord = {
 };
 
 export const BUILDER_PREVIEW_STORAGE_KEY = "normie_builder_preview_draft";
+export const BUILDER_PREVIEW_DEVICE_STORAGE_KEY = "normie_builder_preview_device";
 export const BACKGROUND_STYLE_PRESETS: Array<{ value: BackgroundStylePreset; label: string }> = [
   { value: "blue-yellow-circles", label: "blue-yellow-circles" }
 ];

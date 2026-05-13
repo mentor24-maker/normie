@@ -4,6 +4,7 @@ import type { DragEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
 import {
+  BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
   BUILDER_PREVIEW_STORAGE_KEY,
   createDefaultBackgroundSettings,
   createEmptyModule,
@@ -33,6 +34,7 @@ import { BuilderModulePaletteModal } from "./builder/builder-module-palette-moda
 
 export function AdminBuilderEditor() {
   const [builderMode, setBuilderMode] = useState<"templates" | "pages">("templates");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [pageTemplates, setPageTemplates] = useState<BuilderTemplateRecord[]>([]);
   const [pages, setPages] = useState<BuilderPageRecord[]>([]);
   const [cellModules, setCellModules] = useState<BuilderCellModuleRecord[]>([]);
@@ -630,11 +632,13 @@ export function AdminBuilderEditor() {
 
   function openPreviewPage() {
     window.localStorage.setItem(BUILDER_PREVIEW_STORAGE_KEY, JSON.stringify({ name: draft.name, pageBackground: draft.pageBackground, layoutSections: draft.layoutSections }));
+    window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, previewDevice);
     window.open(`${window.location.origin}/preview`, "_blank");
   }
 
   function openTemplatePreview(template: BuilderTemplateRecord) {
     window.localStorage.setItem(BUILDER_PREVIEW_STORAGE_KEY, JSON.stringify({ name: template.name, pageBackground: template.pageBackground, layoutSections: template.layoutSections }));
+    window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, previewDevice);
     window.open(`${window.location.origin}/preview`, "_blank");
   }
 
@@ -678,6 +682,22 @@ export function AdminBuilderEditor() {
         <div className="admin-actions builder-header-actions">
           <button className={builderMode === "templates" ? "submit-button" : "secondary-button"} onClick={() => setBuilderMode("templates")} type="button">Templates</button>
           <button className={builderMode === "pages" ? "submit-button" : "secondary-button"} onClick={() => setBuilderMode("pages")} type="button">Pages</button>
+          <div className="builder-device-toggle" role="group" aria-label="Preview device">
+            <button
+              className={previewDevice === "desktop" ? "submit-button" : "secondary-button"}
+              onClick={() => setPreviewDevice("desktop")}
+              type="button"
+            >
+              Desktop
+            </button>
+            <button
+              className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}
+              onClick={() => setPreviewDevice("mobile")}
+              type="button"
+            >
+              Mobile
+            </button>
+          </div>
           <button className="secondary-button" onClick={openPreviewPage} type="button">Preview</button>
         </div>
       </div>

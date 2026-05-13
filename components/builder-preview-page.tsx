@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BuilderTemplatePreview } from "@/components/builder-template-preview";
 import {
+  BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
   BUILDER_PREVIEW_STORAGE_KEY,
   createDefaultBackgroundSettings,
   normalizeBuilderDocument
@@ -17,10 +18,16 @@ type PreviewDraft = {
 
 export function BuilderPreviewPage() {
   const [draft, setDraft] = useState<PreviewDraft | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   useEffect(() => {
     try {
       const rawValue = window.localStorage.getItem(BUILDER_PREVIEW_STORAGE_KEY);
+      const storedDevice = window.localStorage.getItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY);
+
+      if (storedDevice === "mobile" || storedDevice === "desktop") {
+        setPreviewDevice(storedDevice);
+      }
 
       if (!rawValue) {
         return;
@@ -58,6 +65,28 @@ export function BuilderPreviewPage() {
             </p>
           </div>
           <div className="admin-actions">
+            <div className="builder-device-toggle" role="group" aria-label="Preview device">
+              <button
+                className={previewDevice === "desktop" ? "submit-button" : "secondary-button"}
+                onClick={() => {
+                  setPreviewDevice("desktop");
+                  window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, "desktop");
+                }}
+                type="button"
+              >
+                Desktop
+              </button>
+              <button
+                className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}
+                onClick={() => {
+                  setPreviewDevice("mobile");
+                  window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, "mobile");
+                }}
+                type="button"
+              >
+                Mobile
+              </button>
+            </div>
             <Link className="secondary-button" href="/admin/builder">
               Back to Builder
             </Link>
@@ -65,11 +94,13 @@ export function BuilderPreviewPage() {
         </div>
 
         {draft && draft.layoutSections.length > 0 ? (
-          <BuilderTemplatePreview
-            layoutSections={draft.layoutSections}
-            pageBackground={draft.pageBackground}
-            showShell={false}
-          />
+          <div className={`builder-preview-device-frame builder-preview-device-${previewDevice}`}>
+            <BuilderTemplatePreview
+              layoutSections={draft.layoutSections}
+              pageBackground={draft.pageBackground}
+              showShell={false}
+            />
+          </div>
         ) : (
           <section className="admin-section">
             <div className="panel-label">Preview</div>
