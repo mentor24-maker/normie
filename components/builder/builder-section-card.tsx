@@ -21,6 +21,7 @@ import { layoutOptions } from "./builder-types";
 type BuilderSectionCardProps = {
   section: BuilderTemplateSection;
   sectionIndex: number;
+  editorDevice: "browser" | "mobile";
   isCollapsed: boolean;
   expandedModuleIds: string[];
   onToggleCollapsed: () => void;
@@ -51,6 +52,7 @@ type BuilderSectionCardProps = {
   onSaveCellModules: (column: string) => void;
   onInsertCellModule: (column: string, cellModuleId: string) => void;
   onOpenGallery: (moduleId: string) => void;
+  onOpenSocialIconGallery: (moduleId: string, itemId: string) => void;
   onUploadMediaForModule: (moduleId: string, file: File | null) => void;
   onOpenSectionBackgroundGallery: () => void;
   onUploadSectionBackgroundMedia: (file: File | null) => void;
@@ -60,6 +62,7 @@ type BuilderSectionCardProps = {
 export function BuilderSectionCard({
   section,
   sectionIndex,
+  editorDevice,
   isCollapsed,
   expandedModuleIds,
   onToggleCollapsed,
@@ -84,6 +87,7 @@ export function BuilderSectionCard({
   onSaveCellModules,
   onInsertCellModule,
   onOpenGallery,
+  onOpenSocialIconGallery,
   onUploadMediaForModule,
   onOpenSectionBackgroundGallery,
   onUploadSectionBackgroundMedia,
@@ -264,71 +268,95 @@ export function BuilderSectionCard({
 
       {!isCollapsed ? (
         <>
-          <div className="builder-section-controls">
-            <label className="field">
-              <span>Layout</span>
-              <select
-                value={section.layout}
-                onChange={(event) => {
-                  const nextLayout = event.target.value as BuilderTemplateLayout;
-                  const allowedColumns = new Set(getLayoutColumns(nextLayout));
-                  onUpdateSection((current) => ({
-                    ...current,
-                    layout: nextLayout,
-                    modules: current.modules.map((module) => ({
-                      ...module,
-                      column: allowedColumns.has(module.column) ? module.column : getLayoutColumns(nextLayout)[0]
+          {editorDevice === "mobile" ? (
+            <div className="builder-section-controls builder-section-controls-mobile">
+              <label className="field">
+                <span>Mobile layout</span>
+                <select
+                  value={section.mobileLayout ?? "stack"}
+                  onChange={(event) =>
+                    onUpdateSection((current) => ({
+                      ...current,
+                      mobileLayout: event.target.value as BuilderTemplateSection["mobileLayout"]
                     }))
-                  }));
-                }}
-              >
-                {layoutOptions.map((layout) => (
-                  <option key={layout.value} value={layout.value}>{layout.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Alignment</span>
-              <select
-                value={section.alignment}
-                onChange={(event) =>
-                  onUpdateSection((current) => ({
-                    ...current,
-                    alignment: event.target.value as "left" | "center" | "right"
-                  }))
-                }
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Vertical margin</span>
-              <input
-                type="range"
-                min="0"
-                max="160"
-                step="1"
-                value={section.verticalMargin ?? "0"}
-                onChange={(event) =>
-                  onUpdateSection((current) => ({
-                    ...current,
-                    verticalMargin: event.target.value
-                  }))
-                }
+                  }
+                >
+                  <option value="stack">Stack columns</option>
+                  <option value="keep">Keep columns</option>
+                  <option value="reverse-stack">Reverse stack</option>
+                </select>
+              </label>
+              <div className="builder-mobile-context-note">
+                Mobile mode only changes mobile-specific row, cell, and module overrides.
+              </div>
+            </div>
+          ) : (
+            <div className="builder-section-controls">
+              <label className="field">
+                <span>Layout</span>
+                <select
+                  value={section.layout}
+                  onChange={(event) => {
+                    const nextLayout = event.target.value as BuilderTemplateLayout;
+                    const allowedColumns = new Set(getLayoutColumns(nextLayout));
+                    onUpdateSection((current) => ({
+                      ...current,
+                      layout: nextLayout,
+                      modules: current.modules.map((module) => ({
+                        ...module,
+                        column: allowedColumns.has(module.column) ? module.column : getLayoutColumns(nextLayout)[0]
+                      }))
+                    }));
+                  }}
+                >
+                  {layoutOptions.map((layout) => (
+                    <option key={layout.value} value={layout.value}>{layout.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Alignment</span>
+                <select
+                  value={section.alignment}
+                  onChange={(event) =>
+                    onUpdateSection((current) => ({
+                      ...current,
+                      alignment: event.target.value as "left" | "center" | "right"
+                    }))
+                  }
+                >
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Vertical margin</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="160"
+                  step="1"
+                  value={section.verticalMargin ?? "0"}
+                  onChange={(event) =>
+                    onUpdateSection((current) => ({
+                      ...current,
+                      verticalMargin: event.target.value
+                    }))
+                  }
+                />
+                <small>{section.verticalMargin ?? "0"}px</small>
+              </label>
+              <BuilderBackgroundControls
+                label="Row Background"
+                background={section.background}
+                compact
+                onChange={(updater) => onUpdateSection((current) => ({ ...current, background: updater(current.background) }))}
+                onChooseImage={onOpenSectionBackgroundGallery}
+                onUploadImage={onUploadSectionBackgroundMedia}
               />
-              <small>{section.verticalMargin ?? "0"}px</small>
-            </label>
-            <BuilderBackgroundControls
-              label="Row Background"
-              background={section.background}
-              compact
-              onChange={(updater) => onUpdateSection((current) => ({ ...current, background: updater(current.background) }))}
-              onChooseImage={onOpenSectionBackgroundGallery}
-              onUploadImage={onUploadSectionBackgroundMedia}
-            />
-          </div>
+            </div>
+          )}
 
           <div
             className={`builder-columns builder-columns-${columns.length} ${getAlignmentClass(section.alignment)}`}
@@ -364,11 +392,27 @@ export function BuilderSectionCard({
                       onClick={() => toggleCellPanel(column, "styles")}
                       type="button"
                     >
-                      <strong>Styles</strong>
+                      <strong>{editorDevice === "mobile" ? "Mobile" : "Styles"}</strong>
                       <span>{cellPanels.styles ? "▸" : "▾"}</span>
                     </button>
 
-                    {!cellPanels.styles ? (
+                    {!cellPanels.styles ? editorDevice === "mobile" ? (
+                      <div className="builder-cell-styles-grid builder-cell-styles-grid-mobile">
+                        <div className="builder-cell-style-group">
+                          <div className="builder-cell-style-group-label">Mobile display</div>
+                          <label className="field builder-checkbox-field">
+                            <span>Hide this cell on mobile</span>
+                            <input
+                              type="checkbox"
+                              checked={getCellExtra(column, "cellMobileHidden", "false") === "true"}
+                              onChange={(event) =>
+                                setCellExtra(column, "cellMobileHidden", event.target.checked ? "true" : "false")
+                              }
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
                       <div className="builder-cell-styles-grid">
 
                         {/* BORDER */}
@@ -584,6 +628,7 @@ export function BuilderSectionCard({
                                 <BuilderModuleCard
                                   module={module}
                                   sectionId={section.id}
+                                  editorDevice={editorDevice}
                                   isExpanded={expandedModuleIds.includes(module.id)}
                                   onToggleExpanded={() => onToggleModuleExpanded(module.id)}
                                   onUpdateModule={(updater) => onUpdateModule(module.id, updater)}
@@ -593,6 +638,7 @@ export function BuilderSectionCard({
                                   onRemove={() => onRemoveModule(module.id)}
                                   onClone={() => onCloneModule(section.id, module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
+                                  onOpenSocialIconGallery={(itemId) => onOpenSocialIconGallery(module.id, itemId)}
                                   onUploadMedia={(file) => onUploadMediaForModule(module.id, file)}
                                 />
                                 {moduleIndex === columnModules.length - 1 ? (

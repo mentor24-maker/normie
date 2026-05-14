@@ -74,7 +74,7 @@ export function BuilderPreviewPage() {
                 }}
                 type="button"
               >
-                Desktop
+                Browser
               </button>
               <button
                 className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}

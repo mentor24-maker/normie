@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase-browser";
@@ -171,6 +172,14 @@ export function AdminLoginScreen() {
           </button>
           {error ? <div className="notice error admin-notice">{error}</div> : null}
         </form>
+        <div className="admin-login-footer" aria-label="Legal links">
+          <Link className="site-shell-footer-link" href="/privacy">
+            Privacy Policy
+          </Link>
+          <Link className="site-shell-footer-link" href="/terms">
+            Terms of Service
+          </Link>
+        </div>
       </div>
     </section>
   );

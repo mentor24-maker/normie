@@ -26,6 +26,7 @@ import {
 type BuilderModuleCardProps = {
   module: BuilderTemplateModule;
   sectionId: string;
+  editorDevice: "browser" | "mobile";
   isExpanded: boolean;
   onToggleExpanded: () => void;
   onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
@@ -34,6 +35,7 @@ type BuilderModuleCardProps = {
   onMoveDown: () => void;
   onRemove: () => void;
   onOpenGallery: () => void;
+  onOpenSocialIconGallery: (itemId: string) => void;
   onUploadMedia: (file: File | null) => void;
   onClone: () => void;
 };
@@ -1089,10 +1091,12 @@ function SliderModuleEditor({
 
 function SocialModuleEditor({
   module,
-  onUpdateModule
+  onUpdateModule,
+  onOpenGallery
 }: {
   module: BuilderTemplateModule;
   onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+  onOpenGallery: (itemId: string) => void;
 }) {
   const items = parseSocialItems(module.settings);
 
@@ -1144,7 +1148,15 @@ function SocialModuleEditor({
             <div className="builder-slider-item-grid">
               <label className="field"><span>Label</span><input type="text" value={item.label} onChange={(e) => updateItem(item.id, { label: e.target.value })} /></label>
               <label className="field"><span>Link</span><input type="text" value={item.href} onChange={(e) => updateItem(item.id, { href: e.target.value })} placeholder="https://..." /></label>
-              <label className="field builder-slider-item-grid-full"><span>Icon URL</span><input type="text" value={item.iconUrl} onChange={(e) => updateItem(item.id, { iconUrl: normalizeBuilderAssetUrl(e.target.value) })} placeholder="/api/admin/media-file/gallery/social-x.svg" /></label>
+              <div className="builder-slider-item-grid-full builder-social-icon-picker">
+                <label className="field">
+                  <span>Icon</span>
+                  <input type="text" value={item.iconUrl} readOnly placeholder="Choose an icon from the gallery" />
+                </label>
+                <button className="secondary-button builder-social-icon-picker-button" onClick={() => onOpenGallery(item.id)} type="button">
+                  Choose From Gallery
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -1300,6 +1312,7 @@ function HeadlineRotatorModuleEditor({
 export function BuilderModuleCard({
   module,
   sectionId,
+  editorDevice,
   isExpanded,
   onToggleExpanded,
   onUpdateModule,
@@ -1308,10 +1321,12 @@ export function BuilderModuleCard({
   onMoveDown,
   onRemove,
   onOpenGallery,
+  onOpenSocialIconGallery,
   onUploadMedia,
   onClone
 }: BuilderModuleCardProps) {
     const moduleAlignment = getModuleAlignment(module.settings);
+    const mobileAlignment = module.settings.mobileAlignment ?? "";
 
   return (
     <div
@@ -1366,6 +1381,63 @@ export function BuilderModuleCard({
             />
           </label>
 
+          {editorDevice === "mobile" ? (
+            <div className="builder-module-settings-row builder-module-settings-row-mobile">
+              <label className="field builder-checkbox-field">
+                <span>Hide module on mobile</span>
+                <input
+                  type="checkbox"
+                  checked={module.settings.mobileHidden === "true"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, mobileHidden: event.target.checked ? "true" : "false" }
+                    }))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Mobile alignment</span>
+                <select
+                  value={mobileAlignment}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, mobileAlignment: event.target.value }
+                    }))
+                  }
+                >
+                  <option value="">Use browser setting</option>
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </label>
+              {(module.type === "heading" || module.type === "headline-rotator") ? (
+                <label className="field">
+                  <span>Mobile font size</span>
+                  <input
+                    type="number"
+                    min="10"
+                    max="120"
+                    step="1"
+                    value={module.settings.mobileFontSize ?? ""}
+                    onChange={(event) =>
+                      onUpdateModule((current) => ({
+                        ...current,
+                        settings: { ...current.settings, mobileFontSize: event.target.value }
+                      }))
+                    }
+                    placeholder="Auto"
+                  />
+                </label>
+              ) : null}
+              <div className="builder-mobile-context-note">
+                Mobile overrides are kept separate from browser settings.
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="builder-module-settings-row">
             <BuilderBackgroundControls
               label="Module Background"
@@ -1586,7 +1658,13 @@ export function BuilderModuleCard({
 
           {module.type === "table" && <TableModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "slider" && <SliderModuleEditor module={module} onUpdateModule={onUpdateModule} />}
-          {module.type === "social" && <SocialModuleEditor module={module} onUpdateModule={onUpdateModule} />}
+          {module.type === "social" && (
+            <SocialModuleEditor
+              module={module}
+              onUpdateModule={onUpdateModule}
+              onOpenGallery={onOpenSocialIconGallery}
+            />
+          )}
           {module.type === "navigation" && <NavModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "headline-rotator" && <HeadlineRotatorModuleEditor module={module} onUpdateModule={onUpdateModule} />}
 
@@ -1615,6 +1693,8 @@ export function BuilderModuleCard({
               )}
             </label>
           ) : null}
+          </>
+          )}
         </div>
       ) : null}
     </div>

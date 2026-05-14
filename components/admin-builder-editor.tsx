@@ -495,6 +495,11 @@ export function AdminBuilderEditor() {
     setIsGalleryOpen(true);
   }
 
+  function openSocialIconGallery(sectionId: string, moduleId: string, itemId: string) {
+    setGalleryTarget({ kind: "social-icon", sectionId, moduleId, itemId });
+    setIsGalleryOpen(true);
+  }
+
   function openSectionBackgroundGallery(sectionId: string) {
     setGalleryTarget({ kind: "section-background", sectionId });
     setIsGalleryOpen(true);
@@ -515,6 +520,32 @@ export function AdminBuilderEditor() {
       updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (c) => ({
         ...c, settings: { ...c.settings, url: normalizeBuilderAssetUrl(imagePath) }
       }));
+    } else if (galleryTarget.kind === "social-icon") {
+      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (current) => {
+        let items: Array<Record<string, unknown>> = [];
+
+        try {
+          const parsed = JSON.parse(current.settings.socialItems || "[]");
+          items = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          items = [];
+        }
+
+        return {
+          ...current,
+          settings: {
+            ...current.settings,
+            socialItems: JSON.stringify(
+              items.map((item, index) => {
+                const id = String(item.id || `social-${index + 1}`);
+                return id === galleryTarget.itemId
+                  ? { ...item, id, iconUrl: normalizeBuilderAssetUrl(imagePath) }
+                  : { ...item, id };
+              })
+            )
+          }
+        };
+      });
     } else {
       updateSection(galleryTarget.sectionId, (c) => ({
         ...c, background: { ...c.background, mode: "image", imageUrl: normalizeBuilderAssetUrl(imagePath) }
@@ -688,7 +719,7 @@ export function AdminBuilderEditor() {
               onClick={() => setPreviewDevice("desktop")}
               type="button"
             >
-              Desktop
+              Browser
             </button>
             <button
               className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}
@@ -775,6 +806,7 @@ export function AdminBuilderEditor() {
                   key={section.id}
                   section={section}
                   sectionIndex={sectionIndex}
+                  editorDevice={previewDevice === "mobile" ? "mobile" : "browser"}
                   isCollapsed={collapsedSectionIds.includes(section.id)}
                   expandedModuleIds={expandedModuleIds}
                   onToggleCollapsed={() => toggleSectionCollapsed(section.id)}
@@ -800,6 +832,7 @@ export function AdminBuilderEditor() {
                   onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
                   
                   onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
+                  onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
                   onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
                   onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
                   onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="420" viewBox="0 0 800 420">
+  <title>Normie Tumbleweed Animation</title>
+  <style>
+    svg {
+      background: transparent;
+      overflow: hidden;
+    }
+
+    #normie {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: normie-tumbleweed 8s linear infinite;
+    }
+
+    @keyframes normie-tumbleweed {
+      0% { transform: translate(-190px, 170px) rotate(0deg); }
+      12.5% { transform: translate(-61px, 90px) rotate(180deg); }
+      25% { transform: translate(68px, 170px) rotate(360deg); }
+      37.5% { transform: translate(197px, 90px) rotate(540deg); }
+      50% { transform: translate(326px, 170px) rotate(720deg); }
+      62.5% { transform: translate(455px, 90px) rotate(900deg); }
+      75% { transform: translate(584px, 170px) rotate(1080deg); }
+      87.5% { transform: translate(713px, 90px) rotate(1260deg); }
+      100% { transform: translate(840px, 170px) rotate(1440deg); }
+    }
+  </style>
+
+  <g id="normie">
+    <circle cx="75" cy="75" r="69" fill="#55c7f6" stroke="#101820" stroke-width="4" />
+    <circle cx="75" cy="75" r="63" fill="none" stroke="#ffffff" stroke-width="5" />
+
+    <path
+      d="M 41 111 C 47 77 54 43 75 40 C 96 43 103 77 109 111 C 103 130 92 142 75 144 C 58 142 47 130 41 111 Z"
+      fill="#ffd91f"
+      stroke="#101820"
+      stroke-width="5"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M 79 43 C 94 57 99 84 104 111 C 99 127 91 137 76 140 C 96 136 111 126 116 111 C 108 75 99 46 79 43 Z"
+      fill="#f6b918"
+      opacity="0.55"
+    />
+
+    <ellipse cx="49" cy="70" rx="19" ry="22" fill="#ffffff" stroke="#101820" stroke-width="5" />
+    <ellipse cx="101" cy="70" rx="19" ry="22" fill="#ffffff" stroke="#101820" stroke-width="5" />
+    <circle cx="54" cy="70" r="8" fill="#101820" />
+    <circle cx="96" cy="70" r="8" fill="#101820" />
+    <circle cx="58" cy="66" r="3" fill="#ffffff" />
+    <circle cx="100" cy="66" r="3" fill="#ffffff" />
+
+    <path d="M 45 103 C 58 120 92 120 105 103" fill="none" stroke="#101820" stroke-width="5" stroke-linecap="round" />
+    <path d="M 65 132 C 72 136 80 136 87 132" fill="none" stroke="#101820" stroke-width="4" stroke-linecap="round" />
+    <path d="M 60 48 C 65 42 71 39 78 39" fill="none" stroke="#fff9a6" stroke-width="6" stroke-linecap="round" opacity="0.85" />
+
+    <g transform="translate(4 97)">
+      <path d="M 31 28 C 16 24 6 17 6 8 C 6 3 11 0 15 3 C 18 8 22 12 30 14 Z" fill="#ffd91f" stroke="#101820" stroke-width="4" />
+      <rect x="0" y="20" width="28" height="10" rx="5" fill="#ffd91f" stroke="#101820" stroke-width="4" />
+      <rect x="4" y="33" width="24" height="9" rx="5" fill="#ffd91f" stroke="#101820" stroke-width="4" />
+    </g>
+
+    <g transform="translate(118 97)">
+      <path d="M 0 14 C 8 12 12 8 15 3 C 19 0 24 3 24 8 C 24 17 14 24 -1 28 Z" fill="#ffd91f" stroke="#101820" stroke-width="4" />
+      <rect x="2" y="20" width="28" height="10" rx="5" fill="#ffd91f" stroke="#101820" stroke-width="4" />
+      <rect x="2" y="33" width="24" height="9" rx="5" fill="#ffd91f" stroke="#101820" stroke-width="4" />
+    </g>
+  </g>
+</svg>

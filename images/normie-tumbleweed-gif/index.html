@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Normie Tumbleweed Animation</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      .stage {
+        position: relative;
+        width: 800px;
+        height: 420px;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      .normie {
+        position: absolute;
+        left: 0;
+        top: 170px;
+        width: 150px;
+        height: auto;
+        transform-origin: center center;
+        animation: normie-tumbleweed 8s linear infinite;
+        will-change: transform;
+      }
+
+      @keyframes normie-tumbleweed {
+        0% {
+          transform: translateX(-100vw) translateY(0) rotate(0deg);
+        }
+        12.5% {
+          transform: translateX(-75vw) translateY(-80px) rotate(180deg);
+        }
+        25% {
+          transform: translateX(-50vw) translateY(0) rotate(360deg);
+        }
+        37.5% {
+          transform: translateX(-25vw) translateY(-80px) rotate(540deg);
+        }
+        50% {
+          transform: translateX(0) translateY(0) rotate(720deg);
+        }
+        62.5% {
+          transform: translateX(25vw) translateY(-80px) rotate(900deg);
+        }
+        75% {
+          transform: translateX(50vw) translateY(0) rotate(1080deg);
+        }
+        87.5% {
+          transform: translateX(75vw) translateY(-80px) rotate(1260deg);
+        }
+        100% {
+          transform: translateX(100vw) translateY(0) rotate(1440deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage" aria-label="Normie cartwheel animation">
+      <img class="normie" src="normie.png" alt="Normie" />
+    </div>
+  </body>
+</html>

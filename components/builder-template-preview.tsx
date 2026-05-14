@@ -153,12 +153,13 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
     ...getVerticalMarginStyle(section.verticalMargin),
     display: "grid",
     gridTemplateColumns: getLayoutGridTemplate(section.layout),
-    gap: "16px"
-  };
+    gap: "16px",
+    "--builder-layout-grid": getLayoutGridTemplate(section.layout)
+  } as CSSProperties;
 
   return (
     <section
-      className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"} ${
+      className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"} builder-preview-section-mobile-${section.mobileLayout || "stack"} ${
         isNavigationSection ? "builder-preview-section-navigation" : ""
       }`}
       style={gridStyle}
@@ -184,17 +185,28 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
         return (
           <div
             key={columnKey}
-            className={`builder-preview-column ${isNavigationColumn ? "builder-preview-column-navigation" : ""}`}
+            className={`builder-preview-column ${
+              section.cellMobileHidden?.[columnKey] === "true" ? "builder-preview-column-mobile-hidden" : ""
+            } ${isNavigationColumn ? "builder-preview-column-navigation" : ""}`}
             style={columnStyle}
           >
             {columnModules.map((module) => (
               <div
                 key={module.id}
-                className={`builder-preview-module ${getAlignmentClass(getModuleAlignment(module.settings))}`}
+                className={`builder-preview-module ${getAlignmentClass(getModuleAlignment(module.settings))} ${
+                  module.settings.mobileHidden === "true" ? "builder-preview-module-mobile-hidden" : ""
+                } ${
+                  module.settings.mobileAlignment ? `builder-preview-module-mobile-align-${module.settings.mobileAlignment}` : ""
+                } ${
+                  module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
+                }`}
                 style={{
                   ...(getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-                  ...getVerticalMarginStyle(module.settings.verticalMargin)
-                }}
+                  ...getVerticalMarginStyle(module.settings.verticalMargin),
+                  "--builder-mobile-font-size": module.settings.mobileFontSize
+                    ? `${module.settings.mobileFontSize}px`
+                    : undefined
+                } as CSSProperties}
               >
                 <BuilderModulePreview module={module} />
               </div>

@@ -10,7 +10,8 @@ export type ModulePaletteGroup = BuilderTemplateModuleType;
 
 export type GalleryTarget =
   | { kind: "module"; sectionId: string; moduleId: string }
-  | { kind: "section-background"; sectionId: string };
+  | { kind: "section-background"; sectionId: string }
+  | { kind: "social-icon"; sectionId: string; moduleId: string; itemId: string };
 
 export type ModulePaletteItem = {
   id: string;
