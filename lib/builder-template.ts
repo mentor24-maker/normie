@@ -17,6 +17,7 @@ export type BuilderTemplateModuleType =
   | "headline-rotator"
   | "text"
   | "image"
+  | "video"
   | "quote"
   | "button"
   | "contact-form"
@@ -49,12 +50,15 @@ export type BuilderTemplateSection = {
   layout: BuilderTemplateLayout;
   alignment: "left" | "center" | "right";
   verticalMargin: string;
+  mobileHidden: string;
+  desktopHidden: string;
   mobileLayout: "stack" | "keep" | "reverse-stack";
   background: BackgroundSettings;
   cellBackgrounds: Record<string, BackgroundSettings>;
   cellPadding: Record<string, string>;
   cellVerticalMargin: Record<string, string>;
   cellMobileHidden: Record<string, string>;
+  cellDesktopHidden: Record<string, string>;
   cellBorderWidth: Record<string, string>;
   cellBorderColor: Record<string, string>;
   cellBorderRadius: Record<string, string>;
@@ -92,6 +96,14 @@ export type BuilderCellModuleRecord = {
   id: string;
   name: string;
   modules: BuilderTemplateModule[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BuilderSavedSectionRecord = {
+  id: string;
+  name: string;
+  section: BuilderTemplateSection;
   createdAt: string;
   updatedAt: string;
 };
@@ -245,6 +257,10 @@ export function normalizeMobileLayout(value: unknown): BuilderTemplateSection["m
   }
 
   return "stack";
+}
+
+export function normalizeBooleanText(value: unknown) {
+  return safeText(value, 10).toLowerCase() === "true" ? "true" : "false";
 }
 
 export function normalizeSpacingValue(value: unknown, fallback = "0", min = 0, max = 160) {
@@ -428,6 +444,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "heading" ||
     type === "headline-rotator" ||
     type === "image" ||
+    type === "video" ||
     type === "quote" ||
     type === "button" ||
     type === "contact-form" ||
@@ -463,6 +480,16 @@ export function normalizeModuleSettings(value: unknown) {
   );
 }
 
+function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: unknown) {
+  const settings = normalizeModuleSettings(value);
+
+  if (type === "navigation") {
+    delete settings.navBackground;
+  }
+
+  return settings;
+}
+
 export function normalizeBuilderModules(
   value: unknown,
   fallbackColumn = "main"
@@ -479,13 +506,15 @@ export function normalizeBuilderModules(
 
       const normalizedModule = module as Record<string, unknown>;
 
+      const type = normalizeModuleType(normalizedModule.type);
+
       return {
         id: safeText(normalizedModule.id, 120) || `module-${moduleIndex + 1}`,
-        type: normalizeModuleType(normalizedModule.type),
+        type,
         column: safeText(normalizedModule.column, 40) || fallbackColumn,
         name: safeText(normalizedModule.name, 255),
         text: safeText(normalizedModule.text, 10000),
-        settings: normalizeModuleSettings(normalizedModule.settings)
+        settings: normalizeModuleSettingsForType(type, normalizedModule.settings)
       } satisfies BuilderTemplateModule;
     })
     .filter((module): module is BuilderTemplateModule => Boolean(module));
@@ -496,6 +525,26 @@ export function rowToBuilderCellModule(row: Record<string, unknown>): BuilderCel
     id: safeText(row.id, 120),
     name: safeText(row.name, 255),
     modules: normalizeBuilderModules(row.modules),
+    createdAt: safeText(row.created_at ?? row.createdAt, 120),
+    updatedAt: safeText(row.updated_at ?? row.updatedAt, 120)
+  };
+}
+
+export function normalizeBuilderSection(value: unknown): BuilderTemplateSection | null {
+  return normalizeLayoutSections([value])[0] ?? null;
+}
+
+export function rowToBuilderSavedSection(row: Record<string, unknown>): BuilderSavedSectionRecord | null {
+  const section = normalizeBuilderSection(row.section);
+
+  if (!section) {
+    return null;
+  }
+
+  return {
+    id: safeText(row.id, 120),
+    name: safeText(row.name, 255),
+    section,
     createdAt: safeText(row.created_at ?? row.createdAt, 120),
     updatedAt: safeText(row.updated_at ?? row.updatedAt, 120)
   };
@@ -537,13 +586,15 @@ export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[
               const normalizedModule = module as Record<string, unknown>;
               const column = safeText(normalizedModule.column, 40) || getLayoutColumns(layout)[0];
 
+              const type = normalizeModuleType(normalizedModule.type);
+
               return {
                 id: safeText(normalizedModule.id, 120) || `module-${sectionIndex + 1}-${moduleIndex + 1}`,
-                type: normalizeModuleType(normalizedModule.type),
+                type,
                 column: allowedColumns.has(column) ? column : getLayoutColumns(layout)[0],
                 name: safeText(normalizedModule.name, 255),
                 text: safeText(normalizedModule.text, 10000),
-                settings: normalizeModuleSettings(normalizedModule.settings)
+                settings: normalizeModuleSettingsForType(type, normalizedModule.settings)
               } satisfies BuilderTemplateModule;
             })
             .filter((module): module is BuilderTemplateModule => Boolean(module))
@@ -555,12 +606,15 @@ export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[
         layout,
         alignment: normalizeAlignment(normalizedSection.alignment),
         verticalMargin: normalizeSpacingValue(normalizedSection.verticalMargin, "0", 0, 160),
+        mobileHidden: normalizeBooleanText(normalizedSection.mobileHidden),
+        desktopHidden: normalizeBooleanText(normalizedSection.desktopHidden),
         mobileLayout: normalizeMobileLayout(normalizedSection.mobileLayout),
         background: normalizeBackgroundSettings(normalizedSection.background),
         cellBackgrounds: normalizeCellBackgrounds(normalizedSection.cellBackgrounds, layout),
         cellPadding: normalizeCellPadding(normalizedSection.cellPadding, layout),
         cellVerticalMargin: normalizeCellMetric(normalizedSection.cellVerticalMargin, layout, "0", 0, 160),
         cellMobileHidden: normalizeCellColor(normalizedSection.cellMobileHidden, layout, "false"),
+        cellDesktopHidden: normalizeCellColor(normalizedSection.cellDesktopHidden, layout, "false"),
         cellBorderWidth: normalizeCellMetric(normalizedSection.cellBorderWidth, layout, "1", 0, 20),
         cellBorderColor: normalizeCellColor(normalizedSection.cellBorderColor, layout, "#d9e4ef"),
         cellBorderRadius: normalizeCellMetric(normalizedSection.cellBorderRadius, layout, "24", 0, 60),
@@ -582,6 +636,8 @@ export function createEmptySection(layout: BuilderTemplateLayout = "single"): Bu
     layout,
     alignment: "left",
     verticalMargin: "0",
+    mobileHidden: "false",
+    desktopHidden: "false",
     mobileLayout: "stack",
     background: createDefaultBackgroundSettings(),
     cellBackgrounds: Object.fromEntries(
@@ -590,6 +646,7 @@ export function createEmptySection(layout: BuilderTemplateLayout = "single"): Bu
     cellPadding: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "18"])),
     cellVerticalMargin: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "0"])),
     cellMobileHidden: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "false"])),
+    cellDesktopHidden: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "false"])),
     cellBorderWidth: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "1"])),
     cellBorderColor: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "#d9e4ef"])),
     cellBorderRadius: Object.fromEntries(getLayoutColumns(layout).map((column) => [column, "24"])),
@@ -616,6 +673,10 @@ export function createEmptyModule(
           italic: "false",
           underline: "false",
           dropShadow: "false",
+          dropShadowX: "3",
+          dropShadowY: "3",
+          dropShadowBlur: "2",
+          dropShadowColor: "rgba(0, 0, 0, 0.55)",
           outline: "false"
         }
       : type === "image"
@@ -631,6 +692,12 @@ export function createEmptyModule(
           offsetX: "0",
           offsetY: "0",
           zIndex: "2"
+        }
+      : type === "video"
+      ? {
+          url: "",
+          videoName: "",
+          videoDescription: ""
         }
       : type === "button"
         ? {
@@ -687,6 +754,11 @@ export function createEmptyModule(
                         fontSize: "32",
                         color: "#18324a",
                         bold: "true",
+                        dropShadow: "false",
+                        dropShadowX: "3",
+                        dropShadowY: "3",
+                        dropShadowBlur: "2",
+                        dropShadowColor: "rgba(0, 0, 0, 0.55)",
                         alignment: "center",
                         fadeDuration: "800",
                         displaySpeed: "3000",
@@ -700,7 +772,7 @@ export function createEmptyModule(
     column,
     name: "",
     text: "",
-    settings: { verticalMargin: "0", mobileHidden: "false", ...defaults }
+    settings: { verticalMargin: "0", mobileHidden: "false", desktopHidden: "false", ...defaults }
   };
 }
 

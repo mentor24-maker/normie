@@ -193,11 +193,14 @@ export function getModuleBackgroundSettings(settings: Record<string, string>): B
 export function getHeadingModuleStyle(settings: Record<string, string>): CSSProperties {
   const fontSize = Number.parseInt(settings.fontSize ?? "32", 10);
   const color = settings.color || "#18324a";
-
-  // 135 degrees: offset-x = cos(135°) * 5 ≈ -3.54, offset-y = sin(135°) * 5 ≈ 3.54
-  const dropShadow = settings.dropShadow === "true"
-  ? `2px 2px 3px rgba(0, 0, 0, 0.8)`
-  : "none";
+  const shadowX = Number.parseInt(settings.dropShadowX ?? "3", 10);
+  const shadowY = Number.parseInt(settings.dropShadowY ?? "3", 10);
+  const shadowBlur = Number.parseInt(settings.dropShadowBlur ?? "2", 10);
+  const shadowColor = settings.dropShadowColor || "rgba(0, 0, 0, 0.55)";
+  const dropShadowEnabled = settings.dropShadow === "true" || settings.dropShadow === "on";
+  const dropShadow = dropShadowEnabled
+    ? `${Number.isFinite(shadowX) ? shadowX : 3}px ${Number.isFinite(shadowY) ? shadowY : 3}px ${Number.isFinite(shadowBlur) ? shadowBlur : 2}px ${shadowColor}`
+    : "none";
 
   return {
     fontSize: `${Math.max(Number.isFinite(fontSize) ? fontSize : 32, 10)}px`,
@@ -231,4 +234,56 @@ export function isVideoMedia(url: string | undefined) {
   }
 
   return /\.(mp4|mov|m4v|webm|ogg)(\?.*)?$/i.test(url);
+}
+
+export function getVideoEmbedSource(value: string | undefined):
+  | { kind: "iframe"; src: string }
+  | { kind: "video"; src: string }
+  | null {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const iframeSrc = raw.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+  const source = normalizeBuilderAssetUrl(iframeSrc || raw);
+
+  if (isVideoMedia(source)) {
+    return { kind: "video", src: source };
+  }
+
+  try {
+    const url = new URL(source);
+    const host = url.hostname.replace(/^www\./, "");
+
+    if (host === "youtube.com" || host === "m.youtube.com" || host === "youtu.be" || host === "youtube-nocookie.com") {
+      const videoId =
+        host === "youtu.be"
+          ? url.pathname.split("/").filter(Boolean)[0]
+          : url.pathname.startsWith("/shorts/")
+            ? url.pathname.split("/").filter(Boolean)[1]
+            : url.pathname.startsWith("/embed/")
+              ? url.pathname.split("/").filter(Boolean)[1]
+              : url.searchParams.get("v");
+
+      return videoId ? { kind: "iframe", src: `https://www.youtube.com/embed/${videoId}` } : null;
+    }
+
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const videoId = host === "player.vimeo.com" ? parts.at(-1) : parts[0];
+      return videoId ? { kind: "iframe", src: `https://player.vimeo.com/video/${videoId}` } : null;
+    }
+
+    if (url.protocol === "https:" || url.protocol === "http:") {
+      return { kind: "iframe", src: source };
+    }
+  } catch {
+    if (source.startsWith("/")) {
+      return { kind: "video", src: source };
+    }
+  }
+
+  return null;
 }

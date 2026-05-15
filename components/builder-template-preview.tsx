@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { BuilderTemplateSection } from "@/lib/builder-template";
 import {
   formatRichTextContent,
@@ -21,6 +21,7 @@ import {
   getModuleAlignment,
   getModuleBackgroundSettings,
   getVerticalMarginStyle,
+  getVideoEmbedSource,
   isVideoMedia
 } from "@/components/builder/builder-utils";
 
@@ -201,7 +202,7 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
                   module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
                 }`}
                 style={{
-                  ...(getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
+                  ...(module.type === "navigation" ? {} : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
                   ...getVerticalMarginStyle(module.settings.verticalMargin),
                   "--builder-mobile-font-size": module.settings.mobileFontSize
                     ? `${module.settings.mobileFontSize}px`
@@ -222,7 +223,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   const variant = module.settings.variant ?? "";
 
   if (module.type === "navigation") {
-    return <NavigationModulePreview variant={variant} />;
+    return <NavigationModulePreview module={module} />;
   }
 
   if (module.type === "heading") {
@@ -281,6 +282,35 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
 
   if (module.type === "contact-form") {
     return <ContactFormPreview settings={module.settings} />;
+  }
+
+  if (module.type === "video" || (module.type === "image" && module.settings.variant === "video")) {
+    const embed = getVideoEmbedSource(module.settings.url);
+    const title = module.settings.videoName || module.name || module.text || "Video";
+    const description = module.settings.videoDescription || module.settings.alt || "";
+
+    return (
+      <figure className="builder-preview-video-card">
+        <div className="builder-preview-video-frame">
+          {embed?.kind === "iframe" ? (
+            <iframe
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              src={embed.src}
+              title={title}
+            />
+          ) : embed?.kind === "video" ? (
+            <video className="builder-preview-video" controls preload="metadata" src={embed.src} />
+          ) : null}
+        </div>
+        {title || description ? (
+          <figcaption className="builder-preview-video-caption">
+            {title ? <strong>{title}</strong> : null}
+            {description ? <span>{description}</span> : null}
+          </figcaption>
+        ) : null}
+      </figure>
+    );
   }
 
   if (module.type === "image") {
@@ -344,9 +374,17 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   return null;
 }
 
-type HeadlineEntry = { id: string; label: string; href: string };
+type HeadlineEntry = {
+  id: string;
+  label: string;
+  href: string;
+  xAxis: string;
+  yAxis: string;
+  color: string;
+  overlap: string;
+};
 
-function parseHeadlineEntries(raw: string): HeadlineEntry[] {
+function parseHeadlineEntries(raw: string, fallbackColor: string): HeadlineEntry[] {
   try {
     const parsed = JSON.parse(raw || "[]");
     if (!Array.isArray(parsed)) return [];
@@ -356,7 +394,11 @@ function parseHeadlineEntries(raw: string): HeadlineEntry[] {
         return {
           id: String(r.id || `headline-${index + 1}`),
           label: String(r.label || ""),
-          href: String(r.href || "")
+          href: String(r.href || ""),
+          xAxis: String(r.xAxis ?? "50"),
+          yAxis: String(r.yAxis ?? "50"),
+          color: String(r.color || fallbackColor),
+          overlap: String(r.overlap ?? "0")
         };
       })
       .filter((entry) => entry.label.length > 0);
@@ -370,11 +412,14 @@ function HeadlineRotatorPreview({
 }: {
   module: import("@/lib/builder-template").BuilderTemplateModule;
 }) {
-  const entries = parseHeadlineEntries(module.settings.headlines ?? "");
+  const color = module.settings.color || "#18324a";
+  const entries = useMemo(
+    () => parseHeadlineEntries(module.settings.headlines ?? "", color),
+    [module.settings.headlines, color]
+  );
   const fadeDuration = Math.max(Number.parseInt(module.settings.fadeDuration ?? "800", 10) || 800, 0);
   const displaySpeed = Math.max(Number.parseInt(module.settings.displaySpeed ?? "3000", 10) || 3000, 200);
   const fontSize = Number.parseInt(module.settings.fontSize ?? "32", 10) || 32;
-  const color = module.settings.color || "#18324a";
   const isBold = module.settings.bold !== "false";
   const horizontal = getModuleAlignment(module.settings);
   const verticalAlignment =
@@ -386,31 +431,61 @@ function HeadlineRotatorPreview({
     horizontal === "left" ? "flex-start" : horizontal === "right" ? "flex-end" : "center";
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [activeVisible, setActiveVisible] = useState(true);
+  const [transitionDelay, setTransitionDelay] = useState(0);
+  const activeIndexRef = useRef(0);
+
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
 
   useEffect(() => {
     if (entries.length <= 1) {
       setActiveIndex(0);
-      setVisible(true);
+      activeIndexRef.current = 0;
+      setActiveVisible(true);
       return;
     }
 
     let cancelled = false;
-    const showTimer = window.setTimeout(() => {
+    const timers: number[] = [];
+    const animationFrames: number[] = [];
+
+    function scheduleTimer(callback: () => void, delay: number) {
+      const timer = window.setTimeout(callback, delay);
+      timers.push(timer);
+      return timer;
+    }
+
+    function rotate() {
       if (cancelled) return;
-      setVisible(false);
-      window.setTimeout(() => {
-        if (cancelled) return;
-        setActiveIndex((current) => (current + 1) % entries.length);
-        setVisible(true);
-      }, fadeDuration);
-    }, displaySpeed);
+      const currentIndex = activeIndexRef.current % entries.length;
+      const current = entries[Math.min(currentIndex, entries.length - 1)];
+      const overlap = Math.min(Math.max(Number.parseInt(current?.overlap ?? "0", 10) || 0, 0), fadeDuration);
+      const delay = Math.max(fadeDuration - overlap, 0);
+      const nextIndex = (currentIndex + 1) % entries.length;
+
+      setTransitionDelay(delay);
+      setActiveVisible(false);
+      activeIndexRef.current = nextIndex;
+      setActiveIndex(nextIndex);
+
+      const frame = window.requestAnimationFrame(() => {
+        if (!cancelled) setActiveVisible(true);
+      });
+      animationFrames.push(frame);
+
+      scheduleTimer(rotate, displaySpeed);
+    }
+
+    scheduleTimer(rotate, displaySpeed);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(showTimer);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      animationFrames.forEach((frame) => window.cancelAnimationFrame(frame));
     };
-  }, [activeIndex, entries.length, fadeDuration, displaySpeed]);
+  }, [entries, fadeDuration, displaySpeed]);
 
   const containerStyle: CSSProperties = {
     display: "flex",
@@ -420,7 +495,10 @@ function HeadlineRotatorPreview({
     textAlign: horizontal,
     color,
     fontSize: `${fontSize}px`,
-    fontWeight: isBold ? 700 : 400
+    fontWeight: isBold ? 700 : 400,
+    position: "relative",
+    overflow: "visible",
+    ...({ textShadow: getHeadingModuleStyle(module.settings).textShadow } as CSSProperties)
   };
 
   if (entries.length === 0) {
@@ -431,62 +509,93 @@ function HeadlineRotatorPreview({
     );
   }
 
-  const current = entries[Math.min(activeIndex, entries.length - 1)];
-  const innerStyle: CSSProperties = {
-    transition: `opacity ${fadeDuration}ms ease`,
-    opacity: visible ? 1 : 0,
-    alignSelf
-  };
+  function getPositionedHeadlineStyle(entry: HeadlineEntry, opacity: number, delay = 0): CSSProperties {
+    const xAxis = Math.min(Math.max(Number.parseFloat(entry.xAxis) || 50, 0), 100);
+    const yAxis = Math.min(Math.max(Number.parseFloat(entry.yAxis) || 50, 0), 100);
+
+    return {
+      position: "absolute",
+      left: `${xAxis}%`,
+      top: `${yAxis}%`,
+      transform: "translate(-50%, -50%)",
+      transition: `opacity ${fadeDuration}ms ease ${delay}ms`,
+      opacity,
+      color: entry.color || color,
+      pointerEvents: opacity > 0 ? "auto" : "none",
+      textDecoration: "none",
+      whiteSpace: "nowrap"
+    };
+  }
 
   return (
     <div className="builder-preview-headline-rotator" style={containerStyle}>
-      {current.href ? (
-        <Link href={current.href} style={{ ...innerStyle, color, textDecoration: "none" }}>
-          {current.label}
-        </Link>
-      ) : (
-        <span style={innerStyle}>{current.label}</span>
-      )}
+      {entries.map((entry, index) => {
+        const isActive = index === activeIndex;
+        const opacity = isActive && activeVisible ? 1 : 0;
+        const delay = isActive ? transitionDelay : 0;
+
+        return entry.href ? (
+          <Link href={entry.href} key={entry.id} style={getPositionedHeadlineStyle(entry, opacity, delay)}>
+            {entry.label}
+          </Link>
+        ) : (
+          <span key={entry.id} style={getPositionedHeadlineStyle(entry, opacity, delay)}>
+            {entry.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
-function NavigationModulePreview({ variant }: { variant: string }) {
-  const navItems = [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/tokenomics", label: "Tokenomics" },
-    { href: "/roadmap", label: "Roadmap" },
-    { href: "/white-paper", label: "White Paper" },
-    { href: "/contact", label: "Contact" }
-  ];
+function NavigationModulePreview({
+  module
+}: {
+  module: import("@/lib/builder-template").BuilderTemplateModule;
+}) {
+  const variant = module.settings.variant ?? "";
+
+  let navItems: { href: string; label: string }[] = [];
+  try {
+    const parsed = JSON.parse(module.settings.navItems || "[]");
+    navItems = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    navItems = [];
+  }
+
+  const fontSize = module.settings.navFontSize ? `${module.settings.navFontSize}px` : undefined;
+  const fontWeight = module.settings.navBold === "true" ? 700 : undefined;
+  const borderRadius = module.settings.navBorderRadius ? `${module.settings.navBorderRadius}px` : undefined;
+  const padding = module.settings.navPadding || undefined;
+  const moduleBackgroundStyle = getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {};
+  const color = module.settings.navColor || undefined;
+  const hoverColor = module.settings.navHoverColor || undefined;
+  const hoverBackground = module.settings.navHoverBackground || undefined;
 
   return (
-    <div className="site-shell-nav-group">
-      <div className="site-shell-topbar">
-        <Link className="site-shell-logo-link" href="/">
-          <Image
-            alt="Normie logo"
-            className="site-shell-logo"
-            priority
-            src="/api/admin/media-file/logo_normie_3_1600x500.png"
-            width={320}
-            height={100}
-            unoptimized
-          />
+    <nav
+      className={`site-nav builder-preview-nav-${variant || "site-nav"}`}
+      aria-label="Main navigation"
+      style={
+        {
+          ...moduleBackgroundStyle,
+          fontSize,
+          fontWeight,
+          borderRadius,
+          padding,
+          color,
+          "--site-nav-link-color": color,
+          "--site-nav-link-hover-color": hoverColor,
+          "--site-nav-link-hover-bg": hoverBackground
+        } as CSSProperties
+      }
+    >
+      {navItems.map((item) => (
+        <Link className="site-nav-link" href={item.href || "#"} key={item.href}>
+          {item.label}
         </Link>
-        <Link className="site-shell-login-link" href="/admin">
-          Login
-        </Link>
-      </div>
-      <nav className={`site-nav builder-preview-nav-${variant || "site-nav"}`} aria-label="Main navigation">
-        {navItems.map((item) => (
-          <Link className="site-nav-link" href={item.href} key={item.href}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
+      ))}
+    </nav>
   );
 }
 

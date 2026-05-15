@@ -52,6 +52,9 @@ export default async function ProtectedAdminLayout({
           <Link className="admin-nav-link" href="/admin/users">
             Users
           </Link>
+          <Link className="admin-nav-link" href="/admin/team">
+            Team
+          </Link>
           <AdminLogoutButton />
         </nav>
         {children}

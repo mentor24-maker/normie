@@ -120,7 +120,7 @@ export async function getAdminUserFromToken(accessToken: string | undefined | nu
 export async function getAdminProfile(userId: string): Promise<UserProfileRow | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from("users")
+    .from("team_users")
     .select("id, full_name, role, status, notes, created_at, updated_at")
     .eq("id", userId)
     .maybeSingle();

@@ -1,71 +1,49 @@
-import type { User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { safeUserText } from "@/lib/admin-users";
 import {
-  mergeAdminUserRecord,
-  normalizeUserRole,
-  normalizeUserStatus,
-  safeUserText,
-  type UserProfileRow
-} from "@/lib/admin-users";
+  buildPublicUserFullName,
+  mergePublicUserRecord,
+  normalizePublicUserStatus,
+  type PublicUserRow
+} from "@/lib/public-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-async function listUsersWithProfiles() {
-  const supabase = createAdminClient();
-
-  const [{ data: authData, error: authError }, { data: profileData, error: profileError }] =
-    await Promise.all([
-      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      supabase
-        .from("users")
-        .select("id, full_name, role, status, notes, created_at, updated_at")
-        .order("created_at", { ascending: false })
-    ]);
-
-  if (authError) {
-    throw new Error(authError.message);
-  }
-
-  if (profileError) {
-    throw new Error(
-      profileError.message.includes("users")
-        ? "Missing users table. Run the updated Supabase schema before using User Management."
-        : profileError.message
-    );
-  }
-
-  const profilesById = new Map<string, UserProfileRow>(
-    ((profileData ?? []) as UserProfileRow[]).map((profile) => [profile.id, profile])
-  );
-
-  return ((authData?.users ?? []) as User[])
-    .map((user) => mergeAdminUserRecord(user, profilesById.get(user.id)))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+async function authorizeAdmin() {
+  const cookieStore = await cookies();
+  return getAuthorizedAdminFromCookieStore(cookieStore);
 }
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const admin = await authorizeAdmin();
 
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
   }
 
-  try {
-    const users = await listUsersWithProfiles();
-    return NextResponse.json({ users });
-  } catch (error) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, first_name, last_name, full_name, email, phone, status, source, notes, created_at, updated_at")
+    .order("created_at", { ascending: false });
+
+  if (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load users." },
+      {
+        error: error.message.includes("users")
+          ? "Missing users table. Run the updated public users schema."
+          : error.message
+      },
       { status: 500 }
     );
   }
+
+  return NextResponse.json({ users: ((data ?? []) as PublicUserRow[]).map(mergePublicUserRecord) });
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const admin = await authorizeAdmin();
 
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
@@ -73,77 +51,52 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     email?: unknown;
-    password?: unknown;
+    firstName?: unknown;
+    lastName?: unknown;
     fullName?: unknown;
-    role?: unknown;
+    phone?: unknown;
     status?: unknown;
+    source?: unknown;
     notes?: unknown;
   };
 
   const email = safeUserText(body.email, 255).toLowerCase();
-  const password = safeUserText(body.password, 255);
-  const fullName = safeUserText(body.fullName, 255);
-  const role = normalizeUserRole(body.role);
-  const status = normalizeUserStatus(body.status);
+  const firstName = safeUserText(body.firstName, 120);
+  const lastName = safeUserText(body.lastName, 120);
+  const fullName = safeUserText(body.fullName, 255) || buildPublicUserFullName(firstName, lastName);
+  const phone = safeUserText(body.phone, 80);
+  const status = normalizePublicUserStatus(body.status);
+  const source = safeUserText(body.source, 120) || "manual";
   const notes = safeUserText(body.notes, 4000);
 
-  if (!email) {
-    return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  if (!email || !email.includes("@")) {
+    return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
   }
 
-  if (!password || password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
-  }
-
+  const timestamp = new Date().toISOString();
   const supabase = createAdminClient();
-  const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName
-    },
-    app_metadata: {
-      role
-    }
-  });
+  const { data, error } = await supabase
+    .from("users")
+    .insert({
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      full_name: fullName,
+      phone,
+      status,
+      source,
+      notes,
+      updated_at: timestamp
+    })
+    .select("id, first_name, last_name, full_name, email, phone, status, source, notes, created_at, updated_at")
+    .single();
 
-  if (createError || !createdUser.user) {
+  if (error || !data) {
     return NextResponse.json(
-      { error: createError?.message ?? "Failed to create user." },
+      { error: error?.message ?? "Failed to create user." },
       { status: 500 }
     );
   }
 
-  const { error: profileError } = await supabase.from("users").upsert({
-    id: createdUser.user.id,
-    full_name: fullName,
-    role,
-    status,
-    notes,
-    updated_at: new Date().toISOString()
-  });
-
-  if (profileError) {
-    return NextResponse.json(
-      {
-        error: profileError.message.includes("users")
-          ? "User was created in Auth, but the users table is missing. Run the updated Supabase schema."
-          : profileError.message
-      },
-      { status: 500 }
-    );
-  }
-
-  const createdRecord = mergeAdminUserRecord(createdUser.user, {
-    id: createdUser.user.id,
-    full_name: fullName,
-    role,
-    status,
-    notes,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  });
-
-  return NextResponse.json({ user: createdRecord }, { status: 201 });
+  return NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) }, { status: 201 });
 }

@@ -29,6 +29,7 @@ type BuilderSectionCardProps = {
   onMoveDown: () => void;
   onRemove: () => void;
   onCloneSection: () => void;
+  onSaveSection: () => void;
   onUpdateSection: (updater: (section: BuilderTemplateSection) => BuilderTemplateSection) => void;
   onUpdateCellBackground: (column: string, updater: (bg: BackgroundSettings) => BackgroundSettings) => void;
   onUpdateCellPadding: (column: string, value: string) => void;
@@ -48,9 +49,11 @@ type BuilderSectionCardProps = {
   ) => void;
   onRemoveModule: (moduleId: string) => void;
   onCloneModule: (sectionId: string, moduleId: string) => void;
+  onSaveModule: (moduleId: string) => void;
   cellModules: BuilderCellModuleRecord[];
   onSaveCellModules: (column: string) => void;
   onInsertCellModule: (column: string, cellModuleId: string) => void;
+  onInsertSavedModule: (column: string, cellModuleId: string) => void;
   onOpenGallery: (moduleId: string) => void;
   onOpenSocialIconGallery: (moduleId: string, itemId: string) => void;
   onUploadMediaForModule: (moduleId: string, file: File | null) => void;
@@ -70,6 +73,7 @@ export function BuilderSectionCard({
   onMoveDown,
   onRemove,
   onCloneSection,
+  onSaveSection,
   onUpdateSection,
   onUpdateCellBackground,
   onUpdateCellPadding,
@@ -83,9 +87,11 @@ export function BuilderSectionCard({
   onDropModule,
   onRemoveModule,
   onCloneModule,
+  onSaveModule,
   cellModules,
   onSaveCellModules,
   onInsertCellModule,
+  onInsertSavedModule,
   onOpenGallery,
   onOpenSocialIconGallery,
   onUploadMediaForModule,
@@ -94,6 +100,8 @@ export function BuilderSectionCard({
   onOpenModulePalette
 }: BuilderSectionCardProps) {
   const columns = getLayoutColumns(section.layout);
+  const savedCells = cellModules.filter((cellModule) => cellModule.modules.length !== 1);
+  const savedModules = cellModules.filter((cellModule) => cellModule.modules.length === 1);
   const [collapsedCellPanels, setCollapsedCellPanels] = useState<Record<string, { styles: boolean; content: boolean }>>({});
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -262,6 +270,7 @@ export function BuilderSectionCard({
           <button aria-label="Move section up" className="builder-icon-button" onClick={onMoveUp} title="Move section up" type="button">↑</button>
           <button aria-label="Move section down" className="builder-icon-button" onClick={onMoveDown} title="Move section down" type="button">↓</button>
           <button aria-label="Clone section" className="builder-icon-button" onClick={onCloneSection} title="Clone section" type="button">⧉</button>
+          <button aria-label="Save section" className="builder-icon-button" onClick={onSaveSection} title="Save section" type="button">💾</button>
           <button aria-label="Delete section" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete section" type="button">✕</button>
         </div>
       </div>
@@ -586,7 +595,7 @@ export function BuilderSectionCard({
                             Save cell
                           </button>
                           <label className="field builder-cell-repository-select">
-                            <span>Insert saved</span>
+                            <span>Insert saved cell</span>
                             <select
                               value=""
                               onChange={(event) => {
@@ -595,7 +604,24 @@ export function BuilderSectionCard({
                               }}
                             >
                               <option value="">Choose saved cell</option>
-                              {cellModules.map((cellModule) => (
+                              {savedCells.map((cellModule) => (
+                                <option key={cellModule.id} value={cellModule.id}>
+                                  {cellModule.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field builder-cell-repository-select">
+                            <span>Insert saved module</span>
+                            <select
+                              value=""
+                              onChange={(event) => {
+                                onInsertSavedModule(column, event.target.value);
+                                event.currentTarget.value = "";
+                              }}
+                            >
+                              <option value="">Choose saved module</option>
+                              {savedModules.map((cellModule) => (
                                 <option key={cellModule.id} value={cellModule.id}>
                                   {cellModule.name}
                                 </option>
@@ -637,6 +663,7 @@ export function BuilderSectionCard({
                                   onMoveDown={() => onMoveModule(module.id, 1)}
                                   onRemove={() => onRemoveModule(module.id)}
                                   onClone={() => onCloneModule(section.id, module.id)}
+                                  onSaveModule={() => onSaveModule(module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
                                   onOpenSocialIconGallery={(itemId) => onOpenSocialIconGallery(module.id, itemId)}
                                   onUploadMedia={(file) => onUploadMediaForModule(module.id, file)}

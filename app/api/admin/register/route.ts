@@ -25,14 +25,14 @@ export async function POST(request: Request) {
 
   const adminClient = createAdminClient();
   const { count, error: countError } = await adminClient
-    .from("users")
+    .from("team_users")
     .select("id", { count: "exact", head: true });
 
   if (countError) {
     return NextResponse.json(
       {
         error: countError.message.includes("users")
-          ? "Missing users table. Run the updated Supabase schema before registering an admin."
+          ? "Missing team_users table. Run the updated Supabase schema before registering an admin."
           : countError.message
       },
       { status: 500 }
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: profileError } = await adminClient.from("users").upsert({
+  const { error: profileError } = await adminClient.from("team_users").upsert({
     id: createdUser.user.id,
     full_name: fullName,
     role: "owner",

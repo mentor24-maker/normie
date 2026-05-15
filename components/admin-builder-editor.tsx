@@ -16,6 +16,7 @@ import {
   type BackgroundSettings,
   type BuilderCellModuleRecord,
   type BuilderPageRecord,
+  type BuilderSavedSectionRecord,
   type BuilderTemplateLayout,
   type BuilderTemplateModule,
   type BuilderTemplateRecord,
@@ -25,19 +26,44 @@ import {
 import type { GalleryTarget, ModulePaletteGroup, ModulePaletteItem } from "./builder/builder-types";
 import { layoutOptions } from "./builder/builder-types";
 import { createDraftFromTemplate, createDraftFromPage, getModuleBackgroundSettings } from "./builder/builder-utils";
-import { BuilderBackgroundControls } from "./builder/builder-background-controls";
 import { BuilderTemplateList } from "./builder/builder-template-list";
 import { BuilderPageList } from "./builder/builder-page-list";
+import { BuilderModuleRepositoryList } from "./builder/builder-module-repository-list";
 import { BuilderSectionCard } from "./builder/builder-section-card";
 import { BuilderGalleryModal } from "./builder/builder-gallery-modal";
 import { BuilderModulePaletteModal } from "./builder/builder-module-palette-modal";
 
+type AdminApiPayload = {
+  error?: string;
+};
+
+async function readAdminJson<T extends AdminApiPayload>(response: Response, fallbackMessage: string): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("application/json")) {
+    const text = await response.text();
+    const preview = text.replace(/\s+/g, " ").trim().slice(0, 160);
+    throw new Error(
+      `${fallbackMessage} ${response.url || "Request"} returned ${response.status} ${response.statusText || "non-JSON"}: ${preview || "No response body."}`
+    );
+  }
+
+  const data = (await response.json()) as T;
+
+  if (!response.ok) {
+    throw new Error(data.error ?? fallbackMessage);
+  }
+
+  return data;
+}
+
 export function AdminBuilderEditor() {
-  const [builderMode, setBuilderMode] = useState<"templates" | "pages">("templates");
+  const [builderMode, setBuilderMode] = useState<"templates" | "modules" | "pages">("templates");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [pageTemplates, setPageTemplates] = useState<BuilderTemplateRecord[]>([]);
   const [pages, setPages] = useState<BuilderPageRecord[]>([]);
   const [cellModules, setCellModules] = useState<BuilderCellModuleRecord[]>([]);
+  const [savedSections, setSavedSections] = useState<BuilderSavedSectionRecord[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedPageId, setSelectedPageId] = useState("");
   const [pageSlug, setPageSlug] = useState("");
@@ -55,6 +81,10 @@ export function AdminBuilderEditor() {
   const [galleryTarget, setGalleryTarget] = useState<GalleryTarget | null>(null);
   const [modulePaletteTarget, setModulePaletteTarget] = useState<{ sectionId: string; column: string } | null>(null);
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
+  const [collapsedBuilderPanels, setCollapsedBuilderPanels] = useState({
+    rowConfigurations: false,
+    workspace: false
+  });
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -77,8 +107,7 @@ export function AdminBuilderEditor() {
     setError(null);
     try {
       const response = await fetch("/api/admin/page-templates", { cache: "no-store" });
-      const data = (await response.json()) as { pageTemplates?: BuilderTemplateRecord[]; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load page templates.");
+      const data = await readAdminJson<{ pageTemplates?: BuilderTemplateRecord[]; error?: string }>(response, "Failed to load page templates.");
       const templates = data.pageTemplates ?? [];
       setPageTemplates(templates);
       if (!templates.some((t) => t.id === selectedTemplateId)) {
@@ -95,8 +124,7 @@ export function AdminBuilderEditor() {
   async function loadPages() {
     try {
       const response = await fetch("/api/admin/pages", { cache: "no-store" });
-      const data = (await response.json()) as { pages?: BuilderPageRecord[]; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load pages.");
+      const data = await readAdminJson<{ pages?: BuilderPageRecord[]; error?: string }>(response, "Failed to load pages.");
       const nextPages = data.pages ?? [];
       setPages(nextPages);
       if (!nextPages.some((p) => p.id === selectedPageId)) setSelectedPageId("");
@@ -109,8 +137,7 @@ export function AdminBuilderEditor() {
   async function loadCellModules() {
     try {
       const response = await fetch("/api/admin/cell-modules", { cache: "no-store" });
-      const data = (await response.json()) as { cellModules?: BuilderCellModuleRecord[]; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load saved cell modules.");
+      const data = await readAdminJson<{ cellModules?: BuilderCellModuleRecord[]; error?: string }>(response, "Failed to load saved cell modules.");
       setCellModules(data.cellModules ?? []);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to load saved cell modules.";
@@ -121,14 +148,27 @@ export function AdminBuilderEditor() {
     }
   }
 
-  useEffect(() => { void loadPageTemplates(); void loadPages(); void loadCellModules(); }, []);
+  async function loadSavedSections() {
+    try {
+      const response = await fetch("/api/admin/saved-sections", { cache: "no-store" });
+      const data = await readAdminJson<{ savedSections?: BuilderSavedSectionRecord[]; error?: string }>(response, "Failed to load saved sections.");
+      setSavedSections(data.savedSections ?? []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load saved sections.";
+      if (!message.includes("builder_saved_sections")) {
+        setError(message);
+      }
+      setSavedSections([]);
+    }
+  }
+
+  useEffect(() => { void loadPageTemplates(); void loadPages(); void loadCellModules(); void loadSavedSections(); }, []);
 
   useEffect(() => {
     async function loadMediaLibrary() {
       try {
         const response = await fetch("/api/admin/media", { cache: "no-store" });
-        const data = (await response.json()) as { media?: AdminMediaItem[]; error?: string };
-        if (!response.ok) throw new Error(data.error ?? "Failed to load media gallery.");
+        const data = await readAdminJson<{ media?: AdminMediaItem[]; error?: string }>(response, "Failed to load media gallery.");
         setGalleryMedia(data.media ?? []);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load media gallery.");
@@ -168,6 +208,10 @@ export function AdminBuilderEditor() {
 
   function setDraftName(name: string) {
     setDraft((c) => ({ ...c, name }));
+  }
+
+  function toggleBuilderPanel(panel: keyof typeof collapsedBuilderPanels) {
+    setCollapsedBuilderPanels((current) => ({ ...current, [panel]: !current[panel] }));
   }
 
   function updatePageBackground(updater: (bg: BackgroundSettings) => BackgroundSettings) {
@@ -266,6 +310,68 @@ export function AdminBuilderEditor() {
     });
   }
 
+  function cloneSavedSection(source: BuilderTemplateSection): BuilderTemplateSection {
+    return {
+      ...source,
+      id: crypto.randomUUID(),
+      modules: source.modules.map((module) => ({
+        ...module,
+        id: crypto.randomUUID(),
+        settings: { ...module.settings }
+      }))
+    };
+  }
+
+  function insertSavedSection(savedSectionId: string) {
+    if (!savedSectionId) return;
+
+    const savedSection = savedSections.find((candidate) => candidate.id === savedSectionId);
+    if (!savedSection) return;
+
+    const section = cloneSavedSection(savedSection.section);
+    setDraft((current) => ({ ...current, layoutSections: [...current.layoutSections, section] }));
+    setCollapsedSectionIds((current) => [...current, section.id]);
+    setMessage(`Inserted saved section "${savedSection.name}".`);
+    setError(null);
+  }
+
+  async function saveSection(sectionId: string) {
+    const section = draft.layoutSections.find((candidate) => candidate.id === sectionId);
+
+    if (!section) {
+      return;
+    }
+
+    const fallbackName = section.title || `${draft.name || "Untitled"} section`;
+    const name = window.prompt("Name this saved section", fallbackName)?.trim();
+
+    if (!name) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/saved-sections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          section
+        })
+      });
+      const data = await readAdminJson<{ savedSection?: BuilderSavedSectionRecord; error?: string }>(response, "Failed to save section.");
+
+      if (!data.savedSection) {
+        throw new Error(data.error ?? "Failed to save section.");
+      }
+
+      setSavedSections((current) => [data.savedSection!, ...current]);
+      setMessage(`Saved "${data.savedSection.name}" to the section repository.`);
+      setError(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save section.");
+    }
+  }
+
   function moveSection(sectionId: string, direction: -1 | 1) {
     setDraft((c) => {
       const idx = c.layoutSections.findIndex((s) => s.id === sectionId);
@@ -328,9 +434,9 @@ export function AdminBuilderEditor() {
           modules
         })
       });
-      const data = (await response.json()) as { cellModule?: BuilderCellModuleRecord; error?: string };
+      const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save cell module.");
 
-      if (!response.ok || !data.cellModule) {
+      if (!data.cellModule) {
         throw new Error(data.error ?? "Failed to save cell module.");
       }
 
@@ -347,7 +453,7 @@ export function AdminBuilderEditor() {
       return;
     }
 
-    const saved = cellModules.find((candidate) => candidate.id === cellModuleId);
+    const saved = cellModules.find((candidate) => candidate.id === cellModuleId && candidate.modules.length !== 1);
 
     if (!saved) {
       return;
@@ -358,6 +464,25 @@ export function AdminBuilderEditor() {
       modules: [...section.modules, ...cloneModulesForColumn(saved.modules, column)]
     }));
     setMessage(`Inserted "${saved.name}" into the ${column} cell.`);
+    setError(null);
+  }
+
+  function insertSavedModule(sectionId: string, column: string, cellModuleId: string) {
+    if (!cellModuleId) {
+      return;
+    }
+
+    const saved = cellModules.find((candidate) => candidate.id === cellModuleId && candidate.modules.length === 1);
+
+    if (!saved) {
+      return;
+    }
+
+    updateSection(sectionId, (section) => ({
+      ...section,
+      modules: [...section.modules, ...cloneModulesForColumn(saved.modules, column)]
+    }));
+    setMessage(`Inserted module "${saved.name}" into the ${column} cell.`);
     setError(null);
   }
 
@@ -451,9 +576,136 @@ export function AdminBuilderEditor() {
     });
   }
 
+  async function saveModule(sectionId: string, moduleId: string) {
+    const section = draft.layoutSections.find((s) => s.id === sectionId);
+    const module = section?.modules.find((m) => m.id === moduleId);
+    if (!module) return;
+
+    const fallbackName = module.name || module.type;
+    const name = window.prompt("Name this saved module", fallbackName)?.trim();
+    if (!name) return;
+
+    try {
+      const response = await fetch("/api/admin/cell-modules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, modules: [module] })
+      });
+      const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save module.");
+      if (!data.cellModule) throw new Error(data.error ?? "Failed to save module.");
+      setCellModules((current) => [data.cellModule!, ...current]);
+      setMessage(`Saved "${data.cellModule.name}" to the module repository.`);
+      setError(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save module.");
+    }
+  }
+
   function removeModule(sectionId: string, moduleId: string) {
     setExpandedModuleIds((c) => c.filter((id) => id !== moduleId));
     updateSection(sectionId, (s) => ({ ...s, modules: s.modules.filter((m) => m.id !== moduleId) }));
+  }
+
+  async function renameSavedModule(cellModuleId: string, currentName: string) {
+    const name = window.prompt("Rename saved module", currentName)?.trim();
+    if (!name || name === currentName) return;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/cell-modules/${cellModuleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+      const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to rename saved module.");
+
+      if (!data.cellModule) {
+        throw new Error(data.error ?? "Failed to rename saved module.");
+      }
+
+      setCellModules((current) =>
+        current.map((cellModule) => (cellModule.id === data.cellModule!.id ? data.cellModule! : cellModule))
+      );
+      setMessage(`Renamed saved module to "${data.cellModule.name}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to rename saved module.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteSavedModule(cellModuleId: string, currentName: string) {
+    if (!window.confirm(`Delete saved module "${currentName}"? This cannot be undone.`)) return;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/cell-modules/${cellModuleId}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete saved module.");
+
+      setCellModules((current) => current.filter((cellModule) => cellModule.id !== cellModuleId));
+      setMessage(`Deleted saved module "${currentName}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete saved module.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function renameSavedSection(sectionId: string, currentName: string) {
+    const name = window.prompt("Rename saved section", currentName)?.trim();
+    if (!name || name === currentName) return;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/saved-sections/${sectionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+      const data = await readAdminJson<{ savedSection?: BuilderSavedSectionRecord; error?: string }>(response, "Failed to rename saved section.");
+
+      if (!data.savedSection) {
+        throw new Error(data.error ?? "Failed to rename saved section.");
+      }
+
+      setSavedSections((current) =>
+        current.map((section) => (section.id === data.savedSection!.id ? data.savedSection! : section))
+      );
+      setMessage(`Renamed saved section to "${data.savedSection.name}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to rename saved section.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteSavedSection(sectionId: string, currentName: string) {
+    if (!window.confirm(`Delete saved section "${currentName}"? This cannot be undone.`)) return;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/saved-sections/${sectionId}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete saved section.");
+
+      setSavedSections((current) => current.filter((section) => section.id !== sectionId));
+      setMessage(`Deleted saved section "${currentName}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete saved section.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function toggleModuleExpanded(moduleId: string) {
@@ -486,6 +738,42 @@ export function AdminBuilderEditor() {
     const template = pageTemplates.find((t) => t.id === templateId) ?? null;
     if (!template) { setDraft(createDraftFromPage(null)); return; }
     setDraft((c) => ({ id: selectedPageId, name: c.name || template.name, pageBackground: template.pageBackground, layoutSections: template.layoutSections }));
+  }
+
+  async function makeTemplateFromPage() {
+    if (!draft.name.trim()) { setError("Page title is required before making a template."); return; }
+
+    const templateName = `${draft.name.trim()} Template`;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/page-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: templateName,
+          pageBackground: draft.pageBackground,
+          layoutSections: draft.layoutSections
+        })
+      });
+      const data = await readAdminJson<{ pageTemplate?: BuilderTemplateRecord; error?: string }>(response, "Failed to create template from page.");
+
+      if (!data.pageTemplate) {
+        throw new Error(data.error ?? "Failed to create template from page.");
+      }
+
+      await loadPageTemplates();
+      setSelectedTemplateId(data.pageTemplate.id);
+      setBuilderMode("templates");
+      setMessage(`Created template "${data.pageTemplate.name}" from this page.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create template from page.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   // --- Gallery / palette ---
@@ -564,8 +852,8 @@ export function AdminBuilderEditor() {
       const formData = new FormData();
       formData.append("file", file);
       const response = await fetch("/api/admin/media", { method: "POST", body: formData });
-      const data = (await response.json()) as { media?: AdminMediaItem; error?: string };
-      if (!response.ok || !data.media) throw new Error(data.error ?? "Failed to upload media.");
+      const data = await readAdminJson<{ media?: AdminMediaItem; error?: string }>(response, "Failed to upload media.");
+      if (!data.media) throw new Error(data.error ?? "Failed to upload media.");
       const uploaded = data.media;
       setGalleryMedia((c) => [...c.filter((i) => i.path !== uploaded.path), uploaded].sort((a, b) => a.name.localeCompare(b.name)));
       onSuccess(uploaded);
@@ -600,8 +888,7 @@ export function AdminBuilderEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: draft.name, pageBackground: draft.pageBackground, layoutSections: draft.layoutSections })
       });
-      const data = (await response.json()) as { pageTemplate?: BuilderTemplateRecord; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to save template.");
+      const data = await readAdminJson<{ pageTemplate?: BuilderTemplateRecord; error?: string }>(response, "Failed to save template.");
       setMessage(draft.id ? "Page template updated." : "Page template created.");
       await loadPageTemplates();
       if (data.pageTemplate?.id) setSelectedTemplateId(data.pageTemplate.id);
@@ -621,8 +908,7 @@ export function AdminBuilderEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: draft.name, slug: pageSlug, templateId: pageTemplateId, isPublished: isPublishedPage, pageBackground: draft.pageBackground, layoutSections: draft.layoutSections })
       });
-      const data = (await response.json()) as { page?: BuilderPageRecord; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to save page.");
+      const data = await readAdminJson<{ page?: BuilderPageRecord; error?: string }>(response, "Failed to save page.");
       setMessage(selectedPageId ? "Page updated." : "Page created.");
       await loadPages();
       if (data.page?.id) setSelectedPageId(data.page.id);
@@ -637,8 +923,7 @@ export function AdminBuilderEditor() {
     setError(null); setMessage(null);
     try {
       const response = await fetch(`/api/admin/page-templates/${templateId}`, { method: "DELETE" });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to delete template.");
+      await readAdminJson<{ error?: string }>(response, "Failed to delete template.");
       setMessage("Page template deleted.");
       if (selectedTemplateId === templateId) { setSelectedTemplateId(""); setDraft(createDraftFromTemplate(null)); }
       await loadPageTemplates();
@@ -651,8 +936,7 @@ export function AdminBuilderEditor() {
     setError(null); setMessage(null);
     try {
       const response = await fetch(`/api/admin/pages/${pageId}`, { method: "DELETE" });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to delete page.");
+      await readAdminJson<{ error?: string }>(response, "Failed to delete page.");
       setMessage("Page deleted.");
       if (selectedPageId === pageId) startNewPage();
       await loadPages();
@@ -712,24 +996,8 @@ export function AdminBuilderEditor() {
         <h2 className="admin-section-heading">Page Builder</h2>
         <div className="admin-actions builder-header-actions">
           <button className={builderMode === "templates" ? "submit-button" : "secondary-button"} onClick={() => setBuilderMode("templates")} type="button">Templates</button>
+          <button className={builderMode === "modules" ? "submit-button" : "secondary-button"} onClick={() => setBuilderMode("modules")} type="button">Modules</button>
           <button className={builderMode === "pages" ? "submit-button" : "secondary-button"} onClick={() => setBuilderMode("pages")} type="button">Pages</button>
-          <div className="builder-device-toggle" role="group" aria-label="Preview device">
-            <button
-              className={previewDevice === "desktop" ? "submit-button" : "secondary-button"}
-              onClick={() => setPreviewDevice("desktop")}
-              type="button"
-            >
-              Browser
-            </button>
-            <button
-              className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}
-              onClick={() => setPreviewDevice("mobile")}
-              type="button"
-            >
-              Mobile
-            </button>
-          </div>
-          <button className="secondary-button" onClick={openPreviewPage} type="button">Preview</button>
         </div>
       </div>
 
@@ -741,13 +1009,28 @@ export function AdminBuilderEditor() {
           templates={pageTemplates}
           selectedTemplateId={selectedTemplateId}
           draftName={draft.name}
+          pageBackground={draft.pageBackground}
+          previewDevice={previewDevice}
           isSaving={isSaving}
           onSelectTemplate={setSelectedTemplateId}
           onPreviewTemplate={openTemplatePreview}
           onDeleteTemplate={(id, name) => void deleteTemplateById(id, name)}
           onSetDraftName={setDraftName}
+          onUpdatePageBackground={updatePageBackground}
+          onSetPreviewDevice={setPreviewDevice}
+          onPreviewDraft={openPreviewPage}
           onNewTemplate={startNewTemplate}
           onSaveTemplate={() => void saveTemplate()}
+        />
+      ) : builderMode === "modules" ? (
+        <BuilderModuleRepositoryList
+          cellModules={cellModules}
+          savedSections={savedSections}
+          isSaving={isSaving}
+          onDeleteSavedModule={(id, name) => void deleteSavedModule(id, name)}
+          onDeleteSavedSection={(id, name) => void deleteSavedSection(id, name)}
+          onRenameSavedModule={(id, name) => void renameSavedModule(id, name)}
+          onRenameSavedSection={(id, name) => void renameSavedSection(id, name)}
         />
       ) : (
         <BuilderPageList
@@ -755,6 +1038,7 @@ export function AdminBuilderEditor() {
           templates={pageTemplates}
           selectedPageId={selectedPageId}
           draftName={draft.name}
+          pageBackground={draft.pageBackground}
           pageSlug={pageSlug}
           pageTemplateId={pageTemplateId}
           isPublishedPage={isPublishedPage}
@@ -763,88 +1047,126 @@ export function AdminBuilderEditor() {
           onPreviewPage={openPagePreview}
           onDeletePage={(id, name) => void deletePageById(id, name)}
           onSetDraftName={setDraftName}
+          onUpdatePageBackground={updatePageBackground}
           onSetPageSlug={setPageSlug}
           onApplyTemplate={applyTemplateToPage}
           onSetIsPublished={setIsPublishedPage}
           onNewPage={startNewPage}
+          onMakeTemplate={() => void makeTemplateFromPage()}
           onSavePage={() => void savePage()}
         />
       )}
 
-      <BuilderBackgroundControls
-        label="Page Background"
-        background={draft.pageBackground}
-        onChange={updatePageBackground}
-        compact
-      />
+      {builderMode !== "modules" ? (
+        <>
+          <div className="builder-toolbar-shell">
+            <button
+              aria-expanded={!collapsedBuilderPanels.rowConfigurations}
+              className="builder-panel-toggle"
+              onClick={() => toggleBuilderPanel("rowConfigurations")}
+              type="button"
+            >
+              <span className="panel-label">Row Configurations</span>
+              <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rowConfigurations ? "▸" : "▾"}</span>
+            </button>
+            {!collapsedBuilderPanels.rowConfigurations ? (
+              <div className="builder-layout-toolbar">
+                {layoutOptions.map((layout) => renderLayoutTile(layout))}
+                <label className="field builder-cell-repository-select">
+                  <span>Insert saved section</span>
+                  <select
+                    value=""
+                    onChange={(event) => {
+                      insertSavedSection(event.target.value);
+                      event.currentTarget.value = "";
+                    }}
+                  >
+                    <option value="">Choose saved section</option>
+                    {savedSections.map((savedSection) => (
+                      <option key={savedSection.id} value={savedSection.id}>
+                        {savedSection.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
+          </div>
 
-      <div className="builder-toolbar-shell">
-        <div className="panel-label">Row Configurations</div>
-        <div className="builder-layout-toolbar">
-          {layoutOptions.map((layout) => renderLayoutTile(layout))}
-        </div>
-      </div>
+          <div className="builder-toolbar-shell">
+            <button
+              aria-expanded={!collapsedBuilderPanels.workspace}
+              className="builder-panel-toggle"
+              onClick={() => toggleBuilderPanel("workspace")}
+              type="button"
+            >
+              <span className="panel-label">Workspace</span>
+              <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.workspace ? "▸" : "▾"}</span>
+            </button>
+            {!collapsedBuilderPanels.workspace ? (
+              <div
+                className={`builder-main builder-workspace ${dragOverWorkspace ? "is-drag-over" : ""}`}
+                style={getBuilderBackgroundStyle(draft.pageBackground)}
+                onDragOver={(event) => { event.preventDefault(); setDragOverWorkspace(true); }}
+                onDragLeave={() => setDragOverWorkspace(false)}
+                onDrop={handleWorkspaceDrop}
+              >
+                {draft.layoutSections.length === 0 ? (
+                  <div className="builder-workspace-empty">
+                    <div className="builder-workspace-empty-title">Drop a row onto the workspace</div>
+                    <div className="builder-workspace-empty-copy">Drag a row configuration from the toolbar above, or click one to add it instantly.</div>
+                  </div>
+                ) : (
+                  <div className="builder-sections">
+                    {draft.layoutSections.map((section, sectionIndex) => (
+                      <BuilderSectionCard
+                        key={section.id}
+                        section={section}
+                        sectionIndex={sectionIndex}
+                        editorDevice={previewDevice === "mobile" ? "mobile" : "browser"}
+                        isCollapsed={collapsedSectionIds.includes(section.id)}
+                        expandedModuleIds={expandedModuleIds}
+                        onToggleCollapsed={() => toggleSectionCollapsed(section.id)}
+                        onMoveUp={() => moveSection(section.id, -1)}
+                        onMoveDown={() => moveSection(section.id, 1)}
+                        onRemove={() => removeSection(section.id)}
+                        onUpdateSection={(updater) => updateSection(section.id, updater)}
+                        onCloneSection={() => cloneSection(section.id)}
+                        onSaveSection={() => void saveSection(section.id)}
+                        onUpdateCellBackground={(col, updater) => updateCellBackground(section.id, col, updater)}
+                        onUpdateCellPadding={(col, value) => updateCellPadding(section.id, col, value)}
+                        onUpdateCellBorderWidth={(col, value) => updateCellBorderWidth(section.id, col, value)}
+                        onUpdateCellBorderColor={(col, value) => updateCellBorderColor(section.id, col, value)}
+                        onUpdateCellBorderRadius={(col, value) => updateCellBorderRadius(section.id, col, value)}
+                        onToggleModuleExpanded={toggleModuleExpanded}
+                        onUpdateModule={(moduleId, updater) => updateModule(section.id, moduleId, updater)}
+                        onUpdateModuleBackground={(moduleId, updater) => updateModuleBackground(section.id, moduleId, updater)}
+                        onMoveModule={(moduleId, dir) => moveModule(section.id, moduleId, dir)}
+                        onDropModule={dropModule}
+                        onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
+                        onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
+                        onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
+                        cellModules={cellModules}
+                        onSaveCellModules={(col) => void saveCellModules(section.id, col)}
+                        onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
+                        onInsertSavedModule={(col, cellModuleId) => insertSavedModule(section.id, col, cellModuleId)}
+                        onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
+                        onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
+                        onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
+                        onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
+                        onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}
+                        onOpenModulePalette={(col) => openModulePalette(section.id, col)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
 
-      <div className="builder-toolbar-shell">
-        <div className="panel-label">Workspace</div>
-        <div
-          className={`builder-main builder-workspace ${dragOverWorkspace ? "is-drag-over" : ""}`}
-          style={getBuilderBackgroundStyle(draft.pageBackground)}
-          onDragOver={(event) => { event.preventDefault(); setDragOverWorkspace(true); }}
-          onDragLeave={() => setDragOverWorkspace(false)}
-          onDrop={handleWorkspaceDrop}
-        >
-          {draft.layoutSections.length === 0 ? (
-            <div className="builder-workspace-empty">
-              <div className="builder-workspace-empty-title">Drop a row onto the workspace</div>
-              <div className="builder-workspace-empty-copy">Drag a row configuration from the toolbar above, or click one to add it instantly.</div>
-            </div>
-          ) : (
-            <div className="builder-sections">
-              {draft.layoutSections.map((section, sectionIndex) => (
-                <BuilderSectionCard
-                  key={section.id}
-                  section={section}
-                  sectionIndex={sectionIndex}
-                  editorDevice={previewDevice === "mobile" ? "mobile" : "browser"}
-                  isCollapsed={collapsedSectionIds.includes(section.id)}
-                  expandedModuleIds={expandedModuleIds}
-                  onToggleCollapsed={() => toggleSectionCollapsed(section.id)}
-                  onMoveUp={() => moveSection(section.id, -1)}
-                  onMoveDown={() => moveSection(section.id, 1)}
-                  onRemove={() => removeSection(section.id)}
-                  onUpdateSection={(updater) => updateSection(section.id, updater)}
-                  onCloneSection={() => cloneSection(section.id)}
-                  onUpdateCellBackground={(col, updater) => updateCellBackground(section.id, col, updater)}
-                  onUpdateCellPadding={(col, value) => updateCellPadding(section.id, col, value)}
-                  onUpdateCellBorderWidth={(col, value) => updateCellBorderWidth(section.id, col, value)}
-                  onUpdateCellBorderColor={(col, value) => updateCellBorderColor(section.id, col, value)}
-                  onUpdateCellBorderRadius={(col, value) => updateCellBorderRadius(section.id, col, value)}
-                  onToggleModuleExpanded={toggleModuleExpanded}
-                  onUpdateModule={(moduleId, updater) => updateModule(section.id, moduleId, updater)}
-                  onUpdateModuleBackground={(moduleId, updater) => updateModuleBackground(section.id, moduleId, updater)}
-                  onMoveModule={(moduleId, dir) => moveModule(section.id, moduleId, dir)}
-                  onDropModule={dropModule}
-                  onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
-                  onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
-                  cellModules={cellModules}
-                  onSaveCellModules={(col) => void saveCellModules(section.id, col)}
-                  onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
-                  
-                  onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
-                  onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
-                  onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
-                  onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
-                  onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}
-                  onOpenModulePalette={(col) => openModulePalette(section.id, col)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {draft.id ? (
+      {builderMode !== "modules" && draft.id ? (
         <div className="builder-footer-actions">
           <button className="danger-button" onClick={() => void (builderMode === "templates" ? deleteTemplateById(draft.id, draft.name) : deletePageById(selectedPageId, draft.name))} type="button">
             {builderMode === "templates" ? "Delete Template" : "Delete Page"}

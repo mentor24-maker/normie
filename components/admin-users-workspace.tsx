@@ -8,13 +8,20 @@ import {
   type UserRole,
   type UserStatus
 } from "@/lib/admin-users";
+import { PUBLIC_USER_STATUSES, type PublicUserRecord, type PublicUserStatus } from "@/lib/public-users";
+
+type DirectoryRecord = AdminUserRecord | PublicUserRecord;
 
 type UserFormState = {
   email: string;
   password: string;
   fullName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
   role: UserRole;
-  status: UserStatus;
+  status: UserStatus | PublicUserStatus;
+  source: string;
   notes: string;
 };
 
@@ -22,18 +29,38 @@ const emptyUserForm: UserFormState = {
   email: "",
   password: "",
   fullName: "",
+  firstName: "",
+  lastName: "",
+  phone: "",
   role: "editor",
-  status: "active",
+  status: "lead",
+  source: "manual",
   notes: ""
 };
 
-function createFormFromUser(user: AdminUserRecord): UserFormState {
+function createEmptyForm(directoryKind: "users" | "team"): UserFormState {
+  return {
+    ...emptyUserForm,
+    status: directoryKind === "team" ? "active" : "lead",
+    source: directoryKind === "team" ? "team" : "manual"
+  };
+}
+
+function isPublicUserRecord(user: DirectoryRecord): user is PublicUserRecord {
+  return "firstName" in user;
+}
+
+function createFormFromUser(user: DirectoryRecord, directoryKind: "users" | "team"): UserFormState {
   return {
     email: user.email,
     password: "",
     fullName: user.fullName,
-    role: user.role,
+    firstName: isPublicUserRecord(user) ? user.firstName : "",
+    lastName: isPublicUserRecord(user) ? user.lastName : "",
+    phone: isPublicUserRecord(user) ? user.phone : "",
+    role: "role" in user ? user.role : "viewer",
     status: user.status,
+    source: isPublicUserRecord(user) ? user.source : directoryKind === "team" ? "team" : "manual",
     notes: user.notes
   };
 }
@@ -47,10 +74,36 @@ function formatTimestamp(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-export function AdminUsersWorkspace() {
-  const [users, setUsers] = useState<AdminUserRecord[]>([]);
+type AdminUsersWorkspaceProps = {
+  apiPath?: string;
+  directoryKind?: "users" | "team";
+  eyebrow?: string;
+  formTitleNew?: string;
+  formTitleEdit?: string;
+  introCopy?: string;
+  newButtonLabel?: string;
+  createButtonLabel?: string;
+  directoryEyebrow?: string;
+  directoryTitle?: string;
+  emptyMessage?: string;
+};
+
+export function AdminUsersWorkspace({
+  apiPath = "/api/admin/users",
+  directoryKind = "users",
+  eyebrow = "User Management",
+  formTitleNew = "Register user",
+  formTitleEdit = "Edit user",
+  introCopy = "Create end-user accounts, assign roles, and keep notes on contact or membership status.",
+  newButtonLabel = "New User",
+  createButtonLabel = "Create User",
+  directoryEyebrow = "User Directory",
+  directoryTitle = "All users",
+  emptyMessage = "No users found."
+}: AdminUsersWorkspaceProps) {
+  const [users, setUsers] = useState<DirectoryRecord[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [form, setForm] = useState<UserFormState>(emptyUserForm);
+  const [form, setForm] = useState<UserFormState>(() => createEmptyForm(directoryKind));
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -67,8 +120,8 @@ export function AdminUsersWorkspace() {
     setError(null);
 
     try {
-      const response = await fetch("/api/admin/users", { cache: "no-store" });
-      const data = (await response.json()) as { users?: AdminUserRecord[]; error?: string };
+      const response = await fetch(apiPath, { cache: "no-store" });
+      const data = (await response.json()) as { users?: DirectoryRecord[]; error?: string };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load users.");
@@ -89,12 +142,12 @@ export function AdminUsersWorkspace() {
 
   useEffect(() => {
     if (!selectedUser) {
-      setForm(emptyUserForm);
+      setForm(createEmptyForm(directoryKind));
       return;
     }
 
-    setForm(createFormFromUser(selectedUser));
-  }, [selectedUser]);
+    setForm(createFormFromUser(selectedUser, directoryKind));
+  }, [directoryKind, selectedUser]);
 
   function updateForm<K extends keyof UserFormState>(key: K, value: UserFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -102,7 +155,7 @@ export function AdminUsersWorkspace() {
 
   function resetForm() {
     setSelectedUserId("");
-    setForm(emptyUserForm);
+    setForm(createEmptyForm(directoryKind));
     setError(null);
     setMessage(null);
   }
@@ -114,7 +167,7 @@ export function AdminUsersWorkspace() {
 
     try {
       const response = await fetch(
-        selectedUserId ? `/api/admin/users/${selectedUserId}` : "/api/admin/users",
+        selectedUserId ? `${apiPath}/${selectedUserId}` : apiPath,
         {
           method: selectedUserId ? "PATCH" : "POST",
           headers: {
@@ -124,20 +177,20 @@ export function AdminUsersWorkspace() {
         }
       );
 
-      const data = (await response.json()) as { user?: AdminUserRecord; error?: string };
+      const data = (await response.json()) as { user?: DirectoryRecord; error?: string };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to save user.");
       }
 
-      setMessage(selectedUserId ? "User updated." : "User created.");
+      setMessage(selectedUserId ? "User updated." : `${createButtonLabel.replace(/^Create /, "")} created.`);
       await loadUsers();
 
       if (data.user?.id) {
         setSelectedUserId(data.user.id);
       } else if (!selectedUserId) {
         setSelectedUserId("");
-        setForm(emptyUserForm);
+        setForm(createEmptyForm(directoryKind));
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save user.");
@@ -146,7 +199,7 @@ export function AdminUsersWorkspace() {
     }
   }
 
-  async function handleDelete(user: AdminUserRecord) {
+  async function handleDelete(user: DirectoryRecord) {
     const confirmed = window.confirm(`Delete ${user.email}? This cannot be undone.`);
 
     if (!confirmed) {
@@ -158,7 +211,7 @@ export function AdminUsersWorkspace() {
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+      const response = await fetch(`${apiPath}/${user.id}`, { method: "DELETE" });
       const data = (await response.json()) as { error?: string };
 
       if (!response.ok) {
@@ -187,19 +240,18 @@ export function AdminUsersWorkspace() {
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
-            <div className="panel-label">User Management</div>
-            <h2>{selectedUserId ? "Edit user" : "Register user"}</h2>
+            <div className="panel-label">{eyebrow}</div>
+            <h2>{selectedUserId ? formTitleEdit : formTitleNew}</h2>
             <p className="page-copy admin-copy">
-              Create accounts for your team, assign roles, and keep notes on who should manage the
-              back end.
+              {introCopy}
             </p>
           </div>
           <div className="admin-actions">
             <button className="secondary-button" onClick={resetForm} type="button">
-              New User
+              {newButtonLabel}
             </button>
             <button className="submit-button" onClick={() => void handleSubmit()} type="button" disabled={isSaving}>
-              {isSaving ? "Saving..." : selectedUserId ? "Save Changes" : "Create User"}
+              {isSaving ? "Saving..." : selectedUserId ? "Save Changes" : createButtonLabel}
             </button>
           </div>
         </div>
@@ -211,18 +263,20 @@ export function AdminUsersWorkspace() {
               type="email"
               value={form.email}
               onChange={(event) => updateForm("email", event.target.value)}
-              placeholder="team@normie.one"
+              placeholder={directoryKind === "team" ? "team@normie.one" : "reader@example.com"}
             />
           </label>
-          <label className="field">
-            <span>{selectedUserId ? "New password (optional)" : "Password"}</span>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(event) => updateForm("password", event.target.value)}
-              placeholder={selectedUserId ? "Leave blank to keep current password" : "At least 8 characters"}
-            />
-          </label>
+          {directoryKind === "team" ? (
+            <label className="field">
+              <span>{selectedUserId ? "New password (optional)" : "Password"}</span>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(event) => updateForm("password", event.target.value)}
+                placeholder={selectedUserId ? "Leave blank to keep current password" : "At least 8 characters"}
+              />
+            </label>
+          ) : null}
           <label className="field">
             <span>Full name</span>
             <input
@@ -232,23 +286,64 @@ export function AdminUsersWorkspace() {
               placeholder="Alex Normie"
             />
           </label>
-          <label className="field">
-            <span>Role</span>
-            <select value={form.role} onChange={(event) => updateForm("role", event.target.value as UserRole)}>
-              {TEAM_USER_ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </label>
+          {directoryKind === "users" ? (
+            <>
+              <label className="field">
+                <span>First name</span>
+                <input
+                  type="text"
+                  value={form.firstName}
+                  onChange={(event) => updateForm("firstName", event.target.value)}
+                  placeholder="Alex"
+                />
+              </label>
+              <label className="field">
+                <span>Last name</span>
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={(event) => updateForm("lastName", event.target.value)}
+                  placeholder="Normie"
+                />
+              </label>
+              <label className="field">
+                <span>Phone</span>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(event) => updateForm("phone", event.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+              <label className="field">
+                <span>Source</span>
+                <input
+                  type="text"
+                  value={form.source}
+                  onChange={(event) => updateForm("source", event.target.value)}
+                  placeholder="contact-form"
+                />
+              </label>
+            </>
+          ) : (
+            <label className="field">
+              <span>Role</span>
+              <select value={form.role} onChange={(event) => updateForm("role", event.target.value as UserRole)}>
+                {TEAM_USER_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="field">
             <span>Status</span>
             <select
               value={form.status}
-              onChange={(event) => updateForm("status", event.target.value as UserStatus)}
+              onChange={(event) => updateForm("status", event.target.value as UserFormState["status"])}
             >
-              {TEAM_USER_STATUSES.map((status) => (
+              {(directoryKind === "team" ? TEAM_USER_STATUSES : PUBLIC_USER_STATUSES).map((status) => (
                 <option key={status} value={status}>
                   {status}
                 </option>
@@ -273,8 +368,8 @@ export function AdminUsersWorkspace() {
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
-            <div className="panel-label">User Directory</div>
-            <h2>All users</h2>
+            <div className="panel-label">{directoryEyebrow}</div>
+            <h2>{directoryTitle}</h2>
             <p className="page-copy admin-copy">{userSummary}</p>
           </div>
           <div className="admin-actions">
@@ -289,9 +384,9 @@ export function AdminUsersWorkspace() {
             <thead>
               <tr>
                 <th>User</th>
-                <th>Role</th>
+                {directoryKind === "team" ? <th>Role</th> : null}
                 <th>Status</th>
-                <th>Last Sign-In</th>
+                {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Source</th>}
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -303,9 +398,15 @@ export function AdminUsersWorkspace() {
                     <strong>{user.fullName || "Unnamed user"}</strong>
                     <div className="admin-table-subcopy">{user.email}</div>
                   </td>
-                  <td>{user.role}</td>
+                  {directoryKind === "team" && "role" in user ? <td>{user.role}</td> : null}
                   <td>{user.status}</td>
-                  <td>{formatTimestamp(user.lastSignInAt)}</td>
+                  <td>
+                    {directoryKind === "team" && "lastSignInAt" in user
+                      ? formatTimestamp(user.lastSignInAt)
+                      : "source" in user
+                        ? user.source || "manual"
+                        : ""}
+                  </td>
                   <td>{formatTimestamp(user.createdAt)}</td>
                   <td>
                     <div className="builder-template-actions">
@@ -331,7 +432,7 @@ export function AdminUsersWorkspace() {
               {users.length === 0 ? (
                 <tr>
                   <td className="empty-cell" colSpan={6}>
-                    No users found.
+                    {emptyMessage}
                   </td>
                 </tr>
               ) : null}

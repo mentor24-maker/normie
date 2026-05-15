@@ -1,20 +1,10 @@
 import { NextResponse } from "next/server";
 import { safeUserText } from "@/lib/admin-users";
+import { buildPublicUserFullName } from "@/lib/public-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 function buildFullName(firstName: string, lastName: string) {
   return [firstName, lastName].filter(Boolean).join(" ").trim();
-}
-
-async function findAuthUserByEmail(email: string) {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data.users.find((user) => user.email?.toLowerCase() === email) ?? null;
 }
 
 export async function POST(request: Request) {
@@ -41,36 +31,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
-  let authUser = await findAuthUserByEmail(email);
-
-  if (!authUser) {
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password: crypto.randomUUID(),
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName,
-        first_name: firstName,
-        last_name: lastName,
-        phone
-      },
-      app_metadata: {
-        role: "viewer",
-        source: "contact-form"
-      }
-    });
-
-    if (error || !data.user) {
-      return NextResponse.json(
-        { error: error?.message ?? "Failed to save your contact details." },
-        { status: 500 }
-      );
-    }
-
-    authUser = data.user;
-  }
-
   const notes = [
     "Contact form submission",
     `Form type: ${formMode}`,
@@ -83,14 +43,21 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join("\n");
 
-  const { error: profileError } = await supabase.from("users").upsert({
-    id: authUser.id,
-    full_name: fullName || safeUserText(authUser.user_metadata?.full_name, 255),
-    role: "viewer",
-    status: "invited",
-    notes,
-    updated_at: new Date().toISOString()
-  });
+  const supabase = createAdminClient();
+  const { error: profileError } = await supabase.from("users").upsert(
+    {
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      full_name: fullName || buildPublicUserFullName(firstName, lastName, email),
+      phone,
+      status: "lead",
+      source: "contact-form",
+      notes,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "email" }
+  );
 
   if (profileError) {
     return NextResponse.json(

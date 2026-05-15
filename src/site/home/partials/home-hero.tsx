@@ -19,17 +19,6 @@ export function HomeHero() {
               <span className="hero-chip chip-cloud">Live comparison</span>
             </div>
           </div>
-
-          <div className="hero-logo-shell">
-            <div className="hero-logo-card hero-banner-card">
-              <Image
-                alt="Normie banner"
-                className="hero-logo hero-banner"
-                priority
-                src={logoWide}
-              />
-            </div>
-          </div>
         </div>
       </div>
     </section>

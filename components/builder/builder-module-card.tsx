@@ -20,6 +20,7 @@ import {
   getModuleAlignment,
   getModuleBackgroundSettings,
   getVerticalMarginStyle,
+  getVideoEmbedSource,
   isVideoMedia
 } from "./builder-utils";
 
@@ -34,6 +35,7 @@ type BuilderModuleCardProps = {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  onSaveModule: () => void;
   onOpenGallery: () => void;
   onOpenSocialIconGallery: (itemId: string) => void;
   onUploadMedia: (file: File | null) => void;
@@ -152,7 +154,8 @@ function renderModulePreview(module: BuilderTemplateModule) {
             textAlign: horizontal,
             color,
             fontSize: `${fontSize}px`,
-            fontWeight: isBold ? 700 : 400
+            fontWeight: isBold ? 700 : 400,
+            textShadow: getHeadingModuleStyle(module.settings).textShadow
           }}
         >
           {first}
@@ -189,6 +192,37 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "contact-form") {
     return renderContactFormPreview(module.settings);
+  }
+
+  if (module.type === "video" || (module.type === "image" && module.settings.variant === "video")) {
+    const embed = getVideoEmbedSource(module.settings.url);
+    const title = module.settings.videoName || module.name || module.text || "Video";
+    const description = module.settings.videoDescription || module.settings.alt || "";
+
+    return (
+      <figure className="builder-preview-video-card builder-module-preview-video-card">
+        <div className="builder-preview-video-frame">
+          {embed?.kind === "iframe" ? (
+            <iframe
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              src={embed.src}
+              title={title}
+            />
+          ) : embed?.kind === "video" ? (
+            <video className="builder-preview-video" controls preload="metadata" src={embed.src} />
+          ) : (
+            <div className="builder-module-preview-placeholder">Add a video embed URL</div>
+          )}
+        </div>
+        {title || description ? (
+          <figcaption className="builder-preview-video-caption">
+            {title ? <strong>{title}</strong> : null}
+            {description ? <span>{description}</span> : null}
+          </figcaption>
+        ) : null}
+      </figure>
+    );
   }
 
   if (module.type === "image") {
@@ -469,6 +503,10 @@ type HeadlineItem = {
   id: string;
   label: string;
   href: string;
+  xAxis: string;
+  yAxis: string;
+  color: string;
+  overlap: string;
 };
 
 function parseHeadlineItems(settings: Record<string, string>): HeadlineItem[] {
@@ -480,7 +518,11 @@ function parseHeadlineItems(settings: Record<string, string>): HeadlineItem[] {
       return {
         id: String(raw.id || `headline-${index + 1}`),
         label: String(raw.label || ""),
-        href: String(raw.href || "")
+        href: String(raw.href || ""),
+        xAxis: String(raw.xAxis ?? "50"),
+        yAxis: String(raw.yAxis ?? "50"),
+        color: String(raw.color || settings.color || "#18324a"),
+        overlap: String(raw.overlap ?? "0")
       };
     });
   } catch {
@@ -1210,7 +1252,6 @@ function NavModuleEditor({
         <label className="field builder-checkbox-field"><span>Bold</span><input type="checkbox" checked={module.settings.navBold === "true"} onChange={(e) => updateSetting("navBold", e.target.checked ? "true" : "false")} /></label>
         <label className="field"><span>Border radius (px)</span><input type="number" min="0" max="48" value={module.settings.navBorderRadius ?? "0"} onChange={(e) => updateSetting("navBorderRadius", e.target.value)} /></label>
         <label className="field"><span>Padding</span><input type="text" value={module.settings.navPadding ?? "8px 12px"} onChange={(e) => updateSetting("navPadding", e.target.value)} placeholder="8px 12px" /></label>
-        <label className="field"><span>Background</span><input type="text" value={module.settings.navBackground ?? ""} onChange={(e) => updateSetting("navBackground", e.target.value)} placeholder="transparent" /></label>
         <label className="field"><span>Text color</span><input type="text" value={module.settings.navColor ?? ""} onChange={(e) => updateSetting("navColor", e.target.value)} placeholder="#ffffff" /></label>
         <label className="field"><span>Hover text color</span><input type="text" value={module.settings.navHoverColor ?? ""} onChange={(e) => updateSetting("navHoverColor", e.target.value)} placeholder="#ffffff" /></label>
         <label className="field"><span>Hover background</span><input type="text" value={module.settings.navHoverBackground ?? ""} onChange={(e) => updateSetting("navHoverBackground", e.target.value)} placeholder="rgba(0,0,0,0.1)" /></label>
@@ -1268,7 +1309,18 @@ function HeadlineRotatorModuleEditor({
   function removeItem(id: string) { persist(items.filter((item) => item.id !== id)); }
 
   function addItem() {
-    persist([...items, { id: `headline-${Date.now()}-${items.length + 1}`, label: "", href: "" }]);
+    persist([
+      ...items,
+      {
+        id: `headline-${Date.now()}-${items.length + 1}`,
+        label: "",
+        href: "",
+        xAxis: "50",
+        yAxis: "50",
+        color: module.settings.color || "#18324a",
+        overlap: "0"
+      }
+    ]);
   }
 
   function updateSetting(key: string, value: string) {
@@ -1285,24 +1337,102 @@ function HeadlineRotatorModuleEditor({
         <label className="field"><span>Min height (px)</span><input type="number" min="0" max="600" step="4" value={module.settings.minHeight ?? "0"} onChange={(e) => updateSetting("minHeight", e.target.value)} /></label>
         <label className="field"><span>Fade duration (ms)</span><input type="number" min="0" max="5000" step="50" value={module.settings.fadeDuration ?? "800"} onChange={(e) => updateSetting("fadeDuration", e.target.value)} /></label>
         <label className="field"><span>Display speed (ms)</span><input type="number" min="500" max="20000" step="100" value={module.settings.displaySpeed ?? "3000"} onChange={(e) => updateSetting("displaySpeed", e.target.value)} /></label>
+        <label className="field"><span>Drop shadow</span><select value={module.settings.dropShadow ?? "false"} onChange={(e) => updateSetting("dropShadow", e.target.value)}><option value="false">Off</option><option value="true">On</option></select></label>
+        <label className="field"><span>Shadow color</span><input type="color" value={module.settings.dropShadowColor?.startsWith("#") ? module.settings.dropShadowColor : "#000000"} onChange={(e) => updateSetting("dropShadowColor", e.target.value)} /></label>
+        <label className="field"><span>Shadow X</span><input type="number" min="-20" max="20" step="1" value={module.settings.dropShadowX ?? "3"} onChange={(e) => updateSetting("dropShadowX", e.target.value)} /></label>
+        <label className="field"><span>Shadow Y</span><input type="number" min="-20" max="20" step="1" value={module.settings.dropShadowY ?? "3"} onChange={(e) => updateSetting("dropShadowY", e.target.value)} /></label>
+        <label className="field"><span>Shadow blur</span><input type="number" min="0" max="30" step="1" value={module.settings.dropShadowBlur ?? "2"} onChange={(e) => updateSetting("dropShadowBlur", e.target.value)} /></label>
       </div>
-      <div className="builder-slider-items">
-        {items.map((item, index) => (
-          <div key={item.id} className="builder-slider-item-card">
-            <div className="builder-slider-item-header">
-              <strong>{item.label || `Headline ${index + 1}`}</strong>
-              <div className="builder-section-actions">
-                <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, -1)} title="Move up">↑</button>
-                <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, 1)} title="Move down">↓</button>
-                <button type="button" className="builder-icon-button builder-icon-button-danger" onClick={() => removeItem(item.id)} title="Delete headline">✕</button>
-              </div>
-            </div>
-            <div className="builder-slider-item-grid">
-              <label className="field"><span>Headline</span><input type="text" value={item.label} onChange={(e) => updateItem(item.id, { label: e.target.value })} /></label>
-              <label className="field"><span>Link (optional)</span><input type="text" value={item.href} onChange={(e) => updateItem(item.id, { href: e.target.value })} placeholder="/path-or-url" /></label>
-            </div>
-          </div>
-        ))}
+      <div className="builder-headline-table-wrap">
+        <table className="builder-headline-table">
+          <thead>
+            <tr>
+              <th>Headline</th>
+              <th>Link</th>
+              <th>X-axis</th>
+              <th>Y-axis</th>
+              <th>Color</th>
+              <th>Overlap</th>
+              <th>Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id}>
+                <td>
+                  <input
+                    aria-label={`Headline ${index + 1}`}
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => updateItem(item.id, { label: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`Headline ${index + 1} link`}
+                    type="text"
+                    value={item.href}
+                    onChange={(e) => updateItem(item.id, { href: e.target.value })}
+                    placeholder="/path-or-url"
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`Headline ${index + 1} x-axis`}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={item.xAxis}
+                    onChange={(e) => updateItem(item.id, { xAxis: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`Headline ${index + 1} y-axis`}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={item.yAxis}
+                    onChange={(e) => updateItem(item.id, { yAxis: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`Headline ${index + 1} color`}
+                    type="color"
+                    value={item.color.startsWith("#") ? item.color : module.settings.color || "#18324a"}
+                    onChange={(e) => updateItem(item.id, { color: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`Headline ${index + 1} overlap`}
+                    type="number"
+                    min="0"
+                    max="10000"
+                    step="50"
+                    value={item.overlap}
+                    onChange={(e) => updateItem(item.id, { overlap: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <div className="builder-headline-table-actions">
+                    <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, -1)} title="Move up">↑</button>
+                    <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, 1)} title="Move down">↓</button>
+                    <button type="button" className="builder-icon-button builder-icon-button-danger" onClick={() => removeItem(item.id)} title="Delete headline">✕</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 ? (
+              <tr>
+                <td className="empty-cell" colSpan={7}>No headlines yet.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </div>
       <button type="button" className="secondary-button" onClick={addItem}>Add Headline</button>
     </>
@@ -1323,10 +1453,12 @@ export function BuilderModuleCard({
   onOpenGallery,
   onOpenSocialIconGallery,
   onUploadMedia,
+  onSaveModule,
   onClone
 }: BuilderModuleCardProps) {
     const moduleAlignment = getModuleAlignment(module.settings);
     const mobileAlignment = module.settings.mobileAlignment ?? "";
+    const isVideoModule = module.type === "video" || (module.type === "image" && module.settings.variant === "video");
 
   return (
     <div
@@ -1353,6 +1485,15 @@ export function BuilderModuleCard({
             type="button"
           >
             ⧉
+          </button>
+          <button
+            aria-label="Save module"
+            className="builder-icon-button"
+            onClick={onSaveModule}
+            title="Save module"
+            type="button"
+          >
+            💾
           </button>
           <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
         </div>
@@ -1485,23 +1626,23 @@ export function BuilderModuleCard({
             </label>
           </div>
 
-          {(module.type === "image" || module.type === "button") && (
+          {(module.type === "image" || module.type === "video" || module.type === "button") && (
             <label className="field">
-              <span>{module.type === "image" ? "URL" : "Link"}</span>
+              <span>{module.type === "button" ? "Link" : isVideoModule ? "Video embed URL" : "URL"}</span>
               <input
                 type="text"
-                value={module.settings[module.type === "image" ? "url" : "href"] ?? ""}
+                value={module.settings[module.type === "button" ? "href" : "url"] ?? ""}
                 onChange={(event) =>
                   onUpdateModule((current) => ({
                     ...current,
                     settings: {
                       ...current.settings,
-                      [module.type === "image" ? "url" : "href"]:
-                        module.type === "image" ? normalizeBuilderAssetUrl(event.target.value) : event.target.value
+                      [module.type === "button" ? "href" : "url"]:
+                        module.type === "button" ? event.target.value : normalizeBuilderAssetUrl(event.target.value)
                     }
                   }))
                 }
-                placeholder={module.type === "image" ? "https://..." : "/path-or-url"}
+                placeholder={isVideoModule ? "YouTube, Vimeo, embed URL, or uploaded video" : module.type === "image" ? "https://..." : "/path-or-url"}
               />
             </label>
           )}
@@ -1556,7 +1697,30 @@ export function BuilderModuleCard({
             </div>
           )}
 
-          {module.type === "image" ? (
+          {isVideoModule ? (
+            <div className="builder-video-controls-grid">
+              <label className="field">
+                <span>Video name</span>
+                <input
+                  type="text"
+                  value={module.settings.videoName ?? module.name ?? ""}
+                  onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, videoName: event.target.value } }))}
+                  placeholder="Video title"
+                />
+              </label>
+              <label className="field">
+                <span>Description</span>
+                <textarea
+                  className="builder-textarea"
+                  value={module.settings.videoDescription ?? ""}
+                  onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, videoDescription: event.target.value } }))}
+                  placeholder="Short description"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {(module.type === "image" || module.type === "video") ? (
             <div className="builder-media-actions">
               <button className="secondary-button builder-gallery-button" onClick={onOpenGallery} type="button">Choose From Gallery</button>
               <label className="secondary-button builder-gallery-button builder-upload-button">
@@ -1566,7 +1730,7 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
-          {module.type === "image" && (
+          {module.type === "image" && !isVideoModule && (
             <>
               <label className="field">
                 <span>Alt text</span>
@@ -1652,6 +1816,10 @@ export function BuilderModuleCard({
               <label className="field"><span>Italic</span><select value={module.settings.italic ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, italic: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
               <label className="field"><span>Underline</span><select value={module.settings.underline ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, underline: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
               <label className="field"><span>Drop shadow</span><select value={module.settings.dropShadow ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadow: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
+              <label className="field"><span>Shadow color</span><input type="color" value={module.settings.dropShadowColor?.startsWith("#") ? module.settings.dropShadowColor : "#000000"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowColor: event.target.value } }))} /></label>
+              <label className="field"><span>Shadow X</span><input type="number" min="-20" max="20" step="1" value={module.settings.dropShadowX ?? "3"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowX: event.target.value } }))} /></label>
+              <label className="field"><span>Shadow Y</span><input type="number" min="-20" max="20" step="1" value={module.settings.dropShadowY ?? "3"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowY: event.target.value } }))} /></label>
+              <label className="field"><span>Shadow blur</span><input type="number" min="0" max="30" step="1" value={module.settings.dropShadowBlur ?? "2"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowBlur: event.target.value } }))} /></label>
               <label className="field"><span>Outline</span><select value={module.settings.outline ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, outline: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
             </div>
           ) : null}

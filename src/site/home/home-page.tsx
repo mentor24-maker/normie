@@ -11,7 +11,6 @@ export function HomePage() {
 
   return (
     <SiteShell>
-      <HomeHero />
       {error ? <div className="notice error">{error}</div> : null}
       <PollStage
         isLoading={isLoading}

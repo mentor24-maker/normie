@@ -52,7 +52,8 @@ export const modulePaletteGroups: Array<{
   { value: "heading", label: "Headings", icon: "H", description: "Titles, labels, and section headers." },
   { value: "headline-rotator", label: "Headline Rotator", icon: "↻", description: "Cycles through a list of headlines with a fade transition." },
   { value: "text", label: "Text", icon: "T", description: "Paragraphs, intros, and supporting copy." },
-  { value: "image", label: "Image", icon: "I", description: "Visual media, logos, and video blocks." },
+  { value: "image", label: "Image", icon: "I", description: "Images, logos, and visual media." },
+  { value: "video", label: "Video", icon: "V", description: "Embeddable videos from YouTube, Vimeo, or uploaded files." },
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
   { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
   { value: "contact-form", label: "Contact Forms", icon: "CF", description: "Lead capture forms with simple presets." },
@@ -184,14 +185,14 @@ export const modulePaletteItems: ModulePaletteItem[] = [
   },
   {
     id: "image-video",
-    type: "image",
-    group: "image",
+    type: "video",
+    group: "video",
     label: "Video",
     icon: "Vid",
-    description: "Video URL rendered as a media block.",
+    description: "Embedded video with name and description.",
     name: "",
     text: "",
-    settings: { variant: "video", url: "", alt: "" }
+    settings: { variant: "embed", url: "", videoName: "", videoDescription: "" }
   },
   {
     id: "quote-pull",

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
   if (!profile) {
     const { count, error: countError } = await adminClient
-      .from("users")
+      .from("team_users")
       .select("id", { count: "exact", head: true });
 
     if (countError) {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     if ((count ?? 0) === 0) {
       const fullName = safeUserText(authUser.user_metadata?.full_name, 255);
-      const { error: bootstrapError } = await adminClient.from("users").upsert({
+      const { error: bootstrapError } = await adminClient.from("team_users").upsert({
         id: authUser.id,
         full_name: fullName,
         role: "owner",
