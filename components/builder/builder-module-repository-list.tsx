@@ -1,12 +1,21 @@
-import type { BuilderCellModuleRecord, BuilderSavedSectionRecord } from "@/lib/builder-template";
-import { useState } from "react";
+import type {
+  BackgroundSettings,
+  BuilderCellModuleRecord,
+  BuilderProductRecord,
+  BuilderSavedSectionRecord,
+  BuilderTemplateModule
+} from "@/lib/builder-template";
+import { Fragment, useState } from "react";
+import { createDefaultBackgroundSettings } from "@/lib/builder-template";
+import { BuilderModuleCard } from "./builder-module-card";
 import { formatTemplateTimestamp } from "./builder-utils";
 
 type BuilderModuleRepositoryListProps = {
   cellModules: BuilderCellModuleRecord[];
+  products: BuilderProductRecord[];
   savedSections: BuilderSavedSectionRecord[];
   isSaving: boolean;
-  onRenameSavedModule: (cellModuleId: string, currentName: string) => void;
+  onSaveSavedModule: (cellModuleId: string, name: string, modules: BuilderTemplateModule[]) => void;
   onDeleteSavedModule: (cellModuleId: string, currentName: string) => void;
   onRenameSavedSection: (sectionId: string, currentName: string) => void;
   onDeleteSavedSection: (sectionId: string, currentName: string) => void;
@@ -23,20 +32,38 @@ function getModuleSummary(cellModule: BuilderCellModuleRecord) {
 function RepositoryTable({
   emptyLabel,
   items,
+  products,
   isSaving,
   title,
   isCollapsed,
+  editingId,
+  editingName,
+  editingModules,
   onToggle,
-  onRenameSavedModule,
+  onStartEditing,
+  onCancelEditing,
+  onSetEditingName,
+  onUpdateEditingModule,
+  onUpdateEditingModuleBackground,
+  onSaveSavedModule,
   onDeleteSavedModule
 }: {
   emptyLabel: string;
   items: BuilderCellModuleRecord[];
+  products: BuilderProductRecord[];
   isSaving: boolean;
   title: string;
   isCollapsed: boolean;
+  editingId: string;
+  editingName: string;
+  editingModules: BuilderTemplateModule[];
   onToggle: () => void;
-  onRenameSavedModule: BuilderModuleRepositoryListProps["onRenameSavedModule"];
+  onStartEditing: (item: BuilderCellModuleRecord) => void;
+  onCancelEditing: () => void;
+  onSetEditingName: (name: string) => void;
+  onUpdateEditingModule: (moduleId: string, updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+  onUpdateEditingModuleBackground: (moduleId: string, updater: (background: BackgroundSettings) => BackgroundSettings) => void;
+  onSaveSavedModule: BuilderModuleRepositoryListProps["onSaveSavedModule"];
   onDeleteSavedModule: BuilderModuleRepositoryListProps["onDeleteSavedModule"];
 }) {
   return (
@@ -64,40 +91,97 @@ function RepositoryTable({
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <strong>{item.name || "Untitled saved module"}</strong>
-                  </td>
-                  <td>{getModuleSummary(item)}</td>
-                  <td className="template-id-cell">
-                    <code>{item.id}</code>
-                  </td>
-                  <td>{formatTemplateTimestamp(item.updatedAt)}</td>
-                  <td>
-                    <div className="builder-template-actions">
-                      <button
-                        aria-label="Rename saved module"
-                        className="polls-icon-button"
-                        disabled={isSaving}
-                        onClick={() => onRenameSavedModule(item.id, item.name)}
-                        title="Rename"
-                        type="button"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        aria-label="Delete saved module"
-                        className="polls-icon-button polls-icon-button-danger"
-                        disabled={isSaving}
-                        onClick={() => onDeleteSavedModule(item.id, item.name)}
-                        title="Delete"
-                        type="button"
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <Fragment key={item.id}>
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.name || "Untitled saved module"}</strong>
+                    </td>
+                    <td>{getModuleSummary(item)}</td>
+                    <td className="template-id-cell">
+                      <code>{item.id}</code>
+                    </td>
+                    <td>{formatTemplateTimestamp(item.updatedAt)}</td>
+                    <td>
+                      <div className="builder-template-actions">
+                        <button
+                          aria-label="Edit saved module"
+                          className="polls-icon-button"
+                          disabled={isSaving}
+                          onClick={() => onStartEditing(item)}
+                          title="Edit module"
+                          type="button"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          aria-label="Delete saved module"
+                          className="polls-icon-button polls-icon-button-danger"
+                          disabled={isSaving}
+                          onClick={() => onDeleteSavedModule(item.id, item.name)}
+                          title="Delete"
+                          type="button"
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingId === item.id ? (
+                    <tr key={`${item.id}-editor`}>
+                      <td colSpan={5}>
+                        <div className="builder-saved-module-editor">
+                          <div className="builder-meta-grid">
+                            <label className="field">
+                              <span>Saved module name</span>
+                              <input
+                                type="text"
+                                value={editingName}
+                                onChange={(event) => onSetEditingName(event.target.value)}
+                              />
+                            </label>
+                            <div className="builder-meta-actions">
+                              <button className="secondary-button" onClick={onCancelEditing} type="button">
+                                Cancel
+                              </button>
+                              <button
+                                className="submit-button"
+                                disabled={isSaving}
+                                onClick={() => onSaveSavedModule(item.id, editingName, editingModules)}
+                                type="button"
+                              >
+                                {isSaving ? "Saving..." : "Save Module"}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="builder-saved-module-editor-stack">
+                            {editingModules.map((module) => (
+                              <BuilderModuleCard
+                                editorDevice="browser"
+                                hideHeaderActions
+                                isExpanded
+                                key={module.id}
+                                module={module}
+                                products={products}
+                                onClone={() => undefined}
+                                onMoveDown={() => undefined}
+                                onMoveUp={() => undefined}
+                                onOpenGallery={() => undefined}
+                                onOpenSocialIconGallery={() => undefined}
+                                onRemove={() => undefined}
+                                onSaveModule={() => undefined}
+                                onToggleExpanded={() => undefined}
+                                onUpdateModule={(updater) => onUpdateEditingModule(module.id, updater)}
+                                onUpdateModuleBackground={(updater) => onUpdateEditingModuleBackground(module.id, updater)}
+                                onUploadMedia={() => undefined}
+                                sectionId="saved-module-editor"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
               {items.length === 0 ? (
                 <tr>
@@ -114,9 +198,10 @@ function RepositoryTable({
 
 export function BuilderModuleRepositoryList({
   cellModules,
+  products,
   savedSections,
   isSaving,
-  onRenameSavedModule,
+  onSaveSavedModule,
   onDeleteSavedModule,
   onRenameSavedSection,
   onDeleteSavedSection
@@ -126,11 +211,58 @@ export function BuilderModuleRepositoryList({
     cells: false,
     sections: false
   });
+  const [editingId, setEditingId] = useState("");
+  const [editingName, setEditingName] = useState("");
+  const [editingModules, setEditingModules] = useState<BuilderTemplateModule[]>([]);
   const savedModules = cellModules.filter((cellModule) => cellModule.modules.length === 1);
   const savedCells = cellModules.filter((cellModule) => cellModule.modules.length !== 1);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
+  }
+
+  function startEditing(item: BuilderCellModuleRecord) {
+    setEditingId(item.id);
+    setEditingName(item.name);
+    setEditingModules(item.modules.map((module) => ({ ...module, settings: { ...module.settings } })));
+  }
+
+  function cancelEditing() {
+    setEditingId("");
+    setEditingName("");
+    setEditingModules([]);
+  }
+
+  function updateEditingModule(moduleId: string, updater: (current: BuilderTemplateModule) => BuilderTemplateModule) {
+    setEditingModules((current) => current.map((module) => (module.id === moduleId ? updater(module) : module)));
+  }
+
+  function updateEditingModuleBackground(
+    moduleId: string,
+    updater: (background: BackgroundSettings) => BackgroundSettings
+  ) {
+    updateEditingModule(moduleId, (module) => {
+      const background = {
+        mode: (module.settings.backgroundMode as BackgroundSettings["mode"]) || "none",
+        color: module.settings.backgroundColor || "#ffffff",
+        color2: module.settings.backgroundColor2 || "#eaf4ff",
+        imageUrl: module.settings.backgroundImageUrl || "",
+        styleKey: module.settings.backgroundStyleKey === "blue-yellow-circles" ? "blue-yellow-circles" : ""
+      } satisfies BackgroundSettings;
+      const next = updater(background);
+
+      return {
+        ...module,
+        settings: {
+          ...module.settings,
+          backgroundMode: next.mode,
+          backgroundColor: next.color,
+          backgroundColor2: next.color2,
+          backgroundImageUrl: next.imageUrl,
+          backgroundStyleKey: next.styleKey
+        }
+      };
+    });
   }
 
   return (
@@ -140,9 +272,18 @@ export function BuilderModuleRepositoryList({
         isCollapsed={collapsedPanels.modules}
         isSaving={isSaving}
         items={savedModules}
+        products={products}
+        editingId={editingId}
+        editingName={editingName}
+        editingModules={editingModules}
         onDeleteSavedModule={onDeleteSavedModule}
-        onRenameSavedModule={onRenameSavedModule}
+        onCancelEditing={cancelEditing}
+        onSaveSavedModule={onSaveSavedModule}
+        onSetEditingName={setEditingName}
+        onStartEditing={startEditing}
         onToggle={() => togglePanel("modules")}
+        onUpdateEditingModule={updateEditingModule}
+        onUpdateEditingModuleBackground={updateEditingModuleBackground}
         title="Saved Modules"
       />
       <RepositoryTable
@@ -150,9 +291,18 @@ export function BuilderModuleRepositoryList({
         isCollapsed={collapsedPanels.cells}
         isSaving={isSaving}
         items={savedCells}
+        products={products}
+        editingId={editingId}
+        editingName={editingName}
+        editingModules={editingModules}
         onDeleteSavedModule={onDeleteSavedModule}
-        onRenameSavedModule={onRenameSavedModule}
+        onCancelEditing={cancelEditing}
+        onSaveSavedModule={onSaveSavedModule}
+        onSetEditingName={setEditingName}
+        onStartEditing={startEditing}
         onToggle={() => togglePanel("cells")}
+        onUpdateEditingModule={updateEditingModule}
+        onUpdateEditingModuleBackground={updateEditingModuleBackground}
         title="Saved Cells"
       />
       <div className="builder-toolbar-shell">

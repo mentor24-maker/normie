@@ -52,6 +52,8 @@ export const modulePaletteGroups: Array<{
   { value: "heading", label: "Headings", icon: "H", description: "Titles, labels, and section headers." },
   { value: "headline-rotator", label: "Headline Rotator", icon: "↻", description: "Cycles through a list of headlines with a fade transition." },
   { value: "text", label: "Text", icon: "T", description: "Paragraphs, intros, and supporting copy." },
+  { value: "code", label: "Code", icon: "</>", description: "Embed codes, widgets, and raw HTML snippets." },
+  { value: "merch", label: "Merch", icon: "$", description: "Product cards populated from a merch URL." },
   { value: "image", label: "Image", icon: "I", description: "Images, logos, and visual media." },
   { value: "video", label: "Video", icon: "V", description: "Embeddable videos from YouTube, Vimeo, or uploaded files." },
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
@@ -160,6 +162,28 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "",
     text: "",
     settings: { variant: "caption" }
+  },
+  {
+    id: "code-embed",
+    type: "code",
+    group: "code",
+    label: "Code",
+    icon: "</>",
+    description: "Raw embed code or HTML snippet.",
+    name: "",
+    text: "",
+    settings: { variant: "embed", label: "", snippetMode: "html" }
+  },
+  {
+    id: "merch-product-card",
+    type: "merch",
+    group: "merch",
+    label: "Merch",
+    icon: "$",
+    description: "Redbubble product card generated from a product URL.",
+    name: "",
+    text: "",
+    settings: { variant: "product-card", productId: "", productUrl: "", productName: "", imageUrl: "", buttonLabel: "Buy on Redbubble" }
   },
   {
     id: "image-standard",

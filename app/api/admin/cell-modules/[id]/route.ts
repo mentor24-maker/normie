@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
-import { rowToBuilderCellModule, safeText } from "@/lib/builder-template";
+import { normalizeBuilderModules, rowToBuilderCellModule, safeText } from "@/lib/builder-template";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function PATCH(
@@ -16,17 +16,31 @@ export async function PATCH(
   }
 
   const { id } = await context.params;
-  const body = (await request.json()) as { name?: unknown };
+  const body = (await request.json()) as { name?: unknown; modules?: unknown };
   const name = safeText(body.name, 255);
+  const modules = body.modules === undefined ? undefined : normalizeBuilderModules(body.modules);
 
   if (!name) {
     return NextResponse.json({ error: "Saved module name is required." }, { status: 400 });
   }
 
+  if (body.modules !== undefined && (!modules || modules.length === 0)) {
+    return NextResponse.json({ error: "Saved module must contain at least one module." }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
+  const updates: { name: string; modules?: ReturnType<typeof normalizeBuilderModules>; updated_at: string } = {
+    name,
+    updated_at: new Date().toISOString()
+  };
+
+  if (modules) {
+    updates.modules = modules;
+  }
+
   const { data, error } = await supabase
     .from("builder_cell_modules")
-    .update({ name, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", id)
     .select("id, name, modules, created_at, updated_at")
     .single();

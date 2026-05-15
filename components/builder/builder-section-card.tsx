@@ -2,6 +2,7 @@ import type {
   BackgroundSettings,
   BuilderTemplateLayout,
   BuilderCellModuleRecord,
+  BuilderProductRecord,
   BuilderTemplateModule,
   BuilderTemplateSection
 } from "@/lib/builder-template";
@@ -51,6 +52,7 @@ type BuilderSectionCardProps = {
   onCloneModule: (sectionId: string, moduleId: string) => void;
   onSaveModule: (moduleId: string) => void;
   cellModules: BuilderCellModuleRecord[];
+  products: BuilderProductRecord[];
   onSaveCellModules: (column: string) => void;
   onInsertCellModule: (column: string, cellModuleId: string) => void;
   onInsertSavedModule: (column: string, cellModuleId: string) => void;
@@ -89,6 +91,7 @@ export function BuilderSectionCard({
   onCloneModule,
   onSaveModule,
   cellModules,
+  products,
   onSaveCellModules,
   onInsertCellModule,
   onInsertSavedModule,
@@ -653,6 +656,7 @@ export function BuilderSectionCard({
                               >
                                 <BuilderModuleCard
                                   module={module}
+                                  products={products}
                                   sectionId={section.id}
                                   editorDevice={editorDevice}
                                   isExpanded={expandedModuleIds.includes(module.id)}

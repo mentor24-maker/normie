@@ -237,8 +237,8 @@ export function isVideoMedia(url: string | undefined) {
 }
 
 export function getVideoEmbedSource(value: string | undefined):
-  | { kind: "iframe"; src: string }
-  | { kind: "video"; src: string }
+  | { kind: "iframe"; src: string; href: string }
+  | { kind: "video"; src: string; href: string }
   | null {
   const raw = String(value ?? "").trim();
 
@@ -250,7 +250,7 @@ export function getVideoEmbedSource(value: string | undefined):
   const source = normalizeBuilderAssetUrl(iframeSrc || raw);
 
   if (isVideoMedia(source)) {
-    return { kind: "video", src: source };
+    return { kind: "video", src: source, href: source };
   }
 
   try {
@@ -267,21 +267,33 @@ export function getVideoEmbedSource(value: string | undefined):
               ? url.pathname.split("/").filter(Boolean)[1]
               : url.searchParams.get("v");
 
-      return videoId ? { kind: "iframe", src: `https://www.youtube.com/embed/${videoId}` } : null;
+      return videoId
+        ? {
+            kind: "iframe",
+            src: `https://www.youtube.com/embed/${videoId}`,
+            href: `https://www.youtube.com/watch?v=${videoId}`
+          }
+        : null;
     }
 
     if (host === "vimeo.com" || host === "player.vimeo.com") {
       const parts = url.pathname.split("/").filter(Boolean);
       const videoId = host === "player.vimeo.com" ? parts.at(-1) : parts[0];
-      return videoId ? { kind: "iframe", src: `https://player.vimeo.com/video/${videoId}` } : null;
+      return videoId
+        ? {
+            kind: "iframe",
+            src: `https://player.vimeo.com/video/${videoId}`,
+            href: `https://vimeo.com/${videoId}`
+          }
+        : null;
     }
 
     if (url.protocol === "https:" || url.protocol === "http:") {
-      return { kind: "iframe", src: source };
+      return { kind: "iframe", src: source, href: source };
     }
   } catch {
     if (source.startsWith("/")) {
-      return { kind: "video", src: source };
+      return { kind: "video", src: source, href: source };
     }
   }
 

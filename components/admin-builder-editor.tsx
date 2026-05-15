@@ -16,6 +16,7 @@ import {
   type BackgroundSettings,
   type BuilderCellModuleRecord,
   type BuilderPageRecord,
+  type BuilderProductRecord,
   type BuilderSavedSectionRecord,
   type BuilderTemplateLayout,
   type BuilderTemplateModule,
@@ -64,6 +65,7 @@ export function AdminBuilderEditor() {
   const [pages, setPages] = useState<BuilderPageRecord[]>([]);
   const [cellModules, setCellModules] = useState<BuilderCellModuleRecord[]>([]);
   const [savedSections, setSavedSections] = useState<BuilderSavedSectionRecord[]>([]);
+  const [products, setProducts] = useState<BuilderProductRecord[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedPageId, setSelectedPageId] = useState("");
   const [pageSlug, setPageSlug] = useState("");
@@ -162,7 +164,21 @@ export function AdminBuilderEditor() {
     }
   }
 
-  useEffect(() => { void loadPageTemplates(); void loadPages(); void loadCellModules(); void loadSavedSections(); }, []);
+  async function loadProducts() {
+    try {
+      const response = await fetch("/api/admin/products", { cache: "no-store" });
+      const data = await readAdminJson<{ products?: BuilderProductRecord[]; error?: string }>(response, "Failed to load products.");
+      setProducts(data.products ?? []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to load products.";
+      if (!message.includes("products")) {
+        setError(message);
+      }
+      setProducts([]);
+    }
+  }
+
+  useEffect(() => { void loadPageTemplates(); void loadPages(); void loadCellModules(); void loadSavedSections(); void loadProducts(); }, []);
 
   useEffect(() => {
     async function loadMediaLibrary() {
@@ -606,10 +622,7 @@ export function AdminBuilderEditor() {
     updateSection(sectionId, (s) => ({ ...s, modules: s.modules.filter((m) => m.id !== moduleId) }));
   }
 
-  async function renameSavedModule(cellModuleId: string, currentName: string) {
-    const name = window.prompt("Rename saved module", currentName)?.trim();
-    if (!name || name === currentName) return;
-
+  async function saveSavedModule(cellModuleId: string, name: string, modules: BuilderTemplateModule[]) {
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -618,20 +631,20 @@ export function AdminBuilderEditor() {
       const response = await fetch(`/api/admin/cell-modules/${cellModuleId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, modules })
       });
-      const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to rename saved module.");
+      const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save saved module.");
 
       if (!data.cellModule) {
-        throw new Error(data.error ?? "Failed to rename saved module.");
+        throw new Error(data.error ?? "Failed to save saved module.");
       }
 
       setCellModules((current) =>
         current.map((cellModule) => (cellModule.id === data.cellModule!.id ? data.cellModule! : cellModule))
       );
-      setMessage(`Renamed saved module to "${data.cellModule.name}".`);
+      setMessage(`Saved module "${data.cellModule.name}".`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to rename saved module.");
+      setError(e instanceof Error ? e.message : "Failed to save saved module.");
     } finally {
       setIsSaving(false);
     }
@@ -703,6 +716,61 @@ export function AdminBuilderEditor() {
       setMessage(`Deleted saved section "${currentName}".`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete saved section.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveProduct(product: Partial<BuilderProductRecord> & { id?: string }) {
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(product.id ? `/api/admin/products/${product.id}` : "/api/admin/products", {
+        method: product.id ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: product.name,
+          productType: product.productType,
+          productUrl: product.productUrl,
+          imageUrl: product.imageUrl
+        })
+      });
+      const data = await readAdminJson<{ product?: BuilderProductRecord; error?: string }>(response, "Failed to save product.");
+
+      if (!data.product) {
+        throw new Error(data.error ?? "Failed to save product.");
+      }
+
+      setProducts((current) =>
+        product.id
+          ? current.map((candidate) => (candidate.id === data.product!.id ? data.product! : candidate))
+          : [data.product!, ...current]
+      );
+      setMessage(`Saved product "${data.product.name}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save product.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteProduct(productId: string, currentName: string) {
+    if (!window.confirm(`Delete product "${currentName}"? This cannot be undone.`)) return;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/products/${productId}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete product.");
+
+      setProducts((current) => current.filter((product) => product.id !== productId));
+      setMessage(`Deleted product "${currentName}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete product.");
     } finally {
       setIsSaving(false);
     }
@@ -1025,11 +1093,12 @@ export function AdminBuilderEditor() {
       ) : builderMode === "modules" ? (
         <BuilderModuleRepositoryList
           cellModules={cellModules}
+          products={products}
           savedSections={savedSections}
           isSaving={isSaving}
           onDeleteSavedModule={(id, name) => void deleteSavedModule(id, name)}
           onDeleteSavedSection={(id, name) => void deleteSavedSection(id, name)}
-          onRenameSavedModule={(id, name) => void renameSavedModule(id, name)}
+          onSaveSavedModule={(id, name, modules) => void saveSavedModule(id, name, modules)}
           onRenameSavedSection={(id, name) => void renameSavedSection(id, name)}
         />
       ) : (
@@ -1147,6 +1216,7 @@ export function AdminBuilderEditor() {
                         onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
                         onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
                         cellModules={cellModules}
+                        products={products}
                         onSaveCellModules={(col) => void saveCellModules(section.id, col)}
                         onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
                         onInsertSavedModule={(col, cellModuleId) => insertSavedModule(section.id, col, cellModuleId)}

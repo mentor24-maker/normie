@@ -3,6 +3,7 @@ import { applyAdminSessionCookies, buildAdminSessionSnapshot } from "@/lib/admin
 import { safeUserText } from "@/lib/admin-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
+import { findInvitedTeamProfileByEmail } from "@/lib/team-invitations";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -39,38 +40,57 @@ export async function POST(request: Request) {
     );
   }
 
-  if ((count ?? 0) > 0) {
+  const invitedProfile = (count ?? 0) > 0 ? await findInvitedTeamProfileByEmail(email) : null;
+
+  if ((count ?? 0) > 0 && !invitedProfile) {
     return NextResponse.json(
       { error: "Public admin registration is disabled after the first admin account is created." },
       { status: 403 }
     );
   }
 
-  const { data: createdUser, error: createError } = await adminClient.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName
-    },
-    app_metadata: {
-      role: "owner"
-    }
-  });
+  const role = invitedProfile?.profile.role ?? "owner";
+  const notes = invitedProfile?.profile.notes ?? "Bootstrap admin account";
+  const authUserId = invitedProfile?.authUser.id;
+  const authResponse = authUserId
+    ? await adminClient.auth.admin.updateUserById(authUserId, {
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName || invitedProfile.profile.full_name || ""
+        },
+        app_metadata: {
+          role
+        }
+      })
+    : await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName
+        },
+        app_metadata: {
+          role
+        }
+      });
 
-  if (createError || !createdUser.user) {
+  if (authResponse.error || !authResponse.data.user) {
     return NextResponse.json(
-      { error: createError?.message ?? "Failed to create admin account." },
+      { error: authResponse.error?.message ?? "Failed to create admin account." },
       { status: 500 }
     );
   }
 
+  const authUser = authResponse.data.user;
+  const profileName = fullName || safeUserText(invitedProfile?.profile.full_name, 255);
   const { error: profileError } = await adminClient.from("team_users").upsert({
-    id: createdUser.user.id,
-    full_name: fullName,
-    role: "owner",
+    id: authUser.id,
+    full_name: profileName,
+    role,
     status: "active",
-    notes: "Bootstrap admin account",
+    notes,
     updated_at: new Date().toISOString()
   });
 
@@ -93,9 +113,9 @@ export async function POST(request: Request) {
 
   const response = NextResponse.json({
     user: {
-      id: createdUser.user.id,
+      id: authUser.id,
       email,
-      fullName
+      fullName: profileName
     }
   });
 
@@ -103,12 +123,12 @@ export async function POST(request: Request) {
     response,
     sessionData.session.access_token,
     sessionData.session.refresh_token,
-    buildAdminSessionSnapshot(createdUser.user, {
-      id: createdUser.user.id,
-      full_name: fullName,
-      role: "owner",
+    buildAdminSessionSnapshot(authUser, {
+      id: authUser.id,
+      full_name: profileName,
+      role,
       status: "active",
-      notes: "Bootstrap admin account",
+      notes,
       created_at: null,
       updated_at: new Date().toISOString()
     })

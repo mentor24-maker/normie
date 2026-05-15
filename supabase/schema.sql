@@ -86,6 +86,16 @@ create table if not exists public.builder_saved_sections (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  product_type text not null default 'merch' check (product_type in ('merch', 'personality_profile')),
+  product_url text not null default '',
+  image_url text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists responses_poll_id_idx on public.responses (poll_id);
 create index if not exists responses_session_id_idx on public.responses (session_id);
 create index if not exists poll_options_poll_id_idx on public.poll_options (poll_id);
@@ -97,6 +107,8 @@ create index if not exists users_status_idx on public.users (status);
 create index if not exists team_users_role_idx on public.team_users (role);
 create index if not exists builder_cell_modules_updated_at_idx on public.builder_cell_modules (updated_at desc);
 create index if not exists builder_saved_sections_updated_at_idx on public.builder_saved_sections (updated_at desc);
+create index if not exists products_product_type_idx on public.products (product_type);
+create index if not exists products_updated_at_idx on public.products (updated_at desc);
 
 alter table public.polls enable row level security;
 alter table public.poll_options enable row level security;
@@ -107,6 +119,7 @@ alter table public.users enable row level security;
 alter table public.team_users enable row level security;
 alter table public.builder_cell_modules enable row level security;
 alter table public.builder_saved_sections enable row level security;
+alter table public.products enable row level security;
 
 drop policy if exists "published polls are readable" on public.polls;
 create policy "published polls are readable"

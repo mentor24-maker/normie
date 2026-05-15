@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin-auth";
 import { safeUserText } from "@/lib/admin-users";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { findInvitedTeamProfileByEmail } from "@/lib/team-invitations";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -55,6 +56,35 @@ export async function POST(request: Request) {
       }
 
       profile = await getAdminProfile(authUser.id);
+    } else if (authUser.email) {
+      const invitation = await findInvitedTeamProfileByEmail(authUser.email);
+
+      if (invitation) {
+        const fullName = safeUserText(
+          invitation.profile.full_name ?? authUser.user_metadata?.full_name,
+          255
+        );
+        const timestamp = new Date().toISOString();
+        const { error: claimError } = await adminClient.from("team_users").upsert({
+          id: authUser.id,
+          full_name: fullName,
+          role: invitation.profile.role ?? "editor",
+          status: "active",
+          notes: invitation.profile.notes ?? "",
+          updated_at: timestamp
+        });
+
+        if (claimError) {
+          return NextResponse.json({ error: claimError.message }, { status: 500 });
+        }
+
+        if (invitation.authUser.id !== authUser.id) {
+          await adminClient.from("team_users").delete().eq("id", invitation.authUser.id);
+          await adminClient.auth.admin.deleteUser(invitation.authUser.id);
+        }
+
+        profile = await getAdminProfile(authUser.id);
+      }
     }
   }
 

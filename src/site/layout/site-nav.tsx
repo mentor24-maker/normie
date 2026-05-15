@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export type SiteNavItem = {
   href: string;
@@ -14,14 +17,33 @@ export const defaultSiteNavItems: SiteNavItem[] = [
   { href: "/contact", label: "Contact" }
 ];
 
+function normalizeNavPath(value: string) {
+  const path = value.split("?")[0]?.split("#")[0] || "/";
+  const normalized = path.endsWith("/") && path.length > 1 ? path.slice(0, -1) : path;
+
+  return normalized === "/home" ? "/" : normalized;
+}
+
 export function SiteNav({ items = defaultSiteNavItems }: { items?: SiteNavItem[] }) {
+  const pathname = usePathname();
+  const activePath = normalizeNavPath(pathname || "/");
+
   return (
     <nav className="site-nav" aria-label="Main navigation">
-      {items.map((item) => (
-        <Link className="site-nav-link" href={item.href} key={item.href}>
-          {item.label}
-        </Link>
-      ))}
+      {items.map((item) => {
+        const isActive = normalizeNavPath(item.href) === activePath;
+
+        return (
+          <Link
+            aria-current={isActive ? "page" : undefined}
+            className={`site-nav-link${isActive ? " site-nav-link-active" : ""}`}
+            href={item.href}
+            key={item.href}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

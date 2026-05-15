@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { BuilderTemplateSection } from "@/lib/builder-template";
 import {
@@ -36,6 +37,13 @@ type ContactFormField = {
   label: string;
   type: "text" | "email" | "tel";
 };
+
+function normalizeNavPath(value: string) {
+  const path = value.split("?")[0]?.split("#")[0] || "/";
+  const normalized = path.endsWith("/") && path.length > 1 ? path.slice(0, -1) : path;
+
+  return normalized === "/home" ? "/" : normalized;
+}
 
 function getContactFormMode(settings: Record<string, string>): "squeeze" | "standard" | "custom" {
   return settings.formMode === "standard" || settings.formMode === "custom"
@@ -126,6 +134,25 @@ function ContactFormPreview({ settings }: { settings: Record<string, string> }) 
         {isSubmitting ? "Submitting..." : "Submit"}
       </button>
     </form>
+  );
+}
+
+function MerchProductCard({ settings }: { settings: Record<string, string> }) {
+  const productName = settings.productName || "Merch product";
+  const imageUrl = normalizeBuilderAssetUrl(settings.imageUrl);
+  const productUrl = normalizeBuilderAssetUrl(settings.productUrl);
+  const buttonLabel = settings.buttonLabel || "Buy on Redbubble";
+
+  return (
+    <div className="product-card">
+      {imageUrl ? <img src={imageUrl} alt={productName} /> : null}
+      <h3>{productName}</h3>
+      {productUrl ? (
+        <a href={productUrl} target="_blank" rel="noopener noreferrer">
+          {buttonLabel}
+        </a>
+      ) : null}
+    </div>
   );
 }
 
@@ -251,6 +278,26 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
     );
   }
 
+  if (module.type === "code") {
+    return (
+      <div className={`builder-preview-code builder-preview-code-${variant || "default"}`}>
+        {module.settings.label ? (
+          <div className="builder-preview-code-label">{module.settings.label}</div>
+        ) : null}
+        {module.text ? (
+          <div
+            className="builder-preview-code-render"
+            dangerouslySetInnerHTML={{ __html: module.text }}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (module.type === "merch") {
+    return <MerchProductCard settings={module.settings} />;
+  }
+
   if (module.type === "quote") {
     return (
       <blockquote className={`builder-preview-quote builder-preview-quote-${variant || "default"}`}>
@@ -287,7 +334,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   if (module.type === "video" || (module.type === "image" && module.settings.variant === "video")) {
     const embed = getVideoEmbedSource(module.settings.url);
     const title = module.settings.videoName || module.name || module.text || "Video";
-    const description = module.settings.videoDescription || module.settings.alt || "";
+    const opensInNewTab = module.settings.newTab !== "false";
 
     return (
       <figure className="builder-preview-video-card">
@@ -302,11 +349,19 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
           ) : embed?.kind === "video" ? (
             <video className="builder-preview-video" controls preload="metadata" src={embed.src} />
           ) : null}
+          {embed ? (
+            <a
+              aria-label={`Open ${title} in a new tab`}
+              className="builder-preview-video-link"
+              href={embed.href}
+              rel={opensInNewTab ? "noopener noreferrer" : undefined}
+              target={opensInNewTab ? "_blank" : undefined}
+            />
+          ) : null}
         </div>
-        {title || description ? (
+        {title ? (
           <figcaption className="builder-preview-video-caption">
-            {title ? <strong>{title}</strong> : null}
-            {description ? <span>{description}</span> : null}
+            <strong>{title}</strong>
           </figcaption>
         ) : null}
       </figure>
@@ -315,8 +370,10 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
 
   if (module.type === "image") {
     const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
+    const linkUrl = normalizeBuilderAssetUrl(module.settings.linkUrl);
     const imageStyle = getImageModuleStyle(module.settings);
     const imagePositionMode = getImagePositionMode(module.settings);
+    const opensInNewTab = module.settings.newTab === "true";
     const effectClass =
       module.settings.effect === "bounce"
         ? " normie-effect-bounce"
@@ -342,6 +399,14 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
           {mediaUrl ? (
             isVideoMedia(mediaUrl) ? (
               <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
+            ) : linkUrl ? (
+              <a href={linkUrl} rel={opensInNewTab ? "noopener noreferrer" : undefined} target={opensInNewTab ? "_blank" : undefined}>
+                <img
+                  alt={module.settings.alt || ""}
+                  src={mediaUrl}
+                  style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
+                />
+              </a>
             ) : (
               <img
                 alt={module.settings.alt || ""}
@@ -554,6 +619,8 @@ function NavigationModulePreview({
   module: import("@/lib/builder-template").BuilderTemplateModule;
 }) {
   const variant = module.settings.variant ?? "";
+  const pathname = usePathname();
+  const activePath = normalizeNavPath(pathname || "/");
 
   let navItems: { href: string; label: string }[] = [];
   try {
@@ -590,11 +657,21 @@ function NavigationModulePreview({
         } as CSSProperties
       }
     >
-      {navItems.map((item) => (
-        <Link className="site-nav-link" href={item.href || "#"} key={item.href}>
-          {item.label}
-        </Link>
-      ))}
+      {navItems.map((item) => {
+        const href = item.href || "#";
+        const isActive = normalizeNavPath(href) === activePath;
+
+        return (
+          <Link
+            aria-current={isActive ? "page" : undefined}
+            className={`site-nav-link${isActive ? " site-nav-link-active" : ""}`}
+            href={href}
+            key={`${href}-${item.label}`}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
@@ -789,7 +866,13 @@ function SocialModulePreview({ module }: { module: import("@/lib/builder-templat
   return (
     <div className="builder-preview-social" style={{ gap: `${gap}px` }}>
       {items.map((item) => (
-        <a key={item.id} className="builder-preview-social-item" href={item.href || "#"}>
+        <a
+          key={item.id}
+          className="builder-preview-social-item"
+          href={item.href || "#"}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
           <span className="builder-preview-social-icon" style={{ width: `${iconSize}px`, height: `${iconSize}px` }}>
             {item.iconUrl ? (
               <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />

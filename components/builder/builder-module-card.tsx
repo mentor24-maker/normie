@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { type CSSProperties, useRef, useState } from "react";
-import type { BackgroundSettings, BuilderTemplateModule, BuilderTemplateModuleType } from "@/lib/builder-template";
+import type { BackgroundSettings, BuilderProductRecord, BuilderTemplateModule, BuilderTemplateModuleType } from "@/lib/builder-template";
 import {
   createEmptyModule,
   getBuilderBackgroundStyle,
@@ -26,6 +26,7 @@ import {
 
 type BuilderModuleCardProps = {
   module: BuilderTemplateModule;
+  products?: BuilderProductRecord[];
   sectionId: string;
   editorDevice: "browser" | "mobile";
   isExpanded: boolean;
@@ -40,6 +41,7 @@ type BuilderModuleCardProps = {
   onOpenSocialIconGallery: (itemId: string) => void;
   onUploadMedia: (file: File | null) => void;
   onClone: () => void;
+  hideHeaderActions?: boolean;
 };
 
 type ContactFormField = {
@@ -101,6 +103,29 @@ function renderContactFormPreview(settings: Record<string, string>, interactive 
         </span>
       )}
     </Tag>
+  );
+}
+
+function renderMerchProductCard(settings: Record<string, string>) {
+  const productName = settings.productName || "Merch product";
+  const imageUrl = normalizeBuilderAssetUrl(settings.imageUrl);
+  const productUrl = normalizeBuilderAssetUrl(settings.productUrl);
+  const buttonLabel = settings.buttonLabel || "Buy on Redbubble";
+
+  return (
+    <div className="product-card">
+      {imageUrl ? (
+        <img src={imageUrl} alt={productName} />
+      ) : (
+        <div className="builder-module-preview-placeholder">Fetch a product URL</div>
+      )}
+      <h3>{productName}</h3>
+      {productUrl ? (
+        <a href={productUrl} target="_blank" rel="noopener noreferrer">
+          {buttonLabel}
+        </a>
+      ) : null}
+    </div>
   );
 }
 
@@ -190,6 +215,28 @@ function renderModulePreview(module: BuilderTemplateModule) {
     );
   }
 
+  if (module.type === "code") {
+    return (
+      <div className="builder-code-module-preview">
+        <div className="builder-code-module-preview-label">
+          {module.settings.label || module.name || "Code snippet"}
+        </div>
+        {module.text ? (
+          <div
+            className="builder-code-module-render"
+            dangerouslySetInnerHTML={{ __html: module.text }}
+          />
+        ) : (
+          <div className="builder-module-preview-placeholder">Add embed code or HTML</div>
+        )}
+      </div>
+    );
+  }
+
+  if (module.type === "merch") {
+    return renderMerchProductCard(module.settings);
+  }
+
   if (module.type === "contact-form") {
     return renderContactFormPreview(module.settings);
   }
@@ -197,7 +244,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
   if (module.type === "video" || (module.type === "image" && module.settings.variant === "video")) {
     const embed = getVideoEmbedSource(module.settings.url);
     const title = module.settings.videoName || module.name || module.text || "Video";
-    const description = module.settings.videoDescription || module.settings.alt || "";
+    const opensInNewTab = module.settings.newTab !== "false";
 
     return (
       <figure className="builder-preview-video-card builder-module-preview-video-card">
@@ -214,11 +261,19 @@ function renderModulePreview(module: BuilderTemplateModule) {
           ) : (
             <div className="builder-module-preview-placeholder">Add a video embed URL</div>
           )}
+          {embed ? (
+            <a
+              aria-label={`Open ${title} in a new tab`}
+              className="builder-preview-video-link"
+              href={embed.href}
+              rel={opensInNewTab ? "noopener noreferrer" : undefined}
+              target={opensInNewTab ? "_blank" : undefined}
+            />
+          ) : null}
         </div>
-        {title || description ? (
+        {title ? (
           <figcaption className="builder-preview-video-caption">
-            {title ? <strong>{title}</strong> : null}
-            {description ? <span>{description}</span> : null}
+            <strong>{title}</strong>
           </figcaption>
         ) : null}
       </figure>
@@ -227,8 +282,10 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "image") {
     const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
+    const linkUrl = normalizeBuilderAssetUrl(module.settings.linkUrl);
     const imageStyle = getImageModuleStyle(module.settings);
     const imagePositionMode = getImagePositionMode(module.settings);
+    const opensInNewTab = module.settings.newTab === "true";
     const effectClass =
       module.settings.effect === "bounce"
         ? " normie-effect-bounce"
@@ -254,6 +311,14 @@ function renderModulePreview(module: BuilderTemplateModule) {
           {mediaUrl ? (
             isVideoMedia(mediaUrl) ? (
               <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
+            ) : linkUrl ? (
+              <a href={linkUrl} rel={opensInNewTab ? "noopener noreferrer" : undefined} target={opensInNewTab ? "_blank" : undefined}>
+                <img
+                  alt={module.settings.alt || module.text || "Selected media"}
+                  src={mediaUrl}
+                  style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
+                />
+              </a>
             ) : (
               <img
                 alt={module.settings.alt || module.text || "Selected media"}
@@ -387,7 +452,13 @@ function renderModulePreview(module: BuilderTemplateModule) {
       <div className="builder-module-preview-social" style={{ gap: `${gap}px` }}>
         {items.length > 0 ? (
           items.map((item) => (
-            <a key={item.id} className="builder-module-preview-social-item" href={item.href || "#"}>
+            <a
+              key={item.id}
+              className="builder-module-preview-social-item"
+              href={item.href || "#"}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
               <span className="builder-module-preview-social-icon" style={{ width: `${iconSize}px`, height: `${iconSize}px` }}>
                 {item.iconUrl ? (
                   <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
@@ -1454,11 +1525,29 @@ export function BuilderModuleCard({
   onOpenSocialIconGallery,
   onUploadMedia,
   onSaveModule,
-  onClone
+  onClone,
+  products = [],
+  hideHeaderActions = false
 }: BuilderModuleCardProps) {
     const moduleAlignment = getModuleAlignment(module.settings);
     const mobileAlignment = module.settings.mobileAlignment ?? "";
     const isVideoModule = module.type === "video" || (module.type === "image" && module.settings.variant === "video");
+    const merchProducts = products.filter((product) => product.productType === "merch");
+
+    function applyMerchProduct(productId: string) {
+      const product = products.find((candidate) => candidate.id === productId);
+
+      onUpdateModule((current) => ({
+        ...current,
+        settings: {
+          ...current.settings,
+          productId,
+          productUrl: product?.productUrl ?? current.settings.productUrl ?? "",
+          productName: product?.name ?? current.settings.productName ?? "",
+          imageUrl: product?.imageUrl ?? current.settings.imageUrl ?? ""
+        }
+      }));
+    }
 
   return (
     <div
@@ -1473,30 +1562,32 @@ export function BuilderModuleCard({
           <strong>{module.name || module.type}</strong>
           <span>{module.type}</span>
         </div>
-        <div className="builder-section-actions">
-          <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
-          <button aria-label="Move module up" className="builder-icon-button" onClick={onMoveUp} title="Move module up" type="button">↑</button>
-          <button aria-label="Move module down" className="builder-icon-button" onClick={onMoveDown} title="Move module down" type="button">↓</button>
-          <button
-            aria-label="Clone module"
-            className="builder-icon-button"
-            onClick={onClone}
-            title="Clone module"
-            type="button"
-          >
-            ⧉
-          </button>
-          <button
-            aria-label="Save module"
-            className="builder-icon-button"
-            onClick={onSaveModule}
-            title="Save module"
-            type="button"
-          >
-            💾
-          </button>
-          <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
-        </div>
+        {!hideHeaderActions ? (
+          <div className="builder-section-actions">
+            <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
+            <button aria-label="Move module up" className="builder-icon-button" onClick={onMoveUp} title="Move module up" type="button">↑</button>
+            <button aria-label="Move module down" className="builder-icon-button" onClick={onMoveDown} title="Move module down" type="button">↓</button>
+            <button
+              aria-label="Clone module"
+              className="builder-icon-button"
+              onClick={onClone}
+              title="Clone module"
+              type="button"
+            >
+              ⧉
+            </button>
+            <button
+              aria-label="Save module"
+              className="builder-icon-button"
+              onClick={onSaveModule}
+              title="Save module"
+              type="button"
+            >
+              💾
+            </button>
+            <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
+          </div>
+        ) : null}
       </div>
 
       {!isExpanded ? (
@@ -1646,6 +1737,39 @@ export function BuilderModuleCard({
               />
             </label>
           )}
+
+          {module.type === "image" && !isVideoModule ? (
+            <label className="field">
+              <span>Link</span>
+              <input
+                type="text"
+                value={module.settings.linkUrl ?? ""}
+                onChange={(event) =>
+                  onUpdateModule((current) => ({
+                    ...current,
+                    settings: { ...current.settings, linkUrl: normalizeBuilderAssetUrl(event.target.value) }
+                  }))
+                }
+                placeholder="/path-or-url"
+              />
+            </label>
+          ) : null}
+
+          {(isVideoModule || (module.type === "image" && !isVideoModule)) ? (
+            <label className="field builder-checkbox-field">
+              <span>New Tab</span>
+              <input
+                type="checkbox"
+                checked={isVideoModule ? module.settings.newTab !== "false" : module.settings.newTab === "true"}
+                onChange={(event) =>
+                  onUpdateModule((current) => ({
+                    ...current,
+                    settings: { ...current.settings, newTab: event.target.checked ? "true" : "false" }
+                  }))
+                }
+              />
+            </label>
+          ) : null}
 
           {module.type === "button" && (
             <div className="builder-button-design-grid">
@@ -1836,6 +1960,110 @@ export function BuilderModuleCard({
           {module.type === "navigation" && <NavModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "headline-rotator" && <HeadlineRotatorModuleEditor module={module} onUpdateModule={onUpdateModule} />}
 
+          {module.type === "merch" ? (
+            <div className="builder-merch-editor-grid">
+              <label className="field builder-merch-product-url-field">
+                <span>Saved product</span>
+                <select
+                  value={module.settings.productId ?? ""}
+                  onChange={(event) => applyMerchProduct(event.target.value)}
+                >
+                  <option value="">Choose saved product</option>
+                  {merchProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field builder-merch-product-url-field">
+                <span>Product URL</span>
+                <input
+                  type="text"
+                  value={module.settings.productUrl ?? ""}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, productUrl: event.target.value }
+                    }))
+                  }
+                  placeholder="https://www.redbubble.com/i/t-shirt/..."
+                />
+              </label>
+              <label className="field">
+                <span>Product name</span>
+                <input
+                  type="text"
+                  value={module.settings.productName ?? ""}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, productName: event.target.value }
+                    }))
+                  }
+                  placeholder="Active T-Shirt"
+                />
+              </label>
+              <label className="field">
+                <span>Image URL</span>
+                <input
+                  type="text"
+                  value={module.settings.imageUrl ?? ""}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, imageUrl: normalizeBuilderAssetUrl(event.target.value) }
+                    }))
+                  }
+                  placeholder="https://ih1.redbubble.net/..."
+                />
+              </label>
+              <label className="field">
+                <span>Button label</span>
+                <input
+                  type="text"
+                  value={module.settings.buttonLabel ?? "Buy on Redbubble"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, buttonLabel: event.target.value }
+                    }))
+                  }
+                  placeholder="Buy on Redbubble"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {module.type === "code" ? (
+            <div className="builder-code-editor-grid">
+              <label className="field">
+                <span>Label</span>
+                <input
+                  type="text"
+                  value={module.settings.label ?? ""}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, label: event.target.value }
+                    }))
+                  }
+                  placeholder="Optional internal label"
+                />
+              </label>
+              <label className="field builder-code-editor-field">
+                <span>Embed code / snippet</span>
+                <textarea
+                  className="builder-textarea builder-code-textarea"
+                  value={module.text}
+                  onChange={(event) => onUpdateModule((current) => ({ ...current, text: event.target.value }))}
+                  placeholder="<iframe ...></iframe>"
+                  spellCheck={false}
+                />
+              </label>
+            </div>
+          ) : null}
+
           {(module.type === "previous-results" || module.type === "current-poll") && (
             <div className="builder-module-runtime-note">
               <strong>Live poll module</strong>
@@ -1850,6 +2078,8 @@ export function BuilderModuleCard({
           module.type !== "social" &&
           module.type !== "navigation" &&
           module.type !== "headline-rotator" &&
+          module.type !== "merch" &&
+          module.type !== "code" &&
           module.type !== "previous-results" &&
           module.type !== "current-poll" ? (
             <label className="field">

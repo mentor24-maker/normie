@@ -16,6 +16,8 @@ export type BuilderTemplateModuleType =
   | "heading"
   | "headline-rotator"
   | "text"
+  | "code"
+  | "merch"
   | "image"
   | "video"
   | "quote"
@@ -104,6 +106,18 @@ export type BuilderSavedSectionRecord = {
   id: string;
   name: string;
   section: BuilderTemplateSection;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BuilderProductType = "merch" | "personality_profile";
+
+export type BuilderProductRecord = {
+  id: string;
+  name: string;
+  productType: BuilderProductType;
+  productUrl: string;
+  imageUrl: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -443,6 +457,8 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "navigation" ||
     type === "heading" ||
     type === "headline-rotator" ||
+    type === "code" ||
+    type === "merch" ||
     type === "image" ||
     type === "video" ||
     type === "quote" ||
@@ -545,6 +561,24 @@ export function rowToBuilderSavedSection(row: Record<string, unknown>): BuilderS
     id: safeText(row.id, 120),
     name: safeText(row.name, 255),
     section,
+    createdAt: safeText(row.created_at ?? row.createdAt, 120),
+    updatedAt: safeText(row.updated_at ?? row.updatedAt, 120)
+  };
+}
+
+export function normalizeProductType(value: unknown): BuilderProductType {
+  const type = safeText(value, 80).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+
+  return type === "personality_profile" ? "personality_profile" : "merch";
+}
+
+export function rowToBuilderProduct(row: Record<string, unknown>): BuilderProductRecord {
+  return {
+    id: safeText(row.id, 120),
+    name: safeText(row.name, 255),
+    productType: normalizeProductType(row.product_type ?? row.productType),
+    productUrl: normalizeBuilderAssetUrl(row.product_url ?? row.productUrl),
+    imageUrl: normalizeBuilderAssetUrl(row.image_url ?? row.imageUrl),
     createdAt: safeText(row.created_at ?? row.createdAt, 120),
     updatedAt: safeText(row.updated_at ?? row.updatedAt, 120)
   };
@@ -682,6 +716,8 @@ export function createEmptyModule(
       : type === "image"
       ? {
           url: "",
+          linkUrl: "",
+          newTab: "false",
           alt: "",
           size: "100",
           borderThickness: "0",
@@ -693,9 +729,23 @@ export function createEmptyModule(
           offsetY: "0",
           zIndex: "2"
         }
+      : type === "code"
+      ? {
+          label: "",
+          snippetMode: "html"
+        }
+      : type === "merch"
+      ? {
+          productId: "",
+          productUrl: "",
+          productName: "",
+          imageUrl: "",
+          buttonLabel: "Buy on Redbubble"
+        }
       : type === "video"
       ? {
           url: "",
+          newTab: "true",
           videoName: "",
           videoDescription: ""
         }

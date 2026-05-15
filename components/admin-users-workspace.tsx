@@ -106,6 +106,7 @@ export function AdminUsersWorkspace({
   const [form, setForm] = useState<UserFormState>(() => createEmptyForm(directoryKind));
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -199,6 +200,40 @@ export function AdminUsersWorkspace({
     }
   }
 
+  async function handleInvite(source?: DirectoryRecord) {
+    const payload = source ? createFormFromUser(source, directoryKind) : form;
+
+    setIsInviting(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/team/invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = (await response.json()) as { user?: DirectoryRecord; message?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to invite team member.");
+      }
+
+      setMessage(data.message ?? "Invitation sent.");
+      await loadUsers();
+
+      if (data.user?.id) {
+        setSelectedUserId(data.user.id);
+      }
+    } catch (inviteError) {
+      setError(inviteError instanceof Error ? inviteError.message : "Failed to invite team member.");
+    } finally {
+      setIsInviting(false);
+    }
+  }
+
   async function handleDelete(user: DirectoryRecord) {
     const confirmed = window.confirm(`Delete ${user.email}? This cannot be undone.`);
 
@@ -250,6 +285,11 @@ export function AdminUsersWorkspace({
             <button className="secondary-button" onClick={resetForm} type="button">
               {newButtonLabel}
             </button>
+            {directoryKind === "team" ? (
+              <button className="secondary-button" onClick={() => void handleInvite()} type="button" disabled={isInviting}>
+                {isInviting ? "Inviting..." : "Invite Team Member"}
+              </button>
+            ) : null}
             <button className="submit-button" onClick={() => void handleSubmit()} type="button" disabled={isSaving}>
               {isSaving ? "Saving..." : selectedUserId ? "Save Changes" : createButtonLabel}
             </button>
@@ -417,6 +457,16 @@ export function AdminUsersWorkspace({
                       >
                         Edit
                       </button>
+                      {directoryKind === "team" && user.status === "invited" ? (
+                        <button
+                          className="secondary-button"
+                          onClick={() => void handleInvite(user)}
+                          type="button"
+                          disabled={isInviting}
+                        >
+                          Resend Invite
+                        </button>
+                      ) : null}
                       <button
                         className="row-delete-button"
                         onClick={() => void handleDelete(user)}

@@ -321,7 +321,8 @@ input {
   transition: background 140ms ease, transform 140ms ease, color 140ms ease;
 }
 
-.site-nav-link:hover {
+.site-nav-link:hover,
+.site-nav-link-active {
   background: var(--site-nav-link-hover-bg, rgba(23, 183, 238, 0.12));
   color: var(--site-nav-link-hover-color, #0a8fc4);
   transform: translateY(-1px);
@@ -2831,6 +2832,7 @@ h2 {
 }
 
 .builder-preview-video-frame {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
@@ -2849,6 +2851,19 @@ h2 {
   border-radius: inherit;
 }
 
+.builder-preview-video-link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: pointer;
+  border-radius: inherit;
+}
+
+.builder-preview-video-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -6px;
+}
+
 .builder-preview-video-caption {
   display: grid;
   gap: 4px;
@@ -2858,6 +2873,143 @@ h2 {
 
 .builder-preview-video-caption strong {
   color: var(--ink);
+}
+
+.builder-code-module-preview,
+.builder-preview-code {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.builder-code-module-preview-label,
+.builder-preview-code-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.builder-code-module-render,
+.builder-preview-code-render {
+  width: 100%;
+  min-width: 0;
+}
+
+.builder-code-module-render iframe,
+.builder-code-module-render embed,
+.builder-code-module-render object,
+.builder-code-module-render video,
+.builder-preview-code-render iframe,
+.builder-preview-code-render embed,
+.builder-preview-code-render object,
+.builder-preview-code-render video {
+  max-width: 100%;
+}
+
+.builder-code-editor-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.builder-code-editor-field {
+  grid-column: 1 / -1;
+}
+
+.builder-code-textarea {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.product-card {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 360px);
+  padding: 18px;
+  border: 1px solid rgba(9, 16, 24, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-soft);
+}
+
+.product-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+}
+
+.product-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.product-card a {
+  display: inline-flex;
+  justify-content: center;
+  justify-self: start;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--accent-dark);
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: var(--shadow-soft);
+}
+
+.product-card a:hover {
+  background: var(--accent);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.builder-merch-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.builder-merch-product-url-field,
+.builder-merch-editor-grid .builder-form-error {
+  grid-column: 1 / -1;
+}
+
+.builder-form-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 48, 37, 0.24);
+  border-radius: 14px;
+  background: rgba(217, 48, 37, 0.08);
+  color: var(--error);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.builder-product-editor {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(9, 16, 24, 0.08);
+  border-radius: 18px;
+  background: rgba(244, 250, 255, 0.72);
+}
+
+.builder-product-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.builder-repository-section-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
 }
 
 .builder-video-controls-grid {
@@ -2922,6 +3074,20 @@ h2 {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.builder-saved-module-editor {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(9, 16, 24, 0.08);
+  border-radius: 18px;
+  background: rgba(244, 250, 255, 0.72);
+}
+
+.builder-saved-module-editor-stack {
+  display: grid;
+  gap: 16px;
 }
 
 .builder-preview-device-mobile .page-shell,

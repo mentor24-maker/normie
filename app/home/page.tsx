@@ -1,0 +1,13 @@
+import { getPublishedBuilderPageBySlug } from "@/lib/builder-pages";
+import { DynamicPageShell } from "@/src/site/dynamic/dynamic-page-shell";
+import { HomePage as HomePageView } from "@/src/site/home";
+
+export default async function HomeSlugPage() {
+  const dynamicPage = await getPublishedBuilderPageBySlug("home");
+
+  if (dynamicPage) {
+    return <DynamicPageShell page={dynamicPage} />;
+  }
+
+  return <HomePageView />;
+}
