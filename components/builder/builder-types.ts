@@ -59,8 +59,9 @@ export const modulePaletteGroups: Array<{
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
   { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
   { value: "contact-form", label: "Contact Forms", icon: "CF", description: "Lead capture forms with simple presets." },
-  { value: "previous-results", label: "Poll Slider", icon: "PS", description: "Current poll paired with previous results." },
+  { value: "previous-results", label: "Previous Results", icon: "PR", description: "Only the live previous-poll results panel." },
   { value: "current-poll", label: "Polls", icon: "P?", description: "The current live poll with vote actions." },
+  { value: "social-share", label: "Social Share", icon: "↗", description: "Share buttons with dynamic post text from the current poll." },
   { value: "social", label: "Social", icon: "@", description: "Linked rows of social icons and profile badges." },
   { value: "table", label: "Tables", icon: "⊞", description: "Data tables with configurable columns and rows." },
   { value: "slider", label: "Sliders", icon: "⇆", description: "Horizontally scrollable bars of managed cards." }
@@ -299,10 +300,10 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     id: "poll-previous-results",
     type: "previous-results",
     group: "previous-results",
-    label: "Poll Slider",
-    icon: "PS",
-    description: "The live current poll paired with previous-poll results.",
-    name: "",
+    label: "Previous Results",
+    icon: "PR",
+    description: "Only the live previous-poll results panel.",
+    name: "Previous Results",
     text: "",
     settings: {}
   },
@@ -313,9 +314,25 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     label: "Current Poll",
     icon: "CP",
     description: "The live current poll with answer choices.",
-    name: "",
+    name: "Current Poll",
     text: "",
     settings: {}
+  },
+  {
+    id: "poll-social-share",
+    type: "social-share",
+    group: "social-share",
+    label: "Social Share",
+    icon: "↗",
+    description: "Share buttons that generate post text from the current poll.",
+    name: "",
+    text: "",
+    settings: {
+      shareLabel: "Share this poll",
+      shareTemplate: 'I just answered: "{pollQuestion}" What would you pick? {url}',
+      shareHashtags: "Normie,WYR",
+      shareVia: "Normie765714"
+    }
   },
   {
     id: "social-icons-row",

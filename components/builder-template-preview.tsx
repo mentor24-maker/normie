@@ -12,7 +12,7 @@ import {
   getLayoutGridTemplate,
   normalizeBuilderAssetUrl
 } from "@/lib/builder-template";
-import { PollExperience } from "@/components/poll-experience";
+import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import {
   getAlignmentClass,
   getHeadingModuleStyle,
@@ -145,7 +145,7 @@ function MerchProductCard({ settings }: { settings: Record<string, string> }) {
 
   return (
     <div className="product-card">
-      {imageUrl ? <img src={imageUrl} alt={productName} /> : null}
+      {imageUrl ? <img src={imageUrl} alt={productName} suppressHydrationWarning /> : null}
       <h3>{productName}</h3>
       {productUrl ? (
         <a href={productUrl} target="_blank" rel="noopener noreferrer">
@@ -404,6 +404,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
                 <img
                   alt={module.settings.alt || ""}
                   src={mediaUrl}
+                  suppressHydrationWarning
                   style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
                 />
               </a>
@@ -411,6 +412,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
               <img
                 alt={module.settings.alt || ""}
                 src={mediaUrl}
+                suppressHydrationWarning
                 style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
               />
             )
@@ -433,7 +435,11 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   }
 
   if (module.type === "previous-results" || module.type === "current-poll") {
-    return <PollExperience bare />;
+    return <BuilderPollModuleRuntime kind={module.type} />;
+  }
+
+  if (module.type === "social-share") {
+    return <BuilderSocialShareRuntime settings={module.settings} />;
   }
 
   return null;
@@ -837,7 +843,7 @@ function SliderModulePreview({ module }: { module: import("@/lib/builder-templat
   );
 }
 
-type SocialItem = { id: string; label: string; href: string; iconUrl: string };
+type SocialItem = { id: string; label: string; href: string; iconUrl: string; backgroundColor: string };
 
 function parseSocialItems(settings: Record<string, string>): SocialItem[] {
   try {
@@ -849,7 +855,8 @@ function parseSocialItems(settings: Record<string, string>): SocialItem[] {
         id: String(raw.id || `social-${index + 1}`),
         label: String(raw.label || ""),
         href: String(raw.href || ""),
-        iconUrl: normalizeBuilderAssetUrl(raw.iconUrl)
+        iconUrl: normalizeBuilderAssetUrl(raw.iconUrl),
+        backgroundColor: String(raw.backgroundColor || "rgba(255, 255, 255, 0.94)")
       };
     });
   } catch {
@@ -873,7 +880,10 @@ function SocialModulePreview({ module }: { module: import("@/lib/builder-templat
           rel="noopener noreferrer"
           target="_blank"
         >
-          <span className="builder-preview-social-icon" style={{ width: `${iconSize}px`, height: `${iconSize}px` }}>
+          <span
+            className="builder-preview-social-icon"
+            style={{ width: `${iconSize}px`, height: `${iconSize}px`, background: item.backgroundColor }}
+          >
             {item.iconUrl ? (
               <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
             ) : (

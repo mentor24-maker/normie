@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
@@ -33,7 +31,6 @@ function formatDisplayCount(value: number) {
   if (value >= 1000) {
     return `${(value / 1000).toFixed(1)}K`;
   }
-
   return String(value);
 }
 
@@ -42,7 +39,6 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPreviousDetails, setShowPreviousDetails] = useState(false);
 
   async function loadPolls() {
     setIsLoading(true);
@@ -73,9 +69,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   }, []);
 
   async function submitAnswer(optionId: string) {
-    if (!payload?.currentPoll) {
-      return;
-    }
+    if (!payload?.currentPoll) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -83,13 +77,8 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     try {
       const response = await fetch("/api/polls/answer", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          pollId: payload.currentPoll.id,
-          optionId
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pollId: payload.currentPoll.id, optionId })
       });
 
       const data = (await response.json()) as { error?: string };
@@ -115,79 +104,67 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
       ) : payload?.done ? (
         <div className="notice success">You&apos;re done. Thanks for finishing the full poll sequence.</div>
       ) : payload?.currentPoll ? (
-        <section className="poll-grid">
-          <article className="panel action-panel">
-            <div className="panel-label">Current Poll</div>
-            <h2 className="poll-question">{payload.currentPoll.question}</h2>
-            <div className="option-list">
-              {payload.currentPoll.options.map((option) => (
-                <button
-                  className="option-button"
-                  key={option.id}
-                  onClick={() => void submitAnswer(option.id)}
-                  disabled={isSubmitting}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <p className="panel-copy">
-              {isSubmitting ? "Saving your answer..." : "Choose one option to move to the next poll."}
-            </p>
-          </article>
+        <>
+          <section className="poll-grid">
+            <article className="panel action-panel">
+              <div className="panel-label">Current Poll</div>
+              <h2 className="poll-question">{payload.currentPoll.question}</h2>
+              <div className="option-list">
+                {payload.currentPoll.options.map((option) => (
+                  <button
+                    className="option-button"
+                    key={option.id}
+                    onClick={() => void submitAnswer(option.id)}
+                    disabled={isSubmitting}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="panel-copy">
+                {isSubmitting ? "Saving your answer..." : "Choose one option to move to the next poll."}
+              </p>
+            </article>
 
-          <article className="panel result-panel">
-            <div className="panel-label">Previous Results</div>
-            {payload.previousPoll ? (
-              <>
-                <h2 className="poll-question">{payload.previousPoll.question}</h2>
-                <p className="panel-copy">
-                  {formatDisplayCount(payload.previousPoll.totalResponses)} total response
-                  {payload.previousPoll.totalResponses === 1 ? "" : "s"}
-                </p>
-                <div className="result-list">
-                  {payload.previousPoll.options.map((option) => (
-                    <div className="result-row" key={option.id}>
-                      <div className="result-meta">
-                        <span>{option.label}</span>
-                        <span>
-                          {formatDisplayCount(option.votes)} · {option.percentage}%
-                        </span>
+            <article className="panel result-panel">
+              <div className="panel-label">Previous Results</div>
+              {payload.previousPoll ? (
+                <>
+                  <h2 className="poll-question">{payload.previousPoll.question}</h2>
+                  <p className="panel-copy">
+                    {formatDisplayCount(payload.previousPoll.totalResponses)} total response
+                    {payload.previousPoll.totalResponses === 1 ? "" : "s"}
+                  </p>
+                  <div className="result-list">
+                    {payload.previousPoll.options.map((option) => (
+                      <div className="result-row" key={option.id}>
+                        <div className="result-meta">
+                          <span>{option.label}</span>
+                          <span>
+                            {formatDisplayCount(option.votes)} · {option.percentage}%
+                          </span>
+                        </div>
+                        <div className="result-bar">
+                          <div className="result-bar-fill" style={{ width: `${option.percentage}%` }} />
+                        </div>
                       </div>
-                      <div className="result-bar">
-                        <div className="result-bar-fill" style={{ width: `${option.percentage}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  className="dive-deeper-toggle"
-                  onClick={() => setShowPreviousDetails((current) => !current)}
-                  type="button"
-                >
-                  Dive Deeper
-                </button>
-                {showPreviousDetails ? (
-                  <div className="dive-deeper-panel">
-                    <a href="#">Video</a>
-                    <a href="#">Articles</a>
-                    <a href="#">Discussion</a>
+                    ))}
                   </div>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <div className="panel-label">How It Works</div>
-                <h2 className="poll-question">Vote left, watch the story unfold on the right.</h2>
-                <p className="panel-copy">
-                  Each screen invites you into the next question while showing the community
-                  response to the previous prompt.
-                </p>
-              </>
-            )}
-          </article>
-        </section>
+                </>
+              ) : (
+                <>
+                  <div className="panel-label">How It Works</div>
+                  <h2 className="poll-question">Vote left, watch the story unfold on the right.</h2>
+                  <p className="panel-copy">
+                    Each screen invites you into the next question while showing the community
+                    response to the previous prompt.
+                  </p>
+                </>
+              )}
+            </article>
+          </section>
+        </>
       ) : (
         <div className="notice">No published polls are available yet.</div>
       )}

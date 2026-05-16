@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import type { PollPayload } from "@/src/site/home/types";
+import { SocialShareBar } from "@/components/social-share-module";
 
 type PollRuntimeState = {
   payload: PollPayload | null;
@@ -208,5 +209,39 @@ export function BuilderPollModuleRuntime({
       <div className="panel-label">Current Poll</div>
       <p className="panel-copy">No published polls are available yet.</p>
     </article>
+  );
+}
+
+export function BuilderSocialShareRuntime({
+  settings,
+  className
+}: {
+  settings: Record<string, string>;
+  className?: string;
+}) {
+  const { error, isLoading, payload } = useSharedPollRuntime();
+
+  if (isLoading) {
+    return (
+      <div className={className}>
+        <div className="poll-share-bar">
+          <span className="poll-share-label">Loading share links...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return settings.shareShowErrors === "true" ? (
+      <div className={className}>
+        <p className="panel-copy">{error}</p>
+      </div>
+    ) : null;
+  }
+
+  return (
+    <div className={className}>
+      <SocialShareBar settings={settings} poll={payload?.currentPoll ?? null} />
+    </div>
   );
 }

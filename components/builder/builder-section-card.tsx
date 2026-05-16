@@ -133,12 +133,12 @@ export function BuilderSectionCard({
   );
 
   function getCellPanelState(column: string) {
-    return collapsedCellPanels[column] ?? { styles: false, content: false };
+    return collapsedCellPanels[column] ?? { styles: true, content: true };
   }
 
   function toggleCellPanel(column: string, panel: "styles" | "content") {
     setCollapsedCellPanels((current) => {
-      const state = current[column] ?? { styles: false, content: false };
+      const state = current[column] ?? { styles: true, content: true };
       return {
         ...current,
         [column]: {

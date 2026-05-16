@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
-import { rowToBuilderSavedSection, safeText } from "@/lib/builder-template";
+import { normalizeBuilderSection, rowToBuilderSavedSection, safeText } from "@/lib/builder-template";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function PATCH(
@@ -16,17 +16,32 @@ export async function PATCH(
   }
 
   const { id } = await context.params;
-  const body = (await request.json()) as { name?: unknown };
+  const body = (await request.json()) as { name?: unknown; section?: unknown };
   const name = safeText(body.name, 255);
 
   if (!name) {
     return NextResponse.json({ error: "Saved section name is required." }, { status: 400 });
   }
 
+  const updatePayload: { name: string; updated_at: string; section?: unknown } = {
+    name,
+    updated_at: new Date().toISOString()
+  };
+
+  if (body.section !== undefined) {
+    const section = normalizeBuilderSection(body.section);
+
+    if (!section) {
+      return NextResponse.json({ error: "Saved section is invalid." }, { status: 400 });
+    }
+
+    updatePayload.section = section;
+  }
+
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("builder_saved_sections")
-    .update({ name, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq("id", id)
     .select("id, name, section, created_at, updated_at")
     .single();

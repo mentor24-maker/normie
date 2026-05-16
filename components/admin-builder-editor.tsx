@@ -84,8 +84,8 @@ export function AdminBuilderEditor() {
   const [modulePaletteTarget, setModulePaletteTarget] = useState<{ sectionId: string; column: string } | null>(null);
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
   const [collapsedBuilderPanels, setCollapsedBuilderPanels] = useState({
-    rowConfigurations: false,
-    workspace: false
+    rowConfigurations: true,
+    workspace: true
   });
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -650,6 +650,38 @@ export function AdminBuilderEditor() {
     }
   }
 
+  async function createSavedModule(name: string, modules: BuilderTemplateModule[]) {
+    const trimmedName = name.trim();
+
+    if (!trimmedName || modules.length === 0) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/cell-modules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName, modules })
+      });
+      const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save module.");
+
+      if (!data.cellModule) {
+        throw new Error(data.error ?? "Failed to save module.");
+      }
+
+      setCellModules((current) => [data.cellModule!, ...current]);
+      setMessage(`Saved "${data.cellModule.name}" to the module repository.`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save module.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function deleteSavedModule(cellModuleId: string, currentName: string) {
     if (!window.confirm(`Delete saved module "${currentName}"? This cannot be undone.`)) return;
 
@@ -670,9 +702,12 @@ export function AdminBuilderEditor() {
     }
   }
 
-  async function renameSavedSection(sectionId: string, currentName: string) {
-    const name = window.prompt("Rename saved section", currentName)?.trim();
-    if (!name || name === currentName) return;
+  async function saveSavedSection(sectionId: string, name: string, section: BuilderTemplateSection) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Saved section name is required.");
+      return;
+    }
 
     setIsSaving(true);
     setError(null);
@@ -682,20 +717,20 @@ export function AdminBuilderEditor() {
       const response = await fetch(`/api/admin/saved-sections/${sectionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name: trimmedName, section })
       });
-      const data = await readAdminJson<{ savedSection?: BuilderSavedSectionRecord; error?: string }>(response, "Failed to rename saved section.");
+      const data = await readAdminJson<{ savedSection?: BuilderSavedSectionRecord; error?: string }>(response, "Failed to save saved section.");
 
       if (!data.savedSection) {
-        throw new Error(data.error ?? "Failed to rename saved section.");
+        throw new Error(data.error ?? "Failed to save saved section.");
       }
 
       setSavedSections((current) =>
         current.map((section) => (section.id === data.savedSection!.id ? data.savedSection! : section))
       );
-      setMessage(`Renamed saved section to "${data.savedSection.name}".`);
+      setMessage(`Saved section "${data.savedSection.name}".`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to rename saved section.");
+      setError(e instanceof Error ? e.message : "Failed to save saved section.");
     } finally {
       setIsSaving(false);
     }
@@ -1094,12 +1129,15 @@ export function AdminBuilderEditor() {
         <BuilderModuleRepositoryList
           cellModules={cellModules}
           products={products}
+          galleryMedia={galleryMedia}
+          isUploadingMedia={isUploadingMedia}
           savedSections={savedSections}
           isSaving={isSaving}
           onDeleteSavedModule={(id, name) => void deleteSavedModule(id, name)}
           onDeleteSavedSection={(id, name) => void deleteSavedSection(id, name)}
+          onCreateSavedModule={(name, modules) => void createSavedModule(name, modules)}
           onSaveSavedModule={(id, name, modules) => void saveSavedModule(id, name, modules)}
-          onRenameSavedSection={(id, name) => void renameSavedSection(id, name)}
+          onSaveSavedSection={(id, name, section) => void saveSavedSection(id, name, section)}
         />
       ) : (
         <BuilderPageList

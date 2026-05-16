@@ -26,6 +26,7 @@ export type BuilderTemplateModuleType =
   | "table"
   | "slider"
   | "social"
+  | "social-share"
   | "previous-results"
   | "current-poll";
 
@@ -467,6 +468,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "table" ||
     type === "slider" ||
     type === "social" ||
+    type === "social-share" ||
     type === "previous-results" ||
     type === "current-poll"
   ) {
@@ -799,7 +801,14 @@ export function createEmptyModule(
                   ? {
                       showPromptCopy: "true"
                     }
-                  : type === "headline-rotator"
+                  : type === "social-share"
+                    ? {
+                        shareLabel: "Share this poll",
+                        shareTemplate: 'I just answered: "{pollQuestion}" What would you pick? {url}',
+                        shareHashtags: "Normie,WYR",
+                        shareVia: "Normie765714"
+                      }
+                    : type === "headline-rotator"
                     ? {
                         fontSize: "32",
                         color: "#18324a",

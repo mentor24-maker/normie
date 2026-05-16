@@ -8,6 +8,13 @@ import {
   formatRichTextContent
 } from "@/lib/builder-template";
 import { BuilderRichTextEditor } from "@/components/builder-rich-text-editor";
+import {
+  DEFAULT_SHARE_TEMPLATE,
+  SOCIAL_SHARE_PLATFORMS,
+  SocialShareBar,
+  getSocialSharePlatformEnabled,
+  type SocialSharePlatformId
+} from "@/components/social-share-module";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
@@ -115,7 +122,7 @@ function renderMerchProductCard(settings: Record<string, string>) {
   return (
     <div className="product-card">
       {imageUrl ? (
-        <img src={imageUrl} alt={productName} />
+        <img src={imageUrl} alt={productName} suppressHydrationWarning />
       ) : (
         <div className="builder-module-preview-placeholder">Fetch a product URL</div>
       )}
@@ -316,6 +323,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
                 <img
                   alt={module.settings.alt || module.text || "Selected media"}
                   src={mediaUrl}
+                  suppressHydrationWarning
                   style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
                 />
               </a>
@@ -323,6 +331,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
               <img
                 alt={module.settings.alt || module.text || "Selected media"}
                 src={mediaUrl}
+                suppressHydrationWarning
                 style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
               />
             )
@@ -459,7 +468,10 @@ function renderModulePreview(module: BuilderTemplateModule) {
               rel="noopener noreferrer"
               target="_blank"
             >
-              <span className="builder-module-preview-social-icon" style={{ width: `${iconSize}px`, height: `${iconSize}px` }}>
+              <span
+                className="builder-module-preview-social-icon"
+                style={{ width: `${iconSize}px`, height: `${iconSize}px`, background: item.backgroundColor }}
+              >
                 {item.iconUrl ? (
                   <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
                 ) : (
@@ -478,44 +490,30 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "previous-results") {
     return (
-      <div className="poll-grid builder-module-preview-poll-slider">
-        <article className="panel action-panel builder-module-preview-poll">
-          <div className="panel-label">Current Poll</div>
-          <h2>Live current poll prompt with answer choices.</h2>
-          <div className="option-list">
-            <div className="option-button">Option One</div>
-            <div className="option-button">Option Two</div>
-          </div>
-          <p className="panel-copy">
-            This module renders the real poll flow in page preview and on the live site.
-          </p>
-        </article>
-
-        <article className="panel result-panel builder-module-preview-poll">
-          <div className="panel-label">Previous Results</div>
-          <h2>Live result bars from the previous community poll.</h2>
-          <div className="result-list">
-            <div className="result-row">
-              <div className="result-meta">
-                <span>Option A</span>
-                <span>124 · 62%</span>
-              </div>
-              <div className="result-bar">
-                <div className="result-bar-fill" style={{ width: "62%" }} />
-              </div>
+      <article className="panel result-panel builder-module-preview-poll">
+        <div className="panel-label">Previous Results</div>
+        <h2>Live result bars from the previous community poll.</h2>
+        <div className="result-list">
+          <div className="result-row">
+            <div className="result-meta">
+              <span>Option A</span>
+              <span>124 · 62%</span>
             </div>
-            <div className="result-row">
-              <div className="result-meta">
-                <span>Option B</span>
-                <span>76 · 38%</span>
-              </div>
-              <div className="result-bar">
-                <div className="result-bar-fill" style={{ width: "38%" }} />
-              </div>
+            <div className="result-bar">
+              <div className="result-bar-fill" style={{ width: "62%" }} />
             </div>
           </div>
-        </article>
-      </div>
+          <div className="result-row">
+            <div className="result-meta">
+              <span>Option B</span>
+              <span>76 · 38%</span>
+            </div>
+            <div className="result-bar">
+              <div className="result-bar-fill" style={{ width: "38%" }} />
+            </div>
+          </div>
+        </div>
+      </article>
     );
   }
 
@@ -532,6 +530,20 @@ function renderModulePreview(module: BuilderTemplateModule) {
           This module uses the real live poll and vote flow in page preview and on the live site.
         </p>
       </article>
+    );
+  }
+
+  if (module.type === "social-share") {
+    return (
+      <SocialShareBar
+        preview
+        settings={module.settings}
+        poll={{
+          id: "preview-poll",
+          question: module.settings.shareFallbackQuestion || "Would you rather be right alone or wrong with everyone?",
+          options: []
+        }}
+      />
     );
   }
 
@@ -562,6 +574,7 @@ type SocialItem = {
   label: string;
   href: string;
   iconUrl: string;
+  backgroundColor: string;
 };
 
 type NavItem = {
@@ -663,7 +676,8 @@ function parseSocialItems(settings: Record<string, string>): SocialItem[] {
         id: String(raw.id || `social-${index + 1}`),
         label: String(raw.label || ""),
         href: String(raw.href || ""),
-        iconUrl: normalizeBuilderAssetUrl(raw.iconUrl)
+        iconUrl: normalizeBuilderAssetUrl(raw.iconUrl),
+        backgroundColor: String(raw.backgroundColor || "rgba(255, 255, 255, 0.94)")
       };
     });
   } catch {
@@ -1234,7 +1248,16 @@ function SocialModuleEditor({
   function removeItem(id: string) { persist(items.filter((item) => item.id !== id)); }
 
   function addItem() {
-    persist([...items, { id: `social-${Date.now()}-${items.length + 1}`, label: "", href: "", iconUrl: "" }]);
+    persist([
+      ...items,
+      {
+        id: `social-${Date.now()}-${items.length + 1}`,
+        label: "",
+        href: "",
+        iconUrl: "",
+        backgroundColor: "rgba(255, 255, 255, 0.94)"
+      }
+    ]);
   }
 
   return (
@@ -1261,6 +1284,15 @@ function SocialModuleEditor({
             <div className="builder-slider-item-grid">
               <label className="field"><span>Label</span><input type="text" value={item.label} onChange={(e) => updateItem(item.id, { label: e.target.value })} /></label>
               <label className="field"><span>Link</span><input type="text" value={item.href} onChange={(e) => updateItem(item.id, { href: e.target.value })} placeholder="https://..." /></label>
+              <label className="field">
+                <span>Background color</span>
+                <input
+                  type="text"
+                  value={item.backgroundColor}
+                  onChange={(e) => updateItem(item.id, { backgroundColor: e.target.value })}
+                  placeholder="#ffffff or rgba(255,255,255,0.94)"
+                />
+              </label>
               <div className="builder-slider-item-grid-full builder-social-icon-picker">
                 <label className="field">
                   <span>Icon</span>
@@ -1275,6 +1307,140 @@ function SocialModuleEditor({
         ))}
       </div>
       <button type="button" className="secondary-button" onClick={addItem}>Add Social Icon</button>
+    </>
+  );
+}
+
+function SocialShareModuleEditor({
+  module,
+  onUpdateModule
+}: {
+  module: BuilderTemplateModule;
+  onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+}) {
+  function updateSetting(key: string, value: string) {
+    onUpdateModule((current) => ({ ...current, settings: { ...current.settings, [key]: value } }));
+  }
+
+  function platformSettingKey(platformId: SocialSharePlatformId, suffix: string) {
+    return `share${platformId}${suffix}`;
+  }
+
+  function getPlatformColor(platformId: SocialSharePlatformId, fallback: string) {
+    const color = module.settings[platformSettingKey(platformId, "Color")];
+    return color?.startsWith("#") ? color : fallback;
+  }
+
+  return (
+    <>
+      <div className="builder-slider-design-grid">
+        <label className="field">
+          <span>Share label</span>
+          <input
+            type="text"
+            value={module.settings.shareLabel ?? "Share this poll"}
+            onChange={(event) => updateSetting("shareLabel", event.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>URL override</span>
+          <input
+            type="text"
+            value={module.settings.shareUrl ?? ""}
+            onChange={(event) => updateSetting("shareUrl", event.target.value)}
+            placeholder="Leave blank to use current page URL"
+          />
+        </label>
+        <label className="field">
+          <span>Fallback question</span>
+          <input
+            type="text"
+            value={module.settings.shareFallbackQuestion ?? ""}
+            onChange={(event) => updateSetting("shareFallbackQuestion", event.target.value)}
+            placeholder="Used only when no current poll is available"
+          />
+        </label>
+        <label className="field">
+          <span>Hashtags</span>
+          <input
+            type="text"
+            value={module.settings.shareHashtags ?? ""}
+            onChange={(event) => updateSetting("shareHashtags", event.target.value)}
+            placeholder="Normie,WYR"
+          />
+        </label>
+        <label className="field">
+          <span>X via</span>
+          <input
+            type="text"
+            value={module.settings.shareVia ?? ""}
+            onChange={(event) => updateSetting("shareVia", event.target.value)}
+            placeholder="Normie765714"
+          />
+        </label>
+      </div>
+      <label className="field">
+        <span>Default post template</span>
+        <textarea
+          className="builder-textarea"
+          rows={3}
+          value={module.settings.shareTemplate ?? DEFAULT_SHARE_TEMPLATE}
+          onChange={(event) => updateSetting("shareTemplate", event.target.value)}
+          placeholder={DEFAULT_SHARE_TEMPLATE}
+        />
+      </label>
+      <div className="builder-slider-items">
+        {SOCIAL_SHARE_PLATFORMS.map((platform) => (
+          <div className="builder-slider-item-card" key={platform.id}>
+            <div className="builder-slider-item-header">
+              <strong>{platform.label}</strong>
+              <label className="field builder-checkbox-field">
+                <span>Show</span>
+                <input
+                  type="checkbox"
+                  checked={getSocialSharePlatformEnabled(module.settings, platform.id)}
+                  onChange={(event) =>
+                    updateSetting(platformSettingKey(platform.id, "Enabled"), event.target.checked ? "true" : "false")
+                  }
+                />
+              </label>
+            </div>
+            <div className="builder-slider-item-grid">
+              <label className="field">
+                <span>Button color</span>
+                <input
+                  type="color"
+                  value={getPlatformColor(platform.id, platform.color)}
+                  onChange={(event) => updateSetting(platformSettingKey(platform.id, "Color"), event.target.value)}
+                />
+              </label>
+              {platform.id === "instagram" ? (
+                <label className="field builder-slider-item-grid-full">
+                  <span>Instagram URL</span>
+                  <input
+                    type="text"
+                    value={module.settings[platformSettingKey(platform.id, "Url")] ?? ""}
+                    onChange={(event) => updateSetting(platformSettingKey(platform.id, "Url"), event.target.value)}
+                    placeholder="https://www.instagram.com/your-profile"
+                  />
+                </label>
+              ) : null}
+              {platform.supportsText ? (
+                <label className="field builder-slider-item-grid-full">
+                  <span>Post template</span>
+                  <textarea
+                    className="builder-textarea"
+                    rows={3}
+                    value={module.settings[platformSettingKey(platform.id, "Template")] ?? ""}
+                    onChange={(event) => updateSetting(platformSettingKey(platform.id, "Template"), event.target.value)}
+                    placeholder="Leave blank to use the default template"
+                  />
+                </label>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
     </>
   );
 }
@@ -1562,7 +1728,11 @@ export function BuilderModuleCard({
           <strong>{module.name || module.type}</strong>
           <span>{module.type}</span>
         </div>
-        {!hideHeaderActions ? (
+        {hideHeaderActions ? (
+          <div className="builder-section-actions">
+            <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
+          </div>
+        ) : (
           <div className="builder-section-actions">
             <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
             <button aria-label="Move module up" className="builder-icon-button" onClick={onMoveUp} title="Move module up" type="button">↑</button>
@@ -1587,7 +1757,7 @@ export function BuilderModuleCard({
             </button>
             <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
           </div>
-        ) : null}
+        )}
       </div>
 
       {!isExpanded ? (
@@ -1959,6 +2129,7 @@ export function BuilderModuleCard({
           )}
           {module.type === "navigation" && <NavModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "headline-rotator" && <HeadlineRotatorModuleEditor module={module} onUpdateModule={onUpdateModule} />}
+          {module.type === "social-share" && <SocialShareModuleEditor module={module} onUpdateModule={onUpdateModule} />}
 
           {module.type === "merch" ? (
             <div className="builder-merch-editor-grid">
@@ -2064,10 +2235,10 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
-          {(module.type === "previous-results" || module.type === "current-poll") && (
+          {(module.type === "previous-results" || module.type === "current-poll" || module.type === "social-share") && (
             <div className="builder-module-runtime-note">
               <strong>Live poll module</strong>
-              <p>This module uses the same live poll data and interactions as the homepage. Use page preview or a live page to test the real behavior.</p>
+              <p>This module uses the current poll data from the live poll runtime. Use page preview or a live page to test the real behavior.</p>
             </div>
           )}
 
@@ -2078,6 +2249,7 @@ export function BuilderModuleCard({
           module.type !== "social" &&
           module.type !== "navigation" &&
           module.type !== "headline-rotator" &&
+          module.type !== "social-share" &&
           module.type !== "merch" &&
           module.type !== "code" &&
           module.type !== "previous-results" &&

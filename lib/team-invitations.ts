@@ -72,6 +72,22 @@ export async function createTeamInvitation({
   let emailSent = false;
 
   if (authUser) {
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from("team_users")
+      .select("id, status")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (existingProfileError) {
+      throw new Error(existingProfileError.message);
+    }
+
+    if (existingProfile?.status === "active") {
+      throw new Error("That email is already an active team member.");
+    }
+  }
+
+  if (authUser) {
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(normalizedEmail, {
       data: {
         full_name: fullName

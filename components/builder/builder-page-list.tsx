@@ -1,5 +1,5 @@
 import type { BackgroundSettings, BuilderPageRecord, BuilderTemplateRecord } from "@/lib/builder-template";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { formatTemplateTimestamp } from "./builder-utils";
 
@@ -49,26 +49,68 @@ export function BuilderPageList({
   onSavePage
 }: BuilderPageListProps) {
   const [collapsedPanels, setCollapsedPanels] = useState({
-    pages: false,
-    details: false
+    pages: true,
+    details: true
   });
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const shouldFocusDetailsRef = useRef(false);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
   }
 
+  function openDetailsAndFocus() {
+    shouldFocusDetailsRef.current = true;
+    setCollapsedPanels((current) => ({ ...current, details: false }));
+  }
+
+  function handleEditPage(pageId: string) {
+    onSelectPage(pageId);
+    openDetailsAndFocus();
+  }
+
+  function handleNewPage() {
+    onNewPage();
+    openDetailsAndFocus();
+  }
+
+  useEffect(() => {
+    if (collapsedPanels.details || !shouldFocusDetailsRef.current) {
+      return;
+    }
+
+    shouldFocusDetailsRef.current = false;
+    window.requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+  }, [collapsedPanels.details, selectedPageId]);
+
   return (
     <>
       <div className="builder-toolbar-shell">
-        <button
-          aria-expanded={!collapsedPanels.pages}
-          className="builder-panel-toggle"
-          onClick={() => togglePanel("pages")}
-          type="button"
-        >
+        <div className="builder-panel-toggle">
           <span className="panel-label">Pages</span>
-          <span className="builder-panel-toggle-icon">{collapsedPanels.pages ? "▸" : "▾"}</span>
-        </button>
+          <span className="builder-panel-heading-actions">
+            <button
+              className="secondary-button builder-panel-heading-button"
+              onClick={handleNewPage}
+              type="button"
+            >
+              New Page
+            </button>
+          </span>
+          <button
+            aria-expanded={!collapsedPanels.pages}
+            aria-label={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
+            className="builder-panel-toggle-icon"
+            onClick={() => togglePanel("pages")}
+            title={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
+            type="button"
+          >
+            {collapsedPanels.pages ? "▸" : "▾"}
+          </button>
+        </div>
         {!collapsedPanels.pages ? (
           <div className="table-shell builder-templates-shell">
             <table className="polls-table builder-templates-table">
@@ -108,7 +150,7 @@ export function BuilderPageList({
                           </button>
                           <button
                             className="polls-icon-button"
-                            onClick={() => onSelectPage(page.id)}
+                            onClick={() => handleEditPage(page.id)}
                             type="button"
                             aria-label={isSelected ? "Editing current page" : "Edit page"}
                             title={isSelected ? "Editing current page" : "Edit page"}
@@ -142,20 +184,35 @@ export function BuilderPageList({
       </div>
 
       <div className="builder-toolbar-shell">
-        <button
-          aria-expanded={!collapsedPanels.details}
-          className="builder-panel-toggle"
-          onClick={() => togglePanel("details")}
-          type="button"
-        >
+        <div className="builder-panel-toggle">
           <span className="panel-label">Page Details</span>
-          <span className="builder-panel-toggle-icon">{collapsedPanels.details ? "▸" : "▾"}</span>
-        </button>
+          <span className="builder-panel-heading-actions">
+            <button
+              className="submit-button builder-panel-heading-button"
+              disabled={isSaving}
+              onClick={onSavePage}
+              type="button"
+            >
+              {isSaving ? "Saving..." : "Save Page"}
+            </button>
+          </span>
+          <button
+            aria-expanded={!collapsedPanels.details}
+            aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+            className="builder-panel-toggle-icon"
+            onClick={() => togglePanel("details")}
+            title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+            type="button"
+          >
+            {collapsedPanels.details ? "▸" : "▾"}
+          </button>
+        </div>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid builder-meta-grid-pages">
             <label className="field">
               <span>Page title</span>
               <input
+                ref={titleInputRef}
                 type="text"
                 value={draftName}
                 onChange={(event) => onSetDraftName(event.target.value)}
@@ -196,14 +253,8 @@ export function BuilderPageList({
               </select>
             </label>
             <div className="builder-meta-actions">
-              <button className="secondary-button" onClick={onNewPage} type="button">
-                New Page
-              </button>
               <button className="secondary-button" onClick={onMakeTemplate} type="button" disabled={isSaving}>
                 Make Template
-              </button>
-              <button className="submit-button" onClick={onSavePage} type="button" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Page"}
               </button>
             </div>
             <BuilderBackgroundControls

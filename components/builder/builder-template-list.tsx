@@ -1,5 +1,5 @@
 import type { BackgroundSettings, BuilderTemplateRecord } from "@/lib/builder-template";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { formatTemplateTimestamp } from "./builder-utils";
 
@@ -39,13 +39,42 @@ export function BuilderTemplateList({
   onSaveTemplate
 }: BuilderTemplateListProps) {
   const [collapsedPanels, setCollapsedPanels] = useState({
-    templates: false,
-    details: false
+    templates: true,
+    details: true
   });
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const shouldFocusDetailsRef = useRef(false);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
   }
+
+  function openDetailsAndFocus() {
+    shouldFocusDetailsRef.current = true;
+    setCollapsedPanels((current) => ({ ...current, details: false }));
+  }
+
+  function handleEditTemplate(templateId: string) {
+    onSelectTemplate(templateId);
+    openDetailsAndFocus();
+  }
+
+  function handleNewTemplate() {
+    onNewTemplate();
+    openDetailsAndFocus();
+  }
+
+  useEffect(() => {
+    if (collapsedPanels.details || !shouldFocusDetailsRef.current) {
+      return;
+    }
+
+    shouldFocusDetailsRef.current = false;
+    window.requestAnimationFrame(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    });
+  }, [collapsedPanels.details, selectedTemplateId]);
 
   return (
     <>
@@ -96,7 +125,7 @@ export function BuilderTemplateList({
                           </button>
                           <button
                             className="polls-icon-button"
-                            onClick={() => onSelectTemplate(template.id)}
+                            onClick={() => handleEditTemplate(template.id)}
                             type="button"
                             aria-label={isSelected ? "Editing current template" : "Edit template"}
                             title={isSelected ? "Editing current template" : "Edit template"}
@@ -130,20 +159,34 @@ export function BuilderTemplateList({
       </div>
 
       <div className="builder-toolbar-shell">
-        <button
-          aria-expanded={!collapsedPanels.details}
-          className="builder-panel-toggle"
-          onClick={() => togglePanel("details")}
-          type="button"
-        >
+        <div className="builder-panel-toggle">
           <span className="panel-label">Template Details</span>
-          <span className="builder-panel-toggle-icon">{collapsedPanels.details ? "▸" : "▾"}</span>
-        </button>
+          <span className="builder-panel-heading-actions">
+            <button
+              className="secondary-button builder-panel-heading-button"
+              onClick={handleNewTemplate}
+              type="button"
+            >
+              New Template
+            </button>
+          </span>
+          <button
+            aria-expanded={!collapsedPanels.details}
+            aria-label={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
+            className="builder-panel-toggle-icon"
+            onClick={() => togglePanel("details")}
+            title={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
+            type="button"
+          >
+            {collapsedPanels.details ? "▸" : "▾"}
+          </button>
+        </div>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid">
             <label className="field">
               <span>Template name</span>
               <input
+                ref={nameInputRef}
                 type="text"
                 value={draftName}
                 onChange={(event) => onSetDraftName(event.target.value)}
@@ -151,9 +194,6 @@ export function BuilderTemplateList({
               />
             </label>
             <div className="builder-meta-actions">
-              <button className="secondary-button" onClick={onNewTemplate} type="button">
-                New Template
-              </button>
               <button className="submit-button" onClick={onSaveTemplate} type="button" disabled={isSaving}>
                 {isSaving ? "Saving..." : "Save Template"}
               </button>

@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import type { PreviousPoll } from "@/src/site/home/types";
 
 type PreviousResultsPanelProps = {
@@ -16,8 +13,6 @@ function formatDisplayCount(value: number) {
 }
 
 export function PreviousResultsPanel({ previousPoll }: PreviousResultsPanelProps) {
-  const [showDetails, setShowDetails] = useState(false);
-
   return (
     <article className="panel result-panel">
       <div className="panel-label">Previous Results</div>
@@ -43,20 +38,6 @@ export function PreviousResultsPanel({ previousPoll }: PreviousResultsPanelProps
               </div>
             ))}
           </div>
-          <button
-            className="dive-deeper-toggle"
-            onClick={() => setShowDetails((current) => !current)}
-            type="button"
-          >
-            Dive Deeper
-          </button>
-          {showDetails ? (
-            <div className="dive-deeper-panel">
-              <a href="#">Video</a>
-              <a href="#">Articles</a>
-              <a href="#">Discussion</a>
-            </div>
-          ) : null}
         </>
       ) : (
         <>
