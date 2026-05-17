@@ -29,7 +29,7 @@ import { layoutOptions } from "./builder/builder-types";
 import { createDraftFromTemplate, createDraftFromPage, getModuleBackgroundSettings } from "./builder/builder-utils";
 import { BuilderTemplateList } from "./builder/builder-template-list";
 import { BuilderPageList } from "./builder/builder-page-list";
-import { BuilderModuleRepositoryList } from "./builder/builder-module-repository-list";
+import { BuilderModuleRepositoryList, type CreatedModuleSource } from "./builder/builder-module-repository-list";
 import { BuilderSectionCard } from "./builder/builder-section-card";
 import { BuilderGalleryModal } from "./builder/builder-gallery-modal";
 import { BuilderModulePaletteModal } from "./builder/builder-module-palette-modal";
@@ -811,6 +811,168 @@ export function AdminBuilderEditor() {
     }
   }
 
+  async function saveCreatedModule(source: CreatedModuleSource, nextModule: BuilderTemplateModule) {
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (source.kind === "template") {
+        const template = pageTemplates.find((candidate) => candidate.id === source.sourceId);
+
+        if (!template) {
+          throw new Error("Could not find the source template for this module.");
+        }
+
+        const layoutSections = template.layoutSections.map((section) =>
+          section.id === source.sectionId
+            ? {
+                ...section,
+                modules: section.modules.map((module) => (module.id === source.moduleId ? nextModule : module))
+              }
+            : section
+        );
+        const response = await fetch(`/api/admin/page-templates/${template.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: template.name,
+            pageBackground: template.pageBackground,
+            layoutSections
+          })
+        });
+        const data = await readAdminJson<{ pageTemplate?: BuilderTemplateRecord; error?: string }>(response, "Failed to save module.");
+
+        if (!data.pageTemplate) {
+          throw new Error(data.error ?? "Failed to save module.");
+        }
+
+        setPageTemplates((current) =>
+          current.map((candidate) => (candidate.id === data.pageTemplate!.id ? data.pageTemplate! : candidate))
+        );
+      } else {
+        const page = pages.find((candidate) => candidate.id === source.sourceId);
+
+        if (!page) {
+          throw new Error("Could not find the source page for this module.");
+        }
+
+        const layoutSections = page.layoutSections.map((section) =>
+          section.id === source.sectionId
+            ? {
+                ...section,
+                modules: section.modules.map((module) => (module.id === source.moduleId ? nextModule : module))
+              }
+            : section
+        );
+        const response = await fetch(`/api/admin/pages/${page.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: page.name,
+            slug: page.slug,
+            templateId: page.templateId,
+            isPublished: page.isPublished,
+            pageBackground: page.pageBackground,
+            layoutSections
+          })
+        });
+        const data = await readAdminJson<{ page?: BuilderPageRecord; error?: string }>(response, "Failed to save module.");
+
+        if (!data.page) {
+          throw new Error(data.error ?? "Failed to save module.");
+        }
+
+        setPages((current) => current.map((candidate) => (candidate.id === data.page!.id ? data.page! : candidate)));
+      }
+
+      setMessage("Module updated.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save module.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteCreatedModule(source: CreatedModuleSource, moduleName: string) {
+    if (!window.confirm(`Delete module "${moduleName}" from its source? This cannot be undone.`)) return;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (source.kind === "template") {
+        const template = pageTemplates.find((candidate) => candidate.id === source.sourceId);
+
+        if (!template) {
+          throw new Error("Could not find the source template for this module.");
+        }
+
+        const layoutSections = template.layoutSections.map((section) =>
+          section.id === source.sectionId
+            ? { ...section, modules: section.modules.filter((module) => module.id !== source.moduleId) }
+            : section
+        );
+        const response = await fetch(`/api/admin/page-templates/${template.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: template.name,
+            pageBackground: template.pageBackground,
+            layoutSections
+          })
+        });
+        const data = await readAdminJson<{ pageTemplate?: BuilderTemplateRecord; error?: string }>(response, "Failed to delete module.");
+
+        if (!data.pageTemplate) {
+          throw new Error(data.error ?? "Failed to delete module.");
+        }
+
+        setPageTemplates((current) =>
+          current.map((candidate) => (candidate.id === data.pageTemplate!.id ? data.pageTemplate! : candidate))
+        );
+      } else {
+        const page = pages.find((candidate) => candidate.id === source.sourceId);
+
+        if (!page) {
+          throw new Error("Could not find the source page for this module.");
+        }
+
+        const layoutSections = page.layoutSections.map((section) =>
+          section.id === source.sectionId
+            ? { ...section, modules: section.modules.filter((module) => module.id !== source.moduleId) }
+            : section
+        );
+        const response = await fetch(`/api/admin/pages/${page.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: page.name,
+            slug: page.slug,
+            templateId: page.templateId,
+            isPublished: page.isPublished,
+            pageBackground: page.pageBackground,
+            layoutSections
+          })
+        });
+        const data = await readAdminJson<{ page?: BuilderPageRecord; error?: string }>(response, "Failed to delete module.");
+
+        if (!data.page) {
+          throw new Error(data.error ?? "Failed to delete module.");
+        }
+
+        setPages((current) => current.map((candidate) => (candidate.id === data.page!.id ? data.page! : candidate)));
+      }
+
+      setMessage(`Deleted module "${moduleName}".`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete module.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   function toggleModuleExpanded(moduleId: string) {
     setExpandedModuleIds((c) =>
       c.includes(moduleId) ? c.filter((id) => id !== moduleId) : [...c, moduleId]
@@ -1128,14 +1290,18 @@ export function AdminBuilderEditor() {
       ) : builderMode === "modules" ? (
         <BuilderModuleRepositoryList
           cellModules={cellModules}
+          pages={pages}
           products={products}
           galleryMedia={galleryMedia}
           isUploadingMedia={isUploadingMedia}
           savedSections={savedSections}
+          templates={pageTemplates}
           isSaving={isSaving}
+          onDeleteCreatedModule={(source, name) => void deleteCreatedModule(source, name)}
           onDeleteSavedModule={(id, name) => void deleteSavedModule(id, name)}
           onDeleteSavedSection={(id, name) => void deleteSavedSection(id, name)}
           onCreateSavedModule={(name, modules) => void createSavedModule(name, modules)}
+          onSaveCreatedModule={(source, module) => void saveCreatedModule(source, module)}
           onSaveSavedModule={(id, name, modules) => void saveSavedModule(id, name, modules)}
           onSaveSavedSection={(id, name, section) => void saveSavedSection(id, name, section)}
         />

@@ -2,8 +2,10 @@ import type { AdminMediaItem } from "@/lib/admin-media";
 import type {
   BackgroundSettings,
   BuilderCellModuleRecord,
+  BuilderPageRecord,
   BuilderProductRecord,
   BuilderSavedSectionRecord,
+  BuilderTemplateRecord,
   BuilderTemplateModule,
   BuilderTemplateSection
 } from "@/lib/builder-template";
@@ -18,16 +20,35 @@ import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
 
 type BuilderModuleRepositoryListProps = {
   cellModules: BuilderCellModuleRecord[];
+  pages: BuilderPageRecord[];
   products: BuilderProductRecord[];
   galleryMedia: AdminMediaItem[];
   isUploadingMedia: boolean;
   savedSections: BuilderSavedSectionRecord[];
+  templates: BuilderTemplateRecord[];
   isSaving: boolean;
+  onSaveCreatedModule: (source: CreatedModuleSource, module: BuilderTemplateModule) => void;
+  onDeleteCreatedModule: (source: CreatedModuleSource, moduleName: string) => void;
   onSaveSavedModule: (cellModuleId: string, name: string, modules: BuilderTemplateModule[]) => void;
   onCreateSavedModule: (name: string, modules: BuilderTemplateModule[]) => void;
   onDeleteSavedModule: (cellModuleId: string, currentName: string) => void;
   onSaveSavedSection: (sectionId: string, name: string, section: BuilderTemplateSection) => void;
   onDeleteSavedSection: (sectionId: string, currentName: string) => void;
+};
+
+export type CreatedModuleSource = {
+  kind: "template" | "page";
+  sourceId: string;
+  sectionId: string;
+  moduleId: string;
+};
+
+type CreatedModuleRecord = CreatedModuleSource & {
+  id: string;
+  module: BuilderTemplateModule;
+  sourceName: string;
+  sectionTitle: string;
+  updatedAt: string;
 };
 
 function getModuleSummary(cellModule: BuilderCellModuleRecord) {
@@ -36,6 +57,215 @@ function getModuleSummary(cellModule: BuilderCellModuleRecord) {
   }
 
   return `${cellModule.modules.length} modules`;
+}
+
+function getModuleLabel(module: BuilderTemplateModule) {
+  return module.name || module.text || module.settings.label || module.type;
+}
+
+function getCreatedModuleSourceLabel(item: CreatedModuleRecord) {
+  return `${item.kind === "template" ? "Template" : "Page"}: ${item.sourceName}`;
+}
+
+function getCreatedModules(templates: BuilderTemplateRecord[], pages: BuilderPageRecord[]): CreatedModuleRecord[] {
+  const templateModules = templates.flatMap((template) =>
+    template.layoutSections.flatMap((section) =>
+      section.modules.map((module) => ({
+        id: `template:${template.id}:${section.id}:${module.id}`,
+        kind: "template" as const,
+        sourceId: template.id,
+        sectionId: section.id,
+        moduleId: module.id,
+        module,
+        sourceName: template.name,
+        sectionTitle: section.title || section.layout,
+        updatedAt: template.updatedAt
+      }))
+    )
+  );
+  const pageModules = pages.flatMap((page) =>
+    page.layoutSections.flatMap((section) =>
+      section.modules.map((module) => ({
+        id: `page:${page.id}:${section.id}:${module.id}`,
+        kind: "page" as const,
+        sourceId: page.id,
+        sectionId: section.id,
+        moduleId: module.id,
+        module,
+        sourceName: page.name,
+        sectionTitle: section.title || section.layout,
+        updatedAt: page.updatedAt
+      }))
+    )
+  );
+
+  return [...templateModules, ...pageModules].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+function CreatedModulesTable({
+  emptyLabel,
+  items,
+  products,
+  isSaving,
+  isCollapsed,
+  editingCreatedId,
+  editingCreatedModule,
+  editingCreatedExpanded,
+  onToggle,
+  onStartEditing,
+  onCancelEditing,
+  onToggleEditingCreatedExpanded,
+  onUpdateEditingCreatedModule,
+  onUpdateEditingCreatedModuleBackground,
+  onOpenEditingCreatedModuleGallery,
+  onOpenEditingCreatedSocialIconGallery,
+  onSaveCreatedModule,
+  onDeleteCreatedModule
+}: {
+  emptyLabel: string;
+  items: CreatedModuleRecord[];
+  products: BuilderProductRecord[];
+  isSaving: boolean;
+  isCollapsed: boolean;
+  editingCreatedId: string;
+  editingCreatedModule: BuilderTemplateModule | null;
+  editingCreatedExpanded: boolean;
+  onToggle: () => void;
+  onStartEditing: (item: CreatedModuleRecord) => void;
+  onCancelEditing: () => void;
+  onToggleEditingCreatedExpanded: () => void;
+  onUpdateEditingCreatedModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+  onUpdateEditingCreatedModuleBackground: (updater: (background: BackgroundSettings) => BackgroundSettings) => void;
+  onOpenEditingCreatedModuleGallery: () => void;
+  onOpenEditingCreatedSocialIconGallery: (itemId: string) => void;
+  onSaveCreatedModule: BuilderModuleRepositoryListProps["onSaveCreatedModule"];
+  onDeleteCreatedModule: BuilderModuleRepositoryListProps["onDeleteCreatedModule"];
+}) {
+  return (
+    <div className="builder-toolbar-shell">
+      <button
+        aria-expanded={!isCollapsed}
+        className="builder-panel-toggle"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="panel-label">All Created Modules</span>
+        <span className="builder-panel-toggle-icon">{isCollapsed ? "▸" : "▾"}</span>
+      </button>
+      {!isCollapsed ? (
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table">
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Type</th>
+                <th>Source</th>
+                <th>Section</th>
+                <th>ID</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <Fragment key={item.id}>
+                  <tr>
+                    <td>
+                      <strong>{getModuleLabel(item.module)}</strong>
+                    </td>
+                    <td>{item.module.type}</td>
+                    <td>{getCreatedModuleSourceLabel(item)}</td>
+                    <td>{item.sectionTitle}</td>
+                    <td className="template-id-cell">
+                      <code>{item.module.id}</code>
+                    </td>
+                    <td>{formatTemplateTimestamp(item.updatedAt)}</td>
+                    <td>
+                      <div className="builder-template-actions">
+                        <button
+                          aria-label="Edit created module"
+                          className="polls-icon-button"
+                          disabled={isSaving}
+                          onClick={() => onStartEditing(item)}
+                          title="Edit module"
+                          type="button"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          aria-label="Delete created module"
+                          className="polls-icon-button polls-icon-button-danger"
+                          disabled={isSaving}
+                          onClick={() => onDeleteCreatedModule(item, getModuleLabel(item.module))}
+                          title="Delete"
+                          type="button"
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingCreatedId === item.id && editingCreatedModule ? (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="builder-saved-module-editor">
+                          <div className="builder-meta-grid">
+                            <div>
+                              <strong>{getCreatedModuleSourceLabel(item)}</strong>
+                              <p className="builder-module-editor-copy">
+                                Editing the live module in {item.sectionTitle}.
+                              </p>
+                            </div>
+                            <div className="builder-meta-actions">
+                              <button className="secondary-button" onClick={onCancelEditing} type="button">
+                                Cancel
+                              </button>
+                              <button
+                                className="submit-button"
+                                disabled={isSaving}
+                                onClick={() => onSaveCreatedModule(item, editingCreatedModule)}
+                                type="button"
+                              >
+                                {isSaving ? "Saving..." : "Save Module"}
+                              </button>
+                            </div>
+                          </div>
+                          <BuilderModuleCard
+                            editorDevice="browser"
+                            hideHeaderActions
+                            isExpanded={editingCreatedExpanded}
+                            module={editingCreatedModule}
+                            products={products}
+                            onClone={() => undefined}
+                            onMoveDown={() => undefined}
+                            onMoveUp={() => undefined}
+                            onOpenGallery={onOpenEditingCreatedModuleGallery}
+                            onOpenSocialIconGallery={onOpenEditingCreatedSocialIconGallery}
+                            onRemove={() => undefined}
+                            onSaveModule={() => undefined}
+                            onToggleExpanded={onToggleEditingCreatedExpanded}
+                            onUpdateModule={onUpdateEditingCreatedModule}
+                            onUpdateModuleBackground={onUpdateEditingCreatedModuleBackground}
+                            onUploadMedia={() => undefined}
+                            sectionId="created-module-editor"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
+              {items.length === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={7}>{emptyLabel}</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function RepositoryTable({
@@ -215,11 +445,15 @@ function RepositoryTable({
 
 export function BuilderModuleRepositoryList({
   cellModules,
+  pages,
   products,
   galleryMedia,
   isUploadingMedia,
   savedSections,
+  templates,
   isSaving,
+  onSaveCreatedModule,
+  onDeleteCreatedModule,
   onSaveSavedModule,
   onCreateSavedModule,
   onDeleteSavedModule,
@@ -227,10 +461,14 @@ export function BuilderModuleRepositoryList({
   onDeleteSavedSection
 }: BuilderModuleRepositoryListProps) {
   const [collapsedPanels, setCollapsedPanels] = useState({
+    createdModules: true,
     modules: true,
     cells: true,
     sections: true
   });
+  const [editingCreatedId, setEditingCreatedId] = useState("");
+  const [editingCreatedModule, setEditingCreatedModule] = useState<BuilderTemplateModule | null>(null);
+  const [editingCreatedExpanded, setEditingCreatedExpanded] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [editingName, setEditingName] = useState("");
   const [editingModules, setEditingModules] = useState<BuilderTemplateModule[]>([]);
@@ -249,12 +487,15 @@ export function BuilderModuleRepositoryList({
   const [editingSectionPaletteColumn, setEditingSectionPaletteColumn] = useState("");
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
   const [editingGalleryTarget, setEditingGalleryTarget] = useState<
+    | { kind: "created-module" }
+    | { kind: "created-social-icon"; itemId: string }
     | { kind: "module"; moduleId: string }
     | { kind: "social-icon"; moduleId: string; itemId: string }
     | null
   >(null);
   const savedModules = cellModules.filter((cellModule) => cellModule.modules.length === 1);
   const savedCells = cellModules.filter((cellModule) => cellModule.modules.length !== 1);
+  const createdModules = getCreatedModules(templates, pages);
 
   function cloneSectionForEditing(section: BuilderTemplateSection): BuilderTemplateSection {
     return {
@@ -296,6 +537,18 @@ export function BuilderModuleRepositoryList({
     setEditingExpandedModuleIds([]);
   }
 
+  function startEditingCreatedModule(item: CreatedModuleRecord) {
+    setEditingCreatedId(item.id);
+    setEditingCreatedModule({ ...item.module, settings: { ...item.module.settings } });
+    setEditingCreatedExpanded(true);
+  }
+
+  function cancelEditingCreatedModule() {
+    setEditingCreatedId("");
+    setEditingCreatedModule(null);
+    setEditingCreatedExpanded(false);
+  }
+
   function cancelEditing() {
     setEditingId("");
     setEditingName("");
@@ -326,10 +579,45 @@ export function BuilderModuleRepositoryList({
     setEditingModules((current) => current.map((module) => (module.id === moduleId ? updater(module) : module)));
   }
 
+  function updateEditingCreatedModule(updater: (current: BuilderTemplateModule) => BuilderTemplateModule) {
+    setEditingCreatedModule((current) => (current ? updater(current) : current));
+  }
+
   function selectEditingGalleryImage(imagePath: string) {
     if (!editingGalleryTarget) return;
 
-    if (editingGalleryTarget.kind === "module") {
+    if (editingGalleryTarget.kind === "created-module") {
+      updateEditingCreatedModule((module) => ({
+        ...module,
+        settings: { ...module.settings, url: normalizeBuilderAssetUrl(imagePath) }
+      }));
+    } else if (editingGalleryTarget.kind === "created-social-icon") {
+      updateEditingCreatedModule((module) => {
+        let items: Array<Record<string, unknown>> = [];
+
+        try {
+          const parsed = JSON.parse(module.settings.socialItems || "[]");
+          items = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          items = [];
+        }
+
+        return {
+          ...module,
+          settings: {
+            ...module.settings,
+            socialItems: JSON.stringify(
+              items.map((item, index) => {
+                const id = String(item.id || `social-${index + 1}`);
+                return id === editingGalleryTarget.itemId
+                  ? { ...item, id, iconUrl: normalizeBuilderAssetUrl(imagePath) }
+                  : { ...item, id };
+              })
+            )
+          }
+        };
+      });
+    } else if (editingGalleryTarget.kind === "module") {
       updateEditingModule(editingGalleryTarget.moduleId, (module) => ({
         ...module,
         settings: { ...module.settings, url: normalizeBuilderAssetUrl(imagePath) }
@@ -370,6 +658,31 @@ export function BuilderModuleRepositoryList({
     updater: (background: BackgroundSettings) => BackgroundSettings
   ) {
     updateEditingModule(moduleId, (module) => {
+      const background = {
+        mode: (module.settings.backgroundMode as BackgroundSettings["mode"]) || "none",
+        color: module.settings.backgroundColor || "#ffffff",
+        color2: module.settings.backgroundColor2 || "#eaf4ff",
+        imageUrl: module.settings.backgroundImageUrl || "",
+        styleKey: module.settings.backgroundStyleKey === "blue-yellow-circles" ? "blue-yellow-circles" : ""
+      } satisfies BackgroundSettings;
+      const next = updater(background);
+
+      return {
+        ...module,
+        settings: {
+          ...module.settings,
+          backgroundMode: next.mode,
+          backgroundColor: next.color,
+          backgroundColor2: next.color2,
+          backgroundImageUrl: next.imageUrl,
+          backgroundStyleKey: next.styleKey
+        }
+      };
+    });
+  }
+
+  function updateEditingCreatedModuleBackground(updater: (background: BackgroundSettings) => BackgroundSettings) {
+    updateEditingCreatedModule((module) => {
       const background = {
         mode: (module.settings.backgroundMode as BackgroundSettings["mode"]) || "none",
         color: module.settings.backgroundColor || "#ffffff",
@@ -641,6 +954,26 @@ export function BuilderModuleRepositoryList({
 
   return (
     <>
+      <CreatedModulesTable
+        emptyLabel="No created modules found in templates or pages."
+        editingCreatedExpanded={editingCreatedExpanded}
+        editingCreatedId={editingCreatedId}
+        editingCreatedModule={editingCreatedModule}
+        isCollapsed={collapsedPanels.createdModules}
+        isSaving={isSaving}
+        items={createdModules}
+        products={products}
+        onCancelEditing={cancelEditingCreatedModule}
+        onDeleteCreatedModule={onDeleteCreatedModule}
+        onOpenEditingCreatedModuleGallery={() => setEditingGalleryTarget({ kind: "created-module" })}
+        onOpenEditingCreatedSocialIconGallery={(itemId) => setEditingGalleryTarget({ kind: "created-social-icon", itemId })}
+        onSaveCreatedModule={onSaveCreatedModule}
+        onStartEditing={startEditingCreatedModule}
+        onToggle={() => togglePanel("createdModules")}
+        onToggleEditingCreatedExpanded={() => setEditingCreatedExpanded((current) => !current)}
+        onUpdateEditingCreatedModule={updateEditingCreatedModule}
+        onUpdateEditingCreatedModuleBackground={updateEditingCreatedModuleBackground}
+      />
       <RepositoryTable
         emptyLabel="No saved modules found."
         isCollapsed={collapsedPanels.modules}

@@ -10,6 +10,7 @@ export type SiteNavItem = {
 
 export const defaultSiteNavItems: SiteNavItem[] = [
   { href: "/", label: "Home" },
+  { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/tokenomics", label: "Tokenomics" },
   { href: "/roadmap", label: "Roadmap" },
@@ -24,6 +25,20 @@ function normalizeNavPath(value: string) {
   return normalized === "/home" ? "/" : normalized;
 }
 
+function isBlogPath(path: string) {
+  return path === "/blog" || path.startsWith("/blog/");
+}
+
+function isNavItemActive(itemHref: string, activePath: string) {
+  const normalizedHref = normalizeNavPath(itemHref);
+
+  if (normalizedHref === "/blog") {
+    return isBlogPath(activePath);
+  }
+
+  return normalizedHref === activePath;
+}
+
 export function SiteNav({ items = defaultSiteNavItems }: { items?: SiteNavItem[] }) {
   const pathname = usePathname();
   const activePath = normalizeNavPath(pathname || "/");
@@ -31,7 +46,7 @@ export function SiteNav({ items = defaultSiteNavItems }: { items?: SiteNavItem[]
   return (
     <nav className="site-nav" aria-label="Main navigation">
       {items.map((item) => {
-        const isActive = normalizeNavPath(item.href) === activePath;
+        const isActive = isNavItemActive(item.href, activePath);
 
         return (
           <Link

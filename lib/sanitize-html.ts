@@ -97,3 +97,59 @@ export function sanitizeEmbedHtml(html: string) {
     ALLOW_DATA_ATTR: false
   });
 }
+
+const BLOG_BODY_EXTRA_TAGS = [
+  "img",
+  "hr",
+  "iframe",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td"
+] as const;
+
+const BLOG_BODY_EXTRA_ATTR = [
+  "src",
+  "alt",
+  "width",
+  "height",
+  "colspan",
+  "rowspan",
+  ...EMBED_EXTRA_ATTR
+] as const;
+
+const BLOG_EMBED_HOSTS = [
+  "www.youtube.com",
+  "youtube.com",
+  "www.youtube-nocookie.com",
+  "youtube-nocookie.com",
+  "platform.twitter.com",
+  "twitter.com",
+  "x.com"
+] as const;
+
+function isAllowedBlogEmbedSrc(src: string) {
+  try {
+    const url = new URL(src, "https://normie.one");
+
+    return BLOG_EMBED_HOSTS.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeBlogBodyHtml(html: string) {
+  ensureConfigured();
+
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS, ...BLOG_BODY_EXTRA_TAGS],
+    ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR, ...BLOG_BODY_EXTRA_ATTR],
+    ALLOW_DATA_ATTR: false
+  });
+
+  return clean.replace(/<iframe\b[^>]*\ssrc=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) =>
+    isAllowedBlogEmbedSrc(src) ? match : ""
+  );
+}

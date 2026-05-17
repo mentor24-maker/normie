@@ -3,14 +3,25 @@ import { normalizeUserRole, type UserRole } from "@/lib/admin-users";
 
 export const ADMIN_FORBIDDEN_CODE = "ADMIN_FORBIDDEN";
 
-export type AdminPermission = "content:read" | "content:write" | "users:read" | "users:write" | "team:read" | "team:write";
+export type AdminPermission =
+  | "content:read"
+  | "content:write"
+  | "content:publish"
+  | "users:read"
+  | "users:write"
+  | "team:read"
+  | "team:write";
 
 const ROLE_PERMISSIONS: Record<UserRole, readonly AdminPermission[]> = {
   viewer: ["content:read", "users:read", "team:read"],
   editor: ["content:read", "content:write", "users:read", "team:read"],
-  admin: ["content:read", "content:write", "users:read", "users:write", "team:read", "team:write"],
-  owner: ["content:read", "content:write", "users:read", "users:write", "team:read", "team:write"]
+  admin: ["content:read", "content:write", "content:publish", "users:read", "users:write", "team:read", "team:write"],
+  owner: ["content:read", "content:write", "content:publish", "users:read", "users:write", "team:read", "team:write"]
 };
+
+export function canPublishBlogContent(role: UserRole) {
+  return adminHasPermission(role, "content:publish");
+}
 
 export function getAdminRole(admin: AuthorizedAdmin): UserRole {
   return normalizeUserRole(admin.profile.role);

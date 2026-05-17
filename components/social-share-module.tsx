@@ -116,6 +116,29 @@ function buildShareText({
     .replaceAll("{siteName}", settings.shareSiteName || "Normie");
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripShareUrlFromText(text: string, url: string) {
+  if (!url) {
+    return text;
+  }
+
+  return text
+    .replace(new RegExp(escapeRegExp(url), "g"), "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function formatTweetText(text: string, url: string) {
+  const message = stripShareUrlFromText(text, url);
+
+  return message ? `${message}\n\n` : "";
+}
+
 function normalizeHashTags(value: string | undefined) {
   return (value || "")
     .split(/[,\s]+/)
@@ -138,7 +161,7 @@ export function buildSocialShareUrl({
   const url = getShareUrl(settings, currentUrl, poll);
   const text = buildShareText({ settings, platformId, poll, url });
   const encodedUrl = encodeURIComponent(url);
-  const encodedText = encodeURIComponent(text);
+  const encodedText = encodeURIComponent(platformId === "x" ? formatTweetText(text, url) : text);
   const hashtags = normalizeHashTags(settings.shareHashtags);
   const via = (settings.shareVia || "").replace(/^@/, "").trim();
 

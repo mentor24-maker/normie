@@ -51,6 +51,9 @@ export default async function ProtectedAdminLayout({
           <Link className="admin-nav-link" href="/admin/shop">
             Shop
           </Link>
+          <Link className="admin-nav-link" href="/admin/blog">
+            Blog
+          </Link>
           <Link className="admin-nav-link" href="/admin/crypto">
             Crypto
           </Link>
