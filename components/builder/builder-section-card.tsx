@@ -16,7 +16,12 @@ import {
 } from "@/lib/builder-template";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { BuilderModuleCard } from "./builder-module-card";
-import { getAlignmentClass, getSectionBackgroundStyle, getVerticalMarginStyle } from "./builder-utils";
+import {
+  getAlignmentClass,
+  getSectionBackgroundStyle,
+  getSectionMarginStyle,
+  getVerticalMarginStyle
+} from "./builder-utils";
 import { layoutOptions } from "./builder-types";
 
 type BuilderSectionCardProps = {
@@ -191,7 +196,7 @@ export function BuilderSectionCard({
   function getSectionStyle(): CSSProperties {
     return {
       ...(getSectionBackgroundStyle(section) ?? {}),
-      ...getVerticalMarginStyle(section.verticalMargin)
+      ...getSectionMarginStyle(section)
     };
   }
 
@@ -343,21 +348,38 @@ export function BuilderSectionCard({
                 </select>
               </label>
               <label className="field">
-                <span>Vertical margin</span>
+                <span>Top margin</span>
                 <input
                   type="range"
                   min="0"
                   max="160"
                   step="1"
-                  value={section.verticalMargin ?? "0"}
+                  value={section.marginTop ?? "0"}
                   onChange={(event) =>
                     onUpdateSection((current) => ({
                       ...current,
-                      verticalMargin: event.target.value
+                      marginTop: event.target.value
                     }))
                   }
                 />
-                <small>{section.verticalMargin ?? "0"}px</small>
+                <small>{section.marginTop ?? "0"}px</small>
+              </label>
+              <label className="field">
+                <span>Bottom margin</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="160"
+                  step="1"
+                  value={section.marginBottom ?? "0"}
+                  onChange={(event) =>
+                    onUpdateSection((current) => ({
+                      ...current,
+                      marginBottom: event.target.value
+                    }))
+                  }
+                />
+                <small>{section.marginBottom ?? "0"}px</small>
               </label>
               <BuilderBackgroundControls
                 label="Row Background"

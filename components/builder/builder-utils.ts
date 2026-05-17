@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type {
   BackgroundSettings,
   BuilderPageRecord,
+  BuilderTemplateModule,
   BuilderTemplateRecord,
   BuilderTemplateSection
 } from "@/lib/builder-template";
@@ -9,6 +10,7 @@ import {
   createDefaultBackgroundSettings,
   getBuilderBackgroundStyle,
   normalizeBuilderAssetUrl,
+  normalizeSignedOffsetValue,
   normalizeSpacingValue
 } from "@/lib/builder-template";
 import type { BuilderDraft } from "./builder-types";
@@ -80,6 +82,17 @@ export function getVerticalMarginStyle(value: unknown): CSSProperties {
   };
 }
 
+export function getSplitVerticalMarginStyle(top: unknown, bottom: unknown): CSSProperties {
+  return {
+    marginTop: `${normalizeSpacingValue(top, "0", 0, 160)}px`,
+    marginBottom: `${normalizeSpacingValue(bottom, "0", 0, 160)}px`
+  };
+}
+
+export function getSectionMarginStyle(section: BuilderTemplateSection): CSSProperties {
+  return getSplitVerticalMarginStyle(section.marginTop, section.marginBottom);
+}
+
 export function getSectionBackgroundStyle(section: BuilderTemplateSection): CSSProperties | undefined {
   return getBuilderBackgroundStyle(section.background);
 }
@@ -88,13 +101,9 @@ export function getImageModuleStyle(settings: Record<string, string>): CSSProper
   const size = Number.parseInt(settings.size ?? "100", 10);
   const borderThickness = Number.parseInt(settings.borderThickness ?? "0", 10);
   const borderRadius = Number.parseInt(settings.borderRadius ?? "18", 10);
-  const positionMode = getImagePositionMode(settings);
 
   return {
-    width:
-      positionMode === "overlay"
-        ? "100%"
-        : `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`,
+    width: `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`,
     border: `${Math.max(Number.isFinite(borderThickness) ? borderThickness : 0, 0)}px solid ${
       settings.borderColor || "#0f4f8f"
     }`,
@@ -102,8 +111,80 @@ export function getImageModuleStyle(settings: Record<string, string>): CSSProper
   };
 }
 
+export function getFloatingImageModuleStyle(settings: Record<string, string>): CSSProperties {
+  const size = Number.parseInt(settings.size ?? "15", 10);
+
+  return {
+    ...getImageModuleStyle({ ...settings, size: String(Math.min(Math.max(Number.isFinite(size) ? size : 15, 10), 100)) }),
+    width: "100%"
+  };
+}
+
 export function getImagePositionMode(settings: Record<string, string>): "inline" | "overlay" {
   return settings.positionMode === "overlay" ? "overlay" : "inline";
+}
+
+export function isFloatingImageModule(module: Pick<BuilderTemplateModule, "type" | "settings">) {
+  return module.type === "floating-image";
+}
+
+/** Legacy overlay images are migrated to `floating-image` on normalize. */
+export function isOverlayImageModule(module: Pick<BuilderTemplateModule, "type" | "settings">) {
+  return (
+    isFloatingImageModule(module) ||
+    (module.type === "image" &&
+      module.settings.variant !== "video" &&
+      getImagePositionMode(module.settings) === "overlay")
+  );
+}
+
+export function columnHasOnlyOverlayImageModules(modules: BuilderTemplateModule[]) {
+  return modules.length > 0 && modules.every(isOverlayImageModule);
+}
+
+export function sectionHasOnlyOverlayImageModules(section: BuilderTemplateSection) {
+  return section.modules.length > 0 && section.modules.every(isOverlayImageModule);
+}
+
+export const columnHasOnlyFloatingImageModules = columnHasOnlyOverlayImageModules;
+export const sectionHasOnlyFloatingImageModules = sectionHasOnlyOverlayImageModules;
+
+/** Overlay images are painted out-of-flow; collapse their row/column layout box. */
+export function getOverlayFlowCollapsedSectionStyle(collapsed: boolean): CSSProperties {
+  return collapsed
+    ? {
+        marginTop: 0,
+        marginBottom: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        minHeight: 0,
+        overflow: "visible"
+      }
+    : {};
+}
+
+export function getOverlayFlowCollapsedColumnStyle(collapsed: boolean): CSSProperties {
+  return collapsed
+    ? {
+        padding: 0,
+        minHeight: 0,
+        overflow: "visible",
+        borderWidth: 0
+      }
+    : {};
+}
+
+export function getOverlayFlowCollapsedModuleStyle(collapsed: boolean): CSSProperties {
+  return collapsed
+    ? {
+        height: 0,
+        minHeight: 0,
+        marginTop: 0,
+        marginBottom: 0,
+        padding: 0,
+        overflow: "visible"
+      }
+    : {};
 }
 
 export function getImageOverlayStyle(settings: Record<string, string>): CSSProperties {
@@ -178,6 +259,46 @@ export function getImageOverlayStyle(settings: Record<string, string>): CSSPrope
   style.top = "50%";
   style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
   return style;
+}
+
+function getImageNudgeTransform(settings: Record<string, string>) {
+  const horizontal = Number.parseInt(normalizeSignedOffsetValue(settings.horizontalOffset, "0"), 10);
+  const vertical = Number.parseInt(normalizeSignedOffsetValue(settings.verticalOffset, "0"), 10);
+  const offsetX = Number.isFinite(horizontal) ? horizontal : 0;
+  const offsetY = Number.isFinite(vertical) ? vertical : 0;
+
+  if (offsetX === 0 && offsetY === 0) {
+    return null;
+  }
+
+  return `translate(${offsetX}px, ${-offsetY}px)`;
+}
+
+export function getFloatingImageModuleShellStyle(settings: Record<string, string>): CSSProperties {
+  return getImageModuleShellStyle({ ...settings, positionMode: "overlay" });
+}
+
+export function getImageModuleShellStyle(settings: Record<string, string>): CSSProperties {
+  const positionMode = getImagePositionMode(settings);
+  const baseStyle = positionMode === "overlay" ? getImageOverlayStyle(settings) : undefined;
+  const nudgeTransform = getImageNudgeTransform(settings);
+
+  if (!nudgeTransform) {
+    return baseStyle ?? {};
+  }
+
+  if (baseStyle?.transform) {
+    return {
+      ...baseStyle,
+      transform: `${String(baseStyle.transform)} ${nudgeTransform}`
+    };
+  }
+
+  return {
+    ...(baseStyle ?? {}),
+    position: baseStyle?.position ?? "relative",
+    transform: nudgeTransform
+  };
 }
 
 export function getModuleBackgroundSettings(settings: Record<string, string>): BackgroundSettings {

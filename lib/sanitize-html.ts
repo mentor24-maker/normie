@@ -28,7 +28,7 @@ const RICH_TEXT_ALLOWED_TAGS = [
   "div"
 ] as const;
 
-const RICH_TEXT_ALLOWED_ATTR = ["href", "target", "rel", "style", "class"] as const;
+const RICH_TEXT_ALLOWED_ATTR = ["href", "target", "rel", "style", "class", "id"] as const;
 
 const EMBED_EXTRA_TAGS = ["iframe"] as const;
 
@@ -56,6 +56,12 @@ function configureDomPurify() {
 
     if (node.tagName === "IFRAME") {
       node.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups allow-forms");
+      if (!node.getAttribute("loading")) {
+        node.setAttribute("loading", "lazy");
+      }
+      if (!node.getAttribute("tabindex")) {
+        node.setAttribute("tabindex", "-1");
+      }
     }
   });
 }

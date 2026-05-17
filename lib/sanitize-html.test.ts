@@ -30,4 +30,16 @@ describe("sanitizeEmbedHtml", () => {
     expect(clean.toLowerCase()).toContain("<iframe");
     expect(clean.toLowerCase()).not.toContain("<script");
   });
+
+  it("strips style tags but keeps dexscreener embed markup", () => {
+    const clean = sanitizeEmbedHtml(
+      '<style>#dexscreener-embed{width:100%;}</style><motion.div id="dexscreener-embed"><iframe src="https://dexscreener.com/solana/test?embed=1"></iframe></div>'.replace(
+        /motion\./g,
+        ""
+      )
+    );
+    expect(clean.toLowerCase()).not.toContain("<style");
+    expect(clean).toContain('id="dexscreener-embed"');
+    expect(clean.toLowerCase()).toContain("<iframe");
+  });
 });

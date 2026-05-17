@@ -6,5 +6,9 @@ export const TRUSTED_EMBED_FRAME_ORIGINS = [
   "https://youtube-nocookie.com",
   "https://player.vimeo.com",
   "https://vimeo.com",
-  "https://platform.twitter.com"
+  "https://platform.twitter.com",
+  "https://dexscreener.com",
+  "https://www.dexscreener.com",
+  "https://www.geckoterminal.com",
+  "https://geckoterminal.com"
 ] as const;

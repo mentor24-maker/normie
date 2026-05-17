@@ -5,6 +5,7 @@ import {
   createEmptyModule,
   getBuilderBackgroundStyle,
   normalizeBuilderAssetUrl,
+  normalizeSignedOffsetValue,
   formatRichTextContent,
   sanitizeEmbedHtml
 } from "@/lib/builder-template";
@@ -18,14 +19,14 @@ import {
 } from "@/components/social-share-module";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { MerchModuleEditor } from "./builder-merch-module-editor";
+import { BuilderCodeEmbed } from "./builder-code-embed";
+import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
+import { BuilderImagePreview } from "./builder-image-preview";
 import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
 import {
   getAlignmentClass,
   getHeadingModuleStyle,
-  getImageOverlayStyle,
-  getImagePositionMode,
-  getImageModuleStyle,
   getModuleAlignment,
   getModuleBackgroundSettings,
   getVerticalMarginStyle,
@@ -231,9 +232,10 @@ function renderModulePreview(module: BuilderTemplateModule) {
           {module.settings.label || module.name || "Code snippet"}
         </div>
         {module.text ? (
-          <div
+          <BuilderCodeEmbed
+            html={sanitizeEmbedHtml(module.text)}
             className="builder-code-module-render"
-            dangerouslySetInnerHTML={{ __html: sanitizeEmbedHtml(module.text) }}
+            requireActivation={false}
           />
         ) : (
           <div className="builder-module-preview-placeholder">Add embed code or HTML</div>
@@ -289,63 +291,18 @@ function renderModulePreview(module: BuilderTemplateModule) {
     );
   }
 
-  if (module.type === "image") {
-    const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
-    const linkUrl = normalizeBuilderAssetUrl(module.settings.linkUrl);
-    const imageStyle = getImageModuleStyle(module.settings);
-    const imagePositionMode = getImagePositionMode(module.settings);
-    const opensInNewTab = module.settings.newTab === "true";
-    const effectClass =
-      module.settings.effect === "bounce"
-        ? " normie-effect-bounce"
-        : module.settings.effect === "spin"
-        ? " normie-effect-spin"
-        : module.settings.effect === "cruise"
-        ? " normie-effect-cruise"
-        : module.settings.effect === "tumbleweed"
-        ? " normie-effect-tumbleweed"
-        : "";
-
+  if (module.type === "image" || module.type === "floating-image") {
     return (
-      <div
-        className={`builder-module-preview-image-shell ${
-          imagePositionMode === "overlay" ? "builder-module-preview-image-shell-overlay" : ""
-        }`}
-        style={imagePositionMode === "overlay" ? getImageOverlayStyle(module.settings) : undefined}
-      >
-        <figure
-          className={`builder-preview-image builder-module-preview-image builder-module-preview-image-${variant || "default"}${effectClass}`}
-          style={imageStyle}
-        >
-          {mediaUrl ? (
-            isVideoMedia(mediaUrl) ? (
-              <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
-            ) : linkUrl ? (
-              <a href={linkUrl} rel={opensInNewTab ? "noopener noreferrer" : undefined} target={opensInNewTab ? "_blank" : undefined}>
-                <img
-                  alt={module.settings.alt || module.text || "Selected media"}
-                  src={mediaUrl}
-                  suppressHydrationWarning
-                  style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
-                />
-              </a>
-            ) : (
-              <img
-                alt={module.settings.alt || module.text || "Selected media"}
-                src={mediaUrl}
-                suppressHydrationWarning
-                style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
-              />
-            )
-          ) : (
-            <div className="builder-module-preview-placeholder">Choose an image or video</div>
-          )}
-        </figure>
-        {imagePositionMode === "overlay" ? <small className="builder-overlay-badge">Overlay mode</small> : null}
-      </div>
+      <BuilderImagePreview
+        module={module}
+        variant={variant}
+        imageClassName="builder-preview-image builder-module-preview-image"
+        placeholder={
+          module.type === "floating-image" ? "Choose a floating image" : "Choose an image or video"
+        }
+      />
     );
   }
-
   if (module.type === "table") {
     const td = parseTableData(module.settings);
     const borderW = Number.parseInt(module.settings.borderWidth || "1", 10);
@@ -1756,6 +1713,8 @@ export function BuilderModuleCard({
     const moduleAlignment = getModuleAlignment(module.settings);
     const mobileAlignment = module.settings.mobileAlignment ?? "";
     const isVideoModule = module.type === "video" || (module.type === "image" && module.settings.variant === "video");
+    const isStandardImage = module.type === "image" && !isVideoModule;
+    const isFloatingImage = module.type === "floating-image";
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
@@ -1928,7 +1887,52 @@ export function BuilderModuleCard({
             </label>
           </div>
 
-          {(module.type === "image" || module.type === "video" || module.type === "button") && (
+          {isStandardImage ? (
+            <div className="builder-module-offset-grid">
+              <label className="field">
+                <span>Horizontal offset</span>
+                <input
+                  type="number"
+                  min="-500"
+                  max="500"
+                  step="1"
+                  value={module.settings.horizontalOffset ?? "0"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: {
+                        ...current.settings,
+                        horizontalOffset: normalizeSignedOffsetValue(event.target.value, "0")
+                      }
+                    }))
+                  }
+                />
+                <small>Positive moves right; negative moves left.</small>
+              </label>
+              <label className="field">
+                <span>Vertical offset</span>
+                <input
+                  type="number"
+                  min="-500"
+                  max="500"
+                  step="1"
+                  value={module.settings.verticalOffset ?? "0"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: {
+                        ...current.settings,
+                        verticalOffset: normalizeSignedOffsetValue(event.target.value, "0")
+                      }
+                    }))
+                  }
+                />
+                <small>Positive moves up; negative moves down.</small>
+              </label>
+            </div>
+          ) : null}
+
+          {(isStandardImage || isFloatingImage || module.type === "video" || module.type === "button") && (
             <label className="field">
               <span>{module.type === "button" ? "Link" : isVideoModule ? "Video embed URL" : "URL"}</span>
               <input
@@ -1944,12 +1948,18 @@ export function BuilderModuleCard({
                     }
                   }))
                 }
-                placeholder={isVideoModule ? "YouTube, Vimeo, embed URL, or uploaded video" : module.type === "image" ? "https://..." : "/path-or-url"}
+                placeholder={
+                  isVideoModule
+                    ? "YouTube, Vimeo, embed URL, or uploaded video"
+                    : isStandardImage || isFloatingImage
+                      ? "https://..."
+                      : "/path-or-url"
+                }
               />
             </label>
           )}
 
-          {module.type === "image" && !isVideoModule ? (
+          {isStandardImage ? (
             <label className="field">
               <span>Link</span>
               <input
@@ -1966,7 +1976,7 @@ export function BuilderModuleCard({
             </label>
           ) : null}
 
-          {(isVideoModule || (module.type === "image" && !isVideoModule)) ? (
+          {(isVideoModule || isStandardImage) ? (
             <label className="field builder-checkbox-field">
               <span>New Tab</span>
               <input
@@ -2055,7 +2065,7 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
-          {(module.type === "image" || module.type === "video") ? (
+          {(isStandardImage || isFloatingImage || module.type === "video") ? (
             <div className="builder-media-actions">
               <button className="secondary-button builder-gallery-button" onClick={onOpenGallery} type="button">Choose From Gallery</button>
               <label className="secondary-button builder-gallery-button builder-upload-button">
@@ -2065,7 +2075,9 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
-          {module.type === "image" && !isVideoModule && (
+          {isFloatingImage ? <BuilderFloatingImageModuleSettings module={module} onUpdateModule={onUpdateModule} /> : null}
+
+          {isStandardImage ? (
             <>
               <label className="field">
                 <span>Alt text</span>
@@ -2085,13 +2097,6 @@ export function BuilderModuleCard({
                     <option value="100">100%</option>
                   </select>
                 </label>
-                <label className="field">
-                  <span>Position</span>
-                  <select value={module.settings.positionMode ?? "inline"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, positionMode: event.target.value } }))}>
-                    <option value="inline">Inline</option>
-                    <option value="overlay">Overlay</option>
-                  </select>
-                </label>
                 <label className="field"><span>Border thickness</span><input type="range" min="0" max="24" step="1" value={module.settings.borderThickness ?? "0"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderThickness: event.target.value } }))} /></label>
                 <label className="field"><span>Border color</span><input type="color" value={module.settings.borderColor ?? "#0f4f8f"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderColor: event.target.value } }))} /></label>
                 <label className="field"><span>Border radius</span><input type="range" min="0" max="80" step="1" value={module.settings.borderRadius ?? "18"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderRadius: event.target.value } }))} /></label>
@@ -2106,41 +2111,8 @@ export function BuilderModuleCard({
                   </select>
                 </label>
               </div>
-              {module.settings.positionMode === "overlay" ? (
-                <div className="builder-image-controls-grid">
-                  <label className="field">
-                    <span>Anchor</span>
-                    <select value={module.settings.overlayAnchor ?? "center"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, overlayAnchor: event.target.value } }))}>
-                      <option value="center">Center</option>
-                      <option value="top-left">Top left</option>
-                      <option value="top-center">Top center</option>
-                      <option value="top-right">Top right</option>
-                      <option value="center-left">Center left</option>
-                      <option value="center-right">Center right</option>
-                      <option value="bottom-left">Bottom left</option>
-                      <option value="bottom-center">Bottom center</option>
-                      <option value="bottom-right">Bottom right</option>
-                    </select>
-                  </label>
-                  <label className="field"><span>X offset</span><input type="number" value={module.settings.offsetX ?? "0"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, offsetX: event.target.value } }))} /></label>
-                  <label className="field"><span>Y offset</span><input type="number" value={module.settings.offsetY ?? "0"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, offsetY: event.target.value } }))} /></label>
-                  <label className="field">
-                    <span>Z index</span>
-                    <select value={module.settings.zIndex ?? "2"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, zIndex: event.target.value } }))}>
-                      <option value="0">0</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="20">20</option>
-                    </select>
-                  </label>
-                </div>
-              ) : null}
             </>
-          )}
+          ) : null}
 
           {module.type === "heading" ? (
             <div className="builder-typography-controls-grid">
@@ -2214,6 +2186,7 @@ export function BuilderModuleCard({
           )}
 
           {module.type !== "image" &&
+          module.type !== "floating-image" &&
           module.type !== "contact-form" &&
           module.type !== "table" &&
           module.type !== "slider" &&

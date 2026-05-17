@@ -55,6 +55,7 @@ export const modulePaletteGroups: Array<{
   { value: "code", label: "Code", icon: "</>", description: "Embed codes, widgets, and raw HTML snippets." },
   { value: "merch", label: "Merch", icon: "$", description: "Product cards from the shop catalog or custom URLs." },
   { value: "image", label: "Image", icon: "I", description: "Images, logos, and visual media." },
+  { value: "floating-image", label: "Floating Image", icon: "✦", description: "Absolutely positioned images that float over the layout." },
   { value: "video", label: "Video", icon: "V", description: "Embeddable videos from YouTube, Vimeo, or uploaded files." },
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
   { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
@@ -207,6 +208,17 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "",
     text: "",
     settings: { variant: "logo", url: "", alt: "" }
+  },
+  {
+    id: "floating-image-decor",
+    type: "floating-image",
+    group: "floating-image",
+    label: "Floating Image",
+    icon: "✦",
+    description: "Decorative image positioned over other content without affecting layout height.",
+    name: "",
+    text: "",
+    settings: { variant: "decor", url: "", alt: "", size: "15", overlayAnchor: "center", zIndex: "20", effect: "bounce" }
   },
   {
     id: "image-video",

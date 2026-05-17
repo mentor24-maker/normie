@@ -22,6 +22,7 @@ export type BuilderTemplateModuleType =
   | "code"
   | "merch"
   | "image"
+  | "floating-image"
   | "video"
   | "quote"
   | "button"
@@ -55,7 +56,8 @@ export type BuilderTemplateSection = {
   title: string;
   layout: BuilderTemplateLayout;
   alignment: "left" | "center" | "right";
-  verticalMargin: string;
+  marginTop: string;
+  marginBottom: string;
   mobileHidden: string;
   desktopHidden: string;
   mobileLayout: "stack" | "keep" | "reverse-stack";
@@ -299,6 +301,16 @@ export function normalizeSpacingValue(value: unknown, fallback = "0", min = 0, m
   return String(normalized);
 }
 
+export function normalizeSignedOffsetValue(value: unknown, fallback = "0", min = -500, max = 500) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  const fallbackValue = Number.parseInt(fallback, 10);
+  const normalized = Number.isFinite(parsed)
+    ? Math.min(Math.max(parsed, min), max)
+    : Math.min(Math.max(Number.isFinite(fallbackValue) ? fallbackValue : min, min), max);
+
+  return String(normalized);
+}
+
 export function normalizeBackgroundMode(
   value: unknown
 ): BackgroundSettings["mode"] {
@@ -472,6 +484,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "code" ||
     type === "merch" ||
     type === "image" ||
+    type === "floating-image" ||
     type === "video" ||
     type === "quote" ||
     type === "button" ||
@@ -509,6 +522,33 @@ export function normalizeModuleSettings(value: unknown) {
   );
 }
 
+const OVERLAY_ONLY_IMAGE_SETTINGS = [
+  "positionMode",
+  "overlayAnchor",
+  "offsetX",
+  "offsetY",
+  "zIndex"
+] as const;
+
+function stripOverlayOnlyImageSettings(settings: Record<string, string>) {
+  for (const key of OVERLAY_ONLY_IMAGE_SETTINGS) {
+    delete settings[key];
+  }
+}
+
+export function resolveBuilderModuleType(
+  rawType: unknown,
+  settings: Record<string, string>
+): BuilderTemplateModuleType {
+  const type = normalizeModuleType(rawType);
+
+  if (type === "image" && settings.positionMode === "overlay" && settings.variant !== "video") {
+    return "floating-image";
+  }
+
+  return type;
+}
+
 function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: unknown) {
   const settings = normalizeModuleSettings(value);
 
@@ -516,7 +556,39 @@ function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: 
     delete settings.navBackground;
   }
 
+  if (type === "image") {
+    stripOverlayOnlyImageSettings(settings);
+    settings.horizontalOffset = normalizeSignedOffsetValue(settings.horizontalOffset, "0");
+    settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
+  }
+
+  if (type === "floating-image") {
+    delete settings.positionMode;
+    delete settings.linkUrl;
+    delete settings.newTab;
+    settings.horizontalOffset = normalizeSignedOffsetValue(settings.horizontalOffset, "0");
+    settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
+  }
+
   return settings;
+}
+
+function normalizeBuilderModuleFromRecord(
+  module: Record<string, unknown>,
+  fallbackId: string,
+  fallbackColumn: string
+): BuilderTemplateModule | null {
+  const rawSettings = normalizeModuleSettings(module.settings);
+  const type = resolveBuilderModuleType(module.type, rawSettings);
+
+  return {
+    id: safeText(module.id, 120) || fallbackId,
+    type,
+    column: safeText(module.column, 40) || fallbackColumn,
+    name: safeText(module.name, 255),
+    text: safeText(module.text, 10000),
+    settings: normalizeModuleSettingsForType(type, rawSettings)
+  };
 }
 
 export function normalizeBuilderModules(
@@ -533,18 +605,11 @@ export function normalizeBuilderModules(
         return null;
       }
 
-      const normalizedModule = module as Record<string, unknown>;
-
-      const type = normalizeModuleType(normalizedModule.type);
-
-      return {
-        id: safeText(normalizedModule.id, 120) || `module-${moduleIndex + 1}`,
-        type,
-        column: safeText(normalizedModule.column, 40) || fallbackColumn,
-        name: safeText(normalizedModule.name, 255),
-        text: safeText(normalizedModule.text, 10000),
-        settings: normalizeModuleSettingsForType(type, normalizedModule.settings)
-      } satisfies BuilderTemplateModule;
+      return normalizeBuilderModuleFromRecord(
+        module as Record<string, unknown>,
+        `module-${moduleIndex + 1}`,
+        fallbackColumn
+      );
     })
     .filter((module): module is BuilderTemplateModule => Boolean(module));
 }
@@ -632,16 +697,19 @@ export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[
 
               const normalizedModule = module as Record<string, unknown>;
               const column = safeText(normalizedModule.column, 40) || getLayoutColumns(layout)[0];
+              const resolved = normalizeBuilderModuleFromRecord(
+                normalizedModule,
+                `module-${sectionIndex + 1}-${moduleIndex + 1}`,
+                allowedColumns.has(column) ? column : getLayoutColumns(layout)[0]
+              );
 
-              const type = normalizeModuleType(normalizedModule.type);
+              if (!resolved) {
+                return null;
+              }
 
               return {
-                id: safeText(normalizedModule.id, 120) || `module-${sectionIndex + 1}-${moduleIndex + 1}`,
-                type,
-                column: allowedColumns.has(column) ? column : getLayoutColumns(layout)[0],
-                name: safeText(normalizedModule.name, 255),
-                text: safeText(normalizedModule.text, 10000),
-                settings: normalizeModuleSettingsForType(type, normalizedModule.settings)
+                ...resolved,
+                column: allowedColumns.has(column) ? column : getLayoutColumns(layout)[0]
               } satisfies BuilderTemplateModule;
             })
             .filter((module): module is BuilderTemplateModule => Boolean(module))
@@ -652,7 +720,18 @@ export function normalizeLayoutSections(value: unknown): BuilderTemplateSection[
         title: safeText(normalizedSection.title, 255),
         layout,
         alignment: normalizeAlignment(normalizedSection.alignment),
-        verticalMargin: normalizeSpacingValue(normalizedSection.verticalMargin, "0", 0, 160),
+        marginTop: normalizeSpacingValue(
+          normalizedSection.marginTop ?? normalizedSection.verticalMargin,
+          "0",
+          0,
+          160
+        ),
+        marginBottom: normalizeSpacingValue(
+          normalizedSection.marginBottom ?? normalizedSection.verticalMargin,
+          "0",
+          0,
+          160
+        ),
         mobileHidden: normalizeBooleanText(normalizedSection.mobileHidden),
         desktopHidden: normalizeBooleanText(normalizedSection.desktopHidden),
         mobileLayout: normalizeMobileLayout(normalizedSection.mobileLayout),
@@ -682,7 +761,8 @@ export function createEmptySection(layout: BuilderTemplateLayout = "single"): Bu
     title: "",
     layout,
     alignment: "left",
-    verticalMargin: "0",
+    marginTop: "0",
+    marginBottom: "0",
     mobileHidden: "false",
     desktopHidden: "false",
     mobileLayout: "stack",
@@ -736,11 +816,25 @@ export function createEmptyModule(
           borderThickness: "0",
           borderColor: "#0f4f8f",
           borderRadius: "18",
-          positionMode: "inline",
+          horizontalOffset: "0",
+          verticalOffset: "0",
+          effect: "none"
+        }
+      : type === "floating-image"
+      ? {
+          url: "",
+          alt: "",
+          size: "15",
+          borderThickness: "0",
+          borderColor: "#0f4f8f",
+          borderRadius: "18",
           overlayAnchor: "center",
           offsetX: "0",
           offsetY: "0",
-          zIndex: "2"
+          horizontalOffset: "0",
+          verticalOffset: "0",
+          zIndex: "20",
+          effect: "none"
         }
       : type === "code"
       ? {

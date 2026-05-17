@@ -10,5 +10,7 @@ describe("buildContentSecurityPolicy", () => {
     expect(policy).toContain("https://www.youtube-nocookie.com");
     expect(policy).toContain("https://player.vimeo.com");
     expect(policy).toContain("https://platform.twitter.com");
+    expect(policy).toContain("https://dexscreener.com");
+    expect(policy).toContain("https://www.geckoterminal.com");
   });
 });

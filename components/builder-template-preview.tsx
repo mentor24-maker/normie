@@ -17,15 +17,21 @@ import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/component
 import {
   getAlignmentClass,
   getHeadingModuleStyle,
-  getImageModuleStyle,
-  getImageOverlayStyle,
-  getImagePositionMode,
+  columnHasOnlyOverlayImageModules,
+  getOverlayFlowCollapsedColumnStyle,
+  getOverlayFlowCollapsedModuleStyle,
+  getOverlayFlowCollapsedSectionStyle,
+  isOverlayImageModule,
+  sectionHasOnlyOverlayImageModules,
   getModuleAlignment,
   getModuleBackgroundSettings,
+  getSectionMarginStyle,
   getVerticalMarginStyle,
   getVideoEmbedSource,
   isVideoMedia
 } from "@/components/builder/builder-utils";
+import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
+import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
 
 type BuilderTemplatePreviewProps = {
   layoutSections: BuilderTemplateSection[];
@@ -190,12 +196,14 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
   const sectionStyle = getBuilderBackgroundStyle(section.background);
   const columnKeys = getLayoutColumns(section.layout);
   const isNavigationSection = section.modules.length > 0 && section.modules.every((module) => module.type === "navigation");
+  const isOverlayFlowSection = sectionHasOnlyOverlayImageModules(section);
   const gridStyle: CSSProperties = {
     ...(isNavigationSection ? {} : sectionStyle),
-    ...getVerticalMarginStyle(section.verticalMargin),
+    ...(isOverlayFlowSection ? {} : getSectionMarginStyle(section)),
+    ...getOverlayFlowCollapsedSectionStyle(isOverlayFlowSection),
     display: "grid",
     gridTemplateColumns: getLayoutGridTemplate(section.layout),
-    gap: "16px",
+    gap: isOverlayFlowSection ? 0 : "16px",
     "--builder-layout-grid": getLayoutGridTemplate(section.layout)
   } as CSSProperties;
 
@@ -203,7 +211,7 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
     <section
       className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"} builder-preview-section-mobile-${section.mobileLayout || "stack"} ${
         isNavigationSection ? "builder-preview-section-navigation" : ""
-      }`}
+      }${isOverlayFlowSection ? " builder-preview-section-overlay-flow" : ""}`}
       style={gridStyle}
     >
       {columnKeys.map((columnKey) => {
@@ -215,12 +223,17 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
         const borderWidth = section.cellBorderWidth?.[columnKey] ?? "0";
         const borderColor = section.cellBorderColor?.[columnKey] ?? "#d9e4ef";
         const borderRadius = section.cellBorderRadius?.[columnKey] ?? "0";
+        const isOverlayFlowColumn = columnHasOnlyOverlayImageModules(columnModules);
         const columnStyle: CSSProperties = {
           ...(isNavigationColumn || !columnBackground ? {} : getBuilderBackgroundStyle(columnBackground)),
-          ...getVerticalMarginStyle(verticalMargin),
-          padding: isNavigationColumn ? 0 : `${padding}px`,
-          border: isNavigationColumn || Number(borderWidth) <= 0 ? undefined : `${borderWidth}px solid ${borderColor}`,
-          borderRadius: isNavigationColumn ? 0 : `${borderRadius}px`,
+          ...(isOverlayFlowColumn ? {} : getVerticalMarginStyle(verticalMargin)),
+          ...getOverlayFlowCollapsedColumnStyle(isOverlayFlowColumn),
+          padding: isNavigationColumn || isOverlayFlowColumn ? 0 : `${padding}px`,
+          border:
+            isNavigationColumn || isOverlayFlowColumn || Number(borderWidth) <= 0
+              ? undefined
+              : `${borderWidth}px solid ${borderColor}`,
+          borderRadius: isNavigationColumn || isOverlayFlowColumn ? 0 : `${borderRadius}px`,
           position: "relative"
         };
 
@@ -229,30 +242,39 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
             key={columnKey}
             className={`builder-preview-column ${
               section.cellMobileHidden?.[columnKey] === "true" ? "builder-preview-column-mobile-hidden" : ""
-            } ${isNavigationColumn ? "builder-preview-column-navigation" : ""}`}
+            } ${isNavigationColumn ? "builder-preview-column-navigation" : ""}${
+              isOverlayFlowColumn ? " builder-preview-column-overlay-flow" : ""
+            }`}
             style={columnStyle}
           >
-            {columnModules.map((module) => (
-              <div
-                key={module.id}
-                className={`builder-preview-module ${getAlignmentClass(getModuleAlignment(module.settings))} ${
-                  module.settings.mobileHidden === "true" ? "builder-preview-module-mobile-hidden" : ""
-                } ${
-                  module.settings.mobileAlignment ? `builder-preview-module-mobile-align-${module.settings.mobileAlignment}` : ""
-                } ${
-                  module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
-                }`}
-                style={{
-                  ...(module.type === "navigation" ? {} : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-                  ...getVerticalMarginStyle(module.settings.verticalMargin),
-                  "--builder-mobile-font-size": module.settings.mobileFontSize
-                    ? `${module.settings.mobileFontSize}px`
-                    : undefined
-                } as CSSProperties}
-              >
-                <BuilderModulePreview module={module} />
-              </div>
-            ))}
+            {columnModules.map((module) => {
+              const isOverlayFlowModule = isOverlayImageModule(module);
+
+              return (
+                <div
+                  key={module.id}
+                  className={`builder-preview-module ${getAlignmentClass(getModuleAlignment(module.settings))} ${
+                    module.settings.mobileHidden === "true" ? "builder-preview-module-mobile-hidden" : ""
+                  } ${
+                    module.settings.mobileAlignment ? `builder-preview-module-mobile-align-${module.settings.mobileAlignment}` : ""
+                  } ${
+                    module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
+                  }${isOverlayFlowModule ? " builder-preview-module-overlay-flow" : ""}`}
+                  style={{
+                    ...(module.type === "navigation" || isOverlayFlowModule
+                      ? {}
+                      : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
+                    ...(isOverlayFlowModule ? {} : getVerticalMarginStyle(module.settings.verticalMargin)),
+                    ...getOverlayFlowCollapsedModuleStyle(isOverlayFlowModule),
+                    "--builder-mobile-font-size": module.settings.mobileFontSize
+                      ? `${module.settings.mobileFontSize}px`
+                      : undefined
+                  } as CSSProperties}
+                >
+                  <BuilderModulePreview module={module} />
+                </div>
+              );
+            })}
           </div>
         );
       })}
@@ -298,12 +320,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
         {module.settings.label ? (
           <div className="builder-preview-code-label">{module.settings.label}</div>
         ) : null}
-        {module.text ? (
-          <div
-            className="builder-preview-code-render"
-            dangerouslySetInnerHTML={{ __html: sanitizeEmbedHtml(module.text) }}
-          />
-        ) : null}
+        {module.text ? <BuilderCodeEmbed html={sanitizeEmbedHtml(module.text)} /> : null}
       </div>
     );
   }
@@ -382,57 +399,13 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
     );
   }
 
-  if (module.type === "image") {
-    const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
-    const linkUrl = normalizeBuilderAssetUrl(module.settings.linkUrl);
-    const imageStyle = getImageModuleStyle(module.settings);
-    const imagePositionMode = getImagePositionMode(module.settings);
-    const opensInNewTab = module.settings.newTab === "true";
-    const effectClass =
-      module.settings.effect === "bounce"
-        ? " normie-effect-bounce"
-        : module.settings.effect === "spin"
-        ? " normie-effect-spin"
-        : module.settings.effect === "cruise"
-        ? " normie-effect-cruise"
-        : module.settings.effect === "tumbleweed"
-        ? " normie-effect-tumbleweed"
-        : "";
-
+  if (module.type === "image" || module.type === "floating-image") {
     return (
-      <div
-        className={`builder-preview-image-shell ${
-          imagePositionMode === "overlay" ? "builder-preview-image-shell-overlay" : ""
-        }`}
-        style={imagePositionMode === "overlay" ? getImageOverlayStyle(module.settings) : undefined}
-      >
-        <figure
-          className={`builder-preview-image builder-preview-image-${variant || "default"}${effectClass}`}
-          style={imageStyle}
-        >
-          {mediaUrl ? (
-            isVideoMedia(mediaUrl) ? (
-              <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
-            ) : linkUrl ? (
-              <a href={linkUrl} rel={opensInNewTab ? "noopener noreferrer" : undefined} target={opensInNewTab ? "_blank" : undefined}>
-                <img
-                  alt={module.settings.alt || ""}
-                  src={mediaUrl}
-                  suppressHydrationWarning
-                  style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
-                />
-              </a>
-            ) : (
-              <img
-                alt={module.settings.alt || ""}
-                src={mediaUrl}
-                suppressHydrationWarning
-                style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
-              />
-            )
-          ) : null}
-        </figure>
-      </div>
+      <BuilderImagePreview
+        module={module}
+        variant={variant}
+        placeholder={module.type === "floating-image" ? "Choose a floating image" : "Choose an image"}
+      />
     );
   }
 
