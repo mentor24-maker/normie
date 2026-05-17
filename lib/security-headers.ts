@@ -1,4 +1,5 @@
 import type { NextResponse } from "next/server";
+import { TRUSTED_EMBED_FRAME_ORIGINS } from "@/lib/embed-origins";
 
 function getSupabaseOrigins() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,11 +15,16 @@ function getSupabaseOrigins() {
   }
 }
 
-function buildContentSecurityPolicy() {
+export function buildContentSecurityPolicy() {
   const supabaseOrigins = getSupabaseOrigins();
   const connectSources = ["'self'", ...supabaseOrigins];
   const imageSources = ["'self'", "data:", "blob:", "https:"];
-  const frameSources = ["'self'", "https://accounts.google.com", ...supabaseOrigins];
+  const frameSources = [
+    "'self'",
+    "https://accounts.google.com",
+    ...TRUSTED_EMBED_FRAME_ORIGINS,
+    ...supabaseOrigins
+  ];
 
   for (const origin of supabaseOrigins) {
     const websocketOrigin = origin.replace(/^https:/, "wss:");
