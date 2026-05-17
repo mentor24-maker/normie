@@ -1,6 +1,9 @@
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { buildPollsNextRequestUrl, getPollCategoryMeta } from "@/lib/poll-categories";
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
+import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 
 type PollOption = {
   id: string;
@@ -22,6 +25,7 @@ type PreviousPoll = {
 
 type PollPayload = {
   done: boolean;
+  activeCategory?: { slug: string; name: string } | null;
   currentPoll: CurrentPoll | null;
   previousPoll: PreviousPoll | null;
   error?: string;
@@ -35,21 +39,20 @@ function formatDisplayCount(value: number) {
 }
 
 export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams?.get("category")?.trim() ?? "";
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeCategory = payload?.activeCategory ?? getPollCategoryMeta(categoryParam);
 
-  async function loadPolls() {
+  const loadPolls = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const category = new URLSearchParams(window.location.search).get("category");
-      const url = category
-        ? `/api/polls/next?category=${encodeURIComponent(category)}`
-        : "/api/polls/next";
-      const response = await fetch(url, { cache: "no-store" });
+      const response = await fetch(buildPollsNextRequestUrl(categoryParam || null), { cache: "no-store" });
       const data = (await response.json()) as PollPayload;
 
       if (!response.ok) {
@@ -62,11 +65,11 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [categoryParam]);
 
   useEffect(() => {
     void loadPolls();
-  }, []);
+  }, [loadPolls]);
 
   async function submitAnswer(optionId: string) {
     if (!payload?.currentPoll) return;
@@ -109,6 +112,11 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
       ) : payload?.currentPoll ? (
         <>
           <section className="poll-grid">
+            {activeCategory ? (
+              <div className="poll-grid-category-row">
+                <PollCategoryHeadline category={activeCategory} />
+              </div>
+            ) : null}
             <article className="panel action-panel">
               <div className="panel-label">Current Poll</div>
               <h2 className="poll-question">{payload.currentPoll.question}</h2>

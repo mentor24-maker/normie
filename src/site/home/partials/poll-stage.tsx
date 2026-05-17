@@ -1,17 +1,19 @@
 import Image from "next/image";
 import chooseLogo from "@/images/logo_normie_choose.png";
-import type { PollPayload } from "@/src/site/home/types";
+import type { PollCategoryFilter, PollPayload } from "@/src/site/home/types";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
+import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 
 type PollStageProps = {
+  activeCategory?: PollCategoryFilter | null;
   isLoading: boolean;
   isSubmitting: boolean;
   payload: PollPayload | null;
   onSubmit: (optionId: string) => void | Promise<void>;
 };
 
-export function PollStage({ isLoading, isSubmitting, payload, onSubmit }: PollStageProps) {
+export function PollStage({ activeCategory, isLoading, isSubmitting, payload, onSubmit }: PollStageProps) {
   if (isLoading) {
     return <div className="notice">Loading polls...</div>;
   }
@@ -23,11 +25,18 @@ export function PollStage({ isLoading, isSubmitting, payload, onSubmit }: PollSt
   if (payload?.currentPoll) {
     return (
       <section className="poll-grid">
-        <CurrentPollPanel
-          currentPoll={payload.currentPoll}
-          isSubmitting={isSubmitting}
-          onSubmit={onSubmit}
-        />
+        {activeCategory ? (
+          <div className="poll-grid-category-row">
+            <PollCategoryHeadline category={activeCategory} />
+          </div>
+        ) : null}
+        <div className="poll-grid-current">
+          <CurrentPollPanel
+            currentPoll={payload.currentPoll}
+            isSubmitting={isSubmitting}
+            onSubmit={onSubmit}
+          />
+        </div>
         <PreviousResultsPanel previousPoll={payload.previousPoll} />
         <div className="poll-grid-logo">
           <Image

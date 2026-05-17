@@ -769,6 +769,29 @@ h2 {
   gap: 14px;
 }
 
+.poll-category-headline {
+  margin: 0 0 12px;
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: #18324a;
+}
+
+.poll-grid-category-row,
+.builder-preview-section-poll-row > .builder-preview-poll-category-row {
+  grid-column: 1 / -1;
+}
+
+.builder-preview-poll-category-row .poll-category-headline {
+  margin-bottom: 0;
+}
+
+.poll-grid-current {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
 .poll-question {
   font-size: clamp(0.9rem, 1.5vw, 1.25rem);
   line-height: 1.25;

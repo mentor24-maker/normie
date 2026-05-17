@@ -44,7 +44,10 @@ export async function POST(request: Request) {
 
   if ((count ?? 0) > 0 && !invitedProfile) {
     return NextResponse.json(
-      { error: "Public admin registration is disabled after the first admin account is created." },
+      {
+        error:
+          "No pending invitation was found for that email. Use the exact address from your invite email, or ask an owner to resend the invite from Team."
+      },
       { status: 403 }
     );
   }

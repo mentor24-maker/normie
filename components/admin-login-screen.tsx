@@ -22,6 +22,28 @@ export function AdminLoginScreen() {
     if (searchParams?.get("expired") === "1") {
       setError("Your admin session expired. Sign in again to continue.");
     }
+
+    if (searchParams?.get("invite") === "1") {
+      setMode("register");
+
+      const invitedEmail = searchParams?.get("email")?.trim();
+
+      if (invitedEmail) {
+        setEmail(invitedEmail);
+      }
+
+      const inviteError = searchParams?.get("error");
+
+      setError(
+        inviteError === "wrong_account"
+          ? "That sign-in did not match your invitation. Register below with the exact email that received the invite."
+          : inviteError === "missing_tokens"
+            ? "The invite link did not carry a sign-in token. Register below with the invited email (this is the reliable path)."
+            : inviteError === "session_failed"
+              ? "The invite link could not finish automatically. Register below with the invited email and a new password."
+              : null
+      );
+    }
   }, [searchParams]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -72,7 +94,7 @@ export function AdminLoginScreen() {
 
     try {
       const supabase = createBrowserClient();
-      const redirectTo = `${window.location.origin}/admin/auth/callback`;
+      const redirectTo = new URL("/admin/auth/callback", window.location.origin).toString();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -92,11 +114,19 @@ export function AdminLoginScreen() {
     <section className="admin-login-shell">
       <div className="admin-login-card">
         <div className="panel-label">Admin Login</div>
-        <h2>{mode === "login" ? "Sign in to Normie Control Room" : "Create the first admin account"}</h2>
+        <h2>
+          {mode === "login"
+            ? "Sign in to Normie Control Room"
+            : searchParams?.get("invite") === "1"
+              ? "Finish your team invitation"
+              : "Create the first admin account"}
+        </h2>
         <p className="page-copy admin-copy">
           {mode === "login"
             ? "Use your admin account to access builder tools, media, polls, users, and future backend modules."
-            : "Bootstrap the first admin account for this Normie install, then manage the rest of the team from inside the admin area."}
+            : searchParams?.get("invite") === "1"
+              ? "Skip the email link. Enter the invited email, choose a password, and click Register Admin."
+              : "Bootstrap the first admin account for this Normie install, then manage the rest of the team from inside the admin area."}
         </p>
         <div className="admin-auth-mode-toggle">
           <button
@@ -174,9 +204,11 @@ export function AdminLoginScreen() {
                 ? "Sign In"
                 : "Register Admin"}
           </button>
-          <button className="secondary-button" onClick={() => void handleGoogleSignIn()} type="button">
-            Continue with Google
-          </button>
+          {searchParams?.get("invite") !== "1" ? (
+            <button className="secondary-button" onClick={() => void handleGoogleSignIn()} type="button">
+              Continue with Google
+            </button>
+          ) : null}
           {error ? <div className="notice error admin-notice">{error}</div> : null}
         </form>
         <div className="admin-login-footer" aria-label="Legal links">

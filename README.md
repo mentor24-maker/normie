@@ -79,6 +79,19 @@ Fill in:
    - `anon` public key
    - `service_role` secret key
 
+**Auth URLs (required for team invites and Google login)**
+
+1. Set `NEXT_PUBLIC_SITE_URL` in `.env.local` and Vercel to your **primary** domain exactly — including `www` if Vercel redirects apex to www (e.g. `https://www.normie.one`).
+2. In Supabase → **Authentication** → **URL configuration**:
+   - **Site URL**: same origin as `NEXT_PUBLIC_SITE_URL` (may be the site root). If invites land on `/` with `#access_token=...`, the app forwards that payload to `/admin/auth/callback` automatically.
+   - Invite links put auth tokens in the URL **hash** (`#access_token=...`). A redirect from `normie.one` → `www.normie.one` drops that hash and breaks invites unless both hosts match your configured redirect target.
+   - **Redirect URLs**: add  
+     `https://normie.one/admin/auth/callback`,  
+     `https://normie.one/admin?invite=1`,  
+     and the same paths for `http://localhost:3000` when developing locally.
+3. Invite emails use a Supabase verify link first; after the user clicks, they are sent to `/admin/auth/callback` on your domain.
+4. **Invite email design:** copy `supabase/email-templates/invite-user.html` into Supabase → **Authentication** → **Email Templates** → **Invite user** (Message body). Deploy includes `public/email/normie-logo.png` for the header image (`{{ .SiteURL }}/email/normie-logo.png`).
+
 ## 3. CSV format
 
 The importer expects a header row like:

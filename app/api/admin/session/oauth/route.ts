@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import {
   applyAdminSessionCookies,
   buildAdminSessionSnapshot,
-  getAdminProfile,
   getAdminUserFromToken
 } from "@/lib/admin-auth";
+import { resolveAdminTeamProfileForAuthUser } from "@/lib/admin-team-session";
 import { safeUserText } from "@/lib/admin-users";
-import { createAdminClient } from "@/lib/supabase-admin";
 import { findInvitedTeamProfileByEmail } from "@/lib/team-invitations";
 
 export async function POST(request: Request) {
@@ -19,78 +18,35 @@ export async function POST(request: Request) {
   const refreshToken = safeUserText(body.refreshToken, 4000);
 
   if (!accessToken || !refreshToken) {
-    return NextResponse.json({ error: "Missing OAuth session tokens." }, { status: 400 });
+    return NextResponse.json({ error: "Missing session tokens." }, { status: 400 });
   }
 
   const authUser = await getAdminUserFromToken(accessToken);
 
   if (!authUser) {
-    return NextResponse.json({ error: "Invalid OAuth session." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid session." }, { status: 401 });
   }
 
-  const adminClient = createAdminClient();
-  let profile = await getAdminProfile(authUser.id);
+  let profile;
 
-  if (!profile) {
-    const { count, error: countError } = await adminClient
-      .from("team_users")
-      .select("id", { count: "exact", head: true });
-
-    if (countError) {
-      return NextResponse.json({ error: countError.message }, { status: 500 });
-    }
-
-    if ((count ?? 0) === 0) {
-      const fullName = safeUserText(authUser.user_metadata?.full_name, 255);
-      const { error: bootstrapError } = await adminClient.from("team_users").upsert({
-        id: authUser.id,
-        full_name: fullName,
-        role: "owner",
-        status: "active",
-        notes: "Bootstrap admin account via Google OAuth",
-        updated_at: new Date().toISOString()
-      });
-
-      if (bootstrapError) {
-        return NextResponse.json({ error: bootstrapError.message }, { status: 500 });
-      }
-
-      profile = await getAdminProfile(authUser.id);
-    } else if (authUser.email) {
-      const invitation = await findInvitedTeamProfileByEmail(authUser.email);
-
-      if (invitation) {
-        const fullName = safeUserText(
-          invitation.profile.full_name ?? authUser.user_metadata?.full_name,
-          255
-        );
-        const timestamp = new Date().toISOString();
-        const { error: claimError } = await adminClient.from("team_users").upsert({
-          id: authUser.id,
-          full_name: fullName,
-          role: invitation.profile.role ?? "editor",
-          status: "active",
-          notes: invitation.profile.notes ?? "",
-          updated_at: timestamp
-        });
-
-        if (claimError) {
-          return NextResponse.json({ error: claimError.message }, { status: 500 });
-        }
-
-        if (invitation.authUser.id !== authUser.id) {
-          await adminClient.from("team_users").delete().eq("id", invitation.authUser.id);
-          await adminClient.auth.admin.deleteUser(invitation.authUser.id);
-        }
-
-        profile = await getAdminProfile(authUser.id);
-      }
-    }
+  try {
+    profile = await resolveAdminTeamProfileForAuthUser(authUser);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to activate team access." },
+      { status: 500 }
+    );
   }
 
   if (!profile || profile.status !== "active") {
+    const pendingInvite = authUser.email ? await findInvitedTeamProfileByEmail(authUser.email) : null;
+
     return NextResponse.json(
-      { error: "This Google account is not authorized for admin access." },
+      {
+        error: pendingInvite
+          ? `This sign-in does not match the invited email (${pendingInvite.authUser.email ?? "see your invite"}). Use that email with Google, or open Register on the admin page and set a password for the invited address.`
+          : "This account is not authorized for admin access."
+      },
       { status: 403 }
     );
   }

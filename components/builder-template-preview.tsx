@@ -32,6 +32,7 @@ import {
 } from "@/components/builder/builder-utils";
 import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
 import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
+import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
 
 type BuilderTemplatePreviewProps = {
   layoutSections: BuilderTemplateSection[];
@@ -197,6 +198,9 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
   const columnKeys = getLayoutColumns(section.layout);
   const isNavigationSection = section.modules.length > 0 && section.modules.every((module) => module.type === "navigation");
   const isOverlayFlowSection = sectionHasOnlyOverlayImageModules(section);
+  const hasPollModules = section.modules.some(
+    (module) => module.type === "current-poll" || module.type === "previous-results"
+  );
   const gridStyle: CSSProperties = {
     ...(isNavigationSection ? {} : sectionStyle),
     ...(isOverlayFlowSection ? {} : getSectionMarginStyle(section)),
@@ -211,9 +215,12 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
     <section
       className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"} builder-preview-section-mobile-${section.mobileLayout || "stack"} ${
         isNavigationSection ? "builder-preview-section-navigation" : ""
-      }${isOverlayFlowSection ? " builder-preview-section-overlay-flow" : ""}`}
+      }${isOverlayFlowSection ? " builder-preview-section-overlay-flow" : ""}${
+        hasPollModules ? " builder-preview-section-poll-row" : ""
+      }`}
       style={gridStyle}
     >
+      {hasPollModules ? <BuilderPollCategoryBanner /> : null}
       {columnKeys.map((columnKey) => {
         const columnModules = section.modules.filter((module) => module.column === columnKey);
         const isNavigationColumn = columnModules.length > 0 && columnModules.every((module) => module.type === "navigation");

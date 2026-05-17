@@ -1,6 +1,8 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { buildPollsNextRequestUrl, getPollCategoryMeta } from "@/lib/poll-categories";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import type { PollPayload } from "@/src/site/home/types";
@@ -27,8 +29,8 @@ const initialState: PollRuntimeState = {
 };
 
 let runtimeState: PollRuntimeState = initialState;
-let didStartLoading = false;
 let isLoadingPromise: Promise<void> | null = null;
+let loadedCategoryKey: string | null = null;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -40,10 +42,12 @@ function setRuntimeState(nextState: PollRuntimeState) {
   emit();
 }
 
-async function loadPolls() {
-  if (isLoadingPromise) {
+async function loadPolls(categoryParam: string) {
+  if (isLoadingPromise && loadedCategoryKey === categoryParam) {
     return isLoadingPromise;
   }
+
+  loadedCategoryKey = categoryParam;
 
   isLoadingPromise = (async () => {
     setRuntimeState({
@@ -53,11 +57,7 @@ async function loadPolls() {
     });
 
     try {
-      const category = new URLSearchParams(window.location.search).get("category");
-      const url = category
-        ? `/api/polls/next?category=${encodeURIComponent(category)}`
-        : "/api/polls/next";
-      const response = await fetch(url, { cache: "no-store" });
+      const response = await fetch(buildPollsNextRequestUrl(categoryParam || null), { cache: "no-store" });
       const data = (await response.json()) as PollPayload;
 
       if (!response.ok) {
@@ -119,7 +119,7 @@ async function submitAnswer(optionId: string) {
       );
     }
 
-    await loadPolls();
+    await loadPolls(loadedCategoryKey ?? "");
   } catch (submitError) {
     setRuntimeState({
       ...runtimeState,
@@ -129,28 +129,26 @@ async function submitAnswer(optionId: string) {
   }
 }
 
-function useSharedPollRuntime() {
+function useSharedPollRuntime(categoryParam: string) {
   const [state, setState] = useState(runtimeState);
 
   useEffect(() => {
     const sync = () => setState(runtimeState);
     listeners.add(sync);
-
-    if (!didStartLoading) {
-      didStartLoading = true;
-      void loadPolls();
-    } else {
-      sync();
-    }
+    sync();
 
     return () => {
       listeners.delete(sync);
     };
   }, []);
 
+  useEffect(() => {
+    void loadPolls(categoryParam);
+  }, [categoryParam]);
+
   return {
     ...state,
-    reload: loadPolls,
+    reload: () => loadPolls(categoryParam),
     submitAnswer
   };
 }
@@ -162,7 +160,11 @@ export function BuilderPollModuleRuntime({
   kind: PollModuleKind;
   className?: string;
 }) {
-  const { error, isLoading, isSubmitting, payload, submitAnswer: onSubmit } = useSharedPollRuntime();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams?.get("category")?.trim() ?? "";
+  const { error, isLoading, isSubmitting, payload, submitAnswer: onSubmit } = useSharedPollRuntime(categoryParam);
+  const categoryFromUrl = getPollCategoryMeta(categoryParam);
+  const activeCategory = payload?.activeCategory ?? categoryFromUrl;
 
   if (isLoading) {
     return (
@@ -186,7 +188,11 @@ export function BuilderPollModuleRuntime({
     return (
       <article className={className ? `${className} panel` : "panel"}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
-        <p className="panel-copy">You&apos;re done. Thanks for finishing the full poll sequence.</p>
+        <p className="panel-copy">
+          {activeCategory
+            ? `You&apos;re done with the ${activeCategory.name} polls. Thanks for playing.`
+            : "You&apos;re done. Thanks for finishing the full poll sequence."}
+        </p>
       </article>
     );
   }
@@ -210,7 +216,9 @@ export function BuilderPollModuleRuntime({
   return (
     <article className={className ? `${className} panel` : "panel"}>
       <div className="panel-label">Current Poll</div>
-      <p className="panel-copy">No published polls are available yet.</p>
+      <p className="panel-copy">
+        {activeCategory ? `No published polls are available in ${activeCategory.name} yet.` : "No published polls are available yet."}
+      </p>
     </article>
   );
 }
@@ -222,7 +230,9 @@ export function BuilderSocialShareRuntime({
   settings: Record<string, string>;
   className?: string;
 }) {
-  const { error, isLoading, payload } = useSharedPollRuntime();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams?.get("category")?.trim() ?? "";
+  const { error, isLoading, payload } = useSharedPollRuntime(categoryParam);
 
   if (isLoading) {
     return (

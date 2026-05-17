@@ -5,9 +5,9 @@ import {
   ADMIN_REFRESH_COOKIE,
   applyAdminSessionCookies,
   buildAdminSessionSnapshot,
-  clearAdminCookieOptions,
-  getAdminProfile
+  clearAdminCookieOptions
 } from "@/lib/admin-auth";
+import { resolveAdminTeamProfileForAuthUser } from "@/lib/admin-team-session";
 import { getAdminRole } from "@/lib/admin-rbac";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const profile = await getAdminProfile(data.user.id);
+  const profile = await resolveAdminTeamProfileForAuthUser(data.user);
 
   if (!profile || profile.status !== "active") {
     return NextResponse.json(

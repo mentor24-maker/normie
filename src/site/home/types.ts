@@ -24,9 +24,15 @@ export type PreviousPoll = {
   options: PreviousPollOption[];
 };
 
+export type PollCategoryFilter = {
+  slug: string;
+  name: string;
+};
+
 export type PollPayload = {
   done?: boolean;
   error?: string;
+  activeCategory?: PollCategoryFilter | null;
   currentPoll: CurrentPoll | null;
   previousPoll: PreviousPoll | null;
 };

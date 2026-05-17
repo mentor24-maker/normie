@@ -213,7 +213,10 @@ export function AdminUsersWorkspace({
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          ...payload,
+          resend: Boolean(source)
+        })
       });
       const data = (await response.json()) as { user?: DirectoryRecord; message?: string; error?: string };
 

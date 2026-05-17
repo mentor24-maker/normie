@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { buildPollsNextRequestUrl, getPollCategoryMeta } from "@/lib/poll-categories";
 import type { PollPayload } from "@/src/site/home/types";
 
 export function usePollExperience() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams?.get("category")?.trim() ?? "";
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadPolls() {
+  const loadPolls = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const category = new URLSearchParams(window.location.search).get("category");
-      const url = category
-        ? `/api/polls/next?category=${encodeURIComponent(category)}`
-        : "/api/polls/next";
-      const response = await fetch(url, { cache: "no-store" });
+      const response = await fetch(buildPollsNextRequestUrl(categoryParam || null), { cache: "no-store" });
       const data = (await response.json()) as PollPayload;
 
       if (!response.ok) {
@@ -31,11 +31,11 @@ export function usePollExperience() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [categoryParam]);
 
   useEffect(() => {
     void loadPolls();
-  }, []);
+  }, [loadPolls]);
 
   async function submitAnswer(optionId: string) {
     if (!payload?.currentPoll) {
@@ -74,7 +74,10 @@ export function usePollExperience() {
     }
   }
 
+  const categoryFromUrl = getPollCategoryMeta(categoryParam);
+
   return {
+    activeCategory: payload?.activeCategory ?? categoryFromUrl,
     error,
     isLoading,
     isSubmitting,

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getPollCategoryMeta, resolvePollCategoryName } from "@/lib/poll-categories";
 import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { createPublicClient } from "@/lib/supabase-public";
@@ -69,7 +70,9 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     sessionId = crypto.randomUUID();
   }
 
-  const category = new URL(request.url).searchParams.get("category")?.trim() || "";
+  const categoryParam = new URL(request.url).searchParams.get("category")?.trim() || "";
+  const categoryFilter = categoryParam ? resolvePollCategoryName(categoryParam) : null;
+  const activeCategory = categoryParam ? getPollCategoryMeta(categoryParam) : null;
 
   const supabase = createPublicClient();
 
@@ -79,8 +82,17 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     .eq("is_published", true)
     .order("order_index", { ascending: true });
 
-  if (category) {
-    pollsQuery = pollsQuery.eq("category", category);
+  if (categoryParam) {
+    if (!categoryFilter) {
+      return NextResponse.json({
+        done: true,
+        activeCategory: null,
+        currentPoll: null,
+        previousPoll: null
+      });
+    }
+
+    pollsQuery = pollsQuery.eq("category", categoryFilter);
   }
 
   const [{ data: polls, error: pollsError }, { data: responses, error: responseError }] =
@@ -94,7 +106,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       logEvent: "polls.next.load_failed",
       error: pollsError ?? responseError,
       message: "Failed to load polls.",
-      context: { category: category || null }
+      context: { category: categoryFilter || null }
     });
   }
 
@@ -107,7 +119,12 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   const currentIndex = orderedPolls.findIndex((poll) => !answeredPollIds.has(poll.id));
 
   if (currentIndex === -1) {
-    const doneResponse = NextResponse.json({ done: true, currentPoll: null, previousPoll: null });
+    const doneResponse = NextResponse.json({
+      done: true,
+      activeCategory,
+      currentPoll: null,
+      previousPoll: null
+    });
     doneResponse.cookies.set(SESSION_COOKIE, sessionId, {
       httpOnly: true,
       sameSite: "lax",
@@ -156,6 +173,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
 
   const response = NextResponse.json({
     done: false,
+    activeCategory,
     currentPoll: {
       id: currentPoll.id,
       question: currentPoll.question,
