@@ -4,8 +4,7 @@
   Paste this into the Message body (HTML). Subject suggestion:
   You have been invited to Normie admin
 
-  Logo URL uses {{ .SiteURL }}/email/normie-logo.png — deploy public/email/normie-logo.png
-  or replace the img src with your hosted logo URL.
+  Logo URL uses {{ .SiteURL }}/api/brand/normie-logo (do not use /email/ — that path 404s on Vercel).
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -39,7 +38,7 @@
                   <tr>
                     <td align="left" valign="middle" style="width: 52%; padding-right: 12px;">
                       <img
-                        src="{{ .SiteURL }}/email/normie-logo.png"
+                        src="{{ .SiteURL }}/api/brand/normie-logo"
                         alt="Normie"
                         width="180"
                         height="56"

@@ -6,7 +6,7 @@ import { activateInvitedTeamProfile, findInvitedTeamProfileByEmail } from "@/lib
 
 export async function resolveAdminTeamProfileForAuthUser(authUser: User): Promise<UserProfileRow | null> {
   const adminClient = createAdminClient();
-  let profile = await getAdminProfile(authUser.id);
+  const profile = await getAdminProfile(authUser.id);
 
   if (profile?.status === "invited") {
     return activateInvitedTeamProfile(authUser, profile);
