@@ -1,4 +1,7 @@
 import type { CSSProperties } from "react";
+import { escapeHtmlText, sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
+
+export { sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
 
 export type BuilderTemplateLayout =
   | "single"
@@ -144,14 +147,14 @@ export function formatRichTextContent(value: unknown) {
     return "";
   }
 
-  if (looksLikeHtml(text)) {
-    return text;
-  }
+  const html = looksLikeHtml(text)
+    ? text
+    : text
+        .split(/\n{2,}/)
+        .map((paragraph) => `<p>${escapeHtmlText(paragraph).replace(/\n/g, "<br />")}</p>`)
+        .join("");
 
-  return text
-    .split(/\n{2,}/)
-    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br />")}</p>`)
-    .join("");
+  return sanitizeRichTextHtml(html);
 }
 
 export function normalizeBuilderAssetUrl(value: unknown): string {
@@ -161,12 +164,20 @@ export function normalizeBuilderAssetUrl(value: unknown): string {
     return "";
   }
 
+  if (text.startsWith("/api/admin/media-file/gallery/")) {
+    return text.replace("/api/admin/media-file/gallery/", "/gallery/");
+  }
+
   try {
     const url = new URL(text);
 
     if (url.pathname === "/_next/image") {
       const nested = url.searchParams.get("url");
       return nested ? normalizeBuilderAssetUrl(nested) : "";
+    }
+
+    if (url.pathname.startsWith("/api/admin/media-file/gallery/")) {
+      return url.pathname.replace("/api/admin/media-file/gallery/", "/gallery/") + url.search;
     }
 
     if (url.origin === "http://localhost:3000" || url.origin === "https://www.normie.one") {
@@ -806,7 +817,12 @@ export function createEmptyModule(
                         shareLabel: "Share this poll",
                         shareTemplate: 'I just answered: "{pollQuestion}" What would you pick? {url}',
                         shareHashtags: "Normie,WYR",
-                        shareVia: "Normie765714"
+                        shareVia: "Normie765714",
+                        shareLabelSize: "14",
+                        shareIconBackground: "#ffffff",
+                        shareIconSize: "36",
+                        shareGlyphSize: "20",
+                        shareIconGap: "12"
                       }
                     : type === "headline-rotator"
                     ? {

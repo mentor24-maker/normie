@@ -1,14 +1,16 @@
 # Normie Polls
 
-Normie Polls is a Next.js site designed for Vercel with Supabase as the database. Each page shows the previous poll's results on the left and the next multiple-choice question on the right. It also includes a CSV import page for loading question sets without building a full admin backend.
+Normie is a Next.js app on Vercel with Supabase. The public site serves personality polls and builder-driven pages. The **admin control room** (`/admin`) is protected by Supabase Auth, role-based access, and middleware — used for polls, page builder, gallery, shop, users, team, and CSV import.
 
 ## Features
 
 - Sequential poll experience with one answer per poll per visitor session
 - Previous poll results shown alongside the current question
-- CSV upload tool at `/admin/import`
-- Supabase SQL schema and seed files included
-- Ready to deploy to GitHub and Vercel
+- Visual page builder with saved modules and templates
+- Protected admin area with roles: `owner`, `admin`, `editor`, `viewer`
+- CSV import at `/admin/import` (admin-only)
+- CI: typecheck, lint, test, dependency audit, and production build
+- Supabase SQL schema and migrations included
 
 ## Tech stack
 
@@ -19,11 +21,14 @@ Normie Polls is a Next.js site designed for Vercel with Supabase as the database
 
 ## 1. Create the local project
 
-Install dependencies:
+Use Node 22 (see `.nvmrc`):
 
 ```bash
+nvm use
 npm install
 ```
+
+`npm install` uses `legacy-peer-deps` (see `.npmrc`) because Tiptap peer dependencies require it.
 
 Copy the environment template:
 
@@ -56,11 +61,20 @@ Fill in:
 
 ## 2. Set up Supabase
 
+**New project**
+
 1. Create a new Supabase project.
-2. In Supabase, open the SQL Editor.
-3. Run [`supabase/schema.sql`](/Users/mentor/Desktop/Projects/Normie/supabase/schema.sql).
-4. Optionally run [`supabase/seed.sql`](/Users/mentor/Desktop/Projects/Normie/supabase/seed.sql) to load example polls.
-5. In Supabase project settings, copy:
+2. In the SQL Editor, run `supabase/schema.sql` (canonical, idempotent).
+3. Optionally run `supabase/seed.sql` for example polls.
+
+**Existing project** (upgrading from an older Normie schema)
+
+1. Run `supabase/migrations/000_incremental.sql`.
+2. Run `supabase/migrations/001_legacy_users_split.sql` only if you still have admin accounts stored in `public.users` instead of `team_users`.
+
+**Credentials**
+
+1. In Supabase project settings, copy:
    - Project URL
    - `anon` public key
    - `service_role` secret key
@@ -92,7 +106,22 @@ npm run dev
 Open:
 
 - Main poll site: [http://localhost:3000](http://localhost:3000)
-- CSV importer: [http://localhost:3000/admin/import](http://localhost:3000/admin/import)
+- Admin login: [http://localhost:3000/admin](http://localhost:3000/admin)
+- CSV importer (after sign-in): [http://localhost:3000/admin/import](http://localhost:3000/admin/import)
+
+### Quality checks (local)
+
+```bash
+npm run verify        # typecheck, lint, test, audit
+npm run verify:full   # verify + production build
+```
+
+Optional git hook (runs `verify` before each commit):
+
+```bash
+chmod +x .githooks/pre-commit scripts/verify.sh
+git config core.hooksPath .githooks
+```
 
 ## 5. Push to GitHub
 
@@ -129,6 +158,53 @@ Vercel will automatically redeploy when you push updates to GitHub.
 
 ## Notes
 
-- This version does not include a poll builder backend yet.
-- The admin tools are currently open for solo hobby development. If you later want stronger security, the next step would be Supabase Auth or Vercel authentication middleware.
+- Database changes belong in `supabase/schema.sql` (new installs) or numbered files under `supabase/migrations/` (upgrades). Avoid one-off SQL files at the repo root.
 - Responses are tied to a browser session cookie, so a visitor answers each poll once per browser/session identity.
+- Admin APIs require a valid Supabase session and `team_users` role; public poll/contact writes use the anon key where RLS allows it.
+- `/admin` and `/preview` are excluded from search indexing via `robots.ts`.
+
+## Repository hygiene and supply chain
+
+- **Lockfile:** Always commit `package-lock.json`. CI uses `npm ci` (never `npm install` in production pipelines).
+- **Dependabot:** Weekly PRs for npm and GitHub Actions (`.github/dependabot.yml`). Tiptap packages are ignored — upgrade those manually on the pinned `3.22.5` set.
+- **Audit:** `npm run audit:ci` fails on high-or-critical vulnerabilities; moderate issues in transitive deps (e.g. PostCSS via Next) are tracked separately.
+- **Security reports:** See [SECURITY.md](SECURITY.md).
+- **Do not commit:** `.env.local`, `gemini-code-*.txt`, duplicate `route 2.ts` files, or other local scratch artifacts (see `.gitignore`).
+
+## Observability and incident response
+
+### What is instrumented
+
+- Structured JSON logs (`lib/observability/logger.ts`) with automatic redaction of emails, tokens, and secrets.
+- Request correlation via `x-request-id` on every response (set in middleware).
+- Public API wrappers on poll and contact routes with centralized 500 logging.
+- Health probe at `GET /api/health` (returns `503` when Supabase is unreachable).
+- UI error boundaries (`app/error.tsx`, `app/global-error.tsx`) that log digest references.
+
+### Uptime monitoring
+
+Point your monitor (Vercel, Better Stack, UptimeRobot, etc.) at:
+
+```text
+GET https://YOUR_DOMAIN/api/health
+```
+
+Expect HTTP `200` and `{ "status": "ok" }`. A `503` means the database check failed.
+
+For deploy metadata during an incident, set `HEALTH_CHECK_TOKEN` in Vercel and call:
+
+```bash
+curl -s -H "x-health-token: $HEALTH_CHECK_TOKEN" https://YOUR_DOMAIN/api/health
+```
+
+### Triage checklist
+
+1. Confirm `/api/health` status and Supabase project health in the dashboard.
+2. Check the latest Vercel deployment and function logs; filter by `requestId` from a user report.
+3. Verify env vars (`NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`) after any rotation.
+4. If polls fail, confirm migrations (`supabase/migrations/000_incremental.sql`) ran on the target database.
+5. For admin-only failures, check Supabase Auth status and `team_users` role rows.
+
+### Log levels
+
+Set `LOG_LEVEL` to `debug`, `info`, `warn`, or `error` in Vercel. Default is `info` in production.

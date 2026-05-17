@@ -7,6 +7,7 @@ import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useStat
 import type { BuilderTemplateSection } from "@/lib/builder-template";
 import {
   formatRichTextContent,
+  sanitizeEmbedHtml,
   getBuilderBackgroundStyle,
   getLayoutColumns,
   getLayoutGridTemplate,
@@ -70,6 +71,7 @@ function ContactFormPreview({ settings }: { settings: Record<string, string> }) 
   const mode = getContactFormMode(settings);
   const fields = getContactFormFields(mode);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [honeypot, setHoneypot] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,7 +93,8 @@ function ContactFormPreview({ settings }: { settings: Record<string, string> }) 
           firstName: values.firstName ?? "",
           lastName: values.lastName ?? "",
           email: values.email ?? "",
-          phone: values.phone ?? ""
+          phone: values.phone ?? "",
+          companyWebsite: honeypot
         })
       });
       const data = (await response.json()) as { message?: string; error?: string };
@@ -102,6 +105,7 @@ function ContactFormPreview({ settings }: { settings: Record<string, string> }) 
 
       setMessage(data.message ?? "Thanks. Your information has been saved.");
       setValues({});
+      setHoneypot("");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to submit the form.");
     } finally {
@@ -111,6 +115,16 @@ function ContactFormPreview({ settings }: { settings: Record<string, string> }) 
 
   return (
     <form className="builder-contact-form" onSubmit={submitContactForm}>
+      <input
+        type="text"
+        name="companyWebsite"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        className="builder-contact-honeypot"
+        value={honeypot}
+        onChange={(event) => setHoneypot(event.target.value)}
+      />
       {message ? <div className="builder-contact-form-message">{message}</div> : null}
       {error ? <div className="builder-contact-form-error">{error}</div> : null}
       <div className="builder-contact-form-fields">
@@ -287,7 +301,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
         {module.text ? (
           <div
             className="builder-preview-code-render"
-            dangerouslySetInnerHTML={{ __html: module.text }}
+            dangerouslySetInnerHTML={{ __html: sanitizeEmbedHtml(module.text) }}
           />
         ) : null}
       </div>

@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest";
+import { escapeHtmlText, sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
+
+describe("escapeHtmlText", () => {
+  it("escapes angle brackets and quotes", () => {
+    expect(escapeHtmlText(`<script>"x"</script>`)).toBe(
+      "&lt;script&gt;&quot;x&quot;&lt;/script&gt;"
+    );
+  });
+});
+
+describe("sanitizeRichTextHtml", () => {
+  it("strips script tags", () => {
+    const clean = sanitizeRichTextHtml('<p>Hello</p><script>alert("x")</script>');
+    expect(clean).toContain("<p>Hello</p>");
+    expect(clean.toLowerCase()).not.toContain("<script");
+  });
+
+  it("keeps basic formatting tags", () => {
+    const clean = sanitizeRichTextHtml("<p><strong>Bold</strong></p>");
+    expect(clean).toContain("<strong>Bold</strong>");
+  });
+});
+
+describe("sanitizeEmbedHtml", () => {
+  it("allows iframes but removes scripts", () => {
+    const clean = sanitizeEmbedHtml(
+      '<iframe src="https://example.com/embed"></iframe><script>alert(1)</script>'
+    );
+    expect(clean.toLowerCase()).toContain("<iframe");
+    expect(clean.toLowerCase()).not.toContain("<script");
+  });
+});

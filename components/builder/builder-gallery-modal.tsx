@@ -32,7 +32,8 @@ export function BuilderGalleryModal({
             Close
           </button>
         </div>
-        <div className="builder-gallery-grid">
+        <div className="builder-gallery-body">
+          <div className="builder-gallery-grid">
           {media.map((image) => (
             <button
               className="builder-gallery-card"
@@ -58,6 +59,7 @@ export function BuilderGalleryModal({
               {isUploading ? "Uploading..." : "No media found in `/images` or `/images/gallery`."}
             </div>
           ) : null}
+          </div>
         </div>
       </div>
     </div>

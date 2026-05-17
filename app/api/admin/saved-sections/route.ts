@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import {
   normalizeBuilderSection,
   rowToBuilderSavedSection,
@@ -9,11 +8,10 @@ import {
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const supabase = createAdminClient();
@@ -23,29 +21,30 @@ export async function GET() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error.message.includes("builder_saved_sections")
           ? "Missing builder_saved_sections table. Run the updated Supabase schema."
           : error.message
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({
-    savedSections: (data ?? [])
-      .map((row) => rowToBuilderSavedSection(row))
-      .filter((section): section is NonNullable<typeof section> => Boolean(section))
-  });
+  return auth.finish(
+    NextResponse.json({
+      savedSections: (data ?? [])
+        .map((row) => rowToBuilderSavedSection(row))
+        .filter((section): section is NonNullable<typeof section> => Boolean(section))
+    })
+  );
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const body = (await request.json()) as {
@@ -56,11 +55,11 @@ export async function POST(request: Request) {
   const section = normalizeBuilderSection(body.section);
 
   if (!name) {
-    return NextResponse.json({ error: "Saved section name is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Saved section name is required." }, { status: 400 }));
   }
 
   if (!section) {
-    return NextResponse.json({ error: "Saved section content is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Saved section content is required." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -75,21 +74,21 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error?.message.includes("builder_saved_sections")
           ? "Missing builder_saved_sections table. Run the updated Supabase schema."
           : error?.message ?? "Failed to save section."
       },
       { status: 500 }
-    );
+    ));
   }
 
   const savedSection = rowToBuilderSavedSection(data);
 
   if (!savedSection) {
-    return NextResponse.json({ error: "Failed to normalize saved section." }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: "Failed to normalize saved section." }, { status: 500 }));
   }
 
-  return NextResponse.json({ savedSection }, { status: 201 });
+  return auth.finish(NextResponse.json({ savedSection }, { status: 201 }));
 }

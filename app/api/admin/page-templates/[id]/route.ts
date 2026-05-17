@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rowToBuilderTemplate, safeText, serializeBuilderDocument } from "@/lib/builder-template";
 
@@ -8,11 +7,10 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -25,7 +23,7 @@ export async function PATCH(
   const name = safeText(body.name, 255);
 
   if (!name) {
-    return NextResponse.json({ error: "Template name is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Template name is required." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -42,21 +40,20 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Failed to update page template." }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: error?.message ?? "Failed to update page template." }, { status: 500 }));
   }
 
-  return NextResponse.json({ pageTemplate: rowToBuilderTemplate(data) });
+  return auth.finish(NextResponse.json({ pageTemplate: rowToBuilderTemplate(data) }));
 }
 
 export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -64,8 +61,8 @@ export async function DELETE(
   const { error } = await supabase.from("page_templates").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));
   }
 
-  return NextResponse.json({ ok: true });
+  return auth.finish(NextResponse.json({ ok: true }));
 }

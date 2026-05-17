@@ -41,11 +41,15 @@ export async function listAdminMedia(): Promise<AdminMediaItem[]> {
           const extension = path.extname(entry.name).toLowerCase();
           const kind = getMediaKind(extension);
           if (!kind) return null;
-          const relativeUrl = `${urlBase}/${entry.name}`;
+          const relativeUrl = `${urlBase}/${entry.name}`.replace(/^\/+/, "");
+          const publicPath =
+            directory === "gallery"
+              ? `/gallery/${entry.name}`
+              : `/api/admin/media-file/${relativeUrl}`;
 
           return {
             name: entry.name,
-            path: `/api/admin/media-file/${relativeUrl.replace(/^\/+/, "")}`,
+            path: publicPath,
             directory,
             kind,
             extension

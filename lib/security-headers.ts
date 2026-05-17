@@ -1,0 +1,51 @@
+import type { NextResponse } from "next/server";
+
+function getSupabaseOrigins() {
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!rawUrl) {
+    return [];
+  }
+
+  try {
+    return [new URL(rawUrl).origin];
+  } catch {
+    return [];
+  }
+}
+
+function buildContentSecurityPolicy() {
+  const supabaseOrigins = getSupabaseOrigins();
+  const connectSources = ["'self'", ...supabaseOrigins];
+  const imageSources = ["'self'", "data:", "blob:", "https:"];
+  const frameSources = ["'self'", "https://accounts.google.com", ...supabaseOrigins];
+
+  for (const origin of supabaseOrigins) {
+    const websocketOrigin = origin.replace(/^https:/, "wss:");
+    connectSources.push(websocketOrigin);
+  }
+
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src ${imageSources.join(" ")}`,
+    `font-src 'self' data:`,
+    `connect-src ${connectSources.join(" ")}`,
+    `frame-src ${frameSources.join(" ")}`,
+    "object-src 'none'"
+  ].join("; ");
+}
+
+export function applySecurityHeaders<T extends NextResponse>(response: T): T {
+  response.headers.set("Content-Security-Policy", buildContentSecurityPolicy());
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set("X-DNS-Prefetch-Control", "off");
+  return response;
+}

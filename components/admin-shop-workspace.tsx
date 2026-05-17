@@ -1,10 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BuilderProductRecord } from "@/lib/builder-template";
+import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { formatTemplateTimestamp } from "@/components/builder/builder-utils";
 
+type ImagePreviewState = {
+  url: string;
+  alt: string;
+};
+
 type ProductDraft = Partial<BuilderProductRecord> & { id?: string };
+type ProductSortKey = "name" | "productType" | "productUrl" | "imageUrl" | "updatedAt";
+type SortDirection = "asc" | "desc";
+
+const PRODUCT_TABLE_COLUMNS: Array<{ key: ProductSortKey; label: string }> = [
+  { key: "name", label: "Name" },
+  { key: "productType", label: "Type" },
+  { key: "productUrl", label: "Product URL" },
+  { key: "imageUrl", label: "Image URL" },
+  { key: "updatedAt", label: "Updated" }
+];
 
 const PRODUCT_TYPES: Array<{ value: BuilderProductRecord["productType"]; label: string }> = [
   { value: "merch", label: "Merch" },
@@ -36,6 +52,203 @@ async function readAdminJson<T extends { error?: string }>(response: Response, f
   }
 
   return data;
+}
+
+function getProductTypeLabel(productType: BuilderProductRecord["productType"]) {
+  return PRODUCT_TYPES.find((type) => type.value === productType)?.label ?? productType;
+}
+
+function extractProductUrlLabel(url: string) {
+  const trimmed = url.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+
+    if (parsed.hostname.includes("redbubble.com") && parts[0] === "i" && parts[1]) {
+      return parts[1];
+    }
+
+    return parts[parts.length - 1] || parsed.hostname;
+  } catch {
+    return trimmed;
+  }
+}
+
+function productMatchesFilters(
+  product: BuilderProductRecord,
+  filters: {
+    nameQuery: string;
+    productUrlQuery: string;
+    productType: "" | BuilderProductRecord["productType"];
+  }
+) {
+  if (filters.productType && product.productType !== filters.productType) {
+    return false;
+  }
+
+  if (filters.nameQuery && !product.name.toLowerCase().includes(filters.nameQuery)) {
+    return false;
+  }
+
+  if (filters.productUrlQuery) {
+    const urlNeedle = [
+      product.productUrl,
+      extractProductUrlLabel(product.productUrl)
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    if (!urlNeedle.includes(filters.productUrlQuery)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function ProductUrlCell({ url }: { url: string }) {
+  const trimmed = url.trim();
+
+  if (!trimmed) {
+    return <span className="admin-table-empty">—</span>;
+  }
+
+  const label = extractProductUrlLabel(trimmed);
+
+  return (
+    <a className="admin-product-link" href={trimmed} rel="noopener noreferrer" target="_blank">
+      {label}
+    </a>
+  );
+}
+
+function ProductImageCell({
+  imageUrl,
+  productName,
+  onPreview
+}: {
+  imageUrl: string;
+  productName: string;
+  onPreview: (preview: ImagePreviewState) => void;
+}) {
+  const normalizedUrl = normalizeBuilderAssetUrl(imageUrl);
+
+  if (!normalizedUrl) {
+    return <span className="admin-table-empty">—</span>;
+  }
+
+  return (
+    <button
+      aria-label={`View full image for ${productName}`}
+      className="admin-product-thumb-button"
+      onClick={() => onPreview({ url: normalizedUrl, alt: productName })}
+      type="button"
+    >
+      <img alt="" className="admin-product-thumb" height={50} src={normalizedUrl} width={50} />
+    </button>
+  );
+}
+
+function AdminImagePreviewModal({
+  preview,
+  onClose
+}: {
+  preview: ImagePreviewState;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="builder-gallery-overlay admin-image-preview-overlay" onClick={onClose} role="presentation">
+      <div
+        className="admin-image-preview-modal"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${preview.alt} preview`}
+      >
+        <div className="admin-image-preview-header">
+          <strong>{preview.alt}</strong>
+          <button className="secondary-button" onClick={onClose} type="button">
+            Close
+          </button>
+        </div>
+        <img alt={preview.alt} className="admin-image-preview-full" src={preview.url} />
+      </div>
+    </div>
+  );
+}
+
+function compareProducts(
+  left: BuilderProductRecord,
+  right: BuilderProductRecord,
+  sortKey: ProductSortKey,
+  sortDirection: SortDirection
+) {
+  let result = 0;
+
+  switch (sortKey) {
+    case "name":
+    case "productUrl":
+    case "imageUrl":
+      result = left[sortKey].localeCompare(right[sortKey], undefined, { sensitivity: "base" });
+      break;
+    case "productType":
+      result = getProductTypeLabel(left.productType).localeCompare(getProductTypeLabel(right.productType), undefined, {
+        sensitivity: "base"
+      });
+      break;
+    case "updatedAt":
+      result = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
+      break;
+  }
+
+  return sortDirection === "asc" ? result : -result;
+}
+
+function ProductTableSortButton({
+  label,
+  sortKey,
+  activeSortKey,
+  sortDirection,
+  onSort
+}: {
+  label: string;
+  sortKey: ProductSortKey;
+  activeSortKey: ProductSortKey;
+  sortDirection: SortDirection;
+  onSort: (key: ProductSortKey) => void;
+}) {
+  const isActive = activeSortKey === sortKey;
+  const indicator = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
+
+  return (
+    <button
+      aria-sort={isActive ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+      className={`admin-table-sort-button${isActive ? " is-active" : ""}`}
+      onClick={() => onSort(sortKey)}
+      type="button"
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="admin-table-sort-indicator">
+        {indicator}
+      </span>
+    </button>
+  );
 }
 
 function ProductEditor({
@@ -118,6 +331,42 @@ export function AdminShopWorkspace() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<ProductSortKey>("updatedAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [imagePreview, setImagePreview] = useState<ImagePreviewState | null>(null);
+  const [filterName, setFilterName] = useState("");
+  const [filterProductUrl, setFilterProductUrl] = useState("");
+  const [filterType, setFilterType] = useState<"" | BuilderProductRecord["productType"]>("");
+
+  const filteredProducts = useMemo(() => {
+    const nameQuery = filterName.trim().toLowerCase();
+    const productUrlQuery = filterProductUrl.trim().toLowerCase();
+
+    return products.filter((product) =>
+      productMatchesFilters(product, {
+        nameQuery,
+        productUrlQuery,
+        productType: filterType
+      })
+    );
+  }, [filterName, filterProductUrl, filterType, products]);
+
+  const sortedProducts = useMemo(
+    () => [...filteredProducts].sort((left, right) => compareProducts(left, right, sortKey, sortDirection)),
+    [filteredProducts, sortDirection, sortKey]
+  );
+
+  const hasActiveFilters = Boolean(filterName.trim() || filterProductUrl.trim() || filterType);
+
+  function handleSort(nextKey: ProductSortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
+  }
 
   async function loadProducts() {
     setIsLoading(true);
@@ -250,25 +499,80 @@ export function AdminShopWorkspace() {
       </section>
 
       <section className="admin-section">
+        <div className="admin-products-filter-bar">
+          <label className="field">
+            <span>Name</span>
+            <input
+              type="search"
+              value={filterName}
+              onChange={(event) => setFilterName(event.target.value)}
+              placeholder="Filter by product name"
+            />
+          </label>
+          <label className="field">
+            <span>Product URL</span>
+            <input
+              type="search"
+              value={filterProductUrl}
+              onChange={(event) => setFilterProductUrl(event.target.value)}
+              placeholder="e.g. t-shirt, mug"
+            />
+          </label>
+          <label className="field">
+            <span>Type</span>
+            <select
+              value={filterType}
+              onChange={(event) =>
+                setFilterType(event.target.value as "" | BuilderProductRecord["productType"])
+              }
+            >
+              <option value="">All types</option>
+              {PRODUCT_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {hasActiveFilters ? (
+          <p className="admin-products-filter-summary">
+            Showing {sortedProducts.length} of {products.length} products
+          </p>
+        ) : null}
         <div className="table-shell builder-templates-shell">
           <table className="polls-table builder-templates-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Product URL</th>
-                <th>Image URL</th>
-                <th>Updated</th>
+                {PRODUCT_TABLE_COLUMNS.map((column) => (
+                  <th key={column.key}>
+                    <ProductTableSortButton
+                      activeSortKey={sortKey}
+                      label={column.label}
+                      onSort={handleSort}
+                      sortDirection={sortDirection}
+                      sortKey={column.key}
+                    />
+                  </th>
+                ))}
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
+              {sortedProducts.map((product) => (
                 <tr key={product.id}>
                   <td><strong>{product.name}</strong></td>
-                  <td>{PRODUCT_TYPES.find((type) => type.value === product.productType)?.label ?? product.productType}</td>
-                  <td className="template-id-cell"><code>{product.productUrl}</code></td>
-                  <td className="template-id-cell"><code>{product.imageUrl}</code></td>
+                  <td>{getProductTypeLabel(product.productType)}</td>
+                  <td className="admin-product-url-cell">
+                    <ProductUrlCell url={product.productUrl} />
+                  </td>
+                  <td className="admin-product-image-cell">
+                    <ProductImageCell
+                      imageUrl={product.imageUrl}
+                      productName={product.name}
+                      onPreview={setImagePreview}
+                    />
+                  </td>
                   <td>{formatTemplateTimestamp(product.updatedAt)}</td>
                   <td>
                     <div className="builder-template-actions">
@@ -292,10 +596,14 @@ export function AdminShopWorkspace() {
                   </td>
                 </tr>
               ))}
-              {products.length === 0 ? (
+              {sortedProducts.length === 0 ? (
                 <tr>
                   <td className="empty-cell" colSpan={6}>
-                    {isLoading ? "Loading products..." : "No products found."}
+                    {isLoading
+                      ? "Loading products..."
+                      : products.length === 0
+                        ? "No products found."
+                        : "No products match the current filters."}
                   </td>
                 </tr>
               ) : null}
@@ -315,6 +623,8 @@ export function AdminShopWorkspace() {
           </div>
         ) : null}
       </section>
+
+      {imagePreview ? <AdminImagePreviewModal preview={imagePreview} onClose={() => setImagePreview(null)} /> : null}
     </section>
   );
 }

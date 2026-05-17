@@ -113,7 +113,10 @@ async function submitAnswer(optionId: string) {
     const data = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      throw new Error(data.error ?? "Failed to save your answer.");
+      throw new Error(
+        data.error ??
+          (response.status === 429 ? "Too many answers in a short time. Please wait and try again." : "Failed to save your answer.")
+      );
     }
 
     await loadPolls();

@@ -594,10 +594,10 @@ export function AdminBuilderEditor() {
 
   async function saveModule(sectionId: string, moduleId: string) {
     const section = draft.layoutSections.find((s) => s.id === sectionId);
-    const module = section?.modules.find((m) => m.id === moduleId);
-    if (!module) return;
+    const builderModule = section?.modules.find((m) => m.id === moduleId);
+    if (!builderModule) return;
 
-    const fallbackName = module.name || module.type;
+    const fallbackName = builderModule.name || builderModule.type;
     const name = window.prompt("Name this saved module", fallbackName)?.trim();
     if (!name) return;
 
@@ -605,7 +605,7 @@ export function AdminBuilderEditor() {
       const response = await fetch("/api/admin/cell-modules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, modules: [module] })
+        body: JSON.stringify({ name, modules: [builderModule] })
       });
       const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save module.");
       if (!data.cellModule) throw new Error(data.error ?? "Failed to save module.");

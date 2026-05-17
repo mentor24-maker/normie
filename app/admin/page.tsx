@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminLoginScreen } from "@/components/admin-login-screen";
@@ -11,5 +12,9 @@ export default async function AdminLoginPage() {
     redirect("/admin/dashboard");
   }
 
-  return <AdminLoginScreen />;
+  return (
+    <Suspense fallback={null}>
+      <AdminLoginScreen />
+    </Suspense>
+  );
 }

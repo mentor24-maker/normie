@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { signOutAdminSession } from "@/lib/admin-session-client";
 
 export function AdminLogoutButton() {
   const router = useRouter();
 
   async function handleLogout() {
-    await fetch("/api/admin/session", { method: "DELETE" });
+    await signOutAdminSession();
     router.push("/admin");
     router.refresh();
   }

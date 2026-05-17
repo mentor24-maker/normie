@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
 import {
   buildPublicUserFullName,
@@ -10,19 +9,14 @@ import {
 } from "@/lib/public-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-async function authorizeAdmin() {
-  const cookieStore = await cookies();
-  return getAuthorizedAdminFromCookieStore(cookieStore);
-}
-
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await authorizeAdmin();
+  const auth = await requireAdminRoute("users:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -47,7 +41,7 @@ export async function PATCH(
   const notes = safeUserText(body.notes, 4000);
 
   if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "A valid email is required." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -69,23 +63,22 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: error?.message ?? "Failed to update user." },
-      { status: 500 }
+    return auth.finish(
+      NextResponse.json({ error: error?.message ?? "Failed to update user." }, { status: 500 })
     );
   }
 
-  return NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) });
+  return auth.finish(NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) }));
 }
 
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await authorizeAdmin();
+  const auth = await requireAdminRoute("users:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -93,8 +86,8 @@ export async function DELETE(
   const { error } = await supabase.from("users").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));
   }
 
-  return NextResponse.json({ ok: true });
+  return auth.finish(NextResponse.json({ ok: true }));
 }

@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionRow = {
@@ -67,30 +66,28 @@ async function listRepairCandidates() {
 }
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   try {
     const candidates = await listRepairCandidates();
-    return NextResponse.json({ candidates, count: candidates.length });
+    return auth.finish(NextResponse.json({ candidates, count: candidates.length }));
   } catch (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to inspect poll structure." },
       { status: 500 }
-    );
+    ));
   }
 }
 
 export async function POST() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const supabase = createAdminClient();
@@ -157,11 +154,11 @@ export async function POST() {
       repairedCount += 1;
     }
 
-    return NextResponse.json({ ok: true, repairedCount });
+    return auth.finish(NextResponse.json({ ok: true, repairedCount }));
   } catch (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to repair legacy poll structure." },
       { status: 500 }
-    );
+    ));
   }
 }

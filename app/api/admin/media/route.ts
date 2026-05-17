@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { getMediaKind } from "@/lib/admin-media";
 import { createClient } from "@supabase/supabase-js";
 import path from "node:path";
@@ -17,11 +16,10 @@ function getSupabaseAdmin() {
 }
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   try {
@@ -50,21 +48,20 @@ export async function GET() {
         };
       });
 
-    return NextResponse.json({ media });
+    return auth.finish(NextResponse.json({ media }));
   } catch (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load media library." },
       { status: 500 }
-    );
+    ));
   }
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   try {
@@ -72,17 +69,17 @@ export async function POST(request: Request) {
     const file = formData.get("file");
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "A media file is required." }, { status: 400 });
+      return auth.finish(NextResponse.json({ error: "A media file is required." }, { status: 400 }));
     }
 
     const extension = path.extname(file.name).toLowerCase();
     const kind = getMediaKind(extension);
 
     if (!kind) {
-      return NextResponse.json(
+      return auth.finish(NextResponse.json(
         { error: "Only image and video uploads are supported." },
         { status: 400 }
-      );
+      ));
     }
 
     const baseName = sanitizeFilename(path.basename(file.name, extension)) || "upload";
@@ -104,19 +101,21 @@ export async function POST(request: Request) {
       .from("gallery")
       .getPublicUrl(finalName);
 
-    return NextResponse.json({
-      media: {
-        name: finalName,
-        path: urlData.publicUrl,
-        directory: "gallery",
-        kind,
-        extension
-      }
-    });
+    return auth.finish(
+      NextResponse.json({
+        media: {
+          name: finalName,
+          path: urlData.publicUrl,
+          directory: "gallery",
+          kind,
+          extension
+        }
+      })
+    );
   } catch (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to upload media." },
       { status: 500 }
-    );
+    ));
   }
 }

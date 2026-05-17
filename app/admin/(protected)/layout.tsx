@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminLogoutButton } from "@/components/admin-logout-button";
+import { AdminSessionGuard } from "@/components/admin-session-guard";
 import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
 
@@ -15,11 +16,12 @@ export default async function ProtectedAdminLayout({
   const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
 
   if (!admin) {
-    redirect("/admin");
+    redirect("/admin?expired=1");
   }
 
   return (
     <main className="admin-page">
+      <AdminSessionGuard />
       <section className="admin-shell admin-shell-wide">
         <div className="admin-header">
           <div className="admin-brand">

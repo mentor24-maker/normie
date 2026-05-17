@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { rowToBuilderPage, safeText, type BuilderPageRecord } from "@/lib/builder-template";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { createPublicClient } from "@/lib/supabase-public";
 
 export async function getPublishedBuilderPageBySlug(slug: string): Promise<BuilderPageRecord | null> {
   const normalizedSlug = safeText(slug, 255)
@@ -14,7 +14,7 @@ export async function getPublishedBuilderPageBySlug(slug: string): Promise<Build
 
   noStore();
 
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("pages")
     .select("id, name, slug, template_id, layout_sections, is_published, created_at, updated_at")

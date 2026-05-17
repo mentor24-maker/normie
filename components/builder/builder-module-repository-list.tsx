@@ -488,13 +488,18 @@ export function BuilderModuleRepositoryList({
   }
 
   function addEditingSectionModuleFromPalette(column: string, item: ModulePaletteItem) {
-    const module = createEmptyModule(item.type, column);
+    const builderModule = createEmptyModule(item.type, column);
 
     updateEditingSection((section) => ({
       ...section,
       modules: [
         ...section.modules,
-        { ...module, name: item.name, text: item.text, settings: { ...module.settings, ...item.settings } }
+        {
+          ...builderModule,
+          name: item.name,
+          text: item.text,
+          settings: { ...builderModule.settings, ...item.settings }
+        }
       ]
     }));
     setEditingSectionPaletteColumn("");
@@ -517,14 +522,14 @@ export function BuilderModuleRepositoryList({
   function saveEditingSectionModule(moduleId: string) {
     if (!editingSection) return;
 
-    const module = editingSection.modules.find((candidate) => candidate.id === moduleId);
-    if (!module) return;
+    const builderModule = editingSection.modules.find((candidate) => candidate.id === moduleId);
+    if (!builderModule) return;
 
-    const fallbackName = module.name || module.type;
+    const fallbackName = builderModule.name || builderModule.type;
     const name = window.prompt("Name this saved module", fallbackName)?.trim();
     if (!name) return;
 
-    onCreateSavedModule(name, [module]);
+    onCreateSavedModule(name, [builderModule]);
   }
 
   function moveEditingSectionModule(moduleId: string, direction: -1 | 1) {

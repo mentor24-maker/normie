@@ -5,7 +5,8 @@ import {
   createEmptyModule,
   getBuilderBackgroundStyle,
   normalizeBuilderAssetUrl,
-  formatRichTextContent
+  formatRichTextContent,
+  sanitizeEmbedHtml
 } from "@/lib/builder-template";
 import { BuilderRichTextEditor } from "@/components/builder-rich-text-editor";
 import {
@@ -16,6 +17,7 @@ import {
   type SocialSharePlatformId
 } from "@/components/social-share-module";
 import { BuilderBackgroundControls } from "./builder-background-controls";
+import { MerchModuleEditor } from "./builder-merch-module-editor";
 import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
 import {
@@ -231,7 +233,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
         {module.text ? (
           <div
             className="builder-code-module-render"
-            dangerouslySetInnerHTML={{ __html: module.text }}
+            dangerouslySetInnerHTML={{ __html: sanitizeEmbedHtml(module.text) }}
           />
         ) : (
           <div className="builder-module-preview-placeholder">Add embed code or HTML</div>
@@ -1378,6 +1380,62 @@ function SocialShareModuleEditor({
             placeholder="Normie765714"
           />
         </label>
+        <label className="field">
+          <span>Label font size</span>
+          <input
+            type="range"
+            min="8"
+            max="64"
+            step="1"
+            value={module.settings.shareLabelSize ?? "14"}
+            onChange={(event) => updateSetting("shareLabelSize", event.target.value)}
+          />
+          <small>{module.settings.shareLabelSize ?? "14"}px</small>
+        </label>
+        <label className="field">
+          <span>Icon background</span>
+          <input
+            type="color"
+            value={module.settings.shareIconBackground?.startsWith("#") ? module.settings.shareIconBackground : "#ffffff"}
+            onChange={(event) => updateSetting("shareIconBackground", event.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>Icon size</span>
+          <input
+            type="range"
+            min="20"
+            max="120"
+            step="2"
+            value={module.settings.shareIconSize ?? "36"}
+            onChange={(event) => updateSetting("shareIconSize", event.target.value)}
+          />
+          <small>{module.settings.shareIconSize ?? "36"}px</small>
+        </label>
+        <label className="field">
+          <span>Glyph size</span>
+          <input
+            type="range"
+            min="10"
+            max="96"
+            step="1"
+            value={module.settings.shareGlyphSize ?? "20"}
+            onChange={(event) => updateSetting("shareGlyphSize", event.target.value)}
+          />
+          <small>{module.settings.shareGlyphSize ?? "20"}px</small>
+        </label>
+        <label className="field">
+          <span>Icon gap</span>
+          <input
+            type="range"
+            min="0"
+            max="64"
+            step="1"
+            value={module.settings.shareIconGap ?? "12"}
+            onChange={(event) => updateSetting("shareIconGap", event.target.value)}
+          />
+          <small>{module.settings.shareIconGap ?? "12"}px</small>
+        </label>
       </div>
       <label className="field">
         <span>Default post template</span>
@@ -1698,23 +1756,6 @@ export function BuilderModuleCard({
     const moduleAlignment = getModuleAlignment(module.settings);
     const mobileAlignment = module.settings.mobileAlignment ?? "";
     const isVideoModule = module.type === "video" || (module.type === "image" && module.settings.variant === "video");
-    const merchProducts = products.filter((product) => product.productType === "merch");
-
-    function applyMerchProduct(productId: string) {
-      const product = products.find((candidate) => candidate.id === productId);
-
-      onUpdateModule((current) => ({
-        ...current,
-        settings: {
-          ...current.settings,
-          productId,
-          productUrl: product?.productUrl ?? current.settings.productUrl ?? "",
-          productName: product?.name ?? current.settings.productName ?? "",
-          imageUrl: product?.imageUrl ?? current.settings.imageUrl ?? ""
-        }
-      }));
-    }
-
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
@@ -2132,79 +2173,9 @@ export function BuilderModuleCard({
           {module.type === "social-share" && <SocialShareModuleEditor module={module} onUpdateModule={onUpdateModule} />}
 
           {module.type === "merch" ? (
-            <div className="builder-merch-editor-grid">
-              <label className="field builder-merch-product-url-field">
-                <span>Saved product</span>
-                <select
-                  value={module.settings.productId ?? ""}
-                  onChange={(event) => applyMerchProduct(event.target.value)}
-                >
-                  <option value="">Choose saved product</option>
-                  {merchProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field builder-merch-product-url-field">
-                <span>Product URL</span>
-                <input
-                  type="text"
-                  value={module.settings.productUrl ?? ""}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, productUrl: event.target.value }
-                    }))
-                  }
-                  placeholder="https://www.redbubble.com/i/t-shirt/..."
-                />
-              </label>
-              <label className="field">
-                <span>Product name</span>
-                <input
-                  type="text"
-                  value={module.settings.productName ?? ""}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, productName: event.target.value }
-                    }))
-                  }
-                  placeholder="Active T-Shirt"
-                />
-              </label>
-              <label className="field">
-                <span>Image URL</span>
-                <input
-                  type="text"
-                  value={module.settings.imageUrl ?? ""}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, imageUrl: normalizeBuilderAssetUrl(event.target.value) }
-                    }))
-                  }
-                  placeholder="https://ih1.redbubble.net/..."
-                />
-              </label>
-              <label className="field">
-                <span>Button label</span>
-                <input
-                  type="text"
-                  value={module.settings.buttonLabel ?? "Buy on Redbubble"}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, buttonLabel: event.target.value }
-                    }))
-                  }
-                  placeholder="Buy on Redbubble"
-                />
-              </label>
-            </div>
+            <MerchModuleEditor module={module} products={products} onUpdateModule={onUpdateModule} />
           ) : null}
+
 
           {module.type === "code" ? (
             <div className="builder-code-editor-grid">

@@ -1,5 +1,6 @@
--- Run after copying the old admin-style rows from public.users into public.team_users.
--- This converts public.users into a plain public/end-user contact table.
+-- OPTIONAL: only for databases created before public.users / team_users were split.
+-- Skip this file on fresh installs that used the current schema.sql from the start.
+-- Take a backup before running.
 
 drop index if exists public.users_role_idx;
 
@@ -34,6 +35,7 @@ alter table public.users
 alter table public.users
   drop column if exists role;
 
+drop index if exists public.users_email_unique_idx;
 create unique index if not exists users_email_unique_idx on public.users (email);
 create unique index if not exists users_email_lower_unique_idx on public.users (lower(email));
 create index if not exists users_status_idx on public.users (status);

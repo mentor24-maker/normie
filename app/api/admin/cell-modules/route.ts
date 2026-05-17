@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import {
   normalizeBuilderModules,
   rowToBuilderCellModule,
@@ -9,11 +8,10 @@ import {
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const supabase = createAdminClient();
@@ -23,27 +21,28 @@ export async function GET() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error.message.includes("builder_cell_modules")
           ? "Missing builder_cell_modules table. Run the updated Supabase schema."
           : error.message
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({
-    cellModules: (data ?? []).map((row) => rowToBuilderCellModule(row))
-  });
+  return auth.finish(
+    NextResponse.json({
+      cellModules: (data ?? []).map((row) => rowToBuilderCellModule(row))
+    })
+  );
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const body = (await request.json()) as {
@@ -54,11 +53,11 @@ export async function POST(request: Request) {
   const modules = normalizeBuilderModules(body.modules);
 
   if (!name) {
-    return NextResponse.json({ error: "Saved module name is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Saved module name is required." }, { status: 400 }));
   }
 
   if (modules.length === 0) {
-    return NextResponse.json({ error: "Cell has no modules to save." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Cell has no modules to save." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -73,15 +72,15 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error?.message.includes("builder_cell_modules")
           ? "Missing builder_cell_modules table. Run the updated Supabase schema."
           : error?.message ?? "Failed to save cell module."
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({ cellModule: rowToBuilderCellModule(data) }, { status: 201 });
+  return auth.finish(NextResponse.json({ cellModule: rowToBuilderCellModule(data) }, { status: 201 }));
 }

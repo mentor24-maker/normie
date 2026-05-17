@@ -11,3 +11,18 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Local scratch / assistant exports (do not commit)
+gemini-code-*.txt
+*.local.md
+
+# Editor and OS
+.idea
+.vscode
+*.swp
+*.swo
+Thumbs.db
+
+# Accidental duplicate route artifacts
+**/route 2.ts
+**/route 2.tsx

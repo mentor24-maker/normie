@@ -36,6 +36,16 @@ export const SOCIAL_SHARE_PLATFORMS: SocialSharePlatform[] = [
 const DEFAULT_SHARE_URL = "https://normie.one";
 export const DEFAULT_SHARE_TEMPLATE = 'I just answered: "{pollQuestion}" What would you pick? {url}';
 
+function getNumberSetting(settings: Record<string, string>, key: string, fallback: number, min: number, max: number) {
+  const value = Number.parseInt(settings[key] || "", 10);
+
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(value, min), max);
+}
+
 function getPlatform(settings: Record<string, string>, id: SocialSharePlatformId) {
   return SOCIAL_SHARE_PLATFORMS.find((platform) => platform.id === id) ?? SOCIAL_SHARE_PLATFORMS[0];
 }
@@ -63,8 +73,24 @@ function getPlatformTemplate(settings: Record<string, string>, id: SocialSharePl
   return settings[`share${id}Template`] || settings.shareTemplate || DEFAULT_SHARE_TEMPLATE;
 }
 
-function getShareUrl(settings: Record<string, string>, currentUrl: string) {
-  return settings.shareUrl || currentUrl || DEFAULT_SHARE_URL;
+function getShareOrigin(currentUrl: string) {
+  try {
+    return new URL(currentUrl || DEFAULT_SHARE_URL).origin;
+  } catch {
+    return DEFAULT_SHARE_URL;
+  }
+}
+
+function getShareUrl(settings: Record<string, string>, currentUrl: string, poll: CurrentPoll | null | undefined) {
+  if (settings.shareUrl) {
+    return settings.shareUrl;
+  }
+
+  if (poll?.id) {
+    return `${getShareOrigin(currentUrl)}/polls/share/${poll.id}`;
+  }
+
+  return currentUrl || DEFAULT_SHARE_URL;
 }
 
 function getQuestion(settings: Record<string, string>, poll: CurrentPoll | null | undefined) {
@@ -109,7 +135,7 @@ export function buildSocialShareUrl({
   poll?: CurrentPoll | null;
   currentUrl: string;
 }) {
-  const url = getShareUrl(settings, currentUrl);
+  const url = getShareUrl(settings, currentUrl, poll);
   const text = buildShareText({ settings, platformId, poll, url });
   const encodedUrl = encodeURIComponent(url);
   const encodedText = encodeURIComponent(text);
@@ -204,6 +230,11 @@ export function SocialShareBar({
   const [currentUrl, setCurrentUrl] = useState(DEFAULT_SHARE_URL);
   const enabledPlatforms = useMemo(() => getEnabledSocialSharePlatforms(settings), [settings]);
   const label = settings.shareLabel || "Share this poll";
+  const labelSize = getNumberSetting(settings, "shareLabelSize", 14, 8, 64);
+  const iconSize = getNumberSetting(settings, "shareIconSize", 36, 20, 120);
+  const glyphSize = getNumberSetting(settings, "shareGlyphSize", Math.round(iconSize * 0.56), 10, 96);
+  const iconGap = getNumberSetting(settings, "shareIconGap", 12, 0, 64);
+  const iconBackground = settings.shareIconBackground || "#ffffff";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -217,8 +248,8 @@ export function SocialShareBar({
 
   return (
     <div className="poll-share-bar">
-      {label ? <span className="poll-share-label">{label}</span> : null}
-      <div className="poll-share-icons">
+      {label ? <span className="poll-share-label" style={{ fontSize: `${labelSize}px` }}>{label}</span> : null}
+      <div className="poll-share-icons" style={{ gap: `${iconGap}px` }}>
         {enabledPlatforms.map((platform) => (
           <a
             key={platform.id}
@@ -228,7 +259,13 @@ export function SocialShareBar({
             className="poll-share-icon"
             title={`Share on ${platform.label}`}
             aria-label={`Share on ${platform.label}`}
-            style={{ color: settings[`share${platform.id}Color`] || platform.color }}
+            style={{
+              color: settings[`share${platform.id}Color`] || platform.color,
+              width: `${iconSize}px`,
+              height: `${iconSize}px`,
+              fontSize: `${glyphSize}px`,
+              background: iconBackground
+            }}
           >
             <PlatformIcon id={platform.id} />
           </a>

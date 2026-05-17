@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
   ADMIN_ACCESS_COOKIE,
@@ -7,27 +6,32 @@ import {
   applyAdminSessionCookies,
   buildAdminSessionSnapshot,
   clearAdminCookieOptions,
-  getAuthorizedAdminFromCookieStore,
   getAdminProfile
 } from "@/lib/admin-auth";
+import { getAdminRole } from "@/lib/admin-rbac";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
 import { createPublicClient } from "@/lib/supabase-public";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ user: null }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
-  return NextResponse.json({
-    user: {
-      id: admin.authUser.id,
-      email: admin.authUser.email ?? "",
-      fullName: safeUserText(admin.profile.full_name ?? admin.authUser.user_metadata?.full_name, 255)
-    }
-  });
+  const { admin } = auth;
+
+  return auth.finish(
+    NextResponse.json({
+      user: {
+        id: admin.authUser.id,
+        email: admin.authUser.email ?? "",
+        fullName: safeUserText(admin.profile.full_name ?? admin.authUser.user_metadata?.full_name, 255),
+        role: getAdminRole(admin)
+      }
+    })
+  );
 }
 
 export async function POST(request: Request) {

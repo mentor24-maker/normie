@@ -6,6 +6,7 @@ export type PollOption = {
 export type CurrentPoll = {
   id: string;
   question: string;
+  imageUrl?: string;
   options: PollOption[];
 };
 

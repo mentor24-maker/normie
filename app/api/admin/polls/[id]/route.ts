@@ -1,6 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionInput = {
@@ -22,17 +22,17 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
   const body = (await request.json()) as {
     category?: unknown;
     question?: unknown;
+    image_url?: unknown;
     order_index?: unknown;
     is_published?: unknown;
     poll_options?: PollOptionInput[];
@@ -40,6 +40,7 @@ export async function PATCH(
 
   const category = safeText(body.category, 255);
   const question = safeText(body.question, 4000);
+  const imageUrl = normalizeBuilderAssetUrl(body.image_url);
   const orderIndex = safeInteger(body.order_index, NaN);
   const isPublished = Boolean(body.is_published);
   const pollOptions = Array.isArray(body.poll_options)
@@ -53,15 +54,15 @@ export async function PATCH(
     : [];
 
   if (!question) {
-    return NextResponse.json({ error: "Question is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Question is required." }, { status: 400 }));
   }
 
   if (!Number.isFinite(orderIndex)) {
-    return NextResponse.json({ error: "Order must be a valid number." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Order must be a valid number." }, { status: 400 }));
   }
 
   if (pollOptions.length === 0 || pollOptions.some((option) => !option.label)) {
-    return NextResponse.json({ error: "Each poll option must have text." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Each poll option must have text." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -70,13 +71,14 @@ export async function PATCH(
     .update({
       category: category || null,
       question,
+      image_url: imageUrl,
       order_index: orderIndex,
       is_published: isPublished
     })
     .eq("id", id);
 
   if (pollError) {
-    return NextResponse.json({ error: pollError.message }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: pollError.message }, { status: 500 }));
   }
 
   const { error: optionsError } = await supabase.from("poll_options").upsert(
@@ -89,26 +91,28 @@ export async function PATCH(
   );
 
   if (optionsError) {
-    return NextResponse.json({ error: optionsError.message }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: optionsError.message }, { status: 500 }));
   }
 
   const { data, error: fetchError } = await supabase
     .from("polls")
-    .select("id, category, question, order_index, created_at, is_published, poll_options(id, label, sort_order)")
+    .select("id, category, question, image_url, order_index, created_at, is_published, poll_options(id, label, sort_order)")
     .eq("id", id)
     .single();
 
   if (fetchError || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: fetchError?.message ?? "Poll updated, but the refreshed row could not be loaded." },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({
-    poll: {
-      ...data,
-      poll_options: [...(data.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-    }
-  });
+  return auth.finish(
+    NextResponse.json({
+      poll: {
+        ...data,
+        poll_options: [...(data.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+      }
+    })
+  );
 }

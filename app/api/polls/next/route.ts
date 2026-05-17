@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { publicErrorResponse } from "@/lib/observability/report-error";
+import { withObservedRoute } from "@/lib/observability/with-api-route";
+import { createPublicClient } from "@/lib/supabase-public";
 
 const SESSION_COOKIE = "poll_session_id";
 const DISPLAY_VOTE_MULTIPLIER = 1327;
@@ -59,7 +61,7 @@ function getDisplayPollResults(
   };
 }
 
-export async function GET(request: Request) {
+export const GET = withObservedRoute("polls.next", async (request) => {
   const cookieStore = await cookies();
   let sessionId = cookieStore.get(SESSION_COOKIE)?.value;
 
@@ -69,11 +71,11 @@ export async function GET(request: Request) {
 
   const category = new URL(request.url).searchParams.get("category")?.trim() || "";
 
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
 
   let pollsQuery = supabase
     .from("polls")
-    .select("id, question, category, order_index, is_published, poll_options(id, label, sort_order)")
+    .select("id, question, category, image_url, order_index, is_published, poll_options(id, label, sort_order)")
     .eq("is_published", true)
     .order("order_index", { ascending: true });
 
@@ -88,10 +90,12 @@ export async function GET(request: Request) {
     ]);
 
   if (pollsError || responseError) {
-    return NextResponse.json(
-      { error: pollsError?.message ?? responseError?.message ?? "Failed to load polls" },
-      { status: 500 }
-    );
+    return publicErrorResponse(request, {
+      logEvent: "polls.next.load_failed",
+      error: pollsError ?? responseError,
+      message: "Failed to load polls.",
+      context: { category: category || null }
+    });
   }
 
   const answeredPollIds = new Set((responses ?? []).map((response) => response.poll_id));
@@ -126,7 +130,12 @@ export async function GET(request: Request) {
       .eq("poll_id", previousPoll.id);
 
     if (totalsError) {
-      return NextResponse.json({ error: totalsError.message }, { status: 500 });
+      return publicErrorResponse(request, {
+        logEvent: "polls.next.previous_results_failed",
+        error: totalsError,
+        message: "Failed to load poll results.",
+        context: { pollId: previousPoll.id }
+      });
     }
 
     const counts = new Map<string, number>();
@@ -150,6 +159,7 @@ export async function GET(request: Request) {
     currentPoll: {
       id: currentPoll.id,
       question: currentPoll.question,
+      imageUrl: currentPoll.image_url ?? "",
       options: currentPoll.poll_options.map((option) => ({
         id: option.id,
         label: option.label
@@ -167,4 +177,4 @@ export async function GET(request: Request) {
   });
 
   return response;
-}
+});

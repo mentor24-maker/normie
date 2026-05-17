@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import {
   normalizeBuilderAssetUrl,
   normalizeProductType,
@@ -10,11 +9,10 @@ import {
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const supabase = createAdminClient();
@@ -24,27 +22,28 @@ export async function GET() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error.message.includes("products")
           ? "Missing products table. Run the updated Supabase schema."
           : error.message
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({
-    products: (data ?? []).map((row) => rowToBuilderProduct(row))
-  });
+  return auth.finish(
+    NextResponse.json({
+      products: (data ?? []).map((row) => rowToBuilderProduct(row))
+    })
+  );
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const body = (await request.json()) as {
@@ -59,15 +58,15 @@ export async function POST(request: Request) {
   const imageUrl = normalizeBuilderAssetUrl(body.imageUrl);
 
   if (!name) {
-    return NextResponse.json({ error: "Product name is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Product name is required." }, { status: 400 }));
   }
 
   if (!productUrl) {
-    return NextResponse.json({ error: "Product URL is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Product URL is required." }, { status: 400 }));
   }
 
   if (!imageUrl) {
-    return NextResponse.json({ error: "Image URL is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Image URL is required." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -84,15 +83,15 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error?.message.includes("products")
           ? "Missing products table. Run the updated Supabase schema."
           : error?.message ?? "Failed to save product."
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({ product: rowToBuilderProduct(data) }, { status: 201 });
+  return auth.finish(NextResponse.json({ product: rowToBuilderProduct(data) }, { status: 201 }));
 }

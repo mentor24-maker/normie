@@ -53,7 +53,7 @@ export const modulePaletteGroups: Array<{
   { value: "headline-rotator", label: "Headline Rotator", icon: "↻", description: "Cycles through a list of headlines with a fade transition." },
   { value: "text", label: "Text", icon: "T", description: "Paragraphs, intros, and supporting copy." },
   { value: "code", label: "Code", icon: "</>", description: "Embed codes, widgets, and raw HTML snippets." },
-  { value: "merch", label: "Merch", icon: "$", description: "Product cards populated from a merch URL." },
+  { value: "merch", label: "Merch", icon: "$", description: "Product cards from the shop catalog or custom URLs." },
   { value: "image", label: "Image", icon: "I", description: "Images, logos, and visual media." },
   { value: "video", label: "Video", icon: "V", description: "Embeddable videos from YouTube, Vimeo, or uploaded files." },
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
@@ -331,7 +331,12 @@ export const modulePaletteItems: ModulePaletteItem[] = [
       shareLabel: "Share this poll",
       shareTemplate: 'I just answered: "{pollQuestion}" What would you pick? {url}',
       shareHashtags: "Normie,WYR",
-      shareVia: "Normie765714"
+      shareVia: "Normie765714",
+      shareLabelSize: "14",
+      shareIconBackground: "#ffffff",
+      shareIconSize: "36",
+      shareGlyphSize: "20",
+      shareIconGap: "12"
     }
   },
   {

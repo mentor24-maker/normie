@@ -8,8 +8,14 @@ import {
   applyAdminSessionCookies,
   buildAdminSessionSnapshot,
   clearAdminCookieOptions,
-  getAuthorizedAdminFromCookieStore
 } from "@/lib/admin-auth";
+import {
+  canAssignTeamRole,
+  canManageExistingTeamMember,
+  getAdminRole,
+  type AdminPermission
+} from "@/lib/admin-rbac";
+import { forbiddenAdminResponse, requireAdminRoute, unauthorizedAdminResponse } from "@/lib/admin-route-auth";
 import {
   mergeAdminUserRecord,
   normalizeUserRole,
@@ -25,15 +31,38 @@ function tableLabel(table: AdminDirectoryTable) {
   return table === "team_users" ? "team user" : "user";
 }
 
-async function authorizeAdmin() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+function getReadPermission(table: AdminDirectoryTable): AdminPermission {
+  return table === "team_users" ? "team:read" : "users:read";
+}
 
-  if (!admin) {
-    return { cookieStore, admin: null };
+function getWritePermission(table: AdminDirectoryTable): AdminPermission {
+  return table === "team_users" ? "team:write" : "users:write";
+}
+
+async function authorizeAdmin(requiredPermission?: AdminPermission) {
+  const cookieStore = await cookies();
+  const auth = await requireAdminRoute(requiredPermission);
+
+  if ("response" in auth) {
+    return { cookieStore, admin: null, finish: null };
   }
 
-  return { cookieStore, admin };
+  return { cookieStore, admin: auth.admin, finish: auth.finish, resolved: auth.resolved };
+}
+
+async function getTeamMemberRole(userId: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("team_users")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return normalizeUserRole(data.role);
 }
 
 async function listUsersWithProfiles(table: AdminDirectoryTable) {
@@ -71,15 +100,15 @@ async function listUsersWithProfiles(table: AdminDirectoryTable) {
 }
 
 export async function getDirectoryUsers(table: AdminDirectoryTable) {
-  const { admin } = await authorizeAdmin();
+  const auth = await authorizeAdmin(getReadPermission(table));
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if (!auth.admin || !auth.finish) {
+    return unauthorizedAdminResponse();
   }
 
   try {
     const users = await listUsersWithProfiles(table);
-    return NextResponse.json({ users });
+    return auth.finish(NextResponse.json({ users }));
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load users." },
@@ -89,10 +118,10 @@ export async function getDirectoryUsers(table: AdminDirectoryTable) {
 }
 
 export async function createDirectoryUser(request: Request, table: AdminDirectoryTable) {
-  const { admin } = await authorizeAdmin();
+  const auth = await authorizeAdmin(getWritePermission(table));
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if (!auth.admin || !auth.finish) {
+    return unauthorizedAdminResponse();
   }
 
   const body = (await request.json()) as {
@@ -117,6 +146,10 @@ export async function createDirectoryUser(request: Request, table: AdminDirector
 
   if (!password || password.length < 8) {
     return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  }
+
+  if (table === "team_users" && !canAssignTeamRole(getAdminRole(auth.admin), role)) {
+    return forbiddenAdminResponse("Only owners can grant the owner role.");
   }
 
   const supabase = createAdminClient();
@@ -170,7 +203,7 @@ export async function createDirectoryUser(request: Request, table: AdminDirector
     updated_at: timestamp
   });
 
-  return NextResponse.json({ user: createdRecord }, { status: 201 });
+  return auth.finish(NextResponse.json({ user: createdRecord }, { status: 201 }));
 }
 
 export async function updateDirectoryUser(
@@ -178,11 +211,13 @@ export async function updateDirectoryUser(
   context: { params: Promise<{ id: string }> },
   table: AdminDirectoryTable
 ) {
-  const { cookieStore, admin } = await authorizeAdmin();
+  const auth = await authorizeAdmin(getWritePermission(table));
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if (!auth.admin || !auth.finish) {
+    return unauthorizedAdminResponse();
   }
+
+  const { cookieStore, admin, finish } = auth;
 
   const { id } = await context.params;
   const body = (await request.json()) as {
@@ -207,6 +242,20 @@ export async function updateDirectoryUser(
 
   if (password && password.length < 8) {
     return NextResponse.json({ error: "New password must be at least 8 characters." }, { status: 400 });
+  }
+
+  if (table === "team_users") {
+    const existingRole = await getTeamMemberRole(id);
+    const actorRole = getAdminRole(admin);
+    const isSelf = admin.authUser.id === id;
+
+    if (!isSelf && existingRole && !canManageExistingTeamMember(actorRole, existingRole)) {
+      return forbiddenAdminResponse("You do not have permission to manage this team member.");
+    }
+
+    if (!canAssignTeamRole(actorRole, role)) {
+      return forbiddenAdminResponse("Only owners can grant the owner role.");
+    }
   }
 
   const supabase = createAdminClient();
@@ -281,7 +330,7 @@ export async function updateDirectoryUser(
     }
   }
 
-  return response;
+  return finish(response);
 }
 
 export async function deleteDirectoryUser(
@@ -289,13 +338,24 @@ export async function deleteDirectoryUser(
   context: { params: Promise<{ id: string }> },
   table: AdminDirectoryTable
 ) {
-  const { admin } = await authorizeAdmin();
+  const auth = await authorizeAdmin(getWritePermission(table));
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if (!auth.admin || !auth.finish) {
+    return unauthorizedAdminResponse();
   }
 
+  const { admin, finish } = auth;
   const { id } = await context.params;
+
+  if (table === "team_users") {
+    const existingRole = await getTeamMemberRole(id);
+    const isSelf = admin.authUser.id === id;
+
+    if (!isSelf && existingRole && !canManageExistingTeamMember(getAdminRole(admin), existingRole)) {
+      return forbiddenAdminResponse("You do not have permission to remove this team member.");
+    }
+  }
+
   const supabase = createAdminClient();
   const { error: deleteError } = await supabase.auth.admin.deleteUser(id);
 
@@ -314,5 +374,5 @@ export async function deleteDirectoryUser(
     response.cookies.set(ADMIN_PROFILE_COOKIE, "", options);
   }
 
-  return response;
+  return finish(response);
 }

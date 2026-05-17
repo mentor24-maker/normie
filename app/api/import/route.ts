@@ -1,7 +1,6 @@
 import Papa from "papaparse";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
@@ -15,18 +14,17 @@ function normalizeHeader(value: string) {
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized import request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const formData = await request.formData();
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "A CSV file is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "A CSV file is required." }, { status: 400 }));
   }
 
   const csvText = await file.text();
@@ -37,7 +35,9 @@ export async function POST(request: Request) {
   });
 
   if (parsed.errors.length > 0) {
-    return NextResponse.json({ error: parsed.errors[0]?.message ?? "Failed to parse CSV." }, { status: 400 });
+    return auth.finish(
+      NextResponse.json({ error: parsed.errors[0]?.message ?? "Failed to parse CSV." }, { status: 400 })
+    );
   }
 
   const fields = (parsed.meta.fields ?? []).map((field) => normalizeHeader(field));
@@ -46,12 +46,14 @@ export async function POST(request: Request) {
   const optionFields = fields.filter((field) => /^option(?:_|$)/.test(field));
 
   if (!questionField || !categoryField || optionFields.length < 2) {
-    return NextResponse.json(
-      {
-        error:
-          "CSV must include Category, Question, and at least two option columns such as Option_A and Option_B."
-      },
-      { status: 400 }
+    return auth.finish(
+      NextResponse.json(
+        {
+          error:
+            "CSV must include Category, Question, and at least two option columns such as Option_A and Option_B."
+        },
+        { status: 400 }
+      )
     );
   }
 
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
     .filter((row) => Object.values(row).some(Boolean));
 
   if (rows.length === 0) {
-    return NextResponse.json({ error: "The CSV file had no usable rows." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "The CSV file had no usable rows." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (lastPollError) {
-    return NextResponse.json({ error: lastPollError.message }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: lastPollError.message }, { status: 500 }));
   }
 
   let nextOrderIndex = (lastPoll?.order_index ?? 0) + 1;
@@ -87,12 +89,14 @@ export async function POST(request: Request) {
     const options = optionFields.map((field) => normalizeValue(row[field])).filter(Boolean);
 
     if (!category || !question || options.length < 2) {
-      return NextResponse.json(
-        {
-          error:
-            `Each row needs a category, a question, and at least two options. Problem row: ${JSON.stringify(row)}`
-        },
-        { status: 400 }
+      return auth.finish(
+        NextResponse.json(
+          {
+            error:
+              `Each row needs a category, a question, and at least two options. Problem row: ${JSON.stringify(row)}`
+          },
+          { status: 400 }
+        )
       );
     }
 
@@ -108,7 +112,9 @@ export async function POST(request: Request) {
       .single();
 
     if (pollError || !poll) {
-      return NextResponse.json({ error: pollError?.message ?? "Failed to create poll." }, { status: 500 });
+      return auth.finish(
+        NextResponse.json({ error: pollError?.message ?? "Failed to create poll." }, { status: 500 })
+      );
     }
 
     const { error: optionError } = await supabase.from("poll_options").insert(
@@ -120,12 +126,12 @@ export async function POST(request: Request) {
     );
 
     if (optionError) {
-      return NextResponse.json({ error: optionError.message }, { status: 500 });
+      return auth.finish(NextResponse.json({ error: optionError.message }, { status: 500 }));
     }
 
     nextOrderIndex += 1;
     createdCount += 1;
   }
 
-  return NextResponse.json({ ok: true, createdCount });
+  return auth.finish(NextResponse.json({ ok: true, createdCount }));
 }

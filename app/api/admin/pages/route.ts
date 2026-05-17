@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import {
   rowToBuilderPage,
   safeText,
@@ -16,11 +15,10 @@ function normalizeSlug(value: unknown) {
 }
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute();
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const supabase = createAdminClient();
@@ -30,7 +28,7 @@ export async function GET() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error:
           error.message.includes("pages")
@@ -38,20 +36,21 @@ export async function GET() {
             : error.message
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({
-    pages: (data ?? []).map((row) => rowToBuilderPage(row))
-  });
+  return auth.finish(
+    NextResponse.json({
+      pages: (data ?? []).map((row) => rowToBuilderPage(row))
+    })
+  );
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const body = (await request.json()) as {
@@ -67,11 +66,11 @@ export async function POST(request: Request) {
   const slug = normalizeSlug(body.slug);
 
   if (!name) {
-    return NextResponse.json({ error: "Page title is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Page title is required." }, { status: 400 }));
   }
 
   if (!slug) {
-    return NextResponse.json({ error: "Page slug is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Page slug is required." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -88,7 +87,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error:
           error?.message.includes("pages")
@@ -96,8 +95,8 @@ export async function POST(request: Request) {
             : error?.message ?? "Failed to create page."
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({ page: rowToBuilderPage(data) }, { status: 201 });
+  return auth.finish(NextResponse.json({ page: rowToBuilderPage(data) }, { status: 201 }));
 }

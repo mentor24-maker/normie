@@ -13,6 +13,7 @@ type AdminPoll = {
   id: string;
   category: string | null;
   question: string;
+  image_url: string;
   order_index: number;
   created_at: string;
   is_published: boolean;
@@ -30,6 +31,7 @@ type PollFilterState = {
 type PollDraft = {
   category: string;
   question: string;
+  image_url: string;
   order_index: string;
   is_published: boolean;
   poll_options: PollOption[];
@@ -60,6 +62,7 @@ function createDraftFromPoll(poll: AdminPoll): PollDraft {
   return {
     category: poll.category ?? "",
     question: poll.question,
+    image_url: poll.image_url ?? "",
     order_index: String(poll.order_index),
     is_published: poll.is_published,
     poll_options: poll.poll_options.map((option) => ({ ...option }))
@@ -223,6 +226,7 @@ export function AdminPollsManager() {
         body: JSON.stringify({
           category: draft.category,
           question: draft.question,
+          image_url: draft.image_url,
           order_index: Number.parseInt(draft.order_index, 10),
           is_published: draft.is_published,
           poll_options: draft.poll_options
@@ -421,6 +425,7 @@ export function AdminPollsManager() {
                 <th>Order</th>
                 <th>Category</th>
                 <th>Question</th>
+                <th>Image</th>
                 <th>Options</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -478,6 +483,21 @@ export function AdminPollsManager() {
                         />
                       ) : (
                         poll.question
+                      )}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          className="polls-inline-input"
+                          type="text"
+                          value={draft.image_url}
+                          onChange={(event) => updateDraft("image_url", event.target.value)}
+                          placeholder="https://... or /api/admin/media-file/..."
+                        />
+                      ) : poll.image_url ? (
+                        <code>{poll.image_url}</code>
+                      ) : (
+                        "None"
                       )}
                     </td>
                     <td>

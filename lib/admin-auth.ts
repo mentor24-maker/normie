@@ -21,6 +21,17 @@ export type AuthorizedAdmin = {
   profile: UserProfileRow;
 };
 
+export type RefreshedAdminSession = {
+  accessToken: string;
+  refreshToken: string;
+  snapshot: AdminSessionSnapshot;
+};
+
+export type ResolvedAdminSession = {
+  admin: AuthorizedAdmin;
+  refreshed?: RefreshedAdminSession;
+};
+
 function createCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
@@ -78,30 +89,6 @@ export function buildAdminSessionSnapshot(authUser: User, profile: UserProfileRo
   };
 }
 
-function parseAdminSessionSnapshot(rawValue: string | undefined): AdminSessionSnapshot | null {
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<AdminSessionSnapshot>;
-
-    if (
-      typeof parsed.id !== "string" ||
-      typeof parsed.email !== "string" ||
-      typeof parsed.fullName !== "string" ||
-      typeof parsed.role !== "string" ||
-      typeof parsed.status !== "string"
-    ) {
-      return null;
-    }
-
-    return parsed as AdminSessionSnapshot;
-  } catch {
-    return null;
-  }
-}
-
 export async function getAdminUserFromToken(accessToken: string | undefined | null): Promise<User | null> {
   if (!accessToken) {
     return null;
@@ -153,40 +140,55 @@ export async function getAuthorizedAdminFromToken(
   };
 }
 
-export async function getAdminUserFromCookieStore(cookieStore: Pick<ReadonlyRequestCookies, "get">) {
+async function refreshAdminAccessSession(refreshToken: string) {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+
+  if (error || !data.session || !data.user) {
+    return null;
+  }
+
+  const admin = await getAuthorizedAdminFromToken(data.session.access_token);
+
+  if (!admin) {
+    return null;
+  }
+
+  return {
+    admin,
+    refreshed: {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      snapshot: buildAdminSessionSnapshot(data.user, admin.profile)
+    }
+  } satisfies ResolvedAdminSession;
+}
+
+export async function resolveAuthorizedAdminFromCookieStore(
+  cookieStore: Pick<ReadonlyRequestCookies, "get">
+): Promise<ResolvedAdminSession | null> {
   const accessToken = cookieStore.get(ADMIN_ACCESS_COOKIE)?.value;
-  return getAdminUserFromToken(accessToken);
+  const refreshToken = cookieStore.get(ADMIN_REFRESH_COOKIE)?.value;
+
+  const fromAccessToken = await getAuthorizedAdminFromToken(accessToken);
+
+  if (fromAccessToken) {
+    return { admin: fromAccessToken };
+  }
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  return refreshAdminAccessSession(refreshToken);
+}
+
+export async function getAdminUserFromCookieStore(cookieStore: Pick<ReadonlyRequestCookies, "get">) {
+  const resolved = await resolveAuthorizedAdminFromCookieStore(cookieStore);
+  return resolved?.admin.authUser ?? null;
 }
 
 export async function getAuthorizedAdminFromCookieStore(cookieStore: Pick<ReadonlyRequestCookies, "get">) {
-  const accessToken = cookieStore.get(ADMIN_ACCESS_COOKIE)?.value;
-  const snapshot = parseAdminSessionSnapshot(cookieStore.get(ADMIN_PROFILE_COOKIE)?.value);
-
-  if (accessToken && snapshot && snapshot.status === "active") {
-    return {
-      authUser: {
-        id: snapshot.id,
-        email: snapshot.email,
-        aud: "authenticated",
-        created_at: "",
-        user_metadata: {
-          full_name: snapshot.fullName
-        },
-        app_metadata: {
-          role: snapshot.role
-        }
-      } as unknown as User,
-      profile: {
-        id: snapshot.id,
-        full_name: snapshot.fullName,
-        role: snapshot.role,
-        status: snapshot.status,
-        notes: null,
-        created_at: null,
-        updated_at: null
-      }
-    };
-  }
-
-  return getAuthorizedAdminFromToken(accessToken);
+  const resolved = await resolveAuthorizedAdminFromCookieStore(cookieStore);
+  return resolved?.admin ?? null;
 }

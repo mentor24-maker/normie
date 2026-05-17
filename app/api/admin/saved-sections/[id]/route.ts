@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { normalizeBuilderSection, rowToBuilderSavedSection, safeText } from "@/lib/builder-template";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -8,11 +7,10 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -20,7 +18,7 @@ export async function PATCH(
   const name = safeText(body.name, 255);
 
   if (!name) {
-    return NextResponse.json({ error: "Saved section name is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "Saved section name is required." }, { status: 400 }));
   }
 
   const updatePayload: { name: string; updated_at: string; section?: unknown } = {
@@ -32,7 +30,7 @@ export async function PATCH(
     const section = normalizeBuilderSection(body.section);
 
     if (!section) {
-      return NextResponse.json({ error: "Saved section is invalid." }, { status: 400 });
+      return auth.finish(NextResponse.json({ error: "Saved section is invalid." }, { status: 400 }));
     }
 
     updatePayload.section = section;
@@ -47,30 +45,29 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: error?.message ?? "Failed to update saved section." },
       { status: 500 }
-    );
+    ));
   }
 
   const savedSection = rowToBuilderSavedSection(data);
 
   if (!savedSection) {
-    return NextResponse.json({ error: "Failed to normalize saved section." }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: "Failed to normalize saved section." }, { status: 500 }));
   }
 
-  return NextResponse.json({ savedSection });
+  return auth.finish(NextResponse.json({ savedSection }));
 }
 
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = await cookies();
-  const admin = await getAuthorizedAdminFromCookieStore(cookieStore);
+  const auth = await requireAdminRoute("content:write");
 
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -78,8 +75,8 @@ export async function DELETE(
   const { error } = await supabase.from("builder_saved_sections").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));
   }
 
-  return NextResponse.json({ ok: true });
+  return auth.finish(NextResponse.json({ ok: true }));
 }

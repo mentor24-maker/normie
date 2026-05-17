@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
 import {
   buildPublicUserFullName,
@@ -10,16 +9,10 @@ import {
 } from "@/lib/public-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-async function authorizeAdmin() {
-  const cookieStore = await cookies();
-  return getAuthorizedAdminFromCookieStore(cookieStore);
-}
-
 export async function GET() {
-  const admin = await authorizeAdmin();
-
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  const auth = await requireAdminRoute();
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const supabase = createAdminClient();
@@ -29,24 +22,23 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       {
         error: error.message.includes("users")
           ? "Missing users table. Run the updated public users schema."
           : error.message
       },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({ users: ((data ?? []) as PublicUserRow[]).map(mergePublicUserRecord) });
+  return auth.finish(NextResponse.json({ users: ((data ?? []) as PublicUserRow[]).map(mergePublicUserRecord) }));
 }
 
 export async function POST(request: Request) {
-  const admin = await authorizeAdmin();
-
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized admin request." }, { status: 401 });
+  const auth = await requireAdminRoute("users:write");
+  if ("response" in auth) {
+    return auth.response;
   }
 
   const body = (await request.json()) as {
@@ -70,7 +62,7 @@ export async function POST(request: Request) {
   const notes = safeUserText(body.notes, 4000);
 
   if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
+    return auth.finish(NextResponse.json({ error: "A valid email is required." }, { status: 400 }));
   }
 
   const timestamp = new Date().toISOString();
@@ -92,11 +84,11 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json(
+    return auth.finish(NextResponse.json(
       { error: error?.message ?? "Failed to create user." },
       { status: 500 }
-    );
+    ));
   }
 
-  return NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) }, { status: 201 });
+  return auth.finish(NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) }, { status: 201 }));
 }
