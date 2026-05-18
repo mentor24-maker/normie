@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { BlogPostEditorInput, BlogPostRecord, BlogTagRecord, BlogTopicRecord } from "@/lib/blog";
+import type {
+  BlogCategoryRecord,
+  BlogPostEditorInput,
+  BlogPostRecord,
+  BlogTagRecord,
+  BlogTopicRecord
+} from "@/lib/blog";
 import { getBlogPostPath, normalizeBlogSlugInput, slugifyBlogText } from "@/lib/blog";
 import { AdminBlogPostEditor } from "@/components/admin-blog-post-editor";
+import { AdminBlogTaxonomyList } from "@/components/admin-blog-taxonomy-list";
 
-type BlogView = "posts" | "topics" | "tags";
+type BlogView = "posts" | "topics" | "categories" | "tags";
 
 type TeamAuthor = {
   id: string;
@@ -23,7 +30,9 @@ function createEmptyDraft(): BlogPostEditorInput & { id?: string } {
     publishedAt: null,
     authorTeamUserId: null,
     primaryTopicId: null,
+    primaryCategoryId: null,
     topicIds: [],
+    categoryIds: [],
     tagIds: [],
     relatedPostIds: [],
     metaTitle: "",
@@ -49,7 +58,9 @@ function postToDraft(post: BlogPostRecord): BlogPostEditorInput & { id: string }
     publishedAt: post.publishedAt,
     authorTeamUserId: post.authorTeamUserId,
     primaryTopicId: post.primaryTopicId,
+    primaryCategoryId: post.primaryCategoryId,
     topicIds: post.topicIds,
+    categoryIds: post.categoryIds,
     tagIds: post.tagIds,
     relatedPostIds: post.relatedPostIds,
     metaTitle: post.metaTitle,
@@ -67,6 +78,7 @@ export function AdminBlogWorkspace() {
   const [view, setView] = useState<BlogView>("posts");
   const [posts, setPosts] = useState<BlogPostRecord[]>([]);
   const [topics, setTopics] = useState<BlogTopicRecord[]>([]);
+  const [categories, setCategories] = useState<BlogCategoryRecord[]>([]);
   const [tags, setTags] = useState<BlogTagRecord[]>([]);
   const [authors, setAuthors] = useState<TeamAuthor[]>([]);
   const [canPublish, setCanPublish] = useState(false);
@@ -77,6 +89,7 @@ export function AdminBlogWorkspace() {
   const [error, setError] = useState("");
 
   const [topicDraft, setTopicDraft] = useState({ name: "", slug: "" });
+  const [categoryDraft, setCategoryDraft] = useState({ name: "", slug: "" });
   const [tagDraft, setTagDraft] = useState({ name: "", slug: "" });
 
   const loadAll = useCallback(async () => {
@@ -84,9 +97,10 @@ export function AdminBlogWorkspace() {
     setError("");
 
     try {
-      const [postsRes, topicsRes, tagsRes, teamRes, sessionRes] = await Promise.all([
+      const [postsRes, topicsRes, categoriesRes, tagsRes, teamRes, sessionRes] = await Promise.all([
         fetch("/api/admin/blog/posts", { cache: "no-store" }),
         fetch("/api/admin/blog/topics", { cache: "no-store" }),
+        fetch("/api/admin/blog/categories", { cache: "no-store" }),
         fetch("/api/admin/blog/tags", { cache: "no-store" }),
         fetch("/api/admin/team", { cache: "no-store" }),
         fetch("/api/admin/session", { cache: "no-store" })
@@ -94,6 +108,10 @@ export function AdminBlogWorkspace() {
 
       const postsPayload = (await postsRes.json()) as { posts?: BlogPostRecord[]; error?: string };
       const topicsPayload = (await topicsRes.json()) as { topics?: BlogTopicRecord[]; error?: string };
+      const categoriesPayload = (await categoriesRes.json()) as {
+        categories?: BlogCategoryRecord[];
+        error?: string;
+      };
       const tagsPayload = (await tagsRes.json()) as { tags?: BlogTagRecord[]; error?: string };
       const teamPayload = (await teamRes.json()) as {
         users?: Array<{ id: string; fullName?: string; full_name?: string }>;
@@ -106,6 +124,7 @@ export function AdminBlogWorkspace() {
 
       setPosts(postsPayload.posts ?? []);
       setTopics(topicsPayload.topics ?? []);
+      setCategories(categoriesPayload.categories ?? []);
       setTags(tagsPayload.tags ?? []);
       setAuthors(
         (teamPayload.users ?? []).map((user) => ({
@@ -250,6 +269,32 @@ export function AdminBlogWorkspace() {
     }
   }
 
+  async function saveCategory() {
+    setIsSaving(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/admin/blog/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(categoryDraft)
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to save category.");
+      }
+
+      setCategoryDraft({ name: "", slug: "" });
+      setMessage("Category saved.");
+      await loadAll();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save category.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function saveTag() {
     setIsSaving(true);
     setError("");
@@ -286,6 +331,7 @@ export function AdminBlogWorkspace() {
         onCancel={() => setEditingDraft(null)}
         onChange={setEditingDraft}
         onSave={() => void savePost()}
+        categories={categories}
         posts={posts}
         tags={tags}
         topics={topics}
@@ -299,18 +345,18 @@ export function AdminBlogWorkspace() {
         <div className="admin-toolbar">
           <div>
             <h2 className="admin-section-heading">Blog</h2>
-            <p className="page-copy admin-copy">Manage posts, topics, and tags for the public blog at /blog.</p>
+            <p className="page-copy admin-copy">Manage posts, topics, categories, and tags for the public blog at /blog.</p>
           </div>
           <div className="admin-actions">
             {view === "posts" ? (
-              <button className="primary-button" onClick={() => setEditingDraft(createEmptyDraft())} type="button">
+              <button className="submit-button" onClick={() => setEditingDraft(createEmptyDraft())} type="button">
                 New post
               </button>
             ) : null}
           </div>
         </div>
         <div className="admin-blog-view-tabs">
-          {(["posts", "topics", "tags"] as BlogView[]).map((tab) => (
+          {(["posts", "topics", "categories", "tags"] as BlogView[]).map((tab) => (
             <button
               className={`secondary-button${view === tab ? " is-active" : ""}`}
               key={tab}
@@ -334,6 +380,7 @@ export function AdminBlogWorkspace() {
                   <th>Title</th>
                   <th>Status</th>
                   <th>Primary topic</th>
+                  <th>Primary category</th>
                   <th>Updated</th>
                   <th>Actions</th>
                 </tr>
@@ -347,9 +394,19 @@ export function AdminBlogWorkspace() {
                       <td><strong>{post.title}</strong></td>
                       <td>{post.status}</td>
                       <td>{post.primaryTopic?.name ?? "—"}</td>
+                      <td>{post.primaryCategory?.name ?? "—"}</td>
                       <td>{new Date(post.updatedAt).toLocaleString()}</td>
                       <td>
-                        <div className="table-actions admin-blog-row-actions">
+                        <div className="table-actions">
+                          <button
+                            className="polls-icon-button"
+                            onClick={() => setEditingDraft(postToDraft(post))}
+                            type="button"
+                            aria-label="Edit post"
+                            title="Edit"
+                          >
+                            ✎
+                          </button>
                           {viewUrl ? (
                             <a
                               className="polls-icon-button"
@@ -374,27 +431,24 @@ export function AdminBlogWorkspace() {
                           )}
                           {canPublish && post.status !== "published" ? (
                             <button
-                              className="secondary-button admin-blog-publish-button"
+                              className="polls-icon-button polls-icon-button-success"
                               disabled={isSaving}
                               onClick={() => void publishPost(post)}
                               type="button"
+                              aria-label="Publish post"
+                              title="Publish"
                             >
-                              Publish
+                              ↑
                             </button>
                           ) : null}
                           <button
-                            className="secondary-button"
-                            onClick={() => setEditingDraft(postToDraft(post))}
-                            type="button"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="row-delete-button"
+                            className="polls-icon-button polls-icon-button-danger"
                             onClick={() => void deletePost(post.id)}
                             type="button"
+                            aria-label="Delete post"
+                            title="Delete"
                           >
-                            Delete
+                            🗑
                           </button>
                         </div>
                       </td>
@@ -403,7 +457,7 @@ export function AdminBlogWorkspace() {
                 })}
                 {!isLoading && posts.length === 0 ? (
                   <tr>
-                    <td className="empty-cell" colSpan={5}>
+                    <td className="empty-cell" colSpan={6}>
                       No posts yet.
                     </td>
                   </tr>
@@ -437,16 +491,68 @@ export function AdminBlogWorkspace() {
               />
             </label>
           </div>
-          <button className="primary-button" disabled={isSaving} onClick={() => void saveTopic()} type="button">
+          <button
+            className="submit-button admin-blog-add-button"
+            disabled={isSaving}
+            onClick={() => void saveTopic()}
+            type="button"
+          >
             Add topic
           </button>
-          <ul className="admin-blog-taxonomy-list">
-            {topics.map((topic) => (
-              <li key={topic.id}>
-                <strong>{topic.name}</strong> <span className="gallery-meta">/{topic.slug}</span>
-              </li>
-            ))}
-          </ul>
+          <AdminBlogTaxonomyList
+            disabled={isSaving}
+            items={topics}
+            label="topic"
+            onChanged={loadAll}
+            onError={setError}
+            onMessage={setMessage}
+            resource="topics"
+          />
+        </section>
+      ) : null}
+
+      {view === "categories" ? (
+        <section className="admin-section admin-blog-taxonomy-panel">
+          <div className="admin-form-grid">
+            <label className="field">
+              <span>Name</span>
+              <input
+                value={categoryDraft.name}
+                onChange={(event) =>
+                  setCategoryDraft({
+                    name: event.target.value,
+                    slug: slugifyBlogText(event.target.value)
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Slug</span>
+              <input
+                value={categoryDraft.slug}
+                onChange={(event) =>
+                  setCategoryDraft({ ...categoryDraft, slug: normalizeBlogSlugInput(event.target.value) })
+                }
+              />
+            </label>
+          </div>
+          <button
+            className="submit-button admin-blog-add-button"
+            disabled={isSaving}
+            onClick={() => void saveCategory()}
+            type="button"
+          >
+            Add category
+          </button>
+          <AdminBlogTaxonomyList
+            disabled={isSaving}
+            items={categories}
+            label="category"
+            onChanged={loadAll}
+            onError={setError}
+            onMessage={setMessage}
+            resource="categories"
+          />
         </section>
       ) : null}
 
@@ -473,16 +579,24 @@ export function AdminBlogWorkspace() {
               />
             </label>
           </div>
-          <button className="primary-button" disabled={isSaving} onClick={() => void saveTag()} type="button">
+          <button
+            className="submit-button admin-blog-add-button"
+            disabled={isSaving}
+            onClick={() => void saveTag()}
+            type="button"
+          >
             Add tag
           </button>
-          <ul className="admin-blog-taxonomy-list">
-            {tags.map((tag) => (
-              <li key={tag.id}>
-                <strong>{tag.name}</strong> <span className="gallery-meta">/{tag.slug}</span>
-              </li>
-            ))}
-          </ul>
+          <AdminBlogTaxonomyList
+            columns={3}
+            disabled={isSaving}
+            items={tags}
+            label="tag"
+            onChanged={loadAll}
+            onError={setError}
+            onMessage={setMessage}
+            resource="tags"
+          />
         </section>
       ) : null}
     </section>

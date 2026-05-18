@@ -29,7 +29,9 @@ describe("validateBlogPostInput", () => {
       publishedAt: new Date().toISOString(),
       authorTeamUserId: null,
       primaryTopicId: null,
+      primaryCategoryId: null,
       topicIds: [],
+      categoryIds: [],
       tagIds: [],
       relatedPostIds: [],
       metaTitle: "",
@@ -43,5 +45,34 @@ describe("validateBlogPostInput", () => {
     });
 
     expect(error).toMatch(/primary topic/i);
+  });
+
+  it("requires primary category to be in category list", () => {
+    const error = validateBlogPostInput({
+      title: "Hello",
+      slug: "hello",
+      excerpt: "",
+      bodyHtml: "<p>Hi</p>",
+      featuredImageUrl: "",
+      status: "draft",
+      publishedAt: null,
+      authorTeamUserId: null,
+      primaryTopicId: null,
+      primaryCategoryId: "cat-1",
+      topicIds: [],
+      categoryIds: [],
+      tagIds: [],
+      relatedPostIds: [],
+      metaTitle: "",
+      metaDescription: "",
+      ogTitle: "",
+      ogDescription: "",
+      ogImageUrl: "",
+      twitterCardType: "summary_large_image",
+      canonicalUrl: "",
+      noindex: false
+    });
+
+    expect(error).toMatch(/primary category/i);
   });
 });

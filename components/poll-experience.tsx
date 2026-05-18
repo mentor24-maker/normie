@@ -117,7 +117,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
                 <PollCategoryHeadline category={activeCategory} />
               </div>
             ) : null}
-            <article className="panel action-panel">
+            <article className="panel action-panel poll-module-panel">
               <div className="panel-label">Current Poll</div>
               <h2 className="poll-question">{payload.currentPoll.question}</h2>
               <div className="option-list">
@@ -138,7 +138,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
               </p>
             </article>
 
-            <article className="panel result-panel">
+            <article className="panel result-panel poll-module-panel">
               <div className="panel-label">Previous Results</div>
               {payload.previousPoll ? (
                 <>

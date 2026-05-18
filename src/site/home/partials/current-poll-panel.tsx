@@ -8,7 +8,7 @@ type CurrentPollPanelProps = {
 
 export function CurrentPollPanel({ currentPoll, isSubmitting, onSubmit }: CurrentPollPanelProps) {
   return (
-    <article className="panel action-panel">
+    <article className="panel action-panel poll-module-panel">
       <div className="panel-label">Current Poll</div>
       <h2 className="poll-question">{currentPoll.question}</h2>
       <div className="option-list">
@@ -24,9 +24,7 @@ export function CurrentPollPanel({ currentPoll, isSubmitting, onSubmit }: Curren
           </button>
         ))}
       </div>
-      <p className="panel-copy">
-        {isSubmitting ? "Saving your answer..." : "Choose one option to move to the next poll."}
-      </p>
+      {isSubmitting ? <p className="panel-copy">Saving your answer...</p> : null}
     </article>
   );
 }

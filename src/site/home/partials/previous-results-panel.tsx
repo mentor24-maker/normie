@@ -14,7 +14,7 @@ function formatDisplayCount(value: number) {
 
 export function PreviousResultsPanel({ previousPoll }: PreviousResultsPanelProps) {
   return (
-    <article className="panel result-panel">
+    <article className="panel result-panel poll-module-panel">
       <div className="panel-label">Previous Results</div>
       {previousPoll ? (
         <>

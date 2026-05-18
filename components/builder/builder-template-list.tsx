@@ -116,21 +116,21 @@ export function BuilderTemplateList({
                         <div className="builder-template-actions">
                           <button
                             className="polls-icon-button"
-                            onClick={() => onPreviewTemplate(template)}
-                            type="button"
-                            aria-label="Preview template"
-                            title="Preview template"
-                          >
-                            👁
-                          </button>
-                          <button
-                            className="polls-icon-button"
                             onClick={() => handleEditTemplate(template.id)}
                             type="button"
                             aria-label={isSelected ? "Editing current template" : "Edit template"}
                             title={isSelected ? "Editing current template" : "Edit template"}
                           >
                             {isSelected ? "●" : "✎"}
+                          </button>
+                          <button
+                            className="polls-icon-button"
+                            onClick={() => onPreviewTemplate(template)}
+                            type="button"
+                            aria-label="Preview template"
+                            title="Preview template"
+                          >
+                            👁
                           </button>
                           <button
                             className="polls-icon-button polls-icon-button-danger"

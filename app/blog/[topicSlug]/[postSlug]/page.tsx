@@ -91,6 +91,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           </Link>
           <div className="blog-post-meta">
             {post.primaryTopic ? <span className="blog-chip">{post.primaryTopic.name}</span> : null}
+            {post.primaryCategory ? (
+              <Link className="blog-chip blog-chip-muted" href={`/blog?category=${post.primaryCategory.slug}`}>
+                {post.primaryCategory.name}
+              </Link>
+            ) : null}
             {post.publishedAt ? (
               <time dateTime={post.publishedAt}>{formatBlogPublishedDate(post.publishedAt)}</time>
             ) : null}

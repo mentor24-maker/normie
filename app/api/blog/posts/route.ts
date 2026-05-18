@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const limit = Math.min(Math.max(Number.parseInt(searchParams.get("limit") || "12", 10) || 12, 1), 48);
   const offset = Math.max(Number.parseInt(searchParams.get("offset") || "0", 10) || 0, 0);
   const topicSlug = safeText(searchParams.get("topic"), 120);
+  const categorySlug = safeText(searchParams.get("category"), 120);
   const tagSlug = safeText(searchParams.get("tag"), 120);
 
   try {
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
       limit,
       offset,
       topicSlug: topicSlug || undefined,
+      categorySlug: categorySlug || undefined,
       tagSlug: tagSlug || undefined
     });
 

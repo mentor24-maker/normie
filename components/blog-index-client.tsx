@@ -6,17 +6,26 @@ import {
   formatBlogPublishedDate,
   getBlogPostPath,
   normalizePublicBlogImageUrl,
+  type BlogCategoryRecord,
   type BlogPostCard,
   type BlogTagRecord,
   type BlogTopicRecord
 } from "@/lib/blog";
 
+type BlogFilters = {
+  topicSlug: string;
+  categorySlug: string;
+  tagSlug: string;
+};
+
 type BlogIndexClientProps = {
   initialPosts: BlogPostCard[];
   initialTotal: number;
   topics: BlogTopicRecord[];
+  categories: BlogCategoryRecord[];
   tags: BlogTagRecord[];
   initialTopicSlug: string;
+  initialCategorySlug: string;
   initialTagSlug: string;
 };
 
@@ -26,22 +35,21 @@ export function BlogIndexClient({
   initialPosts,
   initialTotal,
   topics,
+  categories,
   tags,
   initialTopicSlug,
+  initialCategorySlug,
   initialTagSlug
 }: BlogIndexClientProps) {
   const [posts, setPosts] = useState(initialPosts);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialPosts.length);
   const [topicSlug, setTopicSlug] = useState(initialTopicSlug);
+  const [categorySlug, setCategorySlug] = useState(initialCategorySlug);
   const [tagSlug, setTagSlug] = useState(initialTagSlug);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function fetchPosts(
-    nextOffset: number,
-    replace: boolean,
-    filters: { topicSlug: string; tagSlug: string }
-  ) {
+  async function fetchPosts(nextOffset: number, replace: boolean, filters: BlogFilters) {
     setIsLoading(true);
 
     try {
@@ -52,6 +60,10 @@ export function BlogIndexClient({
 
       if (filters.topicSlug) {
         params.set("topic", filters.topicSlug);
+      }
+
+      if (filters.categorySlug) {
+        params.set("category", filters.categorySlug);
       }
 
       if (filters.tagSlug) {
@@ -77,22 +89,27 @@ export function BlogIndexClient({
     }
   }
 
-  function applyFilters(nextTopicSlug: string, nextTagSlug: string) {
-    setTopicSlug(nextTopicSlug);
-    setTagSlug(nextTagSlug);
+  function applyFilters(nextFilters: BlogFilters) {
+    setTopicSlug(nextFilters.topicSlug);
+    setCategorySlug(nextFilters.categorySlug);
+    setTagSlug(nextFilters.tagSlug);
     const params = new URLSearchParams();
 
-    if (nextTopicSlug) {
-      params.set("topic", nextTopicSlug);
+    if (nextFilters.topicSlug) {
+      params.set("topic", nextFilters.topicSlug);
     }
 
-    if (nextTagSlug) {
-      params.set("tag", nextTagSlug);
+    if (nextFilters.categorySlug) {
+      params.set("category", nextFilters.categorySlug);
+    }
+
+    if (nextFilters.tagSlug) {
+      params.set("tag", nextFilters.tagSlug);
     }
 
     const query = params.toString();
     window.history.replaceState(null, "", query ? `/blog?${query}` : "/blog");
-    void fetchPosts(0, true, { topicSlug: nextTopicSlug, tagSlug: nextTagSlug });
+    void fetchPosts(0, true, nextFilters);
   }
 
   const hasMore = offset < total;
@@ -110,7 +127,9 @@ export function BlogIndexClient({
           <span>Topic</span>
           <select
             value={topicSlug}
-            onChange={(event) => applyFilters(event.target.value, tagSlug)}
+            onChange={(event) =>
+              applyFilters({ topicSlug: event.target.value, categorySlug, tagSlug })
+            }
           >
             <option value="">All topics</option>
             {topics.map((topic) => (
@@ -121,8 +140,29 @@ export function BlogIndexClient({
           </select>
         </label>
         <label className="field blog-filter-field">
+          <span>Category</span>
+          <select
+            value={categorySlug}
+            onChange={(event) =>
+              applyFilters({ topicSlug, categorySlug: event.target.value, tagSlug })
+            }
+          >
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.slug}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field blog-filter-field">
           <span>Tag</span>
-          <select value={tagSlug} onChange={(event) => applyFilters(topicSlug, event.target.value)}>
+          <select
+            value={tagSlug}
+            onChange={(event) =>
+              applyFilters({ topicSlug, categorySlug, tagSlug: event.target.value })
+            }
+          >
             <option value="">All tags</option>
             {tags.map((tag) => (
               <option key={tag.id} value={tag.slug}>
@@ -151,12 +191,14 @@ export function BlogIndexClient({
                 <div className="blog-card-body">
                   <div className="blog-card-meta">
                     {post.primaryTopic ? <span className="blog-chip">{post.primaryTopic.name}</span> : null}
+                    {post.primaryCategory ? (
+                      <span className="blog-chip blog-chip-muted">{post.primaryCategory.name}</span>
+                    ) : null}
                     {post.publishedAt ? (
                       <time dateTime={post.publishedAt}>{formatBlogPublishedDate(post.publishedAt)}</time>
                     ) : null}
                   </div>
                   <h2>{post.title}</h2>
-                  {post.excerpt ? <p>{post.excerpt}</p> : null}
                   {post.tags.length > 0 ? (
                     <div className="blog-card-tags">
                       {post.tags.map((tag) => (
@@ -180,7 +222,7 @@ export function BlogIndexClient({
           <button
             className="secondary-button"
             disabled={isLoading}
-            onClick={() => void fetchPosts(offset, false, { topicSlug, tagSlug })}
+            onClick={() => void fetchPosts(offset, false, { topicSlug, categorySlug, tagSlug })}
             type="button"
           >
             {isLoading ? "Loading..." : "Load more"}

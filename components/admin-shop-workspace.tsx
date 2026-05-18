@@ -575,22 +575,26 @@ export function AdminShopWorkspace() {
                   </td>
                   <td>{formatTemplateTimestamp(product.updatedAt)}</td>
                   <td>
-                    <div className="builder-template-actions">
+                    <div className="table-actions">
                       <button
-                        className="secondary-button"
+                        className="polls-icon-button"
                         disabled={isSaving}
                         onClick={() => startEditing(product)}
                         type="button"
+                        aria-label="Edit product"
+                        title="Edit"
                       >
-                        Edit
+                        ✎
                       </button>
                       <button
-                        className="row-delete-button"
+                        className="polls-icon-button polls-icon-button-danger"
                         disabled={isSaving}
                         onClick={() => void deleteProduct(product)}
                         type="button"
+                        aria-label="Delete product"
+                        title="Delete"
                       >
-                        Delete
+                        🗑
                       </button>
                     </div>
                   </td>

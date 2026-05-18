@@ -452,31 +452,37 @@ export function AdminUsersWorkspace({
                   </td>
                   <td>{formatTimestamp(user.createdAt)}</td>
                   <td>
-                    <div className="builder-template-actions">
+                    <div className="table-actions">
                       <button
-                        className="secondary-button"
+                        className="polls-icon-button"
                         onClick={() => setSelectedUserId(user.id)}
                         type="button"
+                        aria-label="Edit user"
+                        title="Edit"
                       >
-                        Edit
+                        ✎
                       </button>
                       {directoryKind === "team" && user.status === "invited" ? (
                         <button
-                          className="secondary-button"
+                          className="polls-icon-button"
                           onClick={() => void handleInvite(user)}
                           type="button"
                           disabled={isInviting}
+                          aria-label="Resend invite"
+                          title="Resend invite"
                         >
-                          Resend Invite
+                          ↻
                         </button>
                       ) : null}
                       <button
-                        className="row-delete-button"
+                        className="polls-icon-button polls-icon-button-danger"
                         onClick={() => void handleDelete(user)}
                         type="button"
                         disabled={isDeleting}
+                        aria-label="Delete user"
+                        title="Delete"
                       >
-                        Delete
+                        🗑
                       </button>
                     </div>
                   </td>

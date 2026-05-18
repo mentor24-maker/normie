@@ -1,11 +1,13 @@
 import {
   computeBlogReadingTimeMinutes,
   isBlogPostPubliclyVisible,
+  rowToBlogCategory,
   rowToBlogPost,
   rowToBlogTag,
   rowToBlogTopic,
   slugifyBlogText,
   toBlogPostCard,
+  type BlogCategoryRecord,
   type BlogPostEditorInput,
   type BlogPostRecord,
   type BlogTagRecord,
@@ -25,6 +27,7 @@ const POST_SELECT = `
   published_at,
   author_team_user_id,
   primary_topic_id,
+  primary_category_id,
   meta_title,
   meta_description,
   og_title,
@@ -48,19 +51,24 @@ async function loadPostRelations(
     string,
     {
       topicIds: string[];
+      categoryIds: string[];
       tagIds: string[];
       relatedPostIds: string[];
     }
   >
 > {
-  const map = new Map<string, { topicIds: string[]; tagIds: string[]; relatedPostIds: string[] }>();
+  const map = new Map<
+    string,
+    { topicIds: string[]; categoryIds: string[]; tagIds: string[]; relatedPostIds: string[] }
+  >();
 
   if (postIds.length === 0) {
     return map;
   }
 
-  const [topicsRes, tagsRes, relatedRes] = await Promise.all([
+  const [topicsRes, categoriesRes, tagsRes, relatedRes] = await Promise.all([
     supabase.from("blog_post_topics").select("post_id, topic_id").in("post_id", postIds),
+    supabase.from("blog_post_categories").select("post_id, category_id").in("post_id", postIds),
     supabase.from("blog_post_tags").select("post_id, tag_id").in("post_id", postIds),
     supabase
       .from("blog_post_related_posts")
@@ -70,7 +78,7 @@ async function loadPostRelations(
   ]);
 
   for (const postId of postIds) {
-    map.set(postId, { topicIds: [], tagIds: [], relatedPostIds: [] });
+    map.set(postId, { topicIds: [], categoryIds: [], tagIds: [], relatedPostIds: [] });
   }
 
   for (const row of topicsRes.data ?? []) {
@@ -78,6 +86,14 @@ async function loadPostRelations(
 
     if (entry) {
       entry.topicIds.push(row.topic_id);
+    }
+  }
+
+  for (const row of categoriesRes.data ?? []) {
+    const entry = map.get(row.post_id);
+
+    if (entry) {
+      entry.categoryIds.push(row.category_id);
     }
   }
 
@@ -118,27 +134,41 @@ async function loadAuthorNames(supabase: SupabaseClient, authorIds: string[]) {
 
 function enrichPosts(
   rows: Record<string, unknown>[],
-  relations: Map<string, { topicIds: string[]; tagIds: string[]; relatedPostIds: string[] }>,
+  relations: Map<
+    string,
+    { topicIds: string[]; categoryIds: string[]; tagIds: string[]; relatedPostIds: string[] }
+  >,
   topicsById: Map<string, BlogTopicRecord>,
+  categoriesById: Map<string, BlogCategoryRecord>,
   tagsById: Map<string, BlogTagRecord>,
   authorNames: Map<string, string>
 ): BlogPostRecord[] {
   return rows.map((row) => {
     const id = String(row.id);
-    const rel = relations.get(id) ?? { topicIds: [], tagIds: [], relatedPostIds: [] };
+    const rel = relations.get(id) ?? { topicIds: [], categoryIds: [], tagIds: [], relatedPostIds: [] };
     const topics = rel.topicIds.map((topicId) => topicsById.get(topicId)).filter(Boolean) as BlogTopicRecord[];
+    const categories = rel.categoryIds
+      .map((categoryId) => categoriesById.get(categoryId))
+      .filter(Boolean) as BlogCategoryRecord[];
     const tags = rel.tagIds.map((tagId) => tagsById.get(tagId)).filter(Boolean) as BlogTagRecord[];
     const primaryTopicId = row.primary_topic_id ? String(row.primary_topic_id) : null;
     const primaryTopic = primaryTopicId ? topicsById.get(primaryTopicId) ?? topics.find((t) => t.id === primaryTopicId) ?? null : null;
+    const primaryCategoryId = row.primary_category_id ? String(row.primary_category_id) : null;
+    const primaryCategory = primaryCategoryId
+      ? categoriesById.get(primaryCategoryId) ?? categories.find((c) => c.id === primaryCategoryId) ?? null
+      : null;
     const authorId = row.author_team_user_id ? String(row.author_team_user_id) : null;
 
     return rowToBlogPost(row, {
       topicIds: rel.topicIds,
+      categoryIds: rel.categoryIds,
       tagIds: rel.tagIds,
       relatedPostIds: rel.relatedPostIds,
       topics,
+      categories,
       tags,
       primaryTopic,
+      primaryCategory,
       authorName: authorId ? authorNames.get(authorId) ?? "Normie" : "Normie"
     });
   });
@@ -153,6 +183,17 @@ export async function listAdminBlogTopics() {
   }
 
   return (data ?? []).map((row) => rowToBlogTopic(row));
+}
+
+export async function listAdminBlogCategories() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("blog_categories").select("*").order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => rowToBlogCategory(row));
 }
 
 export async function listAdminBlogTags() {
@@ -180,15 +221,20 @@ export async function listAdminBlogPosts() {
   const rows = (data ?? []) as Record<string, unknown>[];
   const postIds = rows.map((row) => String(row.id));
   const relations = await loadPostRelations(supabase, postIds);
-  const [topics, tags] = await Promise.all([listAdminBlogTopics(), listAdminBlogTags()]);
+  const [topics, categories, tags] = await Promise.all([
+    listAdminBlogTopics(),
+    listAdminBlogCategories(),
+    listAdminBlogTags()
+  ]);
   const topicsById = new Map(topics.map((topic) => [topic.id, topic]));
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
   const authorIds = rows
     .map((row) => (row.author_team_user_id ? String(row.author_team_user_id) : ""))
     .filter(Boolean);
   const authorNames = await loadAuthorNames(supabase, authorIds);
 
-  return enrichPosts(rows, relations, topicsById, tagsById, authorNames);
+  return enrichPosts(rows, relations, topicsById, categoriesById, tagsById, authorNames);
 }
 
 export async function getAdminBlogPostById(postId: string) {
@@ -205,25 +251,41 @@ export async function getAdminBlogPostById(postId: string) {
 
   const rows = [data as Record<string, unknown>];
   const relations = await loadPostRelations(supabase, [postId]);
-  const [topics, tags] = await Promise.all([listAdminBlogTopics(), listAdminBlogTags()]);
+  const [topics, categories, tags] = await Promise.all([
+    listAdminBlogTopics(),
+    listAdminBlogCategories(),
+    listAdminBlogTags()
+  ]);
   const topicsById = new Map(topics.map((topic) => [topic.id, topic]));
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
   const authorNames = await loadAuthorNames(
     supabase,
     data.author_team_user_id ? [String(data.author_team_user_id)] : []
   );
 
-  return enrichPosts(rows, relations, topicsById, tagsById, authorNames)[0] ?? null;
+  return enrichPosts(rows, relations, topicsById, categoriesById, tagsById, authorNames)[0] ?? null;
 }
 
 async function syncPostRelations(supabase: SupabaseClient, postId: string, input: BlogPostEditorInput) {
   await supabase.from("blog_post_topics").delete().eq("post_id", postId);
+  await supabase.from("blog_post_categories").delete().eq("post_id", postId);
   await supabase.from("blog_post_tags").delete().eq("post_id", postId);
   await supabase.from("blog_post_related_posts").delete().eq("post_id", postId);
 
   if (input.topicIds.length > 0) {
     const { error } = await supabase.from("blog_post_topics").insert(
       input.topicIds.map((topicId) => ({ post_id: postId, topic_id: topicId }))
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  if (input.categoryIds.length > 0) {
+    const { error } = await supabase.from("blog_post_categories").insert(
+      input.categoryIds.map((categoryId) => ({ post_id: postId, category_id: categoryId }))
     );
 
     if (error) {
@@ -270,6 +332,7 @@ export async function saveAdminBlogPost(input: BlogPostEditorInput, postId?: str
     published_at: input.publishedAt,
     author_team_user_id: input.authorTeamUserId,
     primary_topic_id: input.primaryTopicId,
+    primary_category_id: input.primaryCategoryId,
     meta_title: input.metaTitle,
     meta_description: input.metaDescription,
     og_title: input.ogTitle,
@@ -369,6 +432,53 @@ export async function deleteAdminBlogTopic(topicId: string) {
   }
 }
 
+export async function saveAdminBlogCategory(input: { id?: string; name: string; slug?: string }) {
+  const supabase = createAdminClient();
+  const name = input.name.trim();
+  const slug = slugifyBlogText(input.slug || name, 120);
+  const now = new Date().toISOString();
+
+  if (!name || !slug) {
+    throw new Error("Category name is required.");
+  }
+
+  if (input.id) {
+    const { data, error } = await supabase
+      .from("blog_categories")
+      .update({ name, slug, updated_at: now })
+      .eq("id", input.id)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Failed to update category.");
+    }
+
+    return rowToBlogCategory(data);
+  }
+
+  const { data, error } = await supabase
+    .from("blog_categories")
+    .insert({ name, slug, updated_at: now })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create category.");
+  }
+
+  return rowToBlogCategory(data);
+}
+
+export async function deleteAdminBlogCategory(categoryId: string) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("blog_categories").delete().eq("id", categoryId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function saveAdminBlogTag(input: { id?: string; name: string; slug?: string }) {
   const supabase = createAdminClient();
   const name = input.name.trim();
@@ -420,6 +530,7 @@ export type PublicBlogListOptions = {
   limit: number;
   offset: number;
   topicSlug?: string;
+  categorySlug?: string;
   tagSlug?: string;
 };
 
@@ -436,6 +547,36 @@ export async function listPublicBlogPosts(options: PublicBlogListOptions) {
 
     const { data: links } = await supabase.from("blog_post_topics").select("post_id").eq("topic_id", topic.id);
     postIdsFilter = (links ?? []).map((row) => row.post_id);
+
+    if (postIdsFilter.length === 0) {
+      return { posts: [], total: 0 };
+    }
+  }
+
+  if (options.categorySlug) {
+    const { data: category } = await supabase
+      .from("blog_categories")
+      .select("id")
+      .eq("slug", options.categorySlug)
+      .maybeSingle();
+
+    if (!category) {
+      return { posts: [], total: 0 };
+    }
+
+    const { data: links } = await supabase
+      .from("blog_post_categories")
+      .select("post_id")
+      .eq("category_id", category.id);
+    const categoryPostIds = (links ?? []).map((row) => row.post_id);
+
+    if (categoryPostIds.length === 0) {
+      return { posts: [], total: 0 };
+    }
+
+    postIdsFilter = postIdsFilter
+      ? postIdsFilter.filter((id) => categoryPostIds.includes(id))
+      : categoryPostIds;
 
     if (postIdsFilter.length === 0) {
       return { posts: [], total: 0 };
@@ -485,15 +626,20 @@ export async function listPublicBlogPosts(options: PublicBlogListOptions) {
   const admin = createAdminClient();
   const postIds = rows.map((row) => String(row.id));
   const relations = await loadPostRelations(admin, postIds);
-  const [topics, tags] = await Promise.all([listAdminBlogTopics(), listAdminBlogTags()]);
+  const [topics, categories, tags] = await Promise.all([
+    listAdminBlogTopics(),
+    listAdminBlogCategories(),
+    listAdminBlogTags()
+  ]);
   const topicsById = new Map(topics.map((topic) => [topic.id, topic]));
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
   const authorNames = await loadAuthorNames(
     admin,
     rows.map((row) => (row.author_team_user_id ? String(row.author_team_user_id) : "")).filter(Boolean)
   );
 
-  const posts = enrichPosts(rows, relations, topicsById, tagsById, authorNames).map(toBlogPostCard);
+  const posts = enrichPosts(rows, relations, topicsById, categoriesById, tagsById, authorNames).map(toBlogPostCard);
 
   return { posts, total: count ?? posts.length };
 }
@@ -538,13 +684,15 @@ export async function getPublicBlogPost(topicSlug: string, postSlug: string) {
 
 export async function listPublicBlogTopicsAndTags() {
   const supabase = createPublicClient();
-  const [topicsRes, tagsRes] = await Promise.all([
+  const [topicsRes, categoriesRes, tagsRes] = await Promise.all([
     supabase.from("blog_topics").select("*").order("name", { ascending: true }),
+    supabase.from("blog_categories").select("*").order("name", { ascending: true }),
     supabase.from("blog_tags").select("*").order("name", { ascending: true })
   ]);
 
   return {
     topics: (topicsRes.data ?? []).map((row) => rowToBlogTopic(row)),
+    categories: (categoriesRes.data ?? []).map((row) => rowToBlogCategory(row)),
     tags: (tagsRes.data ?? []).map((row) => rowToBlogTag(row))
   };
 }

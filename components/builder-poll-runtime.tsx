@@ -168,7 +168,7 @@ export function BuilderPollModuleRuntime({
 
   if (isLoading) {
     return (
-      <article className={className ? `${className} panel` : "panel"}>
+      <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">Loading polls...</p>
       </article>
@@ -177,7 +177,7 @@ export function BuilderPollModuleRuntime({
 
   if (error) {
     return (
-      <article className={className ? `${className} panel` : "panel"}>
+      <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">{error}</p>
       </article>
@@ -186,7 +186,7 @@ export function BuilderPollModuleRuntime({
 
   if (payload?.done) {
     return (
-      <article className={className ? `${className} panel` : "panel"}>
+      <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">
           {activeCategory
@@ -214,7 +214,7 @@ export function BuilderPollModuleRuntime({
   }
 
   return (
-    <article className={className ? `${className} panel` : "panel"}>
+    <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
       <div className="panel-label">Current Poll</div>
       <p className="panel-copy">
         {activeCategory ? `No published polls are available in ${activeCategory.name} yet.` : "No published polls are available yet."}

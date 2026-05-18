@@ -5,6 +5,7 @@ import type { AdminMediaItem } from "@/lib/admin-media";
 import {
   normalizeBlogSlugInput,
   slugifyBlogText,
+  type BlogCategoryRecord,
   type BlogPostEditorInput,
   type BlogPostRecord,
   type BlogPostStatus,
@@ -23,6 +24,7 @@ type TeamAuthor = {
 type AdminBlogPostEditorProps = {
   draft: BlogPostEditorInput & { id?: string };
   topics: BlogTopicRecord[];
+  categories: BlogCategoryRecord[];
   tags: BlogTagRecord[];
   posts: BlogPostRecord[];
   authors: TeamAuthor[];
@@ -52,6 +54,7 @@ function toDatetimeLocalValue(iso: string | null) {
 export function AdminBlogPostEditor({
   draft,
   topics,
+  categories,
   tags,
   posts,
   authors,
@@ -114,6 +117,19 @@ export function AdminBlogPostEditor({
     onChange({ ...draft, topicIds, primaryTopicId });
   }
 
+  function toggleCategory(categoryId: string) {
+    const hasCategory = draft.categoryIds.includes(categoryId);
+    const categoryIds = hasCategory
+      ? draft.categoryIds.filter((id) => id !== categoryId)
+      : [...draft.categoryIds, categoryId];
+    const primaryCategoryId =
+      draft.primaryCategoryId && categoryIds.includes(draft.primaryCategoryId)
+        ? draft.primaryCategoryId
+        : categoryIds[0] ?? null;
+
+    onChange({ ...draft, categoryIds, primaryCategoryId });
+  }
+
   function toggleTag(tagId: string) {
     const tagIds = draft.tagIds.includes(tagId)
       ? draft.tagIds.filter((id) => id !== tagId)
@@ -139,7 +155,12 @@ export function AdminBlogPostEditor({
           <button className="secondary-button" disabled={isSaving} onClick={onCancel} type="button">
             Back
           </button>
-          <button className="primary-button" disabled={isSaving} onClick={onSave} type="button">
+          <button
+            className="submit-button admin-blog-add-button"
+            disabled={isSaving}
+            onClick={onSave}
+            type="button"
+          >
             {isSaving ? "Saving..." : "Save post"}
           </button>
         </div>
@@ -271,6 +292,38 @@ export function AdminBlogPostEditor({
                 return topic ? (
                   <option key={topic.id} value={topic.id}>
                     {topic.name}
+                  </option>
+                ) : null;
+              })}
+            </select>
+          </label>
+
+          <fieldset className="admin-blog-fieldset">
+            <legend>Categories</legend>
+            {categories.map((category) => (
+              <label className="admin-blog-check" key={category.id}>
+                <input
+                  checked={draft.categoryIds.includes(category.id)}
+                  onChange={() => toggleCategory(category.id)}
+                  type="checkbox"
+                />
+                <span>{category.name}</span>
+              </label>
+            ))}
+          </fieldset>
+
+          <label className="field">
+            <span>Primary category</span>
+            <select
+              value={draft.primaryCategoryId ?? ""}
+              onChange={(event) => onChange({ ...draft, primaryCategoryId: event.target.value || null })}
+            >
+              <option value="">Select primary category</option>
+              {draft.categoryIds.map((categoryId) => {
+                const category = categories.find((candidate) => candidate.id === categoryId);
+                return category ? (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ) : null;
               })}

@@ -141,21 +141,21 @@ export function BuilderPageList({
                         <div className="builder-template-actions">
                           <button
                             className="polls-icon-button"
-                            onClick={() => onPreviewPage(page.slug)}
-                            type="button"
-                            aria-label="Preview page"
-                            title="Preview page"
-                          >
-                            👁
-                          </button>
-                          <button
-                            className="polls-icon-button"
                             onClick={() => handleEditPage(page.id)}
                             type="button"
                             aria-label={isSelected ? "Editing current page" : "Edit page"}
                             title={isSelected ? "Editing current page" : "Edit page"}
                           >
                             {isSelected ? "●" : "✎"}
+                          </button>
+                          <button
+                            className="polls-icon-button"
+                            onClick={() => onPreviewPage(page.slug)}
+                            type="button"
+                            aria-label="Preview page"
+                            title="Preview page"
+                          >
+                            👁
                           </button>
                           <button
                             className="polls-icon-button polls-icon-button-danger"

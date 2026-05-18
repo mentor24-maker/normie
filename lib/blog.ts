@@ -26,6 +26,14 @@ export type BlogTopicRecord = {
   updatedAt: string;
 };
 
+export type BlogCategoryRecord = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type BlogTagRecord = {
   id: string;
   name: string;
@@ -46,7 +54,9 @@ export type BlogPostRecord = {
   authorTeamUserId: string | null;
   authorName: string;
   primaryTopicId: string | null;
+  primaryCategoryId: string | null;
   topicIds: string[];
+  categoryIds: string[];
   tagIds: string[];
   relatedPostIds: string[];
   metaTitle: string;
@@ -61,8 +71,10 @@ export type BlogPostRecord = {
   createdAt: string;
   updatedAt: string;
   topics?: BlogTopicRecord[];
+  categories?: BlogCategoryRecord[];
   tags?: BlogTagRecord[];
   primaryTopic?: BlogTopicRecord | null;
+  primaryCategory?: BlogCategoryRecord | null;
 };
 
 export type BlogPostCard = Pick<
@@ -77,7 +89,9 @@ export type BlogPostCard = Pick<
   | "authorName"
 > & {
   primaryTopic: BlogTopicRecord | null;
+  primaryCategory: BlogCategoryRecord | null;
   topics: BlogTopicRecord[];
+  categories: BlogCategoryRecord[];
   tags: BlogTagRecord[];
 };
 
@@ -91,7 +105,9 @@ export type BlogPostEditorInput = {
   publishedAt: string | null;
   authorTeamUserId: string | null;
   primaryTopicId: string | null;
+  primaryCategoryId: string | null;
   topicIds: string[];
+  categoryIds: string[];
   tagIds: string[];
   relatedPostIds: string[];
   metaTitle: string;
@@ -163,6 +179,16 @@ export function rowToBlogTopic(row: Record<string, unknown>): BlogTopicRecord {
   };
 }
 
+export function rowToBlogCategory(row: Record<string, unknown>): BlogCategoryRecord {
+  return {
+    id: safeText(row.id, 120),
+    name: safeText(row.name, 255),
+    slug: safeText(row.slug, 120),
+    createdAt: safeText(row.created_at ?? row.createdAt, 80),
+    updatedAt: safeText(row.updated_at ?? row.updatedAt, 80)
+  };
+}
+
 export function rowToBlogTag(row: Record<string, unknown>): BlogTagRecord {
   return {
     id: safeText(row.id, 120),
@@ -177,11 +203,14 @@ export function rowToBlogPost(
   row: Record<string, unknown>,
   extras?: {
     topicIds?: string[];
+    categoryIds?: string[];
     tagIds?: string[];
     relatedPostIds?: string[];
     topics?: BlogTopicRecord[];
+    categories?: BlogCategoryRecord[];
     tags?: BlogTagRecord[];
     primaryTopic?: BlogTopicRecord | null;
+    primaryCategory?: BlogCategoryRecord | null;
     authorName?: string;
   }
 ): BlogPostRecord {
@@ -189,6 +218,11 @@ export function rowToBlogPost(
     extras?.primaryTopic ??
     (Array.isArray(row.blog_topics) && row.blog_topics[0]
       ? rowToBlogTopic(row.blog_topics[0] as Record<string, unknown>)
+      : null);
+  const primaryCategory =
+    extras?.primaryCategory ??
+    (Array.isArray(row.blog_categories) && row.blog_categories[0]
+      ? rowToBlogCategory(row.blog_categories[0] as Record<string, unknown>)
       : null);
 
   return {
@@ -203,7 +237,11 @@ export function rowToBlogPost(
     authorTeamUserId: row.author_team_user_id ? safeText(row.author_team_user_id, 120) : null,
     authorName: extras?.authorName ?? (safeText(row.author_name, 255) || "Normie"),
     primaryTopicId: row.primary_topic_id ? safeText(row.primary_topic_id, 120) : primaryTopic?.id ?? null,
+    primaryCategoryId: row.primary_category_id
+      ? safeText(row.primary_category_id, 120)
+      : primaryCategory?.id ?? null,
     topicIds: extras?.topicIds ?? [],
+    categoryIds: extras?.categoryIds ?? [],
     tagIds: extras?.tagIds ?? [],
     relatedPostIds: extras?.relatedPostIds ?? [],
     metaTitle: safeText(row.meta_title ?? row.metaTitle, 255),
@@ -218,8 +256,10 @@ export function rowToBlogPost(
     createdAt: safeText(row.created_at ?? row.createdAt, 80),
     updatedAt: safeText(row.updated_at ?? row.updatedAt, 80),
     topics: extras?.topics,
+    categories: extras?.categories,
     tags: extras?.tags,
-    primaryTopic
+    primaryTopic,
+    primaryCategory
   };
 }
 
@@ -231,6 +271,10 @@ export function normalizeBlogPostEditorInput(body: Record<string, unknown>): Blo
     ? body.topicIds.map((id) => safeText(id, 120)).filter(Boolean)
     : [];
   const primaryTopicId = safeText(body.primaryTopicId ?? body.primary_topic_id, 120) || null;
+  const categoryIds = Array.isArray(body.categoryIds)
+    ? body.categoryIds.map((id) => safeText(id, 120)).filter(Boolean)
+    : [];
+  const primaryCategoryId = safeText(body.primaryCategoryId ?? body.primary_category_id, 120) || null;
 
   return {
     title,
@@ -242,7 +286,9 @@ export function normalizeBlogPostEditorInput(body: Record<string, unknown>): Blo
     publishedAt: safeText(body.publishedAt ?? body.published_at, 80) || null,
     authorTeamUserId: safeText(body.authorTeamUserId ?? body.author_team_user_id, 120) || null,
     primaryTopicId,
+    primaryCategoryId,
     topicIds,
+    categoryIds,
     tagIds: Array.isArray(body.tagIds)
       ? body.tagIds.map((id) => safeText(id, 120)).filter(Boolean)
       : [],
@@ -279,6 +325,10 @@ export function validateBlogPostInput(input: BlogPostEditorInput) {
 
   if (input.primaryTopicId && !input.topicIds.includes(input.primaryTopicId)) {
     return "Primary topic must be included in the post topics list.";
+  }
+
+  if (input.primaryCategoryId && !input.categoryIds.includes(input.primaryCategoryId)) {
+    return "Primary category must be included in the post categories list.";
   }
 
   if (input.status !== "draft" && !input.publishedAt) {
@@ -369,7 +419,9 @@ export function toBlogPostCard(post: BlogPostRecord): BlogPostCard {
     readingTimeMinutes: post.readingTimeMinutes,
     authorName: post.authorName,
     primaryTopic: post.primaryTopic ?? null,
+    primaryCategory: post.primaryCategory ?? null,
     topics: post.topics ?? [],
+    categories: post.categories ?? [],
     tags: post.tags ?? []
   };
 }

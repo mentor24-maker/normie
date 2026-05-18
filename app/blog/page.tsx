@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 type BlogIndexPageProps = {
   searchParams: Promise<{
     topic?: string;
+    category?: string;
     tag?: string;
   }>;
 };
@@ -16,14 +17,23 @@ type BlogIndexPageProps = {
 export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps) {
   const params = await searchParams;
   const topicSlug = params.topic?.trim() ?? "";
+  const categorySlug = params.category?.trim() ?? "";
   const tagSlug = params.tag?.trim() ?? "";
   const [{ posts, total }, taxonomy] = await Promise.all([
-    listPublicBlogPosts({ limit: 12, offset: 0, topicSlug: topicSlug || undefined, tagSlug: tagSlug || undefined }),
+    listPublicBlogPosts({
+      limit: 12,
+      offset: 0,
+      topicSlug: topicSlug || undefined,
+      categorySlug: categorySlug || undefined,
+      tagSlug: tagSlug || undefined
+    }),
     listPublicBlogTopicsAndTags()
   ]);
 
   return (
     <BlogIndexClient
+      categories={taxonomy.categories}
+      initialCategorySlug={categorySlug}
       initialPosts={posts}
       initialTagSlug={tagSlug}
       initialTopicSlug={topicSlug}
