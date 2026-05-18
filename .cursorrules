@@ -15,6 +15,16 @@
 - Ensure strict type safety and comprehensive error handling.
 - Do not add placeholders, boilerplate, or "TODO" comments unless explicitly asked.
 
+## Style Guide
+- **Button labels:** Use Title Case for headlines, buttons, and similar UI chrome (e.g. `Save Settings`, not `Save settings`).
+- **Button text must not wrap:** Primary, secondary, and danger buttons use `white-space: nowrap` so labels like `Save Settings` stay on one line. Size buttons to their text (`width: fit-content`) plus horizontal padding — not full width unless a specific layout requires it.
+- **Admin notices:** Success — light green background, dark green border and text. Error — pink background, 2px dark red border, dark red text.
+- **Admin action buttons:** Add/save actions often use the green gradient (`.admin-blog-add-button`). Bulk delete — red background, white text, centered. Publish icon green; delete icon red.
+- **Admin table Actions columns:** Icon-only buttons only — no text labels inside the cell (use `aria-label` for accessibility). Primary actions (edit, save, cancel) stay visible. The delete icon is hidden until row hover or keyboard focus within the row, then appears instantly (no animation delay). Hovering the delete icon shows an instant tooltip labeled `Delete` (Title Case). Keep the Actions column sticky on wide horizontal-scroll tables.
+- **Poll pods:** Module panel backgrounds are transparent by default; pod styling comes from Poll Settings. Header pill uses configurable colors (default header background `#5acff9`, dark turquoise ink). Keep header `border-radius: 999px` only when height is pill-like; taller headers should read as rounded boxes. ~100px gap between Current Poll and Previous Results pods. Question/content width is left-aligned, not centered.
+- **Pods container:** Site “pod” panels use white or configured backgrounds, rounded corners, alignment with main body content.
+- See `docs/look-and-feel-compiled.md` for the full list of user look-and-feel notes from prior sessions (review and merge into this section over time).
+
 # Normie Project — Cursor Rules & Coding Conventions
 
 ## Stack
@@ -106,6 +116,7 @@ Always touch all three files in order:
 - Media API: `GET /api/admin/media`, `POST /api/admin/media` (file upload)
 - Pages: `GET/POST /api/admin/pages`, `PATCH/DELETE /api/admin/pages/[id]`
 - Templates: `GET/POST /api/admin/page-templates`, `PATCH/DELETE /api/admin/page-templates/[id]`
+- Public `GET /api/polls/next` accepts optional `startPoll` (poll UUID) plus optional `category` to show that published poll as the current question (used by Poll Manager View).
 - All API responses return `{ data?, error? }` shape
 
 ## Rich Text Editor (Tiptap)

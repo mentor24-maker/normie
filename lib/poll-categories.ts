@@ -61,13 +61,48 @@ export function resolvePollCategoryName(param: string | null | undefined): strin
   return raw;
 }
 
-export function buildPollsNextRequestUrl(categoryParam: string | null | undefined) {
-  const raw = categoryParam?.trim();
-  if (!raw) {
-    return "/api/polls/next";
+export function buildPollsNextRequestUrl(
+  categoryParam: string | null | undefined,
+  startPollId?: string | null
+) {
+  const params = new URLSearchParams();
+  const categoryRaw = categoryParam?.trim();
+  if (categoryRaw) {
+    params.set("category", categoryRaw);
+  }
+  const startRaw = startPollId?.trim();
+  if (startRaw) {
+    params.set("startPoll", startRaw);
+  }
+  const qs = params.toString();
+  return qs ? `/api/polls/next?${qs}` : "/api/polls/next";
+}
+
+/** Path + query to open the site with a specific published poll as the current question (see `/api/polls/next?startPoll=`). */
+export function buildPublicPollViewPath(poll: { id: string; category: string | null }): string {
+  const params = new URLSearchParams();
+  params.set("startPoll", poll.id);
+  const cat = poll.category?.trim();
+  if (cat) {
+    const seeded = POLL_CATEGORY_SEEDS.find((c) => c.name === cat);
+    params.set("category", seeded?.slug ?? slugifyPollCategory(cat));
+  }
+  return `/?${params.toString()}`;
+}
+
+export function stripStartPollFromBrowserUrl(): void {
+  if (typeof window === "undefined") {
+    return;
   }
 
-  return `/api/polls/next?category=${encodeURIComponent(raw)}`;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("startPoll")) {
+    return;
+  }
+
+  url.searchParams.delete("startPoll");
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, "", next);
 }
 
 export function getPollCategoryMeta(param: string | null | undefined): PollCategorySeed | null {

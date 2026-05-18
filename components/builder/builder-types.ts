@@ -127,6 +127,8 @@ export const modulePaletteItems: ModulePaletteItem[] = [
       color: "#18324a",
       bold: "true",
       alignment: "center",
+      verticalAlignment: "top",
+      minHeight: "480",
       fadeDuration: "800",
       displaySpeed: "3000",
       headlines: JSON.stringify([])

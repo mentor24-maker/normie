@@ -9,7 +9,7 @@
 --   2. Run migrations/001_legacy_users_split.sql only if you still have admin rows in public.users.
 --
 -- RLS summary:
---   Public read (anon): published polls, poll_options, responses, pages, blog.
+--   Public read (anon): published polls, poll_options, responses, poll_settings, pages, blog.
 --   Public write (anon): responses insert (validated in API + policy).
 --   Server-only (service role): users, team_users, builder tables, products,
 --     page_templates, api_rate_limits, blog admin mutations, and other admin writes.
@@ -23,6 +23,10 @@ create table if not exists public.polls (
   id uuid primary key default gen_random_uuid(),
   category varchar,
   question text not null,
+  deep_dive text not null default '',
+  deep_dive_youtube_url text not null default '',
+  deep_dive_blog_post_id uuid references public.blog_posts(id) on delete set null,
+  deep_dive_related_poll_ids jsonb not null default '[]'::jsonb,
   image_url text not null default '',
   order_index integer not null unique,
   is_published boolean not null default true,
@@ -45,6 +49,45 @@ create table if not exists public.responses (
   created_at timestamptz not null default now(),
   unique (session_id, poll_id)
 );
+
+create table if not exists public.poll_settings (
+  id text primary key default 'default' check (id = 'default'),
+  previous_results_empty_eyebrow text not null default 'How It Works',
+  previous_results_empty_content_html text not null default '',
+  pod_background_color text not null default 'transparent',
+  header_background_color text not null default '#5acff9',
+  header_font_color text not null default '#0c5f72',
+  header_font_size text not null default '1.08',
+  header_border_size text not null default '0',
+  header_border_color text not null default 'transparent',
+  header_drop_shadow_enabled text not null default 'false',
+  header_drop_shadow_x text not null default '0',
+  header_drop_shadow_y text not null default '12',
+  header_drop_shadow_blur text not null default '30',
+  header_drop_shadow_color text not null default '#322217',
+  header_drop_shadow_opacity text not null default '8',
+  question_area_width text not null default '100',
+  answer_button_a_background text not null default '#ffffff',
+  answer_button_b_background text not null default '#ffffff',
+  answer_button_a_border_size text not null default '1',
+  answer_button_b_border_size text not null default '1',
+  answer_button_a_border_color text not null default '#091018',
+  answer_button_b_border_color text not null default '#091018',
+  answer_button_a_font_color text not null default '#091018',
+  answer_button_b_font_color text not null default '#091018',
+  answer_button_a_font_size text not null default '1',
+  answer_button_b_font_size text not null default '1',
+  pod_configs jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.poll_settings (id, previous_results_empty_eyebrow, previous_results_empty_content_html)
+values (
+  'default',
+  'How It Works',
+  '<h2>Vote left, watch the story unfold on the right.</h2><p>Each screen invites you into the next question while showing the community response to the previous prompt.</p>'
+)
+on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Builder pages
@@ -252,6 +295,7 @@ create index if not exists api_rate_limits_expires_at_idx on public.api_rate_lim
 alter table public.polls enable row level security;
 alter table public.poll_options enable row level security;
 alter table public.responses enable row level security;
+alter table public.poll_settings enable row level security;
 alter table public.page_templates enable row level security;
 alter table public.pages enable row level security;
 alter table public.users enable row level security;
@@ -268,6 +312,13 @@ alter table public.blog_post_tags enable row level security;
 alter table public.blog_post_categories enable row level security;
 alter table public.blog_post_related_posts enable row level security;
 alter table public.api_rate_limits enable row level security;
+
+drop policy if exists "poll settings are readable" on public.poll_settings;
+create policy "poll settings are readable"
+on public.poll_settings
+for select
+to anon, authenticated
+using (true);
 
 -- Public read: published polls
 drop policy if exists "published polls are readable" on public.polls;

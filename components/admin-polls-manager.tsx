@@ -1,7 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  summarizeDeepDiveBlogPost,
+  summarizeDeepDiveRelatedPolls,
+  summarizeYoutube,
+  type AdminBlogPostOption
+} from "@/components/admin-poll-deep-dive-editor";
+import { buildPublicPollViewPath } from "@/lib/poll-categories";
 import { CsvImportForm } from "@/components/csv-import-form";
+import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 
 type PollOption = {
   id: string;
@@ -13,6 +22,10 @@ type AdminPoll = {
   id: string;
   category: string | null;
   question: string;
+  deep_dive?: string;
+  deep_dive_youtube_url?: string;
+  deep_dive_blog_post_id?: string | null;
+  deep_dive_related_poll_ids?: unknown;
   image_url: string;
   order_index: number;
   created_at: string;
@@ -26,15 +39,8 @@ type PollFilterState = {
   question: string;
   options: string;
   status: "all" | "published" | "draft";
-};
-
-type PollDraft = {
-  category: string;
-  question: string;
-  image_url: string;
-  order_index: string;
-  is_published: boolean;
-  poll_options: PollOption[];
+  requireYoutube: boolean;
+  requireBlogPost: boolean;
 };
 
 const POLL_CATEGORIES = [
@@ -55,19 +61,10 @@ const emptyFilters: PollFilterState = {
   category: "",
   question: "",
   options: "",
-  status: "all"
+  status: "all",
+  requireYoutube: false,
+  requireBlogPost: false
 };
-
-function createDraftFromPoll(poll: AdminPoll): PollDraft {
-  return {
-    category: poll.category ?? "",
-    question: poll.question,
-    image_url: poll.image_url ?? "",
-    order_index: String(poll.order_index),
-    is_published: poll.is_published,
-    poll_options: poll.poll_options.map((option) => ({ ...option }))
-  };
-}
 
 function matchesFilter(value: string | number | null | undefined, filter: string) {
   if (!filter.trim()) {
@@ -83,12 +80,10 @@ export function AdminPollsManager() {
   const [polls, setPolls] = useState<AdminPoll[]>([]);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
-  const [editingPollId, setEditingPollId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<PollDraft | null>(null);
   const [filters, setFilters] = useState<PollFilterState>(emptyFilters);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [blogPosts, setBlogPosts] = useState<AdminBlogPostOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -122,6 +117,31 @@ export function AdminPollsManager() {
     void loadPolls();
   }, []);
 
+  useEffect(() => {
+    async function loadBlogPosts() {
+      try {
+        const response = await fetch("/api/admin/blog/posts", { cache: "no-store" });
+        const data = (await response.json()) as {
+          posts?: Array<{ id: string; title: string; status: string }>;
+        };
+
+        if (response.ok) {
+          setBlogPosts(
+            (data.posts ?? []).map((post) => ({
+              id: post.id,
+              title: post.title,
+              status: post.status
+            }))
+          );
+        }
+      } catch {
+        setBlogPosts([]);
+      }
+    }
+
+    void loadBlogPosts();
+  }, []);
+
   const availableCategories = useMemo(() => {
     return [
       ...new Set([
@@ -135,13 +155,17 @@ export function AdminPollsManager() {
     return polls.filter((poll) => {
       const optionsText = poll.poll_options.map((option) => option.label).join(" ");
       const statusText = poll.is_published ? "published" : "draft";
+      const hasYoutube = (poll.deep_dive_youtube_url ?? "").trim().length > 0;
+      const hasBlogPost = Boolean((poll.deep_dive_blog_post_id ?? "").toString().trim());
 
       return (
         matchesFilter(poll.order_index, filters.order) &&
         (!filters.category || (poll.category ?? "") === filters.category) &&
         matchesFilter(poll.question, filters.question) &&
         matchesFilter(optionsText, filters.options) &&
-        (filters.status === "all" || statusText === filters.status)
+        (filters.status === "all" || statusText === filters.status) &&
+        (!filters.requireYoutube || hasYoutube) &&
+        (!filters.requireBlogPost || hasBlogPost)
       );
     });
   }, [filters, polls]);
@@ -179,80 +203,6 @@ export function AdminPollsManager() {
     });
   }
 
-  function startEditing(poll: AdminPoll) {
-    setEditingPollId(poll.id);
-    setDraft(createDraftFromPoll(poll));
-    setError(null);
-    setMessage(null);
-  }
-
-  function cancelEditing() {
-    setEditingPollId(null);
-    setDraft(null);
-  }
-
-  function updateDraft<K extends keyof PollDraft>(key: K, value: PollDraft[K]) {
-    setDraft((current) => (current ? { ...current, [key]: value } : current));
-  }
-
-  function updateDraftOption(optionId: string, label: string) {
-    setDraft((current) =>
-      current
-        ? {
-            ...current,
-            poll_options: current.poll_options.map((option) =>
-              option.id === optionId ? { ...option, label } : option
-            )
-          }
-        : current
-    );
-  }
-
-  async function savePoll(pollId: string) {
-    if (!draft) {
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const response = await fetch(`/api/admin/polls/${pollId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          category: draft.category,
-          question: draft.question,
-          image_url: draft.image_url,
-          order_index: Number.parseInt(draft.order_index, 10),
-          is_published: draft.is_published,
-          poll_options: draft.poll_options
-        })
-      });
-
-      const data = (await response.json()) as { poll?: AdminPoll; error?: string };
-
-      if (!response.ok || !data.poll) {
-        throw new Error(data.error ?? "Failed to save poll.");
-      }
-
-      setPolls((current) =>
-        current
-          .map((poll) => (poll.id === pollId ? data.poll! : poll))
-          .sort((a, b) => a.order_index - b.order_index)
-      );
-      setMessage("Poll updated.");
-      cancelEditing();
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save poll.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   async function deletePolls(pollIds: string[]) {
     if (pollIds.length === 0) {
       return;
@@ -288,10 +238,6 @@ export function AdminPollsManager() {
       setMessage(`Deleted ${data.deletedCount ?? pollIds.length} poll(s).`);
       setSelectedPollIds((current) => current.filter((id) => !pollIds.includes(id)));
       setPolls((current) => current.filter((poll) => !pollIds.includes(poll.id)));
-
-      if (editingPollId && pollIds.includes(editingPollId)) {
-        cancelEditing();
-      }
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete polls.");
     } finally {
@@ -320,9 +266,9 @@ export function AdminPollsManager() {
             >
               {isImportOpen ? "Hide Import" : "Import"}
             </button>
-            <button className="secondary-button" onClick={() => void loadPolls()} type="button" disabled={isLoading}>
-              Refresh
-            </button>
+            <Link className="secondary-button" href="/admin/polls/settings">
+              Settings
+            </Link>
             <button
               className="danger-button"
               onClick={() => void handleBulkDelete()}
@@ -354,8 +300,7 @@ export function AdminPollsManager() {
         ) : null}
 
         <div className="polls-filter-grid">
-          <label className="polls-filter-checkall">
-            <span>Check all</span>
+          <label className="polls-filter-select-all" aria-label="Select all visible polls">
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={filteredPolls.length === 0} />
           </label>
           <label className="field polls-filter-field">
@@ -390,6 +335,7 @@ export function AdminPollsManager() {
               placeholder="Filter question"
             />
           </label>
+          <div className="polls-filter-spacer polls-filter-spacer-image" aria-hidden />
           <label className="field polls-filter-field">
             <span>Options</span>
             <input
@@ -399,6 +345,31 @@ export function AdminPollsManager() {
               placeholder="Filter options"
             />
           </label>
+          <label className="field polls-filter-field polls-filter-checkbox-field">
+            <span>YouTube</span>
+            <div className="polls-filter-checkbox-wrap">
+              <input
+                type="checkbox"
+                checked={filters.requireYoutube}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, requireYoutube: event.target.checked }))
+                }
+              />
+            </div>
+          </label>
+          <label className="field polls-filter-field polls-filter-checkbox-field">
+            <span>Blog Post</span>
+            <div className="polls-filter-checkbox-wrap">
+              <input
+                type="checkbox"
+                checked={filters.requireBlogPost}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, requireBlogPost: event.target.checked }))
+                }
+              />
+            </div>
+          </label>
+          <div className="polls-filter-spacer polls-filter-spacer-related" aria-hidden />
           <label className="field polls-filter-field">
             <span>Status</span>
             <select
@@ -415,6 +386,7 @@ export function AdminPollsManager() {
               <option value="draft">Draft</option>
             </select>
           </label>
+          <div className="polls-filter-spacer polls-filter-spacer-actions" aria-hidden />
         </div>
 
         <div className="table-shell">
@@ -427,166 +399,72 @@ export function AdminPollsManager() {
                 <th>Question</th>
                 <th>Image</th>
                 <th>Options</th>
+                <th>YouTube</th>
+                <th>Blog Post</th>
+                <th>Related Polls</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th className="polls-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPolls.map((poll) => {
-                const isEditing = editingPollId === poll.id && draft;
-
-                return (
-                  <tr key={poll.id}>
-                    <td className="checkbox-cell">
-                      <input
-                        type="checkbox"
-                        checked={selectedPollIds.includes(poll.id)}
-                        onChange={() => togglePollSelection(poll.id)}
-                      />
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <input
-                          className="polls-inline-input polls-inline-order"
-                          type="number"
-                          value={draft.order_index}
-                          onChange={(event) => updateDraft("order_index", event.target.value)}
-                        />
-                      ) : (
-                        poll.order_index
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <select
-                          className="polls-inline-input"
-                          value={draft.category}
-                          onChange={(event) => updateDraft("category", event.target.value)}
-                        >
-                          <option value="">Uncategorized</option>
-                          {availableCategories.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        poll.category ?? "Uncategorized"
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <textarea
-                          className="builder-textarea polls-inline-textarea"
-                          value={draft.question}
-                          onChange={(event) => updateDraft("question", event.target.value)}
-                        />
-                      ) : (
-                        poll.question
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <input
-                          className="polls-inline-input"
-                          type="text"
-                          value={draft.image_url}
-                          onChange={(event) => updateDraft("image_url", event.target.value)}
-                          placeholder="https://... or /api/admin/media-file/..."
-                        />
-                      ) : poll.image_url ? (
-                        <code>{poll.image_url}</code>
-                      ) : (
-                        "None"
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <div className="polls-options-editor">
-                          {draft.poll_options.map((option, index) => (
-                            <textarea
-                              key={option.id}
-                              className="builder-textarea polls-inline-textarea polls-option-textarea"
-                              value={option.label}
-                              onChange={(event) => updateDraftOption(option.id, event.target.value)}
-                              aria-label={`Option ${index + 1}`}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        poll.poll_options.map((option) => option.label).join(" / ")
-                      )}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <select
-                          className="polls-inline-input"
-                          value={draft.is_published ? "published" : "draft"}
-                          onChange={(event) => updateDraft("is_published", event.target.value === "published")}
-                        >
-                          <option value="published">Published</option>
-                          <option value="draft">Draft</option>
-                        </select>
-                      ) : poll.is_published ? (
-                        "Published"
-                      ) : (
-                        "Draft"
-                      )}
-                    </td>
-                    <td>
-                      <div className="polls-row-actions">
-                        {isEditing ? (
-                          <>
-                            <button
-                              className="polls-icon-button"
-                              onClick={() => void savePoll(poll.id)}
-                              type="button"
-                              disabled={isSaving}
-                              aria-label="Save poll"
-                              title="Save"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              className="polls-icon-button"
-                              onClick={cancelEditing}
-                              type="button"
-                              disabled={isSaving}
-                              aria-label="Cancel editing"
-                              title="Cancel"
-                            >
-                              ↺
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            className="polls-icon-button"
-                            onClick={() => startEditing(poll)}
-                            type="button"
-                            aria-label="Edit poll"
-                            title="Edit"
-                          >
-                            ✎
-                          </button>
-                        )}
-                        <button
-                          className="polls-icon-button polls-icon-button-danger"
-                          onClick={() => void deletePolls([poll.id])}
-                          type="button"
-                          disabled={isDeleting}
-                          aria-label="Delete poll"
-                          title="Delete"
-                        >
-                          🗑
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredPolls.map((poll) => (
+                <tr className="polls-table-row" key={poll.id}>
+                  <td className="checkbox-cell">
+                    <input
+                      type="checkbox"
+                      checked={selectedPollIds.includes(poll.id)}
+                      onChange={() => togglePollSelection(poll.id)}
+                    />
+                  </td>
+                  <td>{poll.order_index}</td>
+                  <td>{poll.category ?? "Uncategorized"}</td>
+                  <td>{poll.question}</td>
+                  <td>{poll.image_url ? <code>{poll.image_url}</code> : "None"}</td>
+                  <td>{poll.poll_options.map((option) => option.label).join(" / ")}</td>
+                  <td className="polls-summary-cell">{summarizeYoutube(poll.deep_dive_youtube_url ?? "")}</td>
+                  <td className="polls-summary-cell">
+                    {summarizeDeepDiveBlogPost(poll.deep_dive_blog_post_id ?? "", blogPosts)}
+                  </td>
+                  <td className="polls-summary-cell">
+                    {summarizeDeepDiveRelatedPolls(
+                      normalizeDeepDiveRelatedPollIds(poll.deep_dive_related_poll_ids).length
+                    )}
+                  </td>
+                  <td>{poll.is_published ? "Published" : "Draft"}</td>
+                  <td className="polls-actions-cell">
+                    <div className="polls-row-actions">
+                      <Link
+                        className="polls-icon-button"
+                        href={buildPublicPollViewPath(poll)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="View poll on site"
+                      >
+                        ◎
+                      </Link>
+                      <Link
+                        className="polls-icon-button"
+                        href={`/admin/polls/${poll.id}/edit`}
+                        aria-label="Edit poll"
+                      >
+                        ✎
+                      </Link>
+                      <button
+                        className="polls-icon-button polls-icon-button-danger polls-icon-button-delete"
+                        onClick={() => void deletePolls([poll.id])}
+                        type="button"
+                        disabled={isDeleting}
+                        aria-label="Delete poll"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
               {filteredPolls.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={7}>
+                  <td className="empty-cell" colSpan={11}>
                     No polls found.
                   </td>
                 </tr>

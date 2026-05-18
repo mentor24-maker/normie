@@ -1,3 +1,6 @@
+import type { PollDeepDiveContent } from "@/lib/poll-deep-dive";
+import type { PollSettingsSnapshot } from "@/lib/poll-pod-config";
+
 export type PollOption = {
   id: string;
   label: string;
@@ -17,11 +20,15 @@ export type PreviousPollOption = {
   percentage: number;
 };
 
+export type { PollDeepDiveContent } from "@/lib/poll-deep-dive";
+export type { PollPodsSnapshot, PollSettingsSnapshot } from "@/lib/poll-pod-config";
+
 export type PreviousPoll = {
   id: string;
   question: string;
   totalResponses: number;
   options: PreviousPollOption[];
+  deepDive: PollDeepDiveContent;
 };
 
 export type PollCategoryFilter = {
@@ -35,4 +42,5 @@ export type PollPayload = {
   activeCategory?: PollCategoryFilter | null;
   currentPoll: CurrentPoll | null;
   previousPoll: PreviousPoll | null;
+  settings?: PollSettingsSnapshot;
 };

@@ -2,7 +2,12 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { buildPollsNextRequestUrl, getPollCategoryMeta } from "@/lib/poll-categories";
+import {
+  buildPollsNextRequestUrl,
+  getPollCategoryMeta,
+  stripStartPollFromBrowserUrl
+} from "@/lib/poll-categories";
+import { getPollPodAppearanceStyle, type PollPodType } from "@/lib/poll-pod-config";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import type { PollPayload } from "@/src/site/home/types";
@@ -31,6 +36,7 @@ const initialState: PollRuntimeState = {
 let runtimeState: PollRuntimeState = initialState;
 let isLoadingPromise: Promise<void> | null = null;
 let loadedCategoryKey: string | null = null;
+let loadedStartPollKey: string | null = null;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -42,12 +48,16 @@ function setRuntimeState(nextState: PollRuntimeState) {
   emit();
 }
 
-async function loadPolls(categoryParam: string) {
-  if (isLoadingPromise && loadedCategoryKey === categoryParam) {
+async function loadPolls(categoryParam: string, startPollParam: string) {
+  const categoryKey = categoryParam ?? "";
+  const startKey = startPollParam ?? "";
+
+  if (isLoadingPromise && loadedCategoryKey === categoryKey && loadedStartPollKey === startKey) {
     return isLoadingPromise;
   }
 
-  loadedCategoryKey = categoryParam;
+  loadedCategoryKey = categoryKey;
+  loadedStartPollKey = startKey;
 
   isLoadingPromise = (async () => {
     setRuntimeState({
@@ -57,7 +67,10 @@ async function loadPolls(categoryParam: string) {
     });
 
     try {
-      const response = await fetch(buildPollsNextRequestUrl(categoryParam || null), { cache: "no-store" });
+      const response = await fetch(
+        buildPollsNextRequestUrl(categoryParam || null, startKey || null),
+        { cache: "no-store" }
+      );
       const data = (await response.json()) as PollPayload;
 
       if (!response.ok) {
@@ -119,7 +132,8 @@ async function submitAnswer(optionId: string) {
       );
     }
 
-    await loadPolls(loadedCategoryKey ?? "");
+    stripStartPollFromBrowserUrl();
+    await loadPolls(loadedCategoryKey ?? "", "");
   } catch (submitError) {
     setRuntimeState({
       ...runtimeState,
@@ -129,7 +143,7 @@ async function submitAnswer(optionId: string) {
   }
 }
 
-function useSharedPollRuntime(categoryParam: string) {
+function useSharedPollRuntime(categoryParam: string, startPollParam: string) {
   const [state, setState] = useState(runtimeState);
 
   useEffect(() => {
@@ -143,12 +157,12 @@ function useSharedPollRuntime(categoryParam: string) {
   }, []);
 
   useEffect(() => {
-    void loadPolls(categoryParam);
-  }, [categoryParam]);
+    void loadPolls(categoryParam, startPollParam);
+  }, [categoryParam, startPollParam]);
 
   return {
     ...state,
-    reload: () => loadPolls(categoryParam),
+    reload: () => loadPolls(categoryParam, startPollParam),
     submitAnswer
   };
 }
@@ -162,13 +176,25 @@ export function BuilderPollModuleRuntime({
 }) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
-  const { error, isLoading, isSubmitting, payload, submitAnswer: onSubmit } = useSharedPollRuntime(categoryParam);
+  const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
+  const { error, isLoading, isSubmitting, payload, submitAnswer: onSubmit } = useSharedPollRuntime(
+    categoryParam,
+    startPollParam
+  );
   const categoryFromUrl = getPollCategoryMeta(categoryParam);
   const activeCategory = payload?.activeCategory ?? categoryFromUrl;
+  const builderPodType: PollPodType =
+    kind === "previous-results"
+      ? payload?.previousPoll
+        ? "previous_results"
+        : "initial_page"
+      : "polls";
+  const panelStyle = getPollPodAppearanceStyle(payload?.settings, builderPodType);
+  const panelClassName = className ? `${className} panel poll-module-panel` : "panel poll-module-panel";
 
   if (isLoading) {
     return (
-      <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
+      <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">Loading polls...</p>
       </article>
@@ -177,7 +203,7 @@ export function BuilderPollModuleRuntime({
 
   if (error) {
     return (
-      <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
+      <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">{error}</p>
       </article>
@@ -186,7 +212,7 @@ export function BuilderPollModuleRuntime({
 
   if (payload?.done) {
     return (
-      <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
+      <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">
           {activeCategory
@@ -200,7 +226,10 @@ export function BuilderPollModuleRuntime({
   if (kind === "previous-results") {
     return (
       <div className={className}>
-        <PreviousResultsPanel previousPoll={payload?.previousPoll ?? null} />
+        <PreviousResultsPanel
+          previousPoll={payload?.previousPoll ?? null}
+          settings={payload?.settings}
+        />
       </div>
     );
   }
@@ -208,13 +237,18 @@ export function BuilderPollModuleRuntime({
   if (payload?.currentPoll) {
     return (
       <div className={className}>
-        <CurrentPollPanel currentPoll={payload.currentPoll} isSubmitting={isSubmitting} onSubmit={onSubmit} />
+        <CurrentPollPanel
+          currentPoll={payload.currentPoll}
+          isSubmitting={isSubmitting}
+          onSubmit={onSubmit}
+          settings={payload.settings}
+        />
       </div>
     );
   }
 
   return (
-    <article className={className ? `${className} panel poll-module-panel` : "panel poll-module-panel"}>
+    <article className={panelClassName} style={panelStyle}>
       <div className="panel-label">Current Poll</div>
       <p className="panel-copy">
         {activeCategory ? `No published polls are available in ${activeCategory.name} yet.` : "No published polls are available yet."}
@@ -232,7 +266,8 @@ export function BuilderSocialShareRuntime({
 }) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
-  const { error, isLoading, payload } = useSharedPollRuntime(categoryParam);
+  const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
+  const { error, isLoading, payload } = useSharedPollRuntime(categoryParam, startPollParam);
 
   if (isLoading) {
     return (

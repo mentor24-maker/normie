@@ -35,9 +35,10 @@ export function PollStage({ activeCategory, isLoading, isSubmitting, payload, on
             currentPoll={payload.currentPoll}
             isSubmitting={isSubmitting}
             onSubmit={onSubmit}
+            settings={payload.settings}
           />
         </div>
-        <PreviousResultsPanel previousPoll={payload.previousPoll} />
+        <PreviousResultsPanel previousPoll={payload.previousPoll} settings={payload.settings} />
         <div className="poll-grid-logo">
           <Image
             alt="Normie choose logo"

@@ -188,7 +188,7 @@ export function BuilderPageList({
           <span className="panel-label">Page Details</span>
           <span className="builder-panel-heading-actions">
             <button
-              className="submit-button builder-panel-heading-button"
+              className="submit-button admin-blog-add-button builder-panel-heading-button"
               disabled={isSaving}
               onClick={onSavePage}
               type="button"

@@ -56,6 +56,38 @@ describe("normalizeBuilderSection", () => {
   });
 });
 
+describe("normalizeBuilderModule heading margins", () => {
+  it("maps legacy verticalMargin to marginTop and marginBottom on heading modules", () => {
+    const modules = normalizeBuilderModules([
+      {
+        id: "heading-1",
+        type: "heading",
+        column: "main",
+        text: "Title",
+        settings: { verticalMargin: "24" }
+      }
+    ]);
+
+    expect(modules[0]?.settings.marginTop).toBe("24");
+    expect(modules[0]?.settings.marginBottom).toBe("24");
+  });
+
+  it("keeps independent heading marginTop and marginBottom when provided", () => {
+    const modules = normalizeBuilderModules([
+      {
+        id: "heading-1",
+        type: "heading",
+        column: "main",
+        text: "Title",
+        settings: { marginTop: "8", marginBottom: "40" }
+      }
+    ]);
+
+    expect(modules[0]?.settings.marginTop).toBe("8");
+    expect(modules[0]?.settings.marginBottom).toBe("40");
+  });
+});
+
 describe("normalizeBuilderAssetUrl", () => {
   it("rewrites legacy admin gallery paths to public gallery urls", () => {
     expect(normalizeBuilderAssetUrl("/api/admin/media-file/gallery/social-x.svg")).toBe(

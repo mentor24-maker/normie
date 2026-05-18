@@ -18,5 +18,5 @@ done
 echo "Removing .next cache"
 rm -rf .next
 
-echo "Starting Next dev server on port 3001"
-exec npm run dev -- --port 3001
+echo "Starting Next dev server on port 3000"
+exec npm run dev

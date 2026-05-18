@@ -1,4 +1,9 @@
 import type { CSSProperties } from "react";
+import {
+  HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
+  HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
+  normalizeHeadlineRotatorHeadlinesJson
+} from "@/lib/headline-rotator";
 import { escapeHtmlText, sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
 
 export { sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
@@ -570,6 +575,28 @@ function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: 
     settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
   }
 
+  if (type === "heading") {
+    const legacy = settings.verticalMargin;
+    settings.marginTop = normalizeSpacingValue(settings.marginTop ?? legacy, "0");
+    settings.marginBottom = normalizeSpacingValue(settings.marginBottom ?? legacy, "0");
+  }
+
+  if (type === "headline-rotator") {
+    settings.headlines = normalizeHeadlineRotatorHeadlinesJson(
+      settings.headlines ?? "",
+      settings.color || "#18324a"
+    );
+    settings.minHeight = normalizeSpacingValue(
+      settings.minHeight,
+      HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
+      0,
+      1200
+    );
+    if (!settings.verticalAlignment) {
+      settings.verticalAlignment = "top";
+    }
+  }
+
   return settings;
 }
 
@@ -920,7 +947,7 @@ export function createEmptyModule(
                       }
                     : type === "headline-rotator"
                     ? {
-                        fontSize: "32",
+                        fontSize: HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
                         color: "#18324a",
                         bold: "true",
                         dropShadow: "false",
@@ -929,6 +956,8 @@ export function createEmptyModule(
                         dropShadowBlur: "2",
                         dropShadowColor: "rgba(0, 0, 0, 0.55)",
                         alignment: "center",
+                        verticalAlignment: "top",
+                        minHeight: HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
                         fadeDuration: "800",
                         displaySpeed: "3000",
                         headlines: JSON.stringify([])

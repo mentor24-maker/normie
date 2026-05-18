@@ -9,6 +9,14 @@ import {
   formatRichTextContent,
   sanitizeEmbedHtml
 } from "@/lib/builder-template";
+import {
+  HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
+  HEADLINE_ROTATOR_MAX_Y_PERCENT,
+  getHeadlineRotatorSkyPosition,
+  parseHeadlineRotatorItemsForEditor,
+  serializeHeadlineRotatorEntries,
+  type HeadlineRotatorEntry
+} from "@/lib/headline-rotator";
 import { BuilderRichTextEditor } from "@/components/builder-rich-text-editor";
 import {
   DEFAULT_SHARE_TEMPLATE,
@@ -29,6 +37,7 @@ import {
   getHeadingModuleStyle,
   getModuleAlignment,
   getModuleBackgroundSettings,
+  getModuleMarginStyle,
   getVerticalMarginStyle,
   getVideoEmbedSource,
   isVideoMedia
@@ -167,7 +176,9 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "headline-rotator") {
     const items = parseHeadlineItems(module.settings);
-    const fontSize = Number.parseInt(module.settings.fontSize ?? "32", 10) || 32;
+    const fontSize =
+      Number.parseInt(module.settings.fontSize ?? HEADLINE_ROTATOR_DEFAULT_FONT_SIZE, 10) ||
+      Number.parseInt(HEADLINE_ROTATOR_DEFAULT_FONT_SIZE, 10);
     const color = module.settings.color || "#18324a";
     const isBold = module.settings.bold !== "false";
     const horizontal = getModuleAlignment(module.settings);
@@ -542,39 +553,14 @@ type NavItem = {
   href: string;
 };
 
-type HeadlineItem = {
-  id: string;
-  label: string;
-  href: string;
-  xAxis: string;
-  yAxis: string;
-  color: string;
-  overlap: string;
-};
+type HeadlineItem = HeadlineRotatorEntry;
 
 function parseHeadlineItems(settings: Record<string, string>): HeadlineItem[] {
-  try {
-    const items = JSON.parse(settings.headlines || "[]");
-    if (!Array.isArray(items)) return [];
-    return items.map((item, index) => {
-      const raw = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-      return {
-        id: String(raw.id || `headline-${index + 1}`),
-        label: String(raw.label || ""),
-        href: String(raw.href || ""),
-        xAxis: String(raw.xAxis ?? "50"),
-        yAxis: String(raw.yAxis ?? "50"),
-        color: String(raw.color || settings.color || "#18324a"),
-        overlap: String(raw.overlap ?? "0")
-      };
-    });
-  } catch {
-    return [];
-  }
+  return parseHeadlineRotatorItemsForEditor(settings.headlines ?? "", settings.color || "#18324a");
 }
 
 function serializeHeadlineItems(items: HeadlineItem[]) {
-  return JSON.stringify(items);
+  return serializeHeadlineRotatorEntries(items);
 }
 
 function parseNavItems(settings: Record<string, string>): NavItem[] {
@@ -1561,16 +1547,17 @@ function HeadlineRotatorModuleEditor({
   function removeItem(id: string) { persist(items.filter((item) => item.id !== id)); }
 
   function addItem() {
+    const position = getHeadlineRotatorSkyPosition(items.length);
     persist([
       ...items,
       {
         id: `headline-${Date.now()}-${items.length + 1}`,
         label: "",
         href: "",
-        xAxis: "50",
-        yAxis: "50",
+        xAxis: position.xAxis,
+        yAxis: position.yAxis,
         color: module.settings.color || "#18324a",
-        overlap: "0"
+        overlap: "400"
       }
     ]);
   }
@@ -1582,11 +1569,11 @@ function HeadlineRotatorModuleEditor({
   return (
     <>
       <div className="builder-slider-design-grid">
-        <label className="field"><span>Font size (px)</span><input type="number" min="10" max="120" value={module.settings.fontSize ?? "32"} onChange={(e) => updateSetting("fontSize", e.target.value)} /></label>
+        <label className="field"><span>Font size (px)</span><input type="number" min="10" max="120" value={module.settings.fontSize ?? HEADLINE_ROTATOR_DEFAULT_FONT_SIZE} onChange={(e) => updateSetting("fontSize", e.target.value)} /></label>
         <label className="field"><span>Color</span><input type="text" value={module.settings.color ?? "#18324a"} onChange={(e) => updateSetting("color", e.target.value)} placeholder="#18324a" /></label>
         <label className="field builder-checkbox-field"><span>Bold</span><input type="checkbox" checked={module.settings.bold !== "false"} onChange={(e) => updateSetting("bold", e.target.checked ? "true" : "false")} /></label>
         <label className="field"><span>Vertical alignment</span><select value={module.settings.verticalAlignment ?? "center"} onChange={(e) => updateSetting("verticalAlignment", e.target.value)}><option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option></select></label>
-        <label className="field"><span>Min height (px)</span><input type="number" min="0" max="600" step="4" value={module.settings.minHeight ?? "0"} onChange={(e) => updateSetting("minHeight", e.target.value)} /></label>
+        <label className="field"><span>Min height (px)</span><input type="number" min="0" max="1200" step="4" value={module.settings.minHeight ?? "480"} onChange={(e) => updateSetting("minHeight", e.target.value)} /></label>
         <label className="field"><span>Fade duration (ms)</span><input type="number" min="0" max="5000" step="50" value={module.settings.fadeDuration ?? "800"} onChange={(e) => updateSetting("fadeDuration", e.target.value)} /></label>
         <label className="field"><span>Display speed (ms)</span><input type="number" min="500" max="20000" step="100" value={module.settings.displaySpeed ?? "3000"} onChange={(e) => updateSetting("displaySpeed", e.target.value)} /></label>
         <label className="field"><span>Drop shadow</span><select value={module.settings.dropShadow ?? "false"} onChange={(e) => updateSetting("dropShadow", e.target.value)}><option value="false">Off</option><option value="true">On</option></select></label>
@@ -1604,7 +1591,7 @@ function HeadlineRotatorModuleEditor({
               <th>X-axis</th>
               <th>Y-axis</th>
               <th>Color</th>
-              <th>Overlap</th>
+              <th>Overlap (ms)</th>
               <th>Order</th>
             </tr>
           </thead>
@@ -1635,6 +1622,7 @@ function HeadlineRotatorModuleEditor({
                     min="0"
                     max="100"
                     step="1"
+                    title="Horizontal position (0 = left, 100 = right)"
                     value={item.xAxis}
                     onChange={(e) => updateItem(item.id, { xAxis: e.target.value })}
                   />
@@ -1644,8 +1632,9 @@ function HeadlineRotatorModuleEditor({
                     aria-label={`Headline ${index + 1} y-axis`}
                     type="number"
                     min="0"
-                    max="100"
+                    max={String(HEADLINE_ROTATOR_MAX_Y_PERCENT)}
                     step="1"
+                    title={`Vertical position in the sky band (0 = top, ${HEADLINE_ROTATOR_MAX_Y_PERCENT} = just above horizon)`}
                     value={item.yAxis}
                     onChange={(e) => updateItem(item.id, { yAxis: e.target.value })}
                   />
@@ -1665,6 +1654,7 @@ function HeadlineRotatorModuleEditor({
                     min="0"
                     max="10000"
                     step="50"
+                    title="Milliseconds the next headline fades in before the current one finishes (e.g. 400 with 800ms fade)"
                     value={item.overlap}
                     onChange={(e) => updateItem(item.id, { overlap: e.target.value })}
                   />
@@ -1715,12 +1705,15 @@ export function BuilderModuleCard({
     const isVideoModule = module.type === "video" || (module.type === "image" && module.settings.variant === "video");
     const isStandardImage = module.type === "image" && !isVideoModule;
     const isFloatingImage = module.type === "floating-image";
+    const isHeadingModule = module.type === "heading";
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
       style={{
         ...(getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-        ...getVerticalMarginStyle(module.settings.verticalMargin)
+        ...(isHeadingModule
+          ? getModuleMarginStyle(module.settings)
+          : getVerticalMarginStyle(module.settings.verticalMargin))
       }}
     >
       <div className="builder-module-header">
@@ -1868,23 +1861,25 @@ export function BuilderModuleCard({
                 ))}
               </div>
             </div>
-            <label className="field builder-module-vertical-margin-field">
-              <span>Vertical margin</span>
-              <input
-                type="range"
-                min="0"
-                max="160"
-                step="1"
-                value={module.settings.verticalMargin ?? "0"}
-                onChange={(event) =>
-                  onUpdateModule((current) => ({
-                    ...current,
-                    settings: { ...current.settings, verticalMargin: event.target.value }
-                  }))
-                }
-              />
-              <small>{module.settings.verticalMargin ?? "0"}px</small>
-            </label>
+            {module.type !== "heading" ? (
+              <label className="field builder-module-vertical-margin-field">
+                <span>Vertical margin</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="160"
+                  step="1"
+                  value={module.settings.verticalMargin ?? "0"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, verticalMargin: event.target.value }
+                    }))
+                  }
+                />
+                <small>{module.settings.verticalMargin ?? "0"}px</small>
+              </label>
+            ) : null}
           </div>
 
           {isStandardImage ? (
@@ -2116,6 +2111,40 @@ export function BuilderModuleCard({
 
           {module.type === "heading" ? (
             <div className="builder-typography-controls-grid">
+              <label className="field">
+                <span>Top margin</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="160"
+                  step="1"
+                  value={module.settings.marginTop ?? module.settings.verticalMargin ?? "0"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, marginTop: event.target.value }
+                    }))
+                  }
+                />
+                <small>{module.settings.marginTop ?? module.settings.verticalMargin ?? "0"}px</small>
+              </label>
+              <label className="field">
+                <span>Bottom margin</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="160"
+                  step="1"
+                  value={module.settings.marginBottom ?? module.settings.verticalMargin ?? "0"}
+                  onChange={(event) =>
+                    onUpdateModule((current) => ({
+                      ...current,
+                      settings: { ...current.settings, marginBottom: event.target.value }
+                    }))
+                  }
+                />
+                <small>{module.settings.marginBottom ?? module.settings.verticalMargin ?? "0"}px</small>
+              </label>
               <label className="field"><span>Level</span><select value={module.settings.level ?? "h2"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, level: event.target.value } }))}><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option><option value="h4">H4</option><option value="h5">H5</option><option value="h6">H6</option></select></label>
               <label className="field"><span>Size (px)</span><input type="number" min="10" max="160" step="1" value={module.settings.fontSize ?? "32"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, fontSize: event.target.value } }))} /></label>
               <label className="field"><span>Color</span><input type="color" value={module.settings.color ?? "#18324a"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, color: event.target.value } }))} /></label>

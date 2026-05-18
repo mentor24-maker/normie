@@ -1,28 +1,40 @@
-import type { CurrentPoll } from "@/src/site/home/types";
+import { getPollPodAppearanceStyle } from "@/lib/poll-pod-config";
+import type { CurrentPoll, PollSettingsSnapshot } from "@/src/site/home/types";
 
 type CurrentPollPanelProps = {
   currentPoll: CurrentPoll;
   isSubmitting: boolean;
   onSubmit: (optionId: string) => void | Promise<void>;
+  settings?: PollSettingsSnapshot | null;
 };
 
-export function CurrentPollPanel({ currentPoll, isSubmitting, onSubmit }: CurrentPollPanelProps) {
+export function CurrentPollPanel({
+  currentPoll,
+  isSubmitting,
+  onSubmit,
+  settings
+}: CurrentPollPanelProps) {
   return (
-    <article className="panel action-panel poll-module-panel">
+    <article
+      className="panel action-panel poll-module-panel"
+      style={getPollPodAppearanceStyle(settings, "polls")}
+    >
       <div className="panel-label">Current Poll</div>
-      <h2 className="poll-question">{currentPoll.question}</h2>
-      <div className="option-list">
-        {currentPoll.options.map((option) => (
-          <button
-            className="option-button"
-            key={option.id}
-            onClick={() => void onSubmit(option.id)}
-            disabled={isSubmitting}
-            type="button"
-          >
-            {option.label}
-          </button>
-        ))}
+      <div className="poll-question-area">
+        <h2 className="poll-question">{currentPoll.question}</h2>
+        <div className="option-list">
+          {currentPoll.options.map((option, index) => (
+            <button
+              className={`option-button poll-answer-button-${index === 0 ? "a" : "b"}`}
+              key={option.id}
+              onClick={() => void onSubmit(option.id)}
+              disabled={isSubmitting}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
       {isSubmitting ? <p className="panel-copy">Saving your answer...</p> : null}
     </article>

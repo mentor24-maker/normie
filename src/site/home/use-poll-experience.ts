@@ -2,36 +2,50 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { buildPollsNextRequestUrl, getPollCategoryMeta } from "@/lib/poll-categories";
+import {
+  buildPollsNextRequestUrl,
+  getPollCategoryMeta,
+  stripStartPollFromBrowserUrl
+} from "@/lib/poll-categories";
 import type { PollPayload } from "@/src/site/home/types";
 
 export function usePollExperience() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
+  const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadPolls = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const loadPolls = useCallback(
+    async (options?: { category?: string; startPoll?: string }) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch(buildPollsNextRequestUrl(categoryParam || null), { cache: "no-store" });
-      const data = (await response.json()) as PollPayload;
+      const category = (options?.category ?? categoryParam).trim();
+      const startPoll = (options?.startPoll ?? startPollParam).trim();
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Failed to load the poll.");
+      try {
+        const response = await fetch(
+          buildPollsNextRequestUrl(category || null, startPoll || null),
+          { cache: "no-store" }
+        );
+        const data = (await response.json()) as PollPayload;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to load the poll.");
+        }
+
+        setPayload(data);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");
+      } finally {
+        setIsLoading(false);
       }
-
-      setPayload(data);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [categoryParam]);
+    },
+    [categoryParam, startPollParam]
+  );
 
   useEffect(() => {
     void loadPolls();
@@ -66,7 +80,8 @@ export function usePollExperience() {
         );
       }
 
-      await loadPolls();
+      stripStartPollFromBrowserUrl();
+      await loadPolls({ startPoll: "" });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {

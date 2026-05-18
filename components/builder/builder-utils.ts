@@ -89,6 +89,15 @@ export function getSplitVerticalMarginStyle(top: unknown, bottom: unknown): CSSP
   };
 }
 
+export function getModuleMarginStyle(settings: Record<string, string>): CSSProperties {
+  const legacy = settings.verticalMargin;
+
+  return getSplitVerticalMarginStyle(
+    settings.marginTop ?? legacy,
+    settings.marginBottom ?? legacy
+  );
+}
+
 export function getSectionMarginStyle(section: BuilderTemplateSection): CSSProperties {
   return getSplitVerticalMarginStyle(section.marginTop, section.marginBottom);
 }

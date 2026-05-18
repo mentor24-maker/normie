@@ -1,71 +1,55 @@
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { buildPollsNextRequestUrl, getPollCategoryMeta } from "@/lib/poll-categories";
+import {
+  buildPollsNextRequestUrl,
+  getPollCategoryMeta,
+  stripStartPollFromBrowserUrl
+} from "@/lib/poll-categories";
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
-
-type PollOption = {
-  id: string;
-  label: string;
-};
-
-type CurrentPoll = {
-  id: string;
-  question: string;
-  options: PollOption[];
-};
-
-type PreviousPoll = {
-  id: string;
-  question: string;
-  totalResponses: number;
-  options: Array<PollOption & { votes: number; percentage: number }>;
-};
-
-type PollPayload = {
-  done: boolean;
-  activeCategory?: { slug: string; name: string } | null;
-  currentPoll: CurrentPoll | null;
-  previousPoll: PreviousPoll | null;
-  error?: string;
-};
-
-function formatDisplayCount(value: number) {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`;
-  }
-  return String(value);
-}
+import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
+import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import type { PollPayload } from "@/src/site/home/types";
 
 export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
+  const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeCategory = payload?.activeCategory ?? getPollCategoryMeta(categoryParam);
 
-  const loadPolls = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const loadPolls = useCallback(
+    async (options?: { category?: string; startPoll?: string }) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch(buildPollsNextRequestUrl(categoryParam || null), { cache: "no-store" });
-      const data = (await response.json()) as PollPayload;
+      const category = (options?.category ?? categoryParam).trim();
+      const startPoll = (options?.startPoll ?? startPollParam).trim();
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Failed to load the poll.");
+      try {
+        const response = await fetch(
+          buildPollsNextRequestUrl(category || null, startPoll || null),
+          { cache: "no-store" }
+        );
+        const data = (await response.json()) as PollPayload;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to load the poll.");
+        }
+
+        setPayload(data);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");
+      } finally {
+        setIsLoading(false);
       }
-
-      setPayload(data);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [categoryParam]);
+    },
+    [categoryParam, startPollParam]
+  );
 
   useEffect(() => {
     void loadPolls();
@@ -93,7 +77,8 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
         );
       }
 
-      await loadPolls();
+      stripStartPollFromBrowserUrl();
+      await loadPolls({ startPoll: "" });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {
@@ -117,63 +102,17 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
                 <PollCategoryHeadline category={activeCategory} />
               </div>
             ) : null}
-            <article className="panel action-panel poll-module-panel">
-              <div className="panel-label">Current Poll</div>
-              <h2 className="poll-question">{payload.currentPoll.question}</h2>
-              <div className="option-list">
-                {payload.currentPoll.options.map((option) => (
-                  <button
-                    className="option-button"
-                    key={option.id}
-                    onClick={() => void submitAnswer(option.id)}
-                    disabled={isSubmitting}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <p className="panel-copy">
-                {isSubmitting ? "Saving your answer..." : "Choose one option to move to the next poll."}
-              </p>
-            </article>
+            <CurrentPollPanel
+              currentPoll={payload.currentPoll}
+              isSubmitting={isSubmitting}
+              onSubmit={submitAnswer}
+              settings={payload.settings}
+            />
 
-            <article className="panel result-panel poll-module-panel">
-              <div className="panel-label">Previous Results</div>
-              {payload.previousPoll ? (
-                <>
-                  <h2 className="poll-question">{payload.previousPoll.question}</h2>
-                  <p className="panel-copy">
-                    {formatDisplayCount(payload.previousPoll.totalResponses)} total response
-                    {payload.previousPoll.totalResponses === 1 ? "" : "s"}
-                  </p>
-                  <div className="result-list">
-                    {payload.previousPoll.options.map((option) => (
-                      <div className="result-row" key={option.id}>
-                        <div className="result-meta">
-                          <span>{option.label}</span>
-                          <span>
-                            {formatDisplayCount(option.votes)} · {option.percentage}%
-                          </span>
-                        </div>
-                        <div className="result-bar">
-                          <div className="result-bar-fill" style={{ width: `${option.percentage}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="panel-label">How It Works</div>
-                  <h2 className="poll-question">Vote left, watch the story unfold on the right.</h2>
-                  <p className="panel-copy">
-                    Each screen invites you into the next question while showing the community
-                    response to the previous prompt.
-                  </p>
-                </>
-              )}
-            </article>
+            <PreviousResultsPanel
+              previousPoll={payload.previousPoll}
+              settings={payload.settings}
+            />
           </section>
         </>
       ) : (

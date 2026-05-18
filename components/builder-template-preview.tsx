@@ -15,6 +15,15 @@ import {
 } from "@/lib/builder-template";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import {
+  HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
+  computeHeadlineRotatorFadeInDelay,
+  computeHeadlineRotatorTransitionMs,
+  getHeadlineRotatorPositionStyle,
+  parseHeadlineRotatorEntries,
+  resolveHeadlineRotatorMinHeight,
+  type HeadlineRotatorEntry
+} from "@/lib/headline-rotator";
+import {
   getAlignmentClass,
   getHeadingModuleStyle,
   columnHasOnlyOverlayImageModules,
@@ -26,6 +35,7 @@ import {
   getModuleAlignment,
   getModuleBackgroundSettings,
   getSectionMarginStyle,
+  getModuleMarginStyle,
   getVerticalMarginStyle,
   getVideoEmbedSource,
   isVideoMedia
@@ -271,7 +281,11 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
                     ...(module.type === "navigation" || isOverlayFlowModule
                       ? {}
                       : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-                    ...(isOverlayFlowModule ? {} : getVerticalMarginStyle(module.settings.verticalMargin)),
+                    ...(isOverlayFlowModule
+                      ? {}
+                      : module.type === "heading"
+                        ? getModuleMarginStyle(module.settings)
+                        : getVerticalMarginStyle(module.settings.verticalMargin)),
                     ...getOverlayFlowCollapsedModuleStyle(isOverlayFlowModule),
                     "--builder-mobile-font-size": module.settings.mobileFontSize
                       ? `${module.settings.mobileFontSize}px`
@@ -439,39 +453,6 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   return null;
 }
 
-type HeadlineEntry = {
-  id: string;
-  label: string;
-  href: string;
-  xAxis: string;
-  yAxis: string;
-  color: string;
-  overlap: string;
-};
-
-function parseHeadlineEntries(raw: string, fallbackColor: string): HeadlineEntry[] {
-  try {
-    const parsed = JSON.parse(raw || "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item, index) => {
-        const r = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-        return {
-          id: String(r.id || `headline-${index + 1}`),
-          label: String(r.label || ""),
-          href: String(r.href || ""),
-          xAxis: String(r.xAxis ?? "50"),
-          yAxis: String(r.yAxis ?? "50"),
-          color: String(r.color || fallbackColor),
-          overlap: String(r.overlap ?? "0")
-        };
-      })
-      .filter((entry) => entry.label.length > 0);
-  } catch {
-    return [];
-  }
-}
-
 function HeadlineRotatorPreview({
   module
 }: {
@@ -479,36 +460,42 @@ function HeadlineRotatorPreview({
 }) {
   const color = module.settings.color || "#18324a";
   const entries = useMemo(
-    () => parseHeadlineEntries(module.settings.headlines ?? "", color),
+    () => parseHeadlineRotatorEntries(module.settings.headlines ?? "", color),
     [module.settings.headlines, color]
   );
   const fadeDuration = Math.max(Number.parseInt(module.settings.fadeDuration ?? "800", 10) || 800, 0);
   const displaySpeed = Math.max(Number.parseInt(module.settings.displaySpeed ?? "3000", 10) || 3000, 200);
-  const fontSize = Number.parseInt(module.settings.fontSize ?? "32", 10) || 32;
+  const fontSize =
+    Number.parseInt(module.settings.fontSize ?? HEADLINE_ROTATOR_DEFAULT_FONT_SIZE, 10) ||
+    Number.parseInt(HEADLINE_ROTATOR_DEFAULT_FONT_SIZE, 10);
   const isBold = module.settings.bold !== "false";
   const horizontal = getModuleAlignment(module.settings);
   const verticalAlignment =
     (module.settings.verticalAlignment as "top" | "center" | "bottom") || "center";
-  const minHeight = Math.max(Number.parseInt(module.settings.minHeight ?? "0", 10) || 0, 0);
+  const minHeight = resolveHeadlineRotatorMinHeight(module.settings.minHeight);
   const justify =
     verticalAlignment === "top" ? "flex-start" : verticalAlignment === "bottom" ? "flex-end" : "center";
   const alignSelf =
     horizontal === "left" ? "flex-start" : horizontal === "right" ? "flex-end" : "center";
 
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [activeVisible, setActiveVisible] = useState(true);
-  const [transitionDelay, setTransitionDelay] = useState(0);
-  const activeIndexRef = useRef(0);
+  const [stableIndex, setStableIndex] = useState(0);
+  const [transition, setTransition] = useState<{
+    fromIndex: number;
+    toIndex: number;
+    fromOpacity: number;
+    toOpacity: number;
+  } | null>(null);
+  const stableIndexRef = useRef(0);
 
   useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
+    stableIndexRef.current = stableIndex;
+  }, [stableIndex]);
 
   useEffect(() => {
     if (entries.length <= 1) {
-      setActiveIndex(0);
-      activeIndexRef.current = 0;
-      setActiveVisible(true);
+      setStableIndex(0);
+      stableIndexRef.current = 0;
+      setTransition(null);
       return;
     }
 
@@ -522,25 +509,47 @@ function HeadlineRotatorPreview({
       return timer;
     }
 
+    function afterPaint(callback: () => void) {
+      const outer = window.requestAnimationFrame(() => {
+        const inner = window.requestAnimationFrame(() => {
+          if (!cancelled) callback();
+        });
+        animationFrames.push(inner);
+      });
+      animationFrames.push(outer);
+    }
+
+    function finishTransition(toIndex: number) {
+      if (cancelled) return;
+      stableIndexRef.current = toIndex;
+      setStableIndex(toIndex);
+      setTransition(null);
+      scheduleTimer(rotate, displaySpeed);
+    }
+
     function rotate() {
       if (cancelled) return;
-      const currentIndex = activeIndexRef.current % entries.length;
-      const current = entries[Math.min(currentIndex, entries.length - 1)];
-      const overlap = Math.min(Math.max(Number.parseInt(current?.overlap ?? "0", 10) || 0, 0), fadeDuration);
-      const delay = Math.max(fadeDuration - overlap, 0);
-      const nextIndex = (currentIndex + 1) % entries.length;
 
-      setTransitionDelay(delay);
-      setActiveVisible(false);
-      activeIndexRef.current = nextIndex;
-      setActiveIndex(nextIndex);
+      const fromIndex = stableIndexRef.current % entries.length;
+      const outgoing = entries[fromIndex];
+      const overlapMs = Number.parseInt(outgoing?.overlap ?? "0", 10) || 0;
+      const fadeInDelay = computeHeadlineRotatorFadeInDelay(fadeDuration, overlapMs);
+      const transitionMs = computeHeadlineRotatorTransitionMs(fadeDuration, overlapMs);
+      const toIndex = (fromIndex + 1) % entries.length;
 
-      const frame = window.requestAnimationFrame(() => {
-        if (!cancelled) setActiveVisible(true);
+      setTransition({ fromIndex, toIndex, fromOpacity: 1, toOpacity: 0 });
+
+      afterPaint(() => {
+        setTransition((current) => (current ? { ...current, fromOpacity: 0 } : current));
       });
-      animationFrames.push(frame);
 
-      scheduleTimer(rotate, displaySpeed);
+      scheduleTimer(() => {
+        if (!cancelled) {
+          setTransition((current) => (current ? { ...current, toOpacity: 1 } : current));
+        }
+      }, fadeInDelay);
+
+      scheduleTimer(() => finishTransition(toIndex), transitionMs);
     }
 
     scheduleTimer(rotate, displaySpeed);
@@ -556,7 +565,8 @@ function HeadlineRotatorPreview({
     display: "flex",
     flexDirection: "column",
     justifyContent: justify,
-    minHeight: minHeight ? `${minHeight}px` : undefined,
+    width: "100%",
+    minHeight: `${minHeight}px`,
     textAlign: horizontal,
     color,
     fontSize: `${fontSize}px`,
@@ -574,16 +584,13 @@ function HeadlineRotatorPreview({
     );
   }
 
-  function getPositionedHeadlineStyle(entry: HeadlineEntry, opacity: number, delay = 0): CSSProperties {
-    const xAxis = Math.min(Math.max(Number.parseFloat(entry.xAxis) || 50, 0), 100);
-    const yAxis = Math.min(Math.max(Number.parseFloat(entry.yAxis) || 50, 0), 100);
+  function getPositionedHeadlineStyle(entry: HeadlineRotatorEntry, opacity: number): CSSProperties {
+    const anchor = getHeadlineRotatorPositionStyle(entry.xAxis, entry.yAxis);
 
     return {
       position: "absolute",
-      left: `${xAxis}%`,
-      top: `${yAxis}%`,
-      transform: "translate(-50%, -50%)",
-      transition: `opacity ${fadeDuration}ms ease ${delay}ms`,
+      ...anchor,
+      transition: `opacity ${fadeDuration}ms ease`,
       opacity,
       color: entry.color || color,
       pointerEvents: opacity > 0 ? "auto" : "none",
@@ -592,19 +599,33 @@ function HeadlineRotatorPreview({
     };
   }
 
+  function getEntryOpacity(index: number): number {
+    if (!transition) {
+      return index === stableIndex ? 1 : 0;
+    }
+
+    if (index === transition.fromIndex) {
+      return transition.fromOpacity;
+    }
+
+    if (index === transition.toIndex) {
+      return transition.toOpacity;
+    }
+
+    return 0;
+  }
+
   return (
     <div className="builder-preview-headline-rotator" style={containerStyle}>
       {entries.map((entry, index) => {
-        const isActive = index === activeIndex;
-        const opacity = isActive && activeVisible ? 1 : 0;
-        const delay = isActive ? transitionDelay : 0;
+        const opacity = getEntryOpacity(index);
 
         return entry.href ? (
-          <Link href={entry.href} key={entry.id} style={getPositionedHeadlineStyle(entry, opacity, delay)}>
+          <Link href={entry.href} key={entry.id} style={getPositionedHeadlineStyle(entry, opacity)}>
             {entry.label}
           </Link>
         ) : (
-          <span key={entry.id} style={getPositionedHeadlineStyle(entry, opacity, delay)}>
+          <span key={entry.id} style={getPositionedHeadlineStyle(entry, opacity)}>
             {entry.label}
           </span>
         );
