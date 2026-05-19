@@ -259,6 +259,9 @@ export function AdminPollsManager() {
             <p className="page-copy admin-copy">{pollCountSummary}</p>
           </div>
           <div className="admin-actions">
+            <Link className="submit-button" href="/admin/polls/new">
+              Create Poll
+            </Link>
             <button
               className="secondary-button"
               onClick={() => setIsImportOpen((current) => !current)}

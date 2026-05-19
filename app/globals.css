@@ -464,7 +464,7 @@ h1 {
 }
 
 h2 {
-  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-size: clamp(1.2rem, 3vw, 2.5rem);
   margin-bottom: 16px;
 }
 
@@ -2188,6 +2188,13 @@ h2 {
 .polls-options-editor {
   display: grid;
   gap: 10px;
+}
+
+.polls-option-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
 }
 
 .polls-option-textarea {
@@ -5925,7 +5932,7 @@ code {
 .blog-post-header h1 {
   margin: 8px 0 12px;
   max-width: none;
-  font-size: clamp(1.75rem, 2.8vw, 2.25rem);
+  font-size: 1.0rem;
   line-height: 1.2;
   font-weight: 800;
 }
@@ -5949,7 +5956,7 @@ code {
 
 .blog-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -6425,5 +6432,11 @@ code {
 
   .blog-index-filters {
     gap: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .blog-card-grid {
+    grid-template-columns: 1fr;
   }
 }

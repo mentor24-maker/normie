@@ -72,11 +72,30 @@ function createDraftFromPoll(poll: AdminPoll): PollDraft {
   };
 }
 
+function createEmptyPollDraft(orderIndex: number): PollDraft {
+  return {
+    category: "",
+    question: "",
+    deep_dive: "",
+    deep_dive_youtube_url: "",
+    deep_dive_blog_post_id: "",
+    deep_dive_related_poll_ids: [],
+    image_url: "",
+    order_index: String(orderIndex),
+    is_published: true,
+    poll_options: [
+      { id: crypto.randomUUID(), label: "", sort_order: 1 },
+      { id: crypto.randomUUID(), label: "", sort_order: 2 }
+    ]
+  };
+}
+
 type AdminPollEditorFormProps = {
-  pollId: string;
+  pollId?: string;
 };
 
 export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
+  const isCreating = !pollId;
   const router = useRouter();
   const [poll, setPoll] = useState<AdminPoll | null>(null);
   const [allPolls, setAllPolls] = useState<AdminPoll[]>([]);
@@ -94,28 +113,35 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
 
     try {
       const [pollRes, listRes, postsRes] = await Promise.all([
-        fetch(`/api/admin/polls/${pollId}`, { cache: "no-store" }),
+        pollId ? fetch(`/api/admin/polls/${pollId}`, { cache: "no-store" }) : Promise.resolve(null),
         fetch("/api/admin/polls", { cache: "no-store" }),
         fetch("/api/admin/blog/posts", { cache: "no-store" })
       ]);
 
-      const pollJson = (await pollRes.json()) as { poll?: AdminPoll; error?: string };
+      const pollJson = pollRes ? ((await pollRes.json()) as { poll?: AdminPoll; error?: string }) : null;
       const listJson = (await listRes.json()) as { polls?: AdminPoll[]; error?: string };
       const postsJson = (await postsRes.json()) as {
         posts?: Array<{ id: string; title: string; status: string }>;
       };
 
-      if (!pollRes.ok || !pollJson.poll) {
-        throw new Error(pollJson.error ?? "Failed to load poll.");
+      if (pollRes && (!pollRes.ok || !pollJson?.poll)) {
+        throw new Error(pollJson?.error ?? "Failed to load poll.");
       }
 
       if (!listRes.ok) {
         throw new Error(listJson.error ?? "Failed to load poll list.");
       }
 
-      setPoll(pollJson.poll);
-      setDraft(createDraftFromPoll(pollJson.poll));
-      setAllPolls(listJson.polls ?? []);
+      const loadedPolls = listJson.polls ?? [];
+      setAllPolls(loadedPolls);
+
+      if (pollJson?.poll) {
+        setPoll(pollJson.poll);
+        setDraft(createDraftFromPoll(pollJson.poll));
+      } else {
+        setPoll(null);
+        setDraft(createEmptyPollDraft(Math.max(...loadedPolls.map((entry) => entry.order_index), 0) + 1));
+      }
 
       if (postsRes.ok) {
         setBlogPosts(
@@ -179,6 +205,37 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
     );
   }
 
+  function addDraftOption() {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            poll_options: [
+              ...current.poll_options,
+              {
+                id: crypto.randomUUID(),
+                label: "",
+                sort_order: current.poll_options.length + 1
+              }
+            ]
+          }
+        : current
+    );
+  }
+
+  function removeDraftOption(optionId: string) {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            poll_options: current.poll_options
+              .filter((option) => option.id !== optionId)
+              .map((option, index) => ({ ...option, sort_order: index + 1 }))
+          }
+        : current
+    );
+  }
+
   async function savePoll() {
     if (!draft) {
       return;
@@ -189,8 +246,8 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/polls/${pollId}`, {
-        method: "PATCH",
+      const response = await fetch(isCreating ? "/api/admin/polls" : `/api/admin/polls/${pollId}`, {
+        method: isCreating ? "POST" : "PATCH",
         headers: {
           "Content-Type": "application/json"
         },
@@ -217,14 +274,18 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
       setPoll(data.poll);
       setDraft(createDraftFromPoll(data.poll));
       setAllPolls((current) =>
-        current
-          .map((p) => (p.id === data.poll!.id ? data.poll! : p))
-          .sort((a, b) => a.order_index - b.order_index)
+        [
+          ...current.filter((p) => p.id !== data.poll!.id),
+          data.poll!
+        ].sort((a, b) => a.order_index - b.order_index)
       );
-      setMessage("Poll saved.");
+      setMessage(isCreating ? "Poll created." : "Poll saved.");
       router.refresh();
+      if (isCreating) {
+        router.push(`/admin/polls/${data.poll.id}/edit`);
+      }
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save poll.");
+      setError(saveError instanceof Error ? saveError.message : isCreating ? "Failed to create poll." : "Failed to save poll.");
     } finally {
       setIsSaving(false);
     }
@@ -240,7 +301,7 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
     );
   }
 
-  if (!draft || !poll) {
+  if (!draft || (!poll && !isCreating)) {
     return (
       <div className="admin-stack">
         <section className="admin-section">
@@ -262,8 +323,8 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
         <div className="admin-toolbar admin-poll-editor-toolbar">
           <div>
             <div className="panel-label">Polls</div>
-            <h2>Edit Poll</h2>
-            <p className="page-copy admin-copy">Order #{poll.order_index}</p>
+            <h2>{isCreating ? "Create Poll" : "Edit Poll"}</h2>
+            <p className="page-copy admin-copy">{isCreating ? "Create a single poll without using CSV import." : `Order #${poll?.order_index}`}</p>
           </div>
           <div className="admin-actions">
             <Link className="secondary-button" href="/admin/polls">
@@ -275,7 +336,7 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
               onClick={() => void savePoll()}
               type="button"
             >
-              {isSaving ? "Saving…" : "Save Poll"}
+              {isSaving ? (isCreating ? "Creating…" : "Saving…") : isCreating ? "Create Poll" : "Save Poll"}
             </button>
           </div>
         </div>
@@ -340,21 +401,34 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
             <span>Options</span>
             <div className="polls-options-editor admin-poll-editor-options">
               {draft.poll_options.map((option, index) => (
-                <textarea
-                  key={option.id}
-                  className="builder-textarea polls-option-textarea"
-                  value={option.label}
-                  onChange={(event) => updateDraftOption(option.id, event.target.value)}
-                  aria-label={`Option ${index + 1}`}
-                />
+                <div className="polls-option-editor-row" key={option.id}>
+                  <textarea
+                    className="builder-textarea polls-option-textarea"
+                    value={option.label}
+                    onChange={(event) => updateDraftOption(option.id, event.target.value)}
+                    aria-label={`Option ${index + 1}`}
+                  />
+                  <button
+                    aria-label={`Remove option ${index + 1}`}
+                    className="polls-icon-button polls-icon-button-danger"
+                    disabled={draft.poll_options.length <= 2}
+                    onClick={() => removeDraftOption(option.id)}
+                    type="button"
+                  >
+                    🗑
+                  </button>
+                </div>
               ))}
+              <button className="secondary-button" onClick={addDraftOption} type="button">
+                Add Option
+              </button>
             </div>
           </div>
         </div>
 
         <div className="admin-poll-editor-deep-dive">
           <AdminPollDeepDiveEditor
-            pollId={pollId}
+            pollId={pollId ?? ""}
             draft={{
               deep_dive_youtube_url: draft.deep_dive_youtube_url,
               deep_dive_blog_post_id: draft.deep_dive_blog_post_id,
@@ -379,7 +453,7 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
             onClick={() => void savePoll()}
             type="button"
           >
-            {isSaving ? "Saving…" : "Save Poll"}
+            {isSaving ? (isCreating ? "Creating…" : "Saving…") : isCreating ? "Create Poll" : "Save Poll"}
           </button>
         </div>
       </section>
