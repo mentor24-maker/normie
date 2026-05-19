@@ -221,7 +221,7 @@ function CreatedModulesTable({
                                 Cancel
                               </button>
                               <button
-                                className="submit-button"
+                                className="submit-button admin-blog-add-button"
                                 disabled={isSaving}
                                 onClick={() => onSaveCreatedModule(item, editingCreatedModule)}
                                 type="button"
@@ -391,7 +391,7 @@ function RepositoryTable({
                                 Cancel
                               </button>
                               <button
-                                className="submit-button"
+                                className="submit-button admin-blog-add-button"
                                 disabled={isSaving}
                                 onClick={() => onSaveSavedModule(item.id, editingName, editingModules)}
                                 type="button"
@@ -1103,7 +1103,7 @@ export function BuilderModuleRepositoryList({
                                   Cancel
                                 </button>
                                 <button
-                                  className="submit-button"
+                                  className="submit-button admin-blog-add-button"
                                   disabled={isSaving}
                                   onClick={() => onSaveSavedSection(section.id, editingSectionName, editingSection)}
                                   type="button"

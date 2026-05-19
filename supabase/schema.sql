@@ -9,7 +9,7 @@
 --   2. Run migrations/001_legacy_users_split.sql only if you still have admin rows in public.users.
 --
 -- RLS summary:
---   Public read (anon): published polls, poll_options, responses, poll_settings, pages, blog.
+--   Public read (anon): published polls, poll_options, responses, poll_settings, pages, blog, builder library (cell modules, saved sections).
 --   Public write (anon): responses insert (validated in API + policy).
 --   Server-only (service role): users, team_users, builder tables, products,
 --     page_templates, api_rate_limits, blog admin mutations, and other admin writes.
@@ -382,6 +382,20 @@ on public.pages
 for select
 to anon, authenticated
 using (is_published = true);
+
+drop policy if exists "builder cell modules are readable" on public.builder_cell_modules;
+create policy "builder cell modules are readable"
+on public.builder_cell_modules
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "builder saved sections are readable" on public.builder_saved_sections;
+create policy "builder saved sections are readable"
+on public.builder_saved_sections
+for select
+to anon, authenticated
+using (true);
 
 drop policy if exists "blog topics are readable" on public.blog_topics;
 create policy "blog topics are readable"

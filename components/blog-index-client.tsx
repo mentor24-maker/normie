@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   formatBlogPublishedDate,
   getBlogPostPath,
+  getBlogTaxonomyFilterPath,
   normalizePublicBlogImageUrl,
   type BlogCategoryRecord,
   type BlogPostCard,
@@ -24,9 +26,6 @@ type BlogIndexClientProps = {
   topics: BlogTopicRecord[];
   categories: BlogCategoryRecord[];
   tags: BlogTagRecord[];
-  initialTopicSlug: string;
-  initialCategorySlug: string;
-  initialTagSlug: string;
 };
 
 const PAGE_SIZE = 12;
@@ -36,18 +35,24 @@ export function BlogIndexClient({
   initialTotal,
   topics,
   categories,
-  tags,
-  initialTopicSlug,
-  initialCategorySlug,
-  initialTagSlug
+  tags
 }: BlogIndexClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const topicSlug = searchParams.get("topic") ?? "";
+  const categorySlug = searchParams.get("category") ?? "";
+  const tagSlug = searchParams.get("tag") ?? "";
+
   const [posts, setPosts] = useState(initialPosts);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialPosts.length);
-  const [topicSlug, setTopicSlug] = useState(initialTopicSlug);
-  const [categorySlug, setCategorySlug] = useState(initialCategorySlug);
-  const [tagSlug, setTagSlug] = useState(initialTagSlug);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setPosts(initialPosts);
+    setTotal(initialTotal);
+    setOffset(initialPosts.length);
+  }, [initialPosts, initialTotal]);
 
   async function fetchPosts(nextOffset: number, replace: boolean, filters: BlogFilters) {
     setIsLoading(true);
@@ -90,9 +95,6 @@ export function BlogIndexClient({
   }
 
   function applyFilters(nextFilters: BlogFilters) {
-    setTopicSlug(nextFilters.topicSlug);
-    setCategorySlug(nextFilters.categorySlug);
-    setTagSlug(nextFilters.tagSlug);
     const params = new URLSearchParams();
 
     if (nextFilters.topicSlug) {
@@ -108,7 +110,7 @@ export function BlogIndexClient({
     }
 
     const query = params.toString();
-    window.history.replaceState(null, "", query ? `/blog?${query}` : "/blog");
+    router.replace(query ? `/blog?${query}` : "/blog", { scroll: false });
     void fetchPosts(0, true, nextFilters);
   }
 
@@ -116,12 +118,6 @@ export function BlogIndexClient({
 
   return (
     <section className="blog-index">
-      <header className="blog-index-header">
-        <p className="page-eyebrow">Normie Blog</p>
-        <h1>Insights & stories</h1>
-        <p className="page-copy">Explore ideas across identity, money, relationships, and modern life.</p>
-      </header>
-
       <div className="blog-index-filters">
         <label className="field blog-filter-field">
           <span>Topic</span>
@@ -182,34 +178,44 @@ export function BlogIndexClient({
 
           return (
             <article className="blog-card" key={post.id}>
-              <Link className="blog-card-link" href={href}>
+              <Link className="blog-card-image-link" href={href}>
                 {imageSrc ? (
                   <img alt="" className="blog-card-image" src={imageSrc} />
                 ) : (
                   <div className="blog-card-image blog-card-image-placeholder" />
                 )}
-                <div className="blog-card-body">
+              </Link>
+              <div className="blog-card-body">
+                {post.publishedAt ? (
+                  <time className="blog-card-date" dateTime={post.publishedAt}>
+                    {formatBlogPublishedDate(post.publishedAt)}
+                  </time>
+                ) : null}
+                {post.primaryTopic || post.primaryCategory ? (
                   <div className="blog-card-meta">
-                    {post.primaryTopic ? <span className="blog-chip">{post.primaryTopic.name}</span> : null}
-                    {post.primaryCategory ? (
-                      <span className="blog-chip blog-chip-muted">{post.primaryCategory.name}</span>
+                    {post.primaryTopic ? (
+                      <Link
+                        className="blog-chip"
+                        href={getBlogTaxonomyFilterPath("topic", post.primaryTopic.slug)}
+                      >
+                        {post.primaryTopic.name}
+                      </Link>
                     ) : null}
-                    {post.publishedAt ? (
-                      <time dateTime={post.publishedAt}>{formatBlogPublishedDate(post.publishedAt)}</time>
+                    {post.primaryCategory ? (
+                      <Link
+                        className="blog-chip blog-chip-muted"
+                        href={getBlogTaxonomyFilterPath("category", post.primaryCategory.slug)}
+                      >
+                        {post.primaryCategory.name}
+                      </Link>
                     ) : null}
                   </div>
-                  <h2>{post.title}</h2>
-                  {post.tags.length > 0 ? (
-                    <div className="blog-card-tags">
-                      {post.tags.map((tag) => (
-                        <span className="blog-chip blog-chip-muted" key={tag.id}>
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </Link>
+                ) : null}
+                <Link className="blog-card-title-link" href={href}>
+                  <h2 className="blog-card-title">{post.title}</h2>
+                </Link>
+                {post.excerpt ? <p className="blog-card-excerpt">{post.excerpt}</p> : null}
+              </div>
             </article>
           );
         })}

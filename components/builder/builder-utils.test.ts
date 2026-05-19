@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   columnHasOnlyOverlayImageModules,
+  getHeadingModuleStyle,
   getImageModuleShellStyle,
   getOverlayFlowCollapsedModuleStyle,
   getOverlayFlowCollapsedSectionStyle,
@@ -95,5 +96,19 @@ describe("getImageModuleShellStyle", () => {
 
     expect(style.transform).toContain("translate(calc(-50% + 0px), calc(-50% + 0px))");
     expect(style.transform).toContain("translate(-6px, -10px)");
+  });
+});
+
+describe("getHeadingModuleStyle", () => {
+  it("nudges headings using signed horizontal and vertical offsets", () => {
+    const style = getHeadingModuleStyle({
+      fontSize: "32",
+      horizontalOffset: "12",
+      verticalOffset: "8"
+    });
+
+    expect(style.transform).toBe("translate(12px, -8px)");
+    expect(style.position).toBe("relative");
+    expect(style.marginBottom).toBe("-8px");
   });
 });

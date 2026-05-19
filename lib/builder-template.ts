@@ -579,6 +579,8 @@ function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: 
     const legacy = settings.verticalMargin;
     settings.marginTop = normalizeSpacingValue(settings.marginTop ?? legacy, "0");
     settings.marginBottom = normalizeSpacingValue(settings.marginBottom ?? legacy, "0");
+    settings.horizontalOffset = normalizeSignedOffsetValue(settings.horizontalOffset, "0");
+    settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
   }
 
   if (type === "headline-rotator") {
@@ -831,7 +833,9 @@ export function createEmptyModule(
           dropShadowY: "3",
           dropShadowBlur: "2",
           dropShadowColor: "rgba(0, 0, 0, 0.55)",
-          outline: "false"
+          outline: "false",
+          horizontalOffset: "0",
+          verticalOffset: "0"
         }
       : type === "image"
       ? {

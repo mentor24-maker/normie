@@ -352,6 +352,21 @@ export function getBlogPostPath(post: { slug: string; primaryTopic?: { slug: str
   return `/blog/${topicSlug}/${post.slug}`;
 }
 
+export function getBlogTaxonomyFilterPath(
+  kind: "topic" | "category" | "tag",
+  slug: string
+) {
+  const normalizedSlug = safeText(slug, 120);
+
+  if (!normalizedSlug) {
+    return "/blog";
+  }
+
+  const params = new URLSearchParams();
+  params.set(kind, normalizedSlug);
+  return `/blog?${params.toString()}`;
+}
+
 export function resolveBlogSeo(post: BlogPostRecord) {
   const title = post.metaTitle || post.title;
   const description = post.metaDescription || post.excerpt || post.title;

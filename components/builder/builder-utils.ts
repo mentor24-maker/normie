@@ -270,7 +270,7 @@ export function getImageOverlayStyle(settings: Record<string, string>): CSSPrope
   return style;
 }
 
-function getImageNudgeTransform(settings: Record<string, string>) {
+export function getModuleNudgeTransform(settings: Record<string, string>) {
   const horizontal = Number.parseInt(normalizeSignedOffsetValue(settings.horizontalOffset, "0"), 10);
   const vertical = Number.parseInt(normalizeSignedOffsetValue(settings.verticalOffset, "0"), 10);
   const offsetX = Number.isFinite(horizontal) ? horizontal : 0;
@@ -290,7 +290,7 @@ export function getFloatingImageModuleShellStyle(settings: Record<string, string
 export function getImageModuleShellStyle(settings: Record<string, string>): CSSProperties {
   const positionMode = getImagePositionMode(settings);
   const baseStyle = positionMode === "overlay" ? getImageOverlayStyle(settings) : undefined;
-  const nudgeTransform = getImageNudgeTransform(settings);
+  const nudgeTransform = getModuleNudgeTransform(settings);
 
   if (!nudgeTransform) {
     return baseStyle ?? {};
@@ -331,6 +331,9 @@ export function getHeadingModuleStyle(settings: Record<string, string>): CSSProp
   const dropShadow = dropShadowEnabled
     ? `${Number.isFinite(shadowX) ? shadowX : 3}px ${Number.isFinite(shadowY) ? shadowY : 3}px ${Number.isFinite(shadowBlur) ? shadowBlur : 2}px ${shadowColor}`
     : "none";
+  const nudgeTransform = getModuleNudgeTransform(settings);
+  const verticalOffset = Number.parseInt(normalizeSignedOffsetValue(settings.verticalOffset, "0"), 10);
+  const offsetY = Number.isFinite(verticalOffset) ? verticalOffset : 0;
 
   return {
     fontSize: `${Math.max(Number.isFinite(fontSize) ? fontSize : 32, 10)}px`,
@@ -340,7 +343,15 @@ export function getHeadingModuleStyle(settings: Record<string, string>): CSSProp
     textDecoration: settings.underline === "true" ? "underline" : "none",
     textDecorationColor: settings.underline === "true" ? color : undefined,
     textShadow: dropShadow,
-    WebkitTextStroke: settings.outline === "true" ? `2px ${color}` : undefined
+    WebkitTextStroke: settings.outline === "true" ? `2px ${color}` : undefined,
+    ...(nudgeTransform
+      ? {
+          position: "relative",
+          transform: nudgeTransform,
+          ...(offsetY > 0 ? { marginBottom: `-${offsetY}px` } : {}),
+          ...(offsetY < 0 ? { marginTop: `${Math.abs(offsetY)}px` } : {})
+        }
+      : {})
   };
 }
 

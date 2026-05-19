@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import { BlogSiteHeader } from "@/src/site/blog/blog-site-header";
+import { BlogHeader } from "@/src/site/blog/blog-header";
+import { BlogMainMenu } from "@/src/site/blog/blog-main-menu";
 import { SiteShell } from "@/src/site/layout/site-shell";
 
 export default function BlogLayout({ children }: { children: ReactNode }) {
   return (
     <SiteShell>
-      <BlogSiteHeader />
+      <BlogHeader />
+      <BlogMainMenu />
       {children}
     </SiteShell>
   );

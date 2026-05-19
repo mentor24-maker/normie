@@ -612,12 +612,12 @@ export function BuilderSectionCard({
                       <>
                         <div className="builder-cell-repository-actions">
                           <button
-                            className="secondary-button"
+                            className="submit-button admin-blog-add-button"
                             disabled={columnModules.length === 0}
                             onClick={() => onSaveCellModules(column)}
                             type="button"
                           >
-                            Save cell
+                            Save Cell
                           </button>
                           <label className="field builder-cell-repository-select">
                             <span>Insert saved cell</span>

@@ -1,5 +1,5 @@
 import type { BuilderTemplateModule } from "@/lib/builder-template";
-import { normalizeSignedOffsetValue } from "@/lib/builder-template";
+import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
 
 type BuilderFloatingImageModuleSettingsProps = {
   module: BuilderTemplateModule;
@@ -183,48 +183,22 @@ export function BuilderFloatingImageModuleSettings({
           </select>
         </label>
       </div>
-      <div className="builder-module-offset-grid">
-        <label className="field">
-          <span>Horizontal offset</span>
-          <input
-            type="number"
-            min="-500"
-            max="500"
-            step="1"
-            value={module.settings.horizontalOffset ?? "0"}
-            onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: {
-                  ...current.settings,
-                  horizontalOffset: normalizeSignedOffsetValue(event.target.value, "0")
-                }
-              }))
-            }
-          />
-          <small>Positive moves right; negative moves left.</small>
-        </label>
-        <label className="field">
-          <span>Vertical offset</span>
-          <input
-            type="number"
-            min="-500"
-            max="500"
-            step="1"
-            value={module.settings.verticalOffset ?? "0"}
-            onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: {
-                  ...current.settings,
-                  verticalOffset: normalizeSignedOffsetValue(event.target.value, "0")
-                }
-              }))
-            }
-          />
-          <small>Positive moves up; negative moves down.</small>
-        </label>
-      </div>
+      <BuilderModuleOffsetFields
+        horizontalOffset={module.settings.horizontalOffset ?? "0"}
+        verticalOffset={module.settings.verticalOffset ?? "0"}
+        onHorizontalOffsetChange={(horizontalOffset) =>
+          onUpdateModule((current) => ({
+            ...current,
+            settings: { ...current.settings, horizontalOffset }
+          }))
+        }
+        onVerticalOffsetChange={(verticalOffset) =>
+          onUpdateModule((current) => ({
+            ...current,
+            settings: { ...current.settings, verticalOffset }
+          }))
+        }
+      />
     </>
   );
 }

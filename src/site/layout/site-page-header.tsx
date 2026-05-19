@@ -9,7 +9,7 @@ type SitePageHeaderProps = {
 
 /**
  * Site header for non-builder pages (logo + social icons).
- * Blog uses BlogSiteHeader with an added "Blog" label.
+ * Blog uses the saved builder section "Blog Header" (see BlogHeader), with BlogSiteHeader as fallback.
  */
 export function SitePageHeader({ className }: SitePageHeaderProps) {
   const headerClassName = className ? `site-page-header ${className}` : "site-page-header";

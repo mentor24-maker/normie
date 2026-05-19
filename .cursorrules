@@ -19,7 +19,7 @@
 - **Button labels:** Use Title Case for headlines, buttons, and similar UI chrome (e.g. `Save Settings`, not `Save settings`).
 - **Button text must not wrap:** Primary, secondary, and danger buttons use `white-space: nowrap` so labels like `Save Settings` stay on one line. Size buttons to their text (`width: fit-content`) plus horizontal padding — not full width unless a specific layout requires it.
 - **Admin notices:** Success — light green background, dark green border and text. Error — pink background, 2px dark red border, dark red text.
-- **Admin action buttons:** Add/save actions often use the green gradient (`.admin-blog-add-button`). Bulk delete — red background, white text, centered. Publish icon green; delete icon red.
+- **Admin save buttons (canonical):** Any primary persist action in admin or Page Builder UI — `Save Section`, `Save Module`, `Save Cell`, `Save Page`, `Save Template`, `Add …` — must use **`className="submit-button admin-blog-add-button"`** (alias class `admin-save-button` shares the same CSS). Labels are Title Case. Cancel and non-destructive secondary actions use `secondary-button` only. Do not use plain `submit-button` alone for new save/add actions. Bulk delete — red background, white text, centered. Publish icon green; delete icon red.
 - **Admin table Actions columns:** Icon-only buttons only — no text labels inside the cell (use `aria-label` for accessibility). Primary actions (edit, save, cancel) stay visible. The delete icon is hidden until row hover or keyboard focus within the row, then appears instantly (no animation delay). Hovering the delete icon shows an instant tooltip labeled `Delete` (Title Case). Keep the Actions column sticky on wide horizontal-scroll tables.
 - **Poll pods:** Module panel backgrounds are transparent by default; pod styling comes from Poll Settings. Header pill uses configurable colors (default header background `#5acff9`, dark turquoise ink). Keep header `border-radius: 999px` only when height is pill-like; taller headers should read as rounded boxes. ~100px gap between Current Poll and Previous Results pods. Question/content width is left-aligned, not centered.
 - **Pods container:** Site “pod” panels use white or configured backgrounds, rounded corners, alignment with main body content.
@@ -107,6 +107,7 @@ Always touch all three files in order:
 - Builder-specific classes prefixed with `builder-`
 - Site shell classes prefixed with `site-shell-`
 - Admin classes prefixed with `admin-`
+- Admin green save gradient: `.admin-save-button.submit-button` and `.admin-blog-add-button.submit-button` in `globals.css` (same rules)
 - Never use `!important` unless overriding third-party styles
 - The `.site-nav` class controls the nav bar appearance globally
 

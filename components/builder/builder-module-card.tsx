@@ -5,7 +5,6 @@ import {
   createEmptyModule,
   getBuilderBackgroundStyle,
   normalizeBuilderAssetUrl,
-  normalizeSignedOffsetValue,
   formatRichTextContent,
   sanitizeEmbedHtml
 } from "@/lib/builder-template";
@@ -29,6 +28,7 @@ import { BuilderBackgroundControls } from "./builder-background-controls";
 import { MerchModuleEditor } from "./builder-merch-module-editor";
 import { BuilderCodeEmbed } from "./builder-code-embed";
 import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
+import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
 import { BuilderImagePreview } from "./builder-image-preview";
 import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
@@ -858,6 +858,16 @@ function TableCellModules({
                       <input type="color" value={mod.settings.color ?? "#18324a"} onChange={(e) => updateModuleSettings(mod.id, { color: e.target.value })} />
                     </label>
                   </div>
+                  <BuilderModuleOffsetFields
+                    horizontalOffset={mod.settings.horizontalOffset ?? "0"}
+                    verticalOffset={mod.settings.verticalOffset ?? "0"}
+                    onHorizontalOffsetChange={(horizontalOffset) =>
+                      updateModuleSettings(mod.id, { horizontalOffset })
+                    }
+                    onVerticalOffsetChange={(verticalOffset) =>
+                      updateModuleSettings(mod.id, { verticalOffset })
+                    }
+                  />
                 </>
               )}
 
@@ -1883,48 +1893,22 @@ export function BuilderModuleCard({
           </div>
 
           {isStandardImage ? (
-            <div className="builder-module-offset-grid">
-              <label className="field">
-                <span>Horizontal offset</span>
-                <input
-                  type="number"
-                  min="-500"
-                  max="500"
-                  step="1"
-                  value={module.settings.horizontalOffset ?? "0"}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: {
-                        ...current.settings,
-                        horizontalOffset: normalizeSignedOffsetValue(event.target.value, "0")
-                      }
-                    }))
-                  }
-                />
-                <small>Positive moves right; negative moves left.</small>
-              </label>
-              <label className="field">
-                <span>Vertical offset</span>
-                <input
-                  type="number"
-                  min="-500"
-                  max="500"
-                  step="1"
-                  value={module.settings.verticalOffset ?? "0"}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: {
-                        ...current.settings,
-                        verticalOffset: normalizeSignedOffsetValue(event.target.value, "0")
-                      }
-                    }))
-                  }
-                />
-                <small>Positive moves up; negative moves down.</small>
-              </label>
-            </div>
+            <BuilderModuleOffsetFields
+              horizontalOffset={module.settings.horizontalOffset ?? "0"}
+              verticalOffset={module.settings.verticalOffset ?? "0"}
+              onHorizontalOffsetChange={(horizontalOffset) =>
+                onUpdateModule((current) => ({
+                  ...current,
+                  settings: { ...current.settings, horizontalOffset }
+                }))
+              }
+              onVerticalOffsetChange={(verticalOffset) =>
+                onUpdateModule((current) => ({
+                  ...current,
+                  settings: { ...current.settings, verticalOffset }
+                }))
+              }
+            />
           ) : null}
 
           {(isStandardImage || isFloatingImage || module.type === "video" || module.type === "button") && (
@@ -2110,6 +2094,7 @@ export function BuilderModuleCard({
           ) : null}
 
           {module.type === "heading" ? (
+            <>
             <div className="builder-typography-controls-grid">
               <label className="field">
                 <span>Top margin</span>
@@ -2158,6 +2143,23 @@ export function BuilderModuleCard({
               <label className="field"><span>Shadow blur</span><input type="number" min="0" max="30" step="1" value={module.settings.dropShadowBlur ?? "2"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowBlur: event.target.value } }))} /></label>
               <label className="field"><span>Outline</span><select value={module.settings.outline ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, outline: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
             </div>
+            <BuilderModuleOffsetFields
+              horizontalOffset={module.settings.horizontalOffset ?? "0"}
+              verticalOffset={module.settings.verticalOffset ?? "0"}
+              onHorizontalOffsetChange={(horizontalOffset) =>
+                onUpdateModule((current) => ({
+                  ...current,
+                  settings: { ...current.settings, horizontalOffset }
+                }))
+              }
+              onVerticalOffsetChange={(verticalOffset) =>
+                onUpdateModule((current) => ({
+                  ...current,
+                  settings: { ...current.settings, verticalOffset }
+                }))
+              }
+            />
+            </>
           ) : null}
 
           {module.type === "table" && <TableModuleEditor module={module} onUpdateModule={onUpdateModule} />}

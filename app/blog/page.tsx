@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { BlogIndexClient } from "@/components/blog-index-client";
 import { listPublicBlogPosts, listPublicBlogTopicsAndTags } from "@/lib/blog-store";
+
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Blog | Normie",
   description: "Insights on identity, money, relationships, and modern life from Normie."
@@ -31,15 +34,14 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
   ]);
 
   return (
-    <BlogIndexClient
-      categories={taxonomy.categories}
-      initialCategorySlug={categorySlug}
-      initialPosts={posts}
-      initialTagSlug={tagSlug}
-      initialTopicSlug={topicSlug}
-      initialTotal={total}
-      tags={taxonomy.tags}
-      topics={taxonomy.topics}
-    />
+    <Suspense fallback={null}>
+      <BlogIndexClient
+        categories={taxonomy.categories}
+        initialPosts={posts}
+        initialTotal={total}
+        tags={taxonomy.tags}
+        topics={taxonomy.topics}
+      />
+    </Suspense>
   );
 }
