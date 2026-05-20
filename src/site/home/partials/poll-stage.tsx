@@ -4,6 +4,7 @@ import type { PollCategoryFilter, PollPayload } from "@/src/site/home/types";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import { getPollGridStyle } from "@/lib/poll-pod-config";
 
 type PollStageProps = {
   activeCategory?: PollCategoryFilter | null;
@@ -24,7 +25,7 @@ export function PollStage({ activeCategory, isLoading, isSubmitting, payload, on
 
   if (payload?.currentPoll) {
     return (
-      <section className="poll-grid">
+      <section className="poll-grid" style={getPollGridStyle(payload.settings)}>
         {activeCategory ? (
           <div className="poll-grid-category-row">
             <PollCategoryHeadline category={activeCategory} />

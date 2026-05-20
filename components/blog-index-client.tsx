@@ -20,6 +20,7 @@ type BlogFilters = {
   topicSlug: string;
   categorySlug: string;
   tagSlug: string;
+  searchQuery: string;
 };
 
 type BlogIndexClientProps = {
@@ -46,17 +47,23 @@ export function BlogIndexClient({
   const topicSlug = searchParams?.get("topic") ?? "";
   const categorySlug = searchParams?.get("category") ?? "";
   const tagSlug = searchParams?.get("tag") ?? "";
+  const searchQuery = searchParams?.get("q") ?? "";
 
   const [posts, setPosts] = useState(initialPosts);
   const [total, setTotal] = useState(initialTotal);
   const [offset, setOffset] = useState(initialPosts.length);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(searchQuery);
 
   useEffect(() => {
     setPosts(initialPosts);
     setTotal(initialTotal);
     setOffset(initialPosts.length);
   }, [initialPosts, initialTotal]);
+
+  useEffect(() => {
+    setSearchDraft(searchQuery);
+  }, [searchQuery]);
 
   async function fetchPosts(nextOffset: number, replace: boolean, filters: BlogFilters) {
     setIsLoading(true);
@@ -77,6 +84,10 @@ export function BlogIndexClient({
 
       if (filters.tagSlug) {
         params.set("tag", filters.tagSlug);
+      }
+
+      if (filters.searchQuery.trim()) {
+        params.set("q", filters.searchQuery.trim());
       }
 
       const response = await fetch(`/api/blog/posts?${params.toString()}`);
@@ -113,6 +124,10 @@ export function BlogIndexClient({
       params.set("tag", nextFilters.tagSlug);
     }
 
+    if (nextFilters.searchQuery.trim()) {
+      params.set("q", nextFilters.searchQuery.trim());
+    }
+
     const query = params.toString();
     router.replace(query ? `/blog?${query}` : "/blog", { scroll: false });
     void fetchPosts(0, true, nextFilters);
@@ -122,14 +137,19 @@ export function BlogIndexClient({
 
   return (
     <div className="blog-post-layout" style={getBlogSettingsCssVariables(settings)}>
-      <section className="blog-index">
-      <div className="blog-index-filters">
+      <form
+        className="blog-index-filters"
+        onSubmit={(event) => {
+          event.preventDefault();
+          applyFilters({ topicSlug, categorySlug, tagSlug, searchQuery: searchDraft });
+        }}
+      >
         <label className="field blog-filter-field">
           <span>Topic</span>
           <select
             value={topicSlug}
             onChange={(event) =>
-              applyFilters({ topicSlug: event.target.value, categorySlug, tagSlug })
+              applyFilters({ topicSlug: event.target.value, categorySlug, tagSlug, searchQuery })
             }
           >
             <option value="">All topics</option>
@@ -145,7 +165,7 @@ export function BlogIndexClient({
           <select
             value={categorySlug}
             onChange={(event) =>
-              applyFilters({ topicSlug, categorySlug: event.target.value, tagSlug })
+              applyFilters({ topicSlug, categorySlug: event.target.value, tagSlug, searchQuery })
             }
           >
             <option value="">All categories</option>
@@ -161,7 +181,7 @@ export function BlogIndexClient({
           <select
             value={tagSlug}
             onChange={(event) =>
-              applyFilters({ topicSlug, categorySlug, tagSlug: event.target.value })
+              applyFilters({ topicSlug, categorySlug, tagSlug: event.target.value, searchQuery })
             }
           >
             <option value="">All tags</option>
@@ -172,9 +192,24 @@ export function BlogIndexClient({
             ))}
           </select>
         </label>
-      </div>
+        <label className="field blog-filter-field blog-search-field">
+          <span>Search</span>
+          <input
+            type="search"
+            value={searchDraft}
+            onBlur={() => {
+              if (searchDraft !== searchQuery) {
+                applyFilters({ topicSlug, categorySlug, tagSlug, searchQuery: searchDraft });
+              }
+            }}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            placeholder="Search posts"
+          />
+        </label>
+      </form>
 
-      <div className="blog-card-grid">
+      <section className="blog-index">
+        <div className="blog-card-grid">
         {posts.map((post) => {
           const href = getBlogPostPath({ slug: post.slug, primaryTopic: post.primaryTopic });
           const imageSrc = post.featuredImageUrl
@@ -224,22 +259,22 @@ export function BlogIndexClient({
             </article>
           );
         })}
-      </div>
-
-      {posts.length === 0 ? <p className="blog-empty">No posts match these filters yet.</p> : null}
-
-      {hasMore ? (
-        <div className="blog-load-more-wrap">
-          <button
-            className="secondary-button"
-            disabled={isLoading}
-            onClick={() => void fetchPosts(offset, false, { topicSlug, categorySlug, tagSlug })}
-            type="button"
-          >
-            {isLoading ? "Loading..." : "Load more"}
-          </button>
         </div>
-      ) : null}
+
+        {posts.length === 0 ? <p className="blog-empty">No posts match these filters yet.</p> : null}
+
+        {hasMore ? (
+          <div className="blog-load-more-wrap">
+            <button
+              className="secondary-button"
+              disabled={isLoading}
+              onClick={() => void fetchPosts(offset, false, { topicSlug, categorySlug, tagSlug, searchQuery })}
+              type="button"
+            >
+              {isLoading ? "Loading..." : "Load more"}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <BlogPostSidebar

@@ -8,6 +8,7 @@ import {
   POLL_BACKGROUND_IMAGE_FOCUS_OPTIONS,
   POLL_CONTENT_WIDTH_OPTIONS,
   POLL_POD_BACKGROUND_MODES,
+  normalizePollGutterPx,
   normalizePollHeaderFontSize,
   type PollAnswerButtons,
   type PollDeepDiveTriggerSettings,
@@ -196,22 +197,6 @@ export function PollPodLayoutFields({
           </label>
         </div>
       ) : null}
-      <label className="field">
-        <span>Content width</span>
-        <select
-          onChange={(event) =>
-            onChange({ contentWidth: event.target.value as PollPodLayout["contentWidth"] })
-          }
-          value={layout.contentWidth}
-        >
-          {POLL_CONTENT_WIDTH_OPTIONS.map((width) => (
-            <option key={width} value={width}>
-              {width}%
-            </option>
-          ))}
-        </select>
-        {contentWidthHelp ? <small className="admin-field-help">{contentWidthHelp}</small> : null}
-      </label>
       <ColorField
         label="Header background"
         onChange={(value) => onChange({ headerBackgroundColor: value })}
@@ -222,50 +207,82 @@ export function PollPodLayoutFields({
         onChange={(value) => onChange({ headerFontColor: value })}
         value={layout.headerFontColor}
       />
-      <label className="field">
-        <span>Header font size (rem)</span>
+      <div className="admin-poll-size-settings-row">
+        <label className="field">
+          <span>Content width</span>
+          <select
+            onChange={(event) =>
+              onChange({ contentWidth: event.target.value as PollPodLayout["contentWidth"] })
+            }
+            value={layout.contentWidth}
+          >
+            {POLL_CONTENT_WIDTH_OPTIONS.map((width) => (
+              <option key={width} value={width}>
+                {width}%
+              </option>
+            ))}
+          </select>
+          {contentWidthHelp ? <small className="admin-field-help">{contentWidthHelp}</small> : null}
+        </label>
+        <label className="field">
+          <span>Header font size (rem)</span>
+          <input
+            max={2.5}
+            min={0.75}
+            onChange={(event) => onChange({ headerFontSize: event.target.value })}
+            step={0.05}
+            type="number"
+            value={layout.headerFontSize}
+          />
+        </label>
+        <label className="field">
+          <span>Pod corner radius (px)</span>
+          <input
+            max={120}
+            min={0}
+            onChange={(event) => onChange({ podBorderRadius: event.target.value })}
+            step={1}
+            type="number"
+            value={layout.podBorderRadius}
+          />
+        </label>
+        <label className="field">
+          <span>Header corner radius (px)</span>
+          <input
+            max={999}
+            min={0}
+            onChange={(event) => onChange({ headerBorderRadius: event.target.value })}
+            step={1}
+            type="number"
+            value={layout.headerBorderRadius}
+          />
+          <small className="admin-field-help">Use 999 for a pill-shaped header.</small>
+        </label>
+        <label className="field">
+          <span>Header border size (px)</span>
+          <input
+            max={12}
+            min={0}
+            onChange={(event) => onChange({ headerBorderSize: event.target.value })}
+            step={1}
+            type="number"
+            value={layout.headerBorderSize}
+          />
+        </label>
+      </div>
+      <label className="field admin-poll-gutter-field">
+        <span>Gutter (px)</span>
         <input
-          max={2.5}
-          min={0.75}
-          onChange={(event) => onChange({ headerFontSize: event.target.value })}
-          step={0.05}
-          type="number"
-          value={layout.headerFontSize}
-        />
-      </label>
-      <label className="field">
-        <span>Pod corner radius (px)</span>
-        <input
-          max={120}
+          max={240}
           min={0}
-          onChange={(event) => onChange({ podBorderRadius: event.target.value })}
+          onChange={(event) =>
+            onChange({ gutterPx: normalizePollGutterPx(event.target.value, layout.gutterPx) })
+          }
           step={1}
           type="number"
-          value={layout.podBorderRadius}
+          value={layout.gutterPx}
         />
-      </label>
-      <label className="field">
-        <span>Header corner radius (px)</span>
-        <input
-          max={999}
-          min={0}
-          onChange={(event) => onChange({ headerBorderRadius: event.target.value })}
-          step={1}
-          type="number"
-          value={layout.headerBorderRadius}
-        />
-        <small className="admin-field-help">Use 999 for a pill-shaped header.</small>
-      </label>
-      <label className="field">
-        <span>Header border size (px)</span>
-        <input
-          max={12}
-          min={0}
-          onChange={(event) => onChange({ headerBorderSize: event.target.value })}
-          step={1}
-          type="number"
-          value={layout.headerBorderSize}
-        />
+        <small className="admin-field-help">Space between the Current Poll and Previous Results columns.</small>
       </label>
       <ColorField
         allowTransparent

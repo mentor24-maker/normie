@@ -51,6 +51,7 @@ export const DEFAULT_POLL_POD_LAYOUT = {
   podGradientColor1: "#ffffff",
   podGradientColor2: "#eaf4ff",
   contentWidth: "100" as PollContentWidth,
+  gutterPx: "100",
   headerBackgroundColor: "#5acff9",
   headerFontColor: "#0c5f72",
   headerFontSize: "1.08",
@@ -74,6 +75,7 @@ export type PollPodLayout = {
   podGradientColor1: string;
   podGradientColor2: string;
   contentWidth: PollContentWidth;
+  gutterPx: string;
   headerBackgroundColor: string;
   headerFontColor: string;
   headerFontSize: string;
@@ -260,6 +262,10 @@ export function normalizePollContentWidth(value: unknown, fallback: PollContentW
   return fallback;
 }
 
+export function normalizePollGutterPx(value: unknown, fallback: string) {
+  return normalizePollPx(value, fallback, 240);
+}
+
 function hexToRgba(hex: string, opacityPercent: string) {
   const normalized = normalizePollColor(hex, "#000000");
 
@@ -377,6 +383,10 @@ function normalizePollPodLayout(input: Record<string, unknown>, fallback: PollPo
     contentWidth: normalizePollContentWidth(
       input.contentWidth ?? input.questionAreaWidth ?? input.question_area_width ?? input.content_width,
       fallback.contentWidth
+    ),
+    gutterPx: normalizePollGutterPx(
+      input.gutterPx ?? input.gutter_px ?? input.poll_gutter_px,
+      fallback.gutterPx
     ),
     headerBackgroundColor: normalizePollColor(
       input.headerBackgroundColor ?? input.header_background_color,
@@ -727,6 +737,14 @@ export function clonePollPodConfig(
 export type PollSettingsSnapshot = {
   pods: PollPodsSnapshot;
 };
+
+export function getPollGridStyle(settings: PollSettingsSnapshot | null | undefined): CSSProperties {
+  const gutterPx = resolvePollPod(settings?.pods, "polls").layout.gutterPx;
+
+  return {
+    "--poll-grid-gutter": `${gutterPx}px`
+  } as CSSProperties;
+}
 
 export function getPollPodAppearanceStyle(
   settings: PollSettingsSnapshot | null | undefined,

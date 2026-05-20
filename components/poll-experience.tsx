@@ -10,6 +10,7 @@ import logoBanner from "@/images/logo_normie_3_1600x500.png";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import { getPollGridStyle } from "@/lib/poll-pod-config";
 import type { PollPayload } from "@/src/site/home/types";
 
 export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
@@ -96,7 +97,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
         <div className="notice success">You&apos;re done. Thanks for finishing the full poll sequence.</div>
       ) : payload?.currentPoll ? (
         <>
-          <section className="poll-grid">
+          <section className="poll-grid" style={getPollGridStyle(payload.settings)}>
             {activeCategory ? (
               <div className="poll-grid-category-row">
                 <PollCategoryHeadline category={activeCategory} />

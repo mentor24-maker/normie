@@ -15,6 +15,7 @@ type BlogIndexPageProps = {
     topic?: string;
     category?: string;
     tag?: string;
+    q?: string;
   }>;
 };
 
@@ -23,13 +24,15 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
   const topicSlug = params.topic?.trim() ?? "";
   const categorySlug = params.category?.trim() ?? "";
   const tagSlug = params.tag?.trim() ?? "";
+  const searchQuery = params.q?.trim() ?? "";
   const [{ posts, total }, taxonomy, blogSettings] = await Promise.all([
     listPublicBlogPosts({
       limit: 12,
       offset: 0,
       topicSlug: topicSlug || undefined,
       categorySlug: categorySlug || undefined,
-      tagSlug: tagSlug || undefined
+      tagSlug: tagSlug || undefined,
+      searchQuery: searchQuery || undefined
     }),
     listPublicBlogTopicsAndTags(),
     getPublicBlogSettings()

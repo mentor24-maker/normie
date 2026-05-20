@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const topicSlug = safeText(searchParams.get("topic"), 120);
   const categorySlug = safeText(searchParams.get("category"), 120);
   const tagSlug = safeText(searchParams.get("tag"), 120);
+  const searchQuery = safeText(searchParams.get("q"), 160);
 
   try {
     const result = await listPublicBlogPosts({
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
       offset,
       topicSlug: topicSlug || undefined,
       categorySlug: categorySlug || undefined,
-      tagSlug: tagSlug || undefined
+      tagSlug: tagSlug || undefined,
+      searchQuery: searchQuery || undefined
     });
 
     return NextResponse.json({

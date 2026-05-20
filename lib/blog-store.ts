@@ -533,6 +533,7 @@ export type PublicBlogListOptions = {
   topicSlug?: string;
   categorySlug?: string;
   tagSlug?: string;
+  searchQuery?: string;
 };
 
 export async function listPublicBlogPosts(options: PublicBlogListOptions) {
@@ -615,6 +616,11 @@ export async function listPublicBlogPosts(options: PublicBlogListOptions) {
 
   if (postIdsFilter) {
     query = query.in("id", postIdsFilter);
+  }
+
+  if (options.searchQuery?.trim()) {
+    const escapedSearch = options.searchQuery.trim().replaceAll("%", "\\%").replaceAll("_", "\\_");
+    query = query.or(`title.ilike.%${escapedSearch}%,excerpt.ilike.%${escapedSearch}%`);
   }
 
   const { data, error, count } = await query.range(options.offset, options.offset + options.limit - 1);

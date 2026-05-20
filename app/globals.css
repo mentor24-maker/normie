@@ -729,7 +729,8 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
-  gap: 100px;
+  column-gap: var(--poll-grid-gutter, 100px);
+  row-gap: 0;
   position: relative;
 }
 
@@ -1349,7 +1350,8 @@ h2 {
 
 .builder-preview-section-poll-row {
   align-items: stretch;
-  gap: 100px !important;
+  column-gap: var(--poll-grid-gutter, 100px) !important;
+  row-gap: 0 !important;
 }
 
 .builder-preview-section-poll-row > .builder-preview-column {
@@ -1436,6 +1438,40 @@ h2 {
 
 .admin-poll-settings-form .admin-poll-settings-editor-field {
   grid-column: 1 / -1;
+}
+
+.admin-poll-size-settings-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(76px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.admin-poll-size-settings-row .field {
+  min-width: 0;
+}
+
+.admin-poll-size-settings-row .field span {
+  font-size: 0.76rem;
+  line-height: 1.15;
+}
+
+.admin-poll-size-settings-row .admin-field-help {
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.admin-poll-size-settings-row input,
+.admin-poll-size-settings-row select {
+  min-height: 34px;
+  padding: 7px 8px;
+  font-size: 0.86rem;
+}
+
+.admin-poll-gutter-field {
+  grid-column: 1 / -1;
+  max-width: 260px;
 }
 
 .admin-poll-color-field .admin-poll-color-inputs {
@@ -4652,7 +4688,8 @@ a.polls-icon-button {
 
 .builder-preview-device-mobile .poll-grid {
   grid-template-columns: 1fr;
-  gap: 48px;
+  row-gap: 48px;
+  column-gap: 0;
 }
 
 .builder-preview-device-mobile .poll-grid-logo {
@@ -5132,6 +5169,10 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .admin-poll-size-settings-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .polls-filter-grid {
     grid-template-columns: 1fr;
   }
@@ -5281,11 +5322,13 @@ code {
   }
 
   .poll-grid {
-    gap: 48px;
+    row-gap: 48px;
+    column-gap: 0;
   }
 
   .builder-preview-section-poll-row {
-    gap: 48px !important;
+    row-gap: 48px !important;
+    column-gap: 0 !important;
   }
 
   .admin-nav-bar .admin-nav-link {
@@ -5959,7 +6002,8 @@ code {
 .blog-post-layout {
   display: grid;
   grid-template-columns: minmax(0, var(--blog-article-width, 840px)) minmax(220px, var(--blog-sidebar-width, 300px));
-  gap: var(--blog-horizontal-margin, 40px);
+  column-gap: var(--blog-horizontal-margin, 40px);
+  row-gap: 0;
   align-items: start;
   justify-content: center;
   max-width: calc(
@@ -5967,6 +6011,10 @@ code {
   );
   margin: 0 auto;
   padding: 0 20px 64px;
+}
+
+.blog-index-filters {
+  grid-column: 1 / -1;
 }
 
 .blog-post-page {
@@ -6102,7 +6150,7 @@ code {
 
 .blog-index-filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(220px, var(--blog-sidebar-width, 300px));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -6112,7 +6160,8 @@ code {
   min-width: 0;
 }
 
-.blog-filter-field select {
+.blog-filter-field select,
+.blog-filter-field input {
   width: 100%;
   min-width: 0;
 }

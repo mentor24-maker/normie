@@ -763,7 +763,7 @@ export function AdminBlogWorkspace() {
               />
             </label>
             <label className="field admin-blog-compact-field">
-              <span>H margin</span>
+              <span>Sidebar Margin</span>
               <input
                 min="0"
                 max="120"
