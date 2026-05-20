@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { BlogPostSidebar } from "@/components/blog-post-sidebar";
+import { getBlogSettingsCssVariables, type BlogSettingsSnapshot } from "@/lib/blog-settings";
 import {
   formatBlogPublishedDate,
   getBlogPostPath,
@@ -23,6 +25,7 @@ type BlogFilters = {
 type BlogIndexClientProps = {
   initialPosts: BlogPostCard[];
   initialTotal: number;
+  settings: BlogSettingsSnapshot;
   topics: BlogTopicRecord[];
   categories: BlogCategoryRecord[];
   tags: BlogTagRecord[];
@@ -33,15 +36,16 @@ const PAGE_SIZE = 12;
 export function BlogIndexClient({
   initialPosts,
   initialTotal,
+  settings,
   topics,
   categories,
   tags
 }: BlogIndexClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const topicSlug = searchParams.get("topic") ?? "";
-  const categorySlug = searchParams.get("category") ?? "";
-  const tagSlug = searchParams.get("tag") ?? "";
+  const topicSlug = searchParams?.get("topic") ?? "";
+  const categorySlug = searchParams?.get("category") ?? "";
+  const tagSlug = searchParams?.get("tag") ?? "";
 
   const [posts, setPosts] = useState(initialPosts);
   const [total, setTotal] = useState(initialTotal);
@@ -117,7 +121,8 @@ export function BlogIndexClient({
   const hasMore = offset < total;
 
   return (
-    <section className="blog-index">
+    <div className="blog-post-layout" style={getBlogSettingsCssVariables(settings)}>
+      <section className="blog-index">
       <div className="blog-index-filters">
         <label className="field blog-filter-field">
           <span>Topic</span>
@@ -235,6 +240,14 @@ export function BlogIndexClient({
           </button>
         </div>
       ) : null}
-    </section>
+      </section>
+
+      <BlogPostSidebar
+        categories={categories}
+        showRelatedPosts={false}
+        tags={tags}
+        topics={topics}
+      />
+    </div>
   );
 }

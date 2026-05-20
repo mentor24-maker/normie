@@ -13,6 +13,16 @@ function normalizeHeader(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
 }
 
+function parseBoolean(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return ["1", "true", "yes", "y"].includes(normalized);
+}
+
+function parseWeight(value: string) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
 export async function POST(request: Request) {
   const auth = await requireAdminRoute("content:write");
 
@@ -22,6 +32,8 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
+  const importType = normalizeValue(formData.get("import_type")?.toString()).toLowerCase();
+  const isAdvancedImport = importType === "advanced";
 
   if (!(file instanceof File)) {
     return auth.finish(NextResponse.json({ error: "A CSV file is required." }, { status: 400 }));
@@ -41,9 +53,15 @@ export async function POST(request: Request) {
   }
 
   const fields = (parsed.meta.fields ?? []).map((field) => normalizeHeader(field));
-  const questionField = fields.includes("question") ? "question" : null;
+  const questionField = fields.includes("question")
+    ? "question"
+    : isAdvancedImport && fields.includes("one_line_question")
+      ? "one_line_question"
+      : null;
   const categoryField = fields.includes("category") ? "category" : null;
-  const optionFields = fields.filter((field) => /^option(?:_|$)/.test(field));
+  const optionFields = isAdvancedImport
+    ? ["option_a", "option_b"].filter((field) => fields.includes(field))
+    : fields.filter((field) => /^option(?:_|$)/.test(field));
 
   if (!questionField || !categoryField || optionFields.length < 2) {
     return auth.finish(
@@ -55,6 +73,36 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     );
+  }
+
+  if (isAdvancedImport) {
+    const requiredFields = [
+      "question_id",
+      "category",
+      "personality_system",
+      "trait_dimension",
+      "option_a",
+      "option_b",
+      "one_line_question",
+      "option_a_score_code",
+      "option_b_score_code",
+      "scoring_logic",
+      "weight",
+      "reverse_scored",
+      "ai_interpretation_tag"
+    ];
+    const missingFields = requiredFields.filter((field) => !fields.includes(field));
+
+    if (missingFields.length > 0) {
+      return auth.finish(
+        NextResponse.json(
+          {
+            error: `Advanced CSV is missing required column(s): ${missingFields.join(", ")}.`
+          },
+          { status: 400 }
+        )
+      );
+    }
   }
 
   const rows = parsed.data
@@ -105,6 +153,19 @@ export async function POST(request: Request) {
       .insert({
         category,
         question,
+        ...(isAdvancedImport
+          ? {
+              source_question_id: normalizeValue(row.question_id),
+              personality_system: normalizeValue(row.personality_system),
+              trait_dimension: normalizeValue(row.trait_dimension),
+              option_a_score_code: normalizeValue(row.option_a_score_code),
+              option_b_score_code: normalizeValue(row.option_b_score_code),
+              scoring_logic: normalizeValue(row.scoring_logic),
+              scoring_weight: parseWeight(normalizeValue(row.weight)),
+              reverse_scored: parseBoolean(normalizeValue(row.reverse_scored)),
+              ai_interpretation_tag: normalizeValue(row.ai_interpretation_tag)
+            }
+          : {}),
         order_index: nextOrderIndex,
         is_published: true
       })

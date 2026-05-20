@@ -8,6 +8,7 @@ import {
   slugifyBlogText,
   toBlogPostCard,
   type BlogCategoryRecord,
+  type BlogPostCard,
   type BlogPostEditorInput,
   type BlogPostRecord,
   type BlogTagRecord,
@@ -642,6 +643,141 @@ export async function listPublicBlogPosts(options: PublicBlogListOptions) {
   const posts = enrichPosts(rows, relations, topicsById, categoriesById, tagsById, authorNames).map(toBlogPostCard);
 
   return { posts, total: count ?? posts.length };
+}
+
+async function getPublicPostIdsLinkedToTaxonomy(
+  table: "blog_post_tags" | "blog_post_topics" | "blog_post_categories",
+  foreignKey: "tag_id" | "topic_id" | "category_id",
+  ids: string[],
+  excludePostId: string
+) {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const supabase = createPublicClient();
+  const { data, error } = await supabase.from(table).select("post_id").in(foreignKey, ids);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const seen = new Set<string>();
+  const postIds: string[] = [];
+
+  for (const row of data ?? []) {
+    const postId = String(row.post_id);
+
+    if (postId === excludePostId || seen.has(postId)) {
+      continue;
+    }
+
+    seen.add(postId);
+    postIds.push(postId);
+  }
+
+  return postIds;
+}
+
+async function fetchPublicBlogCardsForPostIds(postIds: string[], limit: number) {
+  if (postIds.length === 0 || limit <= 0) {
+    return [];
+  }
+
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .select(POST_SELECT)
+    .in("id", postIds)
+    .in("status", ["published", "scheduled"])
+    .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString())
+    .order("published_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = (data ?? []).filter((row) => isBlogPostPubliclyVisible(row)) as Record<string, unknown>[];
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const admin = createAdminClient();
+  const ids = rows.map((row) => String(row.id));
+  const relations = await loadPostRelations(admin, ids);
+  const [topics, categories, tags] = await Promise.all([
+    listAdminBlogTopics(),
+    listAdminBlogCategories(),
+    listAdminBlogTags()
+  ]);
+  const topicsById = new Map(topics.map((topic) => [topic.id, topic]));
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
+  const authorNames = await loadAuthorNames(
+    admin,
+    rows.map((row) => (row.author_team_user_id ? String(row.author_team_user_id) : "")).filter(Boolean)
+  );
+
+  return enrichPosts(rows, relations, topicsById, categoriesById, tagsById, authorNames).map(toBlogPostCard);
+}
+
+export async function listPublicBlogSidebarRelatedPosts(
+  post: Pick<BlogPostRecord, "id" | "tagIds" | "topicIds" | "categoryIds" | "primaryTopicId" | "primaryCategoryId">,
+  limit = 3
+) {
+  const results: BlogPostCard[] = [];
+  const seen = new Set<string>([post.id]);
+
+  async function appendFromTaxonomy(
+    table: "blog_post_tags" | "blog_post_topics" | "blog_post_categories",
+    foreignKey: "tag_id" | "topic_id" | "category_id",
+    ids: string[]
+  ) {
+    const remaining = limit - results.length;
+
+    if (remaining <= 0 || ids.length === 0) {
+      return;
+    }
+
+    const candidateIds = await getPublicPostIdsLinkedToTaxonomy(table, foreignKey, ids, post.id);
+    const freshIds = candidateIds.filter((id) => !seen.has(id));
+
+    if (freshIds.length === 0) {
+      return;
+    }
+
+    const cards = await fetchPublicBlogCardsForPostIds(freshIds, remaining);
+
+    for (const card of cards) {
+      if (results.length >= limit || seen.has(card.id)) {
+        continue;
+      }
+
+      seen.add(card.id);
+      results.push(card);
+    }
+  }
+
+  await appendFromTaxonomy("blog_post_tags", "tag_id", post.tagIds);
+
+  const topicIds = [
+    ...new Set(
+      [...post.topicIds, post.primaryTopicId ? post.primaryTopicId : ""].filter(Boolean)
+    )
+  ];
+  await appendFromTaxonomy("blog_post_topics", "topic_id", topicIds);
+
+  const categoryIds = [
+    ...new Set(
+      [...post.categoryIds, post.primaryCategoryId ? post.primaryCategoryId : ""].filter(Boolean)
+    )
+  ];
+  await appendFromTaxonomy("blog_post_categories", "category_id", categoryIds);
+
+  return results.slice(0, limit);
 }
 
 export async function getPublicBlogPost(topicSlug: string, postSlug: string) {

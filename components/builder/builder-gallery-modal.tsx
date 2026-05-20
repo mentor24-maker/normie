@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { AdminMediaItem } from "@/lib/admin-media";
 
 type BuilderGalleryModalProps = {
@@ -6,13 +5,15 @@ type BuilderGalleryModalProps = {
   isUploading: boolean;
   onSelectImage: (imagePath: string) => void;
   onClose: () => void;
+  onUploadImage?: (file: File | null) => void;
 };
 
 export function BuilderGalleryModal({
   media,
   isUploading,
   onSelectImage,
-  onClose
+  onClose,
+  onUploadImage
 }: BuilderGalleryModalProps) {
   return (
     <div className="builder-gallery-overlay" onClick={onClose} role="presentation">
@@ -28,9 +29,26 @@ export function BuilderGalleryModal({
             <div className="panel-label">Media Gallery</div>
             <h3>Choose from `/images` and `/images/gallery`</h3>
           </div>
-          <button className="secondary-button" onClick={onClose} type="button">
-            Close
-          </button>
+          <div className="builder-gallery-header-actions">
+            {onUploadImage ? (
+              <label className="secondary-button builder-gallery-button builder-upload-button">
+                <span>{isUploading ? "Uploading..." : "Add to Gallery"}</span>
+                <input
+                  accept="image/*"
+                  className="builder-upload-input"
+                  disabled={isUploading}
+                  type="file"
+                  onChange={(event) => {
+                    onUploadImage(event.target.files?.[0] ?? null);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            ) : null}
+            <button className="secondary-button" onClick={onClose} type="button">
+              Close
+            </button>
+          </div>
         </div>
         <div className="builder-gallery-body">
           <div className="builder-gallery-grid">
@@ -43,7 +61,7 @@ export function BuilderGalleryModal({
             >
               <div className="builder-gallery-thumb">
                 {image.kind === "image" ? (
-                  <Image alt={image.name} fill sizes="180px" src={image.path} />
+                  <img alt={image.name} src={image.path} />
                 ) : (
                   <video className="builder-gallery-video" controls preload="metadata" src={image.path} />
                 )}

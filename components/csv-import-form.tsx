@@ -4,9 +4,17 @@ import { FormEvent, useState } from "react";
 
 type CsvImportFormProps = {
   onImported?: () => Promise<void> | void;
+  importType?: "standard" | "advanced";
+  helpColumns?: string;
+  submitLabel?: string;
 };
 
-export function CsvImportForm({ onImported }: CsvImportFormProps) {
+export function CsvImportForm({
+  onImported,
+  importType = "standard",
+  helpColumns = "ID,Category,Question,Option_A,Option_B",
+  submitLabel = "Upload CSV"
+}: CsvImportFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -27,6 +35,7 @@ export function CsvImportForm({ onImported }: CsvImportFormProps) {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("import_type", importType);
 
       const response = await fetch("/api/import", {
         method: "POST",
@@ -39,7 +48,7 @@ export function CsvImportForm({ onImported }: CsvImportFormProps) {
         throw new Error(data.error ?? "Import failed.");
       }
 
-      setMessage(`Imported ${data.createdCount ?? 0} poll rows.`);
+      setMessage(`Imported ${data.createdCount ?? 0} poll row${data.createdCount === 1 ? "" : "s"}.`);
       setFile(null);
       await onImported?.();
     } catch (submitError) {
@@ -62,11 +71,11 @@ export function CsvImportForm({ onImported }: CsvImportFormProps) {
       </label>
 
       <div className="csv-help">
-        Example columns: <code>ID,Category,Question,Option_A,Option_B</code>
+        Example columns: <code>{helpColumns}</code>
       </div>
 
       <button className="submit-button" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Importing..." : "Upload CSV"}
+        {isSubmitting ? "Importing..." : submitLabel}
       </button>
 
       {message ? <div className="notice success">{message}</div> : null}

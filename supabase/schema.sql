@@ -22,6 +22,15 @@ create extension if not exists pgcrypto;
 create table if not exists public.polls (
   id uuid primary key default gen_random_uuid(),
   category varchar,
+  source_question_id text not null default '',
+  personality_system text not null default '',
+  trait_dimension text not null default '',
+  option_a_score_code text not null default '',
+  option_b_score_code text not null default '',
+  scoring_logic text not null default '',
+  scoring_weight numeric not null default 1,
+  reverse_scored boolean not null default false,
+  ai_interpretation_tag text not null default '',
   question text not null,
   deep_dive text not null default '',
   deep_dive_youtube_url text not null default '',
@@ -171,6 +180,12 @@ create table if not exists public.products (
 -- ---------------------------------------------------------------------------
 -- Blog
 -- ---------------------------------------------------------------------------
+create table if not exists public.blog_settings (
+  id text primary key,
+  settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.blog_topics (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -303,6 +318,7 @@ alter table public.team_users enable row level security;
 alter table public.builder_cell_modules enable row level security;
 alter table public.builder_saved_sections enable row level security;
 alter table public.products enable row level security;
+alter table public.blog_settings enable row level security;
 alter table public.blog_topics enable row level security;
 alter table public.blog_tags enable row level security;
 alter table public.blog_categories enable row level security;
@@ -393,6 +409,13 @@ using (true);
 drop policy if exists "builder saved sections are readable" on public.builder_saved_sections;
 create policy "builder saved sections are readable"
 on public.builder_saved_sections
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "blog settings are readable" on public.blog_settings;
+create policy "blog settings are readable"
+on public.blog_settings
 for select
 to anon, authenticated
 using (true);

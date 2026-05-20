@@ -2,16 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BlogPostBody } from "@/components/blog-post-body";
+import { BlogPostSidebar } from "@/components/blog-post-sidebar";
 import { BlogShareButtons } from "@/components/blog-share-buttons";
 import {
   buildBlogArticleJsonLd,
   formatBlogPublishedDate,
-  getBlogPostPath,
   normalizePublicBlogImageUrl,
-  resolveBlogSeo,
-  type BlogPostCard
+  resolveBlogSeo
 } from "@/lib/blog";
-import { getPublicBlogPost } from "@/lib/blog-store";
+import { getBlogSettingsCssVariables, getPublicBlogSettings } from "@/lib/blog-settings";
+import {
+  getPublicBlogPost,
+  listPublicBlogSidebarRelatedPosts,
+  listPublicBlogTopicsAndTags
+} from "@/lib/blog-store";
+
 type BlogPostPageProps = {
   params: Promise<{
     topicSlug: string;
@@ -51,21 +56,6 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   };
 }
 
-function RelatedPostCard({ post }: { post: BlogPostCard }) {
-  const href = getBlogPostPath({ slug: post.slug, primaryTopic: post.primaryTopic });
-  const imageSrc = post.featuredImageUrl ? normalizePublicBlogImageUrl(post.featuredImageUrl) : "";
-
-  return (
-    <article className="blog-related-card">
-      <Link href={href}>
-        {imageSrc ? <img alt="" className="blog-related-image" src={imageSrc} /> : null}
-        <h3>{post.title}</h3>
-        {post.excerpt ? <p>{post.excerpt}</p> : null}
-      </Link>
-    </article>
-  );
-}
-
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { topicSlug, postSlug } = await params;
   const result = await getPublicBlogPost(topicSlug, postSlug);
@@ -74,12 +64,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound();
   }
 
-  const { post, related } = result;
+  const { post } = result;
+  const [taxonomy, sidebarRelated, blogSettings] = await Promise.all([
+    listPublicBlogTopicsAndTags(),
+    listPublicBlogSidebarRelatedPosts(post, 3),
+    getPublicBlogSettings()
+  ]);
   const seo = resolveBlogSeo(post);
   const jsonLd = buildBlogArticleJsonLd(post);
   const featuredImage = post.featuredImageUrl ? normalizePublicBlogImageUrl(post.featuredImageUrl) : "";
 
   return (
+    <div className="blog-post-layout" style={getBlogSettingsCssVariables(blogSettings)}>
       <article className="blog-post-page">
         <script
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -89,19 +85,23 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           <Link className="blog-back-link" href="/blog">
             ← Back to blog
           </Link>
-          <div className="blog-post-meta">
-            {post.primaryTopic ? <span className="blog-chip">{post.primaryTopic.name}</span> : null}
-            {post.primaryCategory ? (
-              <Link className="blog-chip blog-chip-muted" href={`/blog?category=${post.primaryCategory.slug}`}>
-                {post.primaryCategory.name}
-              </Link>
-            ) : null}
-            {post.publishedAt ? (
-              <time dateTime={post.publishedAt}>{formatBlogPublishedDate(post.publishedAt)}</time>
-            ) : null}
-            {post.readingTimeMinutes > 0 ? <span>{post.readingTimeMinutes} min read</span> : null}
-          </div>
-          <h1>{post.title}</h1>
+          {post.publishedAt ? (
+            <time className="blog-card-date" dateTime={post.publishedAt}>
+              {formatBlogPublishedDate(post.publishedAt)}
+            </time>
+          ) : null}
+          {post.primaryTopic || post.primaryCategory || post.readingTimeMinutes > 0 ? (
+            <div className="blog-post-meta">
+              {post.primaryTopic ? <span className="blog-chip">{post.primaryTopic.name}</span> : null}
+              {post.primaryCategory ? (
+                <Link className="blog-chip blog-chip-muted" href={`/blog?category=${post.primaryCategory.slug}`}>
+                  {post.primaryCategory.name}
+                </Link>
+              ) : null}
+              {post.readingTimeMinutes > 0 ? <span>{post.readingTimeMinutes} min read</span> : null}
+            </div>
+          ) : null}
+          <h1 className="blog-post-title">{post.title}</h1>
           <p className="blog-post-byline">By {post.authorName}</p>
           {post.excerpt ? <p className="page-copy blog-post-excerpt">{post.excerpt}</p> : null}
         </header>
@@ -123,17 +123,14 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         ) : null}
 
         <BlogShareButtons title={post.title} url={seo.canonical} />
-
-        {related.length > 0 ? (
-          <section className="blog-related">
-            <h2>Related posts</h2>
-            <div className="blog-related-grid">
-              {related.map((relatedPost) => (
-                <RelatedPostCard key={relatedPost.id} post={relatedPost} />
-              ))}
-            </div>
-          </section>
-        ) : null}
       </article>
+
+      <BlogPostSidebar
+        categories={taxonomy.categories}
+        relatedPosts={sidebarRelated}
+        tags={taxonomy.tags}
+        topics={taxonomy.topics}
+      />
+    </div>
   );
 }

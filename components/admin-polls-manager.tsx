@@ -299,6 +299,20 @@ export function AdminPollsManager() {
                 setIsImportOpen(false);
               }}
             />
+            <div className="panel-label">Advanced Import</div>
+            <p className="page-copy admin-copy">
+              Upload the Starcaster scoring CSV with question IDs, personality metadata, score codes,
+              scoring logic, weights, reverse-scoring flags, and AI interpretation tags.
+            </p>
+            <CsvImportForm
+              importType="advanced"
+              helpColumns="Question ID,Category,Personality System,Trait / Dimension,Option A,Option B,One-Line Question,Option A Score Code,Option B Score Code,Scoring Logic,Weight,Reverse Scored?,AI Interpretation Tag"
+              submitLabel="Upload Advanced CSV"
+              onImported={async () => {
+                await loadPolls();
+                setIsImportOpen(false);
+              }}
+            />
           </section>
         ) : null}
 

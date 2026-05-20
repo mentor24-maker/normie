@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { AdminMediaItem } from "@/lib/admin-media";
 import type {
   BlogCategoryRecord,
   BlogPostEditorInput,
@@ -9,15 +10,127 @@ import type {
   BlogTopicRecord
 } from "@/lib/blog";
 import { getBlogPostPath, normalizeBlogSlugInput, slugifyBlogText } from "@/lib/blog";
+import { DEFAULT_BLOG_SETTINGS, type BlogSettingsSnapshot } from "@/lib/blog-settings";
 import { AdminBlogPostEditor } from "@/components/admin-blog-post-editor";
 import { AdminBlogTaxonomyList } from "@/components/admin-blog-taxonomy-list";
+import { BuilderGalleryModal } from "@/components/builder/builder-gallery-modal";
 
-type BlogView = "posts" | "topics" | "categories" | "tags";
+type BlogView = "posts" | "topics" | "categories" | "tags" | "settings";
 
 type TeamAuthor = {
   id: string;
   fullName: string;
 };
+
+type BlogSettingsKey = keyof BlogSettingsSnapshot;
+type BlogPaintMode = "color" | "gradient";
+
+type BlogPaintDraft = {
+  mode: BlogPaintMode;
+  color1: string;
+  color2: string;
+  opacity: string;
+};
+
+type BlogPaintTarget = {
+  label: string;
+  modeKey?: BlogSettingsKey;
+  colorKey: BlogSettingsKey;
+  gradientKey?: BlogSettingsKey;
+};
+
+type BlogImageTarget = {
+  modeKey: BlogSettingsKey;
+  imageKey: BlogSettingsKey;
+};
+
+const DEFAULT_PAINT_DRAFT: BlogPaintDraft = {
+  mode: "color",
+  color1: "#ffffff",
+  color2: "#f6fbff",
+  opacity: "100"
+};
+
+function hexToRgb(hex: string) {
+  const clean = hex.replace("#", "");
+  const expanded = clean.length === 3 ? clean.split("").map((char) => `${char}${char}`).join("") : clean;
+
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) {
+    return null;
+  }
+
+  return {
+    r: Number.parseInt(expanded.slice(0, 2), 16),
+    g: Number.parseInt(expanded.slice(2, 4), 16),
+    b: Number.parseInt(expanded.slice(4, 6), 16)
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return `#${[r, g, b].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function parsePaintValue(value: string, fallback = DEFAULT_PAINT_DRAFT): BlogPaintDraft {
+  const text = value.trim();
+  const gradientMatch = text.match(/gradient\([^#]*(#[0-9a-f]{3,6}|rgba?\([^)]+\)).*(#[0-9a-f]{3,6}|rgba?\([^)]+\))/i);
+
+  if (gradientMatch) {
+    return {
+      ...fallback,
+      mode: "gradient",
+      color1: paintColorToHex(gradientMatch[1]),
+      color2: paintColorToHex(gradientMatch[2]),
+      opacity: paintColorToOpacity(gradientMatch[1])
+    };
+  }
+
+  return {
+    ...fallback,
+    mode: "color",
+    color1: paintColorToHex(text),
+    opacity: paintColorToOpacity(text)
+  };
+}
+
+function paintColorToHex(value: string) {
+  const rgbaMatch = value.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+
+  if (rgbaMatch) {
+    return rgbToHex(Number(rgbaMatch[1]), Number(rgbaMatch[2]), Number(rgbaMatch[3]));
+  }
+
+  if (/^#[0-9a-f]{3}$/i.test(value)) {
+    const rgb = hexToRgb(value);
+    return rgb ? rgbToHex(rgb.r, rgb.g, rgb.b) : DEFAULT_PAINT_DRAFT.color1;
+  }
+
+  return /^#[0-9a-f]{6}$/i.test(value) ? value : DEFAULT_PAINT_DRAFT.color1;
+}
+
+function paintColorToOpacity(value: string) {
+  const rgbaMatch = value.match(/rgba\(\s*\d+[,\s]+\d+[,\s]+\d+[,\s]+([0-9.]+)/i);
+
+  if (!rgbaMatch) {
+    return "100";
+  }
+
+  return String(Math.round(Math.min(1, Math.max(0, Number.parseFloat(rgbaMatch[1]))) * 100));
+}
+
+function paintColorValue(hex: string, opacity: string) {
+  const rgb = hexToRgb(hex) ?? { r: 255, g: 255, b: 255 };
+  const alpha = Math.min(100, Math.max(0, Number.parseInt(opacity, 10) || 0)) / 100;
+
+  return alpha >= 1 ? rgbToHex(rgb.r, rgb.g, rgb.b) : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha.toFixed(2)})`;
+}
+
+function paintGradientValue(draft: BlogPaintDraft) {
+  return `linear-gradient(135deg, ${paintColorValue(draft.color1, draft.opacity)} 0%, ${paintColorValue(draft.color2, draft.opacity)} 100%)`;
+}
+
+function buildPaintValue(draft: BlogPaintDraft) {
+  return draft.mode === "gradient" ? paintGradientValue(draft) : paintColorValue(draft.color1, draft.opacity);
+}
 
 function createEmptyDraft(): BlogPostEditorInput & { id?: string } {
   return {
@@ -81,10 +194,17 @@ export function AdminBlogWorkspace() {
   const [categories, setCategories] = useState<BlogCategoryRecord[]>([]);
   const [tags, setTags] = useState<BlogTagRecord[]>([]);
   const [authors, setAuthors] = useState<TeamAuthor[]>([]);
+  const [blogSettings, setBlogSettings] = useState<BlogSettingsSnapshot>(DEFAULT_BLOG_SETTINGS);
+  const [galleryMedia, setGalleryMedia] = useState<AdminMediaItem[]>([]);
   const [canPublish, setCanPublish] = useState(false);
   const [editingDraft, setEditingDraft] = useState<(BlogPostEditorInput & { id?: string }) | null>(null);
+  const [paintTarget, setPaintTarget] = useState<BlogPaintTarget | null>(null);
+  const [paintDraft, setPaintDraft] = useState<BlogPaintDraft>(DEFAULT_PAINT_DRAFT);
+  const [galleryTarget, setGalleryTarget] = useState<BlogImageTarget | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -92,16 +212,122 @@ export function AdminBlogWorkspace() {
   const [categoryDraft, setCategoryDraft] = useState({ name: "", slug: "" });
   const [tagDraft, setTagDraft] = useState({ name: "", slug: "" });
 
+  function updateBlogSetting<Key extends keyof BlogSettingsSnapshot>(
+    key: Key,
+    value: BlogSettingsSnapshot[Key]
+  ) {
+    setBlogSettings((current) => ({
+      ...current,
+      [key]: value
+    }));
+  }
+
+  const loadMedia = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/media", { cache: "no-store" });
+      const payload = (await response.json()) as { media?: AdminMediaItem[]; error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to load media gallery.");
+      }
+
+      setGalleryMedia(payload.media ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load media gallery.");
+    }
+  }, []);
+
+  function openPaintSelector(target: BlogPaintTarget) {
+    const mode = target.modeKey ? blogSettings[target.modeKey] : "color";
+    const fallback = parsePaintValue(String(blogSettings[target.colorKey] ?? ""));
+    const nextDraft =
+      mode === "gradient" && target.gradientKey
+        ? parsePaintValue(String(blogSettings[target.gradientKey] ?? ""), { ...fallback, mode: "gradient" })
+        : fallback;
+
+    setPaintTarget(target);
+    setPaintDraft(nextDraft);
+  }
+
+  function updatePaintDraft(nextDraft: BlogPaintDraft) {
+    setPaintDraft(nextDraft);
+
+    if (!paintTarget) {
+      return;
+    }
+
+    if (paintTarget.modeKey) {
+      updateBlogSetting(paintTarget.modeKey, nextDraft.mode as BlogSettingsSnapshot[typeof paintTarget.modeKey]);
+    }
+
+    if (nextDraft.mode === "gradient" && paintTarget.gradientKey) {
+      updateBlogSetting(paintTarget.gradientKey, paintGradientValue(nextDraft) as BlogSettingsSnapshot[typeof paintTarget.gradientKey]);
+    } else {
+      updateBlogSetting(paintTarget.colorKey, buildPaintValue(nextDraft) as BlogSettingsSnapshot[typeof paintTarget.colorKey]);
+    }
+  }
+
+  function openImageSelector(target: BlogImageTarget) {
+    setGalleryTarget(target);
+    setIsGalleryOpen(true);
+    void loadMedia();
+  }
+
+  function selectGalleryImage(imagePath: string) {
+    if (!galleryTarget) {
+      return;
+    }
+
+    updateBlogSetting(galleryTarget.modeKey, "image" as BlogSettingsSnapshot[typeof galleryTarget.modeKey]);
+    updateBlogSetting(galleryTarget.imageKey, imagePath as BlogSettingsSnapshot[typeof galleryTarget.imageKey]);
+    setIsGalleryOpen(false);
+    setGalleryTarget(null);
+  }
+
+  async function uploadMedia(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
+      const payload = (await response.json()) as { media?: AdminMediaItem; error?: string };
+
+      if (!response.ok || !payload.media) {
+        throw new Error(payload.error ?? "Failed to upload media.");
+      }
+
+      setGalleryMedia((current) =>
+        [...current.filter((item) => item.path !== payload.media!.path), payload.media!].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      );
+      selectGalleryImage(payload.media.path);
+      setMessage(`Uploaded ${payload.media.name} to gallery.`);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload media.");
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  }
+
   const loadAll = useCallback(async () => {
     setIsLoading(true);
     setError("");
 
     try {
-      const [postsRes, topicsRes, categoriesRes, tagsRes, teamRes, sessionRes] = await Promise.all([
+      const [postsRes, topicsRes, categoriesRes, tagsRes, settingsRes, teamRes, sessionRes] = await Promise.all([
         fetch("/api/admin/blog/posts", { cache: "no-store" }),
         fetch("/api/admin/blog/topics", { cache: "no-store" }),
         fetch("/api/admin/blog/categories", { cache: "no-store" }),
         fetch("/api/admin/blog/tags", { cache: "no-store" }),
+        fetch("/api/admin/blog/settings", { cache: "no-store" }),
         fetch("/api/admin/team", { cache: "no-store" }),
         fetch("/api/admin/session", { cache: "no-store" })
       ]);
@@ -113,6 +339,10 @@ export function AdminBlogWorkspace() {
         error?: string;
       };
       const tagsPayload = (await tagsRes.json()) as { tags?: BlogTagRecord[]; error?: string };
+      const settingsPayload = (await settingsRes.json()) as {
+        settings?: BlogSettingsSnapshot;
+        error?: string;
+      };
       const teamPayload = (await teamRes.json()) as {
         users?: Array<{ id: string; fullName?: string; full_name?: string }>;
       };
@@ -122,10 +352,15 @@ export function AdminBlogWorkspace() {
         throw new Error(postsPayload.error ?? "Failed to load posts.");
       }
 
+      if (!settingsRes.ok) {
+        throw new Error(settingsPayload.error ?? "Failed to load blog settings.");
+      }
+
       setPosts(postsPayload.posts ?? []);
       setTopics(topicsPayload.topics ?? []);
       setCategories(categoriesPayload.categories ?? []);
       setTags(tagsPayload.tags ?? []);
+      setBlogSettings(settingsPayload.settings ?? DEFAULT_BLOG_SETTINGS);
       setAuthors(
         (teamPayload.users ?? []).map((user) => ({
           id: user.id,
@@ -321,6 +556,35 @@ export function AdminBlogWorkspace() {
     }
   }
 
+  async function saveBlogSettings() {
+    setIsSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/blog/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(blogSettings)
+      });
+      const payload = (await response.json()) as {
+        settings?: BlogSettingsSnapshot;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to save blog settings.");
+      }
+
+      setBlogSettings(payload.settings ?? blogSettings);
+      setMessage("Blog settings saved.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save blog settings.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (editingDraft) {
     return (
       <AdminBlogPostEditor
@@ -353,6 +617,13 @@ export function AdminBlogWorkspace() {
                 New post
               </button>
             ) : null}
+            <button
+              className={`secondary-button${view === "settings" ? " is-active" : ""}`}
+              onClick={() => setView("settings")}
+              type="button"
+            >
+              Settings
+            </button>
           </div>
         </div>
         <div className="admin-blog-view-tabs">
@@ -465,6 +736,250 @@ export function AdminBlogWorkspace() {
               </tbody>
             </table>
           </div>
+        </section>
+      ) : null}
+
+      {view === "settings" ? (
+        <section className="admin-section admin-blog-settings-panel">
+          <div className="admin-blog-settings-metrics">
+            <label className="field admin-blog-compact-field">
+              <span>Article width</span>
+              <input
+                min="320"
+                max="1400"
+                type="number"
+                value={blogSettings.articlePodWidth}
+                onChange={(event) => updateBlogSetting("articlePodWidth", event.target.value)}
+              />
+            </label>
+            <label className="field admin-blog-compact-field">
+              <span>Sidebar width</span>
+              <input
+                min="220"
+                max="520"
+                type="number"
+                value={blogSettings.sidebarWidth}
+                onChange={(event) => updateBlogSetting("sidebarWidth", event.target.value)}
+              />
+            </label>
+            <label className="field admin-blog-compact-field">
+              <span>H margin</span>
+              <input
+                min="0"
+                max="120"
+                type="number"
+                value={blogSettings.horizontalMargin}
+                onChange={(event) => updateBlogSetting("horizontalMargin", event.target.value)}
+              />
+            </label>
+            <label className="field admin-blog-compact-field">
+              <span>V margin</span>
+              <input
+                min="0"
+                max="120"
+                type="number"
+                value={blogSettings.verticalMargin}
+                onChange={(event) => updateBlogSetting("verticalMargin", event.target.value)}
+              />
+            </label>
+            <label className="field admin-blog-compact-field">
+              <span>Pod radius</span>
+              <input
+                min="0"
+                max="80"
+                type="number"
+                value={blogSettings.podRadius}
+                onChange={(event) => updateBlogSetting("podRadius", event.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="admin-blog-settings-columns">
+            <section className="admin-blog-settings-group">
+              <h3>Article pods</h3>
+              <div className="admin-blog-pod-settings-row">
+                <label className="field admin-blog-compact-field">
+                  <span>Border</span>
+                  <input
+                    min="0"
+                    max="12"
+                    type="number"
+                    value={blogSettings.articlePodBorderWidth}
+                    onChange={(event) => updateBlogSetting("articlePodBorderWidth", event.target.value)}
+                  />
+                </label>
+                <div className="field admin-blog-paint-field">
+                  <span>Border color</span>
+                  <button
+                    className="admin-blog-rainbow-button"
+                    onClick={() =>
+                      openPaintSelector({
+                        label: "Article border",
+                        colorKey: "articlePodBorderColor"
+                      })
+                    }
+                    style={{ background: blogSettings.articlePodBorderColor }}
+                    title="Choose article border color"
+                    type="button"
+                  >
+                    <span aria-hidden="true">◒</span>
+                  </button>
+                </div>
+                <label className="field admin-blog-compact-field">
+                  <span>Fill</span>
+                  <select
+                    value={blogSettings.articlePodBackgroundMode}
+                    onChange={(event) =>
+                      updateBlogSetting(
+                        "articlePodBackgroundMode",
+                        event.target.value as BlogSettingsSnapshot["articlePodBackgroundMode"]
+                      )
+                    }
+                  >
+                    <option value="color">Color</option>
+                    <option value="gradient">Gradient</option>
+                    <option value="image">Image</option>
+                  </select>
+                </label>
+                <div className="field admin-blog-paint-field">
+                  <span>Paint</span>
+                  <button
+                    className="admin-blog-rainbow-button"
+                    onClick={() =>
+                      openPaintSelector({
+                        label: "Article background",
+                        modeKey: "articlePodBackgroundMode",
+                        colorKey: "articlePodBackgroundColor",
+                        gradientKey: "articlePodBackgroundGradient"
+                      })
+                    }
+                    style={{
+                      background:
+                        blogSettings.articlePodBackgroundMode === "gradient"
+                          ? blogSettings.articlePodBackgroundGradient
+                          : blogSettings.articlePodBackgroundColor
+                    }}
+                    title="Choose article background"
+                    type="button"
+                  >
+                    <span aria-hidden="true">◒</span>
+                  </button>
+                </div>
+                <div className="field admin-blog-image-field">
+                  <span>Image</span>
+                  <button
+                    className="secondary-button admin-blog-mini-button"
+                    onClick={() =>
+                      openImageSelector({
+                        modeKey: "articlePodBackgroundMode",
+                        imageKey: "articlePodBackgroundImage"
+                      })
+                    }
+                    type="button"
+                  >
+                    Select
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="admin-blog-settings-group">
+              <h3>Sidebar pod</h3>
+              <div className="admin-blog-pod-settings-row">
+                <label className="field admin-blog-compact-field">
+                  <span>Border</span>
+                  <input
+                    min="0"
+                    max="12"
+                    type="number"
+                    value={blogSettings.sidebarPodBorderWidth}
+                    onChange={(event) => updateBlogSetting("sidebarPodBorderWidth", event.target.value)}
+                  />
+                </label>
+                <div className="field admin-blog-paint-field">
+                  <span>Border color</span>
+                  <button
+                    className="admin-blog-rainbow-button"
+                    onClick={() =>
+                      openPaintSelector({
+                        label: "Sidebar border",
+                        colorKey: "sidebarPodBorderColor"
+                      })
+                    }
+                    style={{ background: blogSettings.sidebarPodBorderColor }}
+                    title="Choose sidebar border color"
+                    type="button"
+                  >
+                    <span aria-hidden="true">◒</span>
+                  </button>
+                </div>
+                <label className="field admin-blog-compact-field">
+                  <span>Fill</span>
+                  <select
+                    value={blogSettings.sidebarPodBackgroundMode}
+                    onChange={(event) =>
+                      updateBlogSetting(
+                        "sidebarPodBackgroundMode",
+                        event.target.value as BlogSettingsSnapshot["sidebarPodBackgroundMode"]
+                      )
+                    }
+                  >
+                    <option value="color">Color</option>
+                    <option value="gradient">Gradient</option>
+                    <option value="image">Image</option>
+                  </select>
+                </label>
+                <div className="field admin-blog-paint-field">
+                  <span>Paint</span>
+                  <button
+                    className="admin-blog-rainbow-button"
+                    onClick={() =>
+                      openPaintSelector({
+                        label: "Sidebar background",
+                        modeKey: "sidebarPodBackgroundMode",
+                        colorKey: "sidebarPodBackgroundColor",
+                        gradientKey: "sidebarPodBackgroundGradient"
+                      })
+                    }
+                    style={{
+                      background:
+                        blogSettings.sidebarPodBackgroundMode === "gradient"
+                          ? blogSettings.sidebarPodBackgroundGradient
+                          : blogSettings.sidebarPodBackgroundColor
+                    }}
+                    title="Choose sidebar background"
+                    type="button"
+                  >
+                    <span aria-hidden="true">◒</span>
+                  </button>
+                </div>
+                <div className="field admin-blog-image-field">
+                  <span>Image</span>
+                  <button
+                    className="secondary-button admin-blog-mini-button"
+                    onClick={() =>
+                      openImageSelector({
+                        modeKey: "sidebarPodBackgroundMode",
+                        imageKey: "sidebarPodBackgroundImage"
+                      })
+                    }
+                    type="button"
+                  >
+                    Select
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <button
+            className="submit-button admin-save-button"
+            disabled={isSaving}
+            onClick={() => void saveBlogSettings()}
+            type="button"
+          >
+            {isSaving ? "Saving..." : "Save settings"}
+          </button>
         </section>
       ) : null}
 
@@ -598,6 +1113,94 @@ export function AdminBlogWorkspace() {
             resource="tags"
           />
         </section>
+      ) : null}
+
+      {paintTarget ? (
+        <div className="admin-blog-paint-overlay" onClick={() => setPaintTarget(null)} role="presentation">
+          <div
+            aria-label={`${paintTarget.label} selector`}
+            aria-modal="true"
+            className="admin-blog-paint-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="admin-blog-paint-header">
+              <div>
+                <div className="panel-label">Paint</div>
+                <h3>{paintTarget.label}</h3>
+              </div>
+              <button className="secondary-button admin-blog-mini-button" onClick={() => setPaintTarget(null)} type="button">
+                Close
+              </button>
+            </div>
+            <div className="admin-blog-paint-preview" style={{ background: buildPaintValue(paintDraft) }} />
+            <div className="admin-blog-paint-tabs">
+              {(["color", "gradient"] as BlogPaintMode[]).map((mode) => (
+                <button
+                  className={`secondary-button admin-blog-mini-button${paintDraft.mode === mode ? " is-active" : ""}`}
+                  key={mode}
+                  onClick={() => updatePaintDraft({ ...paintDraft, mode })}
+                  type="button"
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+            <div className="admin-blog-paint-controls">
+              <label className="field">
+                <span>{paintDraft.mode === "gradient" ? "Color 1" : "Color"}</span>
+                <input
+                  type="color"
+                  value={paintDraft.color1}
+                  onChange={(event) => updatePaintDraft({ ...paintDraft, color1: event.target.value })}
+                />
+              </label>
+              {paintDraft.mode === "gradient" ? (
+                <label className="field">
+                  <span>Color 2</span>
+                  <input
+                    type="color"
+                    value={paintDraft.color2}
+                    onChange={(event) => updatePaintDraft({ ...paintDraft, color2: event.target.value })}
+                  />
+                </label>
+              ) : null}
+              <label className="field admin-blog-opacity-field">
+                <span>Opacity</span>
+                <input
+                  max="100"
+                  min="0"
+                  type="range"
+                  value={paintDraft.opacity}
+                  onChange={(event) => updatePaintDraft({ ...paintDraft, opacity: event.target.value })}
+                />
+              </label>
+              <label className="field admin-blog-opacity-value-field">
+                <span>%</span>
+                <input
+                  max="100"
+                  min="0"
+                  type="number"
+                  value={paintDraft.opacity}
+                  onChange={(event) => updatePaintDraft({ ...paintDraft, opacity: event.target.value })}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isGalleryOpen ? (
+        <BuilderGalleryModal
+          isUploading={isUploadingMedia}
+          media={galleryMedia}
+          onClose={() => {
+            setIsGalleryOpen(false);
+            setGalleryTarget(null);
+          }}
+          onSelectImage={selectGalleryImage}
+          onUploadImage={(file) => void uploadMedia(file)}
+        />
       ) : null}
     </section>
   );
