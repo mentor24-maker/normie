@@ -11,6 +11,7 @@ import type {
 } from "@/lib/blog";
 import { getBlogPostPath, normalizeBlogSlugInput, slugifyBlogText } from "@/lib/blog";
 import { DEFAULT_BLOG_SETTINGS, type BlogSettingsSnapshot } from "@/lib/blog-settings";
+import { parseAdminJsonResponse, readAdminJson } from "@/lib/admin-fetch";
 import { AdminBlogPostEditor } from "@/components/admin-blog-post-editor";
 import { AdminBlogTaxonomyList } from "@/components/admin-blog-taxonomy-list";
 import { BuilderGalleryModal } from "@/components/builder/builder-gallery-modal";
@@ -225,11 +226,10 @@ export function AdminBlogWorkspace() {
   const loadMedia = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/media", { cache: "no-store" });
-      const payload = (await response.json()) as { media?: AdminMediaItem[]; error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to load media gallery.");
-      }
+      const payload = await readAdminJson<{ media?: AdminMediaItem[]; error?: string }>(
+        response,
+        "Failed to load media gallery."
+      );
 
       setGalleryMedia(payload.media ?? []);
     } catch (loadError) {
@@ -297,9 +297,12 @@ export function AdminBlogWorkspace() {
       const formData = new FormData();
       formData.append("file", file);
       const response = await fetch("/api/admin/media", { method: "POST", body: formData });
-      const payload = (await response.json()) as { media?: AdminMediaItem; error?: string };
+      const payload = await readAdminJson<{ media?: AdminMediaItem; error?: string }>(
+        response,
+        "Failed to upload media."
+      );
 
-      if (!response.ok || !payload.media) {
+      if (!payload.media) {
         throw new Error(payload.error ?? "Failed to upload media.");
       }
 
@@ -322,52 +325,29 @@ export function AdminBlogWorkspace() {
     setError("");
 
     try {
-      const [postsRes, topicsRes, categoriesRes, tagsRes, settingsRes, teamRes, sessionRes] = await Promise.all([
-        fetch("/api/admin/blog/posts", { cache: "no-store" }),
-        fetch("/api/admin/blog/topics", { cache: "no-store" }),
-        fetch("/api/admin/blog/categories", { cache: "no-store" }),
-        fetch("/api/admin/blog/tags", { cache: "no-store" }),
-        fetch("/api/admin/blog/settings", { cache: "no-store" }),
-        fetch("/api/admin/team", { cache: "no-store" }),
-        fetch("/api/admin/session", { cache: "no-store" })
-      ]);
-
-      const postsPayload = (await postsRes.json()) as { posts?: BlogPostRecord[]; error?: string };
-      const topicsPayload = (await topicsRes.json()) as { topics?: BlogTopicRecord[]; error?: string };
-      const categoriesPayload = (await categoriesRes.json()) as {
+      const payload = await readAdminJson<{
+        posts?: BlogPostRecord[];
+        topics?: BlogTopicRecord[];
         categories?: BlogCategoryRecord[];
-        error?: string;
-      };
-      const tagsPayload = (await tagsRes.json()) as { tags?: BlogTagRecord[]; error?: string };
-      const settingsPayload = (await settingsRes.json()) as {
+        tags?: BlogTagRecord[];
         settings?: BlogSettingsSnapshot;
-        error?: string;
-      };
-      const teamPayload = (await teamRes.json()) as {
         users?: Array<{ id: string; fullName?: string; full_name?: string }>;
-      };
-      const sessionPayload = (await sessionRes.json()) as { user?: { role?: string } };
+        user?: { role?: string };
+        error?: string;
+      }>(await fetch("/api/admin/blog/bootstrap", { cache: "no-store" }), "Failed to load blog data.");
 
-      if (!postsRes.ok) {
-        throw new Error(postsPayload.error ?? "Failed to load posts.");
-      }
-
-      if (!settingsRes.ok) {
-        throw new Error(settingsPayload.error ?? "Failed to load blog settings.");
-      }
-
-      setPosts(postsPayload.posts ?? []);
-      setTopics(topicsPayload.topics ?? []);
-      setCategories(categoriesPayload.categories ?? []);
-      setTags(tagsPayload.tags ?? []);
-      setBlogSettings(settingsPayload.settings ?? DEFAULT_BLOG_SETTINGS);
+      setPosts(payload.posts ?? []);
+      setTopics(payload.topics ?? []);
+      setCategories(payload.categories ?? []);
+      setTags(payload.tags ?? []);
+      setBlogSettings(payload.settings ?? DEFAULT_BLOG_SETTINGS);
       setAuthors(
-        (teamPayload.users ?? []).map((user) => ({
+        (payload.users ?? []).map((user) => ({
           id: user.id,
           fullName: user.fullName ?? user.full_name ?? "Team member"
         }))
       );
-      const role = sessionPayload.user?.role ?? "";
+      const role = payload.user?.role ?? "";
       setCanPublish(role === "admin" || role === "owner");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load blog data.");
@@ -398,11 +378,7 @@ export function AdminBlogWorkspace() {
           body: JSON.stringify(editingDraft)
         }
       );
-      const payload = (await response.json()) as { post?: BlogPostRecord; error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to save post.");
-      }
+      await readAdminJson<{ post?: BlogPostRecord; error?: string }>(response, "Failed to save post.");
 
       setMessage("Post saved.");
       setEditingDraft(null);
@@ -446,11 +422,7 @@ export function AdminBlogWorkspace() {
           publishedAt: draft.publishedAt ?? new Date().toISOString()
         })
       });
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to publish post.");
-      }
+      await readAdminJson<{ error?: string }>(response, "Failed to publish post.");
 
       setMessage(`"${post.title}" is published.`);
       await loadAll();
@@ -469,8 +441,12 @@ export function AdminBlogWorkspace() {
     const response = await fetch(`/api/admin/blog/posts/${postId}`, { method: "DELETE" });
 
     if (!response.ok) {
-      const payload = (await response.json()) as { error?: string };
-      setError(payload.error ?? "Failed to delete post.");
+      try {
+        const payload = await parseAdminJsonResponse<{ error?: string }>(response, "Failed to delete post.");
+        setError(payload.error ?? "Failed to delete post.");
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete post.");
+      }
       return;
     }
 
@@ -488,11 +464,7 @@ export function AdminBlogWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(topicDraft)
       });
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to save topic.");
-      }
+      await readAdminJson<{ error?: string }>(response, "Failed to save topic.");
 
       setTopicDraft({ name: "", slug: "" });
       setMessage("Topic saved.");
@@ -514,11 +486,7 @@ export function AdminBlogWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(categoryDraft)
       });
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to save category.");
-      }
+      await readAdminJson<{ error?: string }>(response, "Failed to save category.");
 
       setCategoryDraft({ name: "", slug: "" });
       setMessage("Category saved.");
@@ -540,11 +508,7 @@ export function AdminBlogWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(tagDraft)
       });
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to save tag.");
-      }
+      await readAdminJson<{ error?: string }>(response, "Failed to save tag.");
 
       setTagDraft({ name: "", slug: "" });
       setMessage("Tag saved.");
@@ -567,14 +531,10 @@ export function AdminBlogWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(blogSettings)
       });
-      const payload = (await response.json()) as {
+      const payload = await readAdminJson<{
         settings?: BlogSettingsSnapshot;
         error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to save blog settings.");
-      }
+      }>(response, "Failed to save blog settings.");
 
       setBlogSettings(payload.settings ?? blogSettings);
       setMessage("Blog settings saved.");

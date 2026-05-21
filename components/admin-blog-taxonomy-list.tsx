@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { parseAdminJsonResponse, readAdminJson } from "@/lib/admin-fetch";
 import { normalizeBlogSlugInput, slugifyBlogText } from "@/lib/blog";
 
 export type AdminBlogTaxonomyItem = {
@@ -99,11 +100,7 @@ export function AdminBlogTaxonomyList({
           slug: slugifyBlogText(editDraft.slug || editDraft.name)
         })
       });
-      const payload = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? `Failed to update ${label}.`);
-      }
+      await readAdminJson<{ error?: string }>(response, `Failed to update ${label}.`);
 
       cancelEdit();
       onMessage(`${label.charAt(0).toUpperCase()}${label.slice(1)} updated.`);
@@ -135,8 +132,20 @@ export function AdminBlogTaxonomyList({
       const results = await Promise.all(
         ids.map(async (id) => {
           const response = await fetch(apiPath(resource, id), { method: "DELETE" });
-          const payload = (await response.json()) as { error?: string };
-          return { id, ok: response.ok, error: payload.error };
+
+          try {
+            const payload = await parseAdminJsonResponse<{ error?: string }>(
+              response,
+              `Failed to delete ${label}.`
+            );
+            return { id, ok: response.ok, error: payload.error };
+          } catch (deleteError) {
+            return {
+              id,
+              ok: false,
+              error: deleteError instanceof Error ? deleteError.message : `Failed to delete ${label}.`
+            };
+          }
         })
       );
 

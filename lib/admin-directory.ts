@@ -65,7 +65,7 @@ async function getTeamMemberRole(userId: string) {
   return normalizeUserRole(data.role);
 }
 
-async function listUsersWithProfiles(table: AdminDirectoryTable) {
+export async function listDirectoryUsers(table: AdminDirectoryTable) {
   const supabase = createAdminClient();
 
   const [{ data: authData, error: authError }, { data: profileData, error: profileError }] =
@@ -107,7 +107,7 @@ export async function getDirectoryUsers(table: AdminDirectoryTable) {
   }
 
   try {
-    const users = await listUsersWithProfiles(table);
+    const users = await listDirectoryUsers(table);
     return auth.finish(NextResponse.json({ users }));
   } catch (error) {
     return NextResponse.json(

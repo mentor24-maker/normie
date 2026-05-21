@@ -23,13 +23,31 @@ export async function middleware(request: NextRequest) {
   const requestId = normalizeRequestId(request.headers.get("x-request-id")) ?? createRequestId();
   const requestHeaders = new Headers(request.headers);
   applyRequestIdHeader(requestHeaders, requestId);
-  const needsAdminSession = requiresAdminSession(pathname, method);
-  const resolved =
-    needsAdminSession || isAdminSessionPath(pathname)
-      ? await resolveAdminSessionForRequest(request)
-      : null;
+  try {
+    const needsAdminSession = requiresAdminSession(pathname, method);
+    const resolved =
+      needsAdminSession || isAdminSessionPath(pathname)
+        ? await resolveAdminSessionForRequest(request)
+        : null;
 
-  if (needsAdminSession && !resolved) {
+    if (needsAdminSession && !resolved) {
+      const denied =
+        pathname.startsWith("/api/") || pathname === "/api/import"
+          ? unauthorizedAdminApiResponse()
+          : redirectToAdminLogin(request);
+
+      return withRequestId(request, applySecurityHeaders(denied));
+    }
+
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders
+      }
+    });
+    applyRefreshedSessionToResponse(response, resolved);
+
+    return withRequestId(request, applySecurityHeaders(response));
+  } catch {
     const denied =
       pathname.startsWith("/api/") || pathname === "/api/import"
         ? unauthorizedAdminApiResponse()
@@ -37,15 +55,6 @@ export async function middleware(request: NextRequest) {
 
     return withRequestId(request, applySecurityHeaders(denied));
   }
-
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders
-    }
-  });
-  applyRefreshedSessionToResponse(response, resolved);
-
-  return withRequestId(request, applySecurityHeaders(response));
 }
 
 export const config = {

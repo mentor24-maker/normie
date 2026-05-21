@@ -167,20 +167,24 @@ async function refreshAdminAccessSession(refreshToken: string) {
 export async function resolveAuthorizedAdminFromCookieStore(
   cookieStore: Pick<ReadonlyRequestCookies, "get">
 ): Promise<ResolvedAdminSession | null> {
-  const accessToken = cookieStore.get(ADMIN_ACCESS_COOKIE)?.value;
-  const refreshToken = cookieStore.get(ADMIN_REFRESH_COOKIE)?.value;
+  try {
+    const accessToken = cookieStore.get(ADMIN_ACCESS_COOKIE)?.value;
+    const refreshToken = cookieStore.get(ADMIN_REFRESH_COOKIE)?.value;
 
-  const fromAccessToken = await getAuthorizedAdminFromToken(accessToken);
+    const fromAccessToken = await getAuthorizedAdminFromToken(accessToken);
 
-  if (fromAccessToken) {
-    return { admin: fromAccessToken };
-  }
+    if (fromAccessToken) {
+      return { admin: fromAccessToken };
+    }
 
-  if (!refreshToken) {
+    if (!refreshToken) {
+      return null;
+    }
+
+    return refreshAdminAccessSession(refreshToken);
+  } catch {
     return null;
   }
-
-  return refreshAdminAccessSession(refreshToken);
 }
 
 export async function getAdminUserFromCookieStore(cookieStore: Pick<ReadonlyRequestCookies, "get">) {

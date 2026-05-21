@@ -13,6 +13,7 @@ import {
   type BlogTopicRecord,
   type BlogTwitterCardType
 } from "@/lib/blog";
+import { readAdminJson } from "@/lib/admin-fetch";
 import { BlogRichTextEditor } from "@/components/blog-rich-text-editor";
 import { BuilderGalleryModal } from "@/components/builder/builder-gallery-modal";
 
@@ -84,9 +85,12 @@ export function AdminBlogPostEditor({
 
     try {
       const response = await fetch("/api/admin/media", { cache: "no-store" });
-      const payload = (await response.json()) as { media?: AdminMediaItem[] };
 
       if (response.ok) {
+        const payload = await readAdminJson<{ media?: AdminMediaItem[] }>(
+          response,
+          "Failed to load media gallery."
+        );
         setMedia(payload.media ?? []);
       }
     } finally {

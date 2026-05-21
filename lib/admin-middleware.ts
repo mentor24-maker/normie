@@ -62,7 +62,11 @@ export function requiresAdminSession(pathname: string, method: string) {
 }
 
 export async function resolveAdminSessionForRequest(request: NextRequest) {
-  return resolveAuthorizedAdminFromCookieStore(getRequestCookieStore(request));
+  try {
+    return await resolveAuthorizedAdminFromCookieStore(getRequestCookieStore(request));
+  } catch {
+    return null;
+  }
 }
 
 export function applyRefreshedSessionToResponse(

@@ -1,4 +1,4 @@
-import { BuilderTemplatePreview } from "@/components/builder-template-preview";
+import { BuilderTemplatePreviewClient } from "@/components/builder-template-preview-client";
 import { createDefaultBackgroundSettings } from "@/lib/builder-template";
 import { getBlogHeaderLayoutSections } from "@/lib/builder-site-modules";
 import { BlogSiteHeader } from "@/src/site/blog/blog-site-header";
@@ -12,7 +12,7 @@ export async function BlogHeader() {
 
   return (
     <div className="blog-builder-header">
-      <BuilderTemplatePreview
+      <BuilderTemplatePreviewClient
         layoutSections={layoutSections}
         pageBackground={createDefaultBackgroundSettings()}
         showShell={false}

@@ -1,4 +1,4 @@
-import { BuilderTemplatePreview } from "@/components/builder-template-preview";
+import { BuilderTemplatePreviewClient } from "@/components/builder-template-preview-client";
 import { createDefaultBackgroundSettings } from "@/lib/builder-template";
 import { getSavedSectionLayoutSections } from "@/lib/builder-site-modules";
 
@@ -16,7 +16,7 @@ export async function BuilderSavedSection({ sectionName, className }: BuilderSav
 
   return (
     <div className={className}>
-      <BuilderTemplatePreview
+      <BuilderTemplatePreviewClient
         layoutSections={layoutSections}
         pageBackground={createDefaultBackgroundSettings()}
         showShell={false}
