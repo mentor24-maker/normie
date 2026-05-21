@@ -5,6 +5,7 @@ import { loadPollDeepDiveContent } from "@/lib/load-poll-deep-dive-content";
 import { getPublicPollSettings, pollSettingsToClientPayload } from "@/lib/poll-settings";
 import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
+import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { createPublicClient } from "@/lib/supabase-public";
 import { resolveCurrentPollIndexFromSession } from "@/lib/polls-next-session";
 
@@ -32,6 +33,7 @@ function getPollResults(
 export const GET = withObservedRoute("polls.next", async (request) => {
   const cookieStore = await cookies();
   let sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  const player = await getAuthorizedPlayerFromCookieStore(cookieStore);
 
   if (!sessionId) {
     sessionId = crypto.randomUUID();
@@ -71,13 +73,18 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     pollsQuery = pollsQuery.eq("category", categoryFilter);
   }
 
+  const responsesQuery = supabase.from("responses").select("poll_id");
+  const playerResponsesQuery = player
+    ? responsesQuery.or(`session_id.eq.${sessionId},user_id.eq.${player.authUser.id}`)
+    : responsesQuery.eq("session_id", sessionId);
+
   const [
     { data: polls, error: pollsError },
     { data: responses, error: responseError },
     pollSettings
   ] = await Promise.all([
     pollsQuery,
-    supabase.from("responses").select("poll_id").eq("session_id", sessionId),
+    playerResponsesQuery,
     settingsPromise
   ]);
   const settingsPayload = pollSettingsToClientPayload(pollSettings);

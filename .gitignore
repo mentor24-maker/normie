@@ -26,3 +26,4 @@ Thumbs.db
 # Accidental duplicate route artifacts
 **/route 2.ts
 **/route 2.tsx
+.vercel

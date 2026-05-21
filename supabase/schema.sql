@@ -53,10 +53,22 @@ create table if not exists public.poll_options (
 create table if not exists public.responses (
   id uuid primary key default gen_random_uuid(),
   session_id text not null,
+  user_id uuid,
   poll_id uuid not null references public.polls(id) on delete cascade,
   option_id uuid not null references public.poll_options(id) on delete cascade,
+  tokens_earned integer not null default 0,
   created_at timestamptz not null default now(),
   unique (session_id, poll_id)
+);
+
+create table if not exists public.player_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null default '',
+  handle text not null,
+  status text not null default 'active' check (status in ('active', 'suspended')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (handle)
 );
 
 create table if not exists public.poll_settings (
@@ -278,8 +290,31 @@ create table if not exists public.api_rate_limits (
 -- ---------------------------------------------------------------------------
 -- Indexes
 -- ---------------------------------------------------------------------------
+alter table public.responses
+add column if not exists user_id uuid;
+
+alter table public.responses
+add column if not exists tokens_earned integer not null default 0;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'responses_user_id_fkey'
+  ) then
+    alter table public.responses
+    add constraint responses_user_id_fkey
+    foreign key (user_id) references auth.users(id) on delete set null;
+  end if;
+end $$;
+
 create index if not exists responses_poll_id_idx on public.responses (poll_id);
 create index if not exists responses_session_id_idx on public.responses (session_id);
+create index if not exists responses_user_id_idx on public.responses (user_id);
+create unique index if not exists responses_user_poll_unique_idx
+on public.responses (user_id, poll_id)
+where user_id is not null;
 create index if not exists poll_options_poll_id_idx on public.poll_options (poll_id);
 create index if not exists page_templates_updated_at_idx on public.page_templates (updated_at desc);
 create index if not exists pages_updated_at_idx on public.pages (updated_at desc);
@@ -303,6 +338,8 @@ create index if not exists blog_post_topics_topic_id_idx on public.blog_post_top
 create index if not exists blog_post_categories_category_id_idx on public.blog_post_categories (category_id);
 create index if not exists blog_post_tags_tag_id_idx on public.blog_post_tags (tag_id);
 create index if not exists api_rate_limits_expires_at_idx on public.api_rate_limits (expires_at);
+create index if not exists player_profiles_status_idx on public.player_profiles (status);
+create index if not exists player_profiles_handle_idx on public.player_profiles (handle);
 
 -- ---------------------------------------------------------------------------
 -- Row level security
@@ -310,6 +347,7 @@ create index if not exists api_rate_limits_expires_at_idx on public.api_rate_lim
 alter table public.polls enable row level security;
 alter table public.poll_options enable row level security;
 alter table public.responses enable row level security;
+alter table public.player_profiles enable row level security;
 alter table public.poll_settings enable row level security;
 alter table public.page_templates enable row level security;
 alter table public.pages enable row level security;
@@ -391,6 +429,25 @@ with check (
       and public.poll_options.poll_id = poll_id
   )
 );
+
+drop policy if exists "active player profiles are readable" on public.player_profiles;
+create policy "active player profiles are readable"
+on public.player_profiles
+for select
+to anon, authenticated
+using (status = 'active');
+
+drop policy if exists "players can read own profile" on public.player_profiles;
+create policy "players can read own profile"
+on public.player_profiles
+for select
+to authenticated
+using (auth.uid() = id);
+
+grant select, insert, update on public.player_profiles to anon, authenticated, service_role;
+grant select, insert, update on public.responses to anon, authenticated, service_role;
+
+notify pgrst, 'reload schema';
 
 drop policy if exists "published pages are readable" on public.pages;
 create policy "published pages are readable"

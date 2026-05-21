@@ -15,6 +15,7 @@ export const defaultSiteNavItems: SiteNavItem[] = [
   { href: "/tokenomics", label: "Tokenomics" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/white-paper", label: "White Paper" },
+  { href: "/portal", label: "Player Portal" },
   { href: "/contact", label: "Contact" }
 ];
 

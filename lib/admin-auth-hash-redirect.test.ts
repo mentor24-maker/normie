@@ -26,6 +26,16 @@ describe("admin auth hash redirect", () => {
     ).toBe(false);
   });
 
+  it("lets player reset links resolve inside the portal", () => {
+    expect(
+      shouldRouteAuthPayloadToAdminCallback(
+        "/portal/reset",
+        "",
+        "#access_token=abc&refresh_token=def&type=recovery"
+      )
+    ).toBe(false);
+  });
+
   it("preserves search and hash when building the callback path", () => {
     expect(buildAdminAuthCallbackPath("?foo=1", "#access_token=abc")).toBe(
       "/admin/auth/callback?foo=1#access_token=abc"

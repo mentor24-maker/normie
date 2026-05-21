@@ -2078,6 +2078,212 @@ h2 {
   border-bottom: 0;
 }
 
+.player-page {
+  background:
+    linear-gradient(135deg, rgba(17, 183, 239, 0.18), transparent 32%),
+    linear-gradient(225deg, rgba(255, 214, 10, 0.22), transparent 30%),
+    var(--background);
+}
+
+.player-shell {
+  gap: 28px;
+}
+
+.player-login-shell {
+  min-height: 100vh;
+  width: min(620px, 100%);
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px 64px;
+}
+
+.player-login-card {
+  width: 100%;
+  border-radius: 34px;
+  padding: 30px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 18px;
+}
+
+.player-login-card h1 {
+  max-width: 12ch;
+  font-size: clamp(2.3rem, 4.5vw, 4rem);
+}
+
+.player-register-button,
+.player-register-button:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  border-color: rgba(127, 29, 29, 0.2);
+  color: #ffffff;
+}
+
+.player-inline-notice {
+  width: 100%;
+  margin: 0;
+}
+
+.player-forgot-password-button {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+  text-align: left;
+}
+
+.player-forgot-password-button:hover,
+.player-forgot-password-button:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.player-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.player-stat-grid,
+.player-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.player-dashboard-grid {
+  grid-template-columns: 1.15fr 0.85fr;
+}
+
+.player-stat-card {
+  min-height: 150px;
+  border-radius: 30px;
+  padding: 24px;
+  display: grid;
+  align-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(9, 16, 24, 0.08);
+  box-shadow: var(--shadow-soft);
+}
+
+.player-stat-card span {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+}
+
+.player-stat-card strong {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 0.9;
+}
+
+.player-stat-card-sky {
+  background: linear-gradient(135deg, #15b7ef 0%, #79dcff 100%);
+  color: white;
+}
+
+.player-stat-card-gold {
+  background: linear-gradient(135deg, #ffe978 0%, #ffd60a 100%);
+}
+
+.player-stat-card-mint {
+  background: linear-gradient(135deg, #8ef1c5 0%, #26c98d 100%);
+  color: #082116;
+}
+
+.player-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.player-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.player-answer-list,
+.player-leaderboard-list {
+  display: grid;
+  gap: 12px;
+}
+
+.player-answer-row,
+.player-leaderboard-row {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(9, 16, 24, 0.08);
+}
+
+.player-answer-row {
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.42fr);
+}
+
+.player-answer-row div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.player-answer-row span,
+.player-leaderboard-row span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.player-answer-choice {
+  justify-self: end;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: var(--gold-soft);
+  font-weight: 800;
+  text-align: right;
+}
+
+.player-leaderboard-row {
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+}
+
+.player-token-panel {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 251, 228, 0.9) 100%);
+}
+
+.player-token-total {
+  font-size: clamp(4rem, 12vw, 8rem);
+  line-height: 0.9;
+  font-weight: 900;
+  color: var(--accent-dark);
+}
+
+.player-primary-link {
+  display: inline-flex;
+  justify-content: center;
+  justify-self: start;
+  text-decoration: none;
+}
+
+.player-table {
+  min-width: 760px;
+}
+
+.player-table-highlight td {
+  background: rgba(255, 214, 10, 0.18);
+  font-weight: 800;
+}
+
 .checkbox-cell {
   width: 56px;
 }
@@ -5085,7 +5291,9 @@ code {
   .hero-top-row,
   .intro-grid,
   .poll-grid,
-  .admin-hub-grid {
+  .admin-hub-grid,
+  .player-stat-grid,
+  .player-dashboard-grid {
     grid-template-columns: 1fr;
   }
 
@@ -5152,6 +5360,21 @@ code {
   .admin-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .player-panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .player-answer-row,
+  .player-leaderboard-row {
+    grid-template-columns: 1fr;
+  }
+
+  .player-answer-choice {
+    justify-self: start;
+    text-align: left;
   }
 
   .admin-section-heading {

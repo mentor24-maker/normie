@@ -22,7 +22,7 @@ export function buildAdminAuthCallbackPath(search: string, hash: string) {
 }
 
 export function shouldRouteAuthPayloadToAdminCallback(pathname: string, search: string, hash: string) {
-  if (pathname === "/admin/auth/callback") {
+  if (pathname === "/admin/auth/callback" || pathname === "/portal/reset") {
     return false;
   }
 
