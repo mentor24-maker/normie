@@ -7,12 +7,12 @@ import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useStat
 import type { BuilderTemplateSection } from "@/lib/builder-template";
 import {
   formatRichTextContent,
-  sanitizeEmbedHtml,
   getBuilderBackgroundStyle,
   getLayoutColumns,
   getLayoutGridTemplate,
   normalizeBuilderAssetUrl
 } from "@/lib/builder-template";
+import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,

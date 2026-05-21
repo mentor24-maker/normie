@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import type DOMPurifyType from "dompurify";
 
 const RICH_TEXT_ALLOWED_TAGS = [
   "p",
@@ -45,7 +45,22 @@ const EMBED_EXTRA_ATTR = [
   "referrerpolicy"
 ] as const;
 
+let domPurifyInstance: typeof DOMPurifyType | null = null;
+let isConfigured = false;
+
+function getDomPurify() {
+  if (!domPurifyInstance) {
+    // Lazy-load so public SSR routes do not initialize jsdom unless sanitizing HTML.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- defer jsdom until sanitize runs
+    domPurifyInstance = require("isomorphic-dompurify").default as typeof DOMPurifyType;
+  }
+
+  return domPurifyInstance;
+}
+
 function configureDomPurify() {
+  const DOMPurify = getDomPurify();
+
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     if (node.tagName === "A") {
       node.setAttribute("rel", "noopener noreferrer");
@@ -66,8 +81,6 @@ function configureDomPurify() {
   });
 }
 
-let isConfigured = false;
-
 function ensureConfigured() {
   if (!isConfigured) {
     configureDomPurify();
@@ -87,7 +100,7 @@ export function escapeHtmlText(value: string) {
 export function sanitizeRichTextHtml(html: string) {
   ensureConfigured();
 
-  return DOMPurify.sanitize(html, {
+  return getDomPurify().sanitize(html, {
     ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS],
     ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR],
     ALLOW_DATA_ATTR: false
@@ -97,7 +110,7 @@ export function sanitizeRichTextHtml(html: string) {
 export function sanitizeEmbedHtml(html: string) {
   ensureConfigured();
 
-  return DOMPurify.sanitize(html, {
+  return getDomPurify().sanitize(html, {
     ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS, ...EMBED_EXTRA_TAGS],
     ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR, ...EMBED_EXTRA_ATTR],
     ALLOW_DATA_ATTR: false
@@ -149,7 +162,7 @@ function isAllowedBlogEmbedSrc(src: string) {
 export function sanitizeBlogBodyHtml(html: string) {
   ensureConfigured();
 
-  const clean = DOMPurify.sanitize(html, {
+  const clean = getDomPurify().sanitize(html, {
     ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS, ...BLOG_BODY_EXTRA_TAGS],
     ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR, ...BLOG_BODY_EXTRA_ATTR],
     ALLOW_DATA_ATTR: false

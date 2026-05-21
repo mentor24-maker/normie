@@ -4,9 +4,7 @@ import {
   HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
   normalizeHeadlineRotatorHeadlinesJson
 } from "@/lib/headline-rotator";
-import { escapeHtmlText, sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
-
-export { sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
+import { escapeHtmlText, sanitizeRichTextHtml } from "@/lib/sanitize-html";
 
 export type BuilderTemplateLayout =
   | "single"

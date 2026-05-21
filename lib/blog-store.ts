@@ -537,6 +537,14 @@ export type PublicBlogListOptions = {
 };
 
 export async function listPublicBlogPosts(options: PublicBlogListOptions) {
+  try {
+    return await listPublicBlogPostsInternal(options);
+  } catch {
+    return { posts: [], total: 0 };
+  }
+}
+
+async function listPublicBlogPostsInternal(options: PublicBlogListOptions) {
   const supabase = createPublicClient();
   let postIdsFilter: string[] | null = null;
 
@@ -626,11 +634,22 @@ export async function listPublicBlogPosts(options: PublicBlogListOptions) {
   const { data, error, count } = await query.range(options.offset, options.offset + options.limit - 1);
 
   if (error) {
-    throw new Error(error.message);
+    return { posts: [], total: 0 };
   }
 
   const rows = (data ?? []).filter((row) => isBlogPostPubliclyVisible(row)) as Record<string, unknown>[];
-  const admin = createAdminClient();
+
+  if (rows.length === 0) {
+    return { posts: [], total: count ?? 0 };
+  }
+
+  let admin: ReturnType<typeof createAdminClient>;
+
+  try {
+    admin = createAdminClient();
+  } catch {
+    return { posts: [], total: count ?? 0 };
+  }
   const postIds = rows.map((row) => String(row.id));
   const relations = await loadPostRelations(admin, postIds);
   const [topics, categories, tags] = await Promise.all([
@@ -825,18 +844,22 @@ export async function getPublicBlogPost(topicSlug: string, postSlug: string) {
 }
 
 export async function listPublicBlogTopicsAndTags() {
-  const supabase = createPublicClient();
-  const [topicsRes, categoriesRes, tagsRes] = await Promise.all([
-    supabase.from("blog_topics").select("*").order("name", { ascending: true }),
-    supabase.from("blog_categories").select("*").order("name", { ascending: true }),
-    supabase.from("blog_tags").select("*").order("name", { ascending: true })
-  ]);
+  try {
+    const supabase = createPublicClient();
+    const [topicsRes, categoriesRes, tagsRes] = await Promise.all([
+      supabase.from("blog_topics").select("*").order("name", { ascending: true }),
+      supabase.from("blog_categories").select("*").order("name", { ascending: true }),
+      supabase.from("blog_tags").select("*").order("name", { ascending: true })
+    ]);
 
-  return {
-    topics: (topicsRes.data ?? []).map((row) => rowToBlogTopic(row)),
-    categories: (categoriesRes.data ?? []).map((row) => rowToBlogCategory(row)),
-    tags: (tagsRes.data ?? []).map((row) => rowToBlogTag(row))
-  };
+    return {
+      topics: (topicsRes.data ?? []).map((row) => rowToBlogTopic(row)),
+      categories: (categoriesRes.data ?? []).map((row) => rowToBlogCategory(row)),
+      tags: (tagsRes.data ?? []).map((row) => rowToBlogTag(row))
+    };
+  } catch {
+    return { topics: [], categories: [], tags: [] };
+  }
 }
 
 export async function listPublicBlogPostPaths() {

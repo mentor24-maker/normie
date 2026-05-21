@@ -48,12 +48,25 @@ export async function middleware(request: NextRequest) {
 
     return withRequestId(request, applySecurityHeaders(response));
   } catch {
-    const denied =
-      pathname.startsWith("/api/") || pathname === "/api/import"
-        ? unauthorizedAdminApiResponse()
-        : redirectToAdminLogin(request);
+    if (requiresAdminSession(pathname, method)) {
+      const denied =
+        pathname.startsWith("/api/") || pathname === "/api/import"
+          ? unauthorizedAdminApiResponse()
+          : redirectToAdminLogin(request);
 
-    return withRequestId(request, applySecurityHeaders(denied));
+      return withRequestId(request, applySecurityHeaders(denied));
+    }
+
+    return withRequestId(
+      request,
+      applySecurityHeaders(
+        NextResponse.next({
+          request: {
+            headers: requestHeaders
+          }
+        })
+      )
+    );
   }
 }
 

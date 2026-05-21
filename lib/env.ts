@@ -8,10 +8,16 @@ function requireEnv(name: string) {
   return value;
 }
 
-export function getSupabaseEnv() {
+export function getPublicSupabaseEnv() {
   return {
     url: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  };
+}
+
+export function getSupabaseEnv() {
+  return {
+    ...getPublicSupabaseEnv(),
     serviceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY")
   };
 }

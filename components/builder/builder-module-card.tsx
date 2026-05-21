@@ -5,9 +5,9 @@ import {
   createEmptyModule,
   getBuilderBackgroundStyle,
   normalizeBuilderAssetUrl,
-  formatRichTextContent,
-  sanitizeEmbedHtml
+  formatRichTextContent
 } from "@/lib/builder-template";
+import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
   HEADLINE_ROTATOR_MAX_Y_PERCENT,

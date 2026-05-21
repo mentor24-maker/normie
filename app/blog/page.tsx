@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PublicPageLoading } from "@/components/public-page-loading";
 import { BlogIndexClient } from "@/components/blog-index-client";
 import { blogSettingsToClientPayload, getPublicBlogSettings } from "@/lib/blog-settings";
 import { listPublicBlogPosts, listPublicBlogTopicsAndTags } from "@/lib/blog-store";
@@ -39,7 +40,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
   ]);
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PublicPageLoading />}>
       <BlogIndexClient
         categories={taxonomy.categories}
         initialPosts={posts}

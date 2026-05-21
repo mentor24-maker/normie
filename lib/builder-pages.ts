@@ -14,17 +14,21 @@ export async function getPublishedBuilderPageBySlug(slug: string): Promise<Build
 
   noStore();
 
-  const supabase = createPublicClient();
-  const { data, error } = await supabase
-    .from("pages")
-    .select("id, name, slug, template_id, layout_sections, is_published, created_at, updated_at")
-    .eq("slug", normalizedSlug)
-    .eq("is_published", true)
-    .maybeSingle();
+  try {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("pages")
+      .select("id, name, slug, template_id, layout_sections, is_published, created_at, updated_at")
+      .eq("slug", normalizedSlug)
+      .eq("is_published", true)
+      .maybeSingle();
 
-  if (error || !data) {
+    if (error || !data) {
+      return null;
+    }
+
+    return rowToBuilderPage(data);
+  } catch {
     return null;
   }
-
-  return rowToBuilderPage(data);
 }

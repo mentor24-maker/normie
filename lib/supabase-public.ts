@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseEnv } from "./env";
+import { getPublicSupabaseEnv } from "./env";
 
 export function createPublicClient() {
-  const { url, anonKey } = getSupabaseEnv();
+  const { url, anonKey } = getPublicSupabaseEnv();
 
   return createClient(url, anonKey, {
     auth: {
