@@ -19,6 +19,11 @@ export function AdminOauthCallback() {
         const tokenHash = searchParams.get("token_hash");
         const otpType = searchParams.get("type");
 
+        if (params.authType === "recovery" || otpType === "recovery") {
+          router.replace(`/portal/reset${window.location.search}${window.location.hash}`);
+          return;
+        }
+
         if (params.authError) {
           throw new Error(params.authError);
         }

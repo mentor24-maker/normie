@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAdminAuthCallbackPath,
+  buildPlayerPasswordResetPath,
   hasAuthCallbackPayload,
-  shouldRouteAuthPayloadToAdminCallback
+  shouldRouteAuthPayloadToAdminCallback,
+  shouldRouteAuthPayloadToPlayerReset
 } from "@/lib/admin-auth-hash-redirect";
 
 describe("admin auth hash redirect", () => {
@@ -34,6 +36,21 @@ describe("admin auth hash redirect", () => {
         "#access_token=abc&refresh_token=def&type=recovery"
       )
     ).toBe(false);
+  });
+
+  it("routes recovery payloads on the homepage to the player reset page", () => {
+    expect(
+      shouldRouteAuthPayloadToPlayerReset("/", "", "#access_token=abc&refresh_token=def&type=recovery")
+    ).toBe(true);
+    expect(
+      shouldRouteAuthPayloadToAdminCallback("/", "", "#access_token=abc&refresh_token=def&type=recovery")
+    ).toBe(false);
+  });
+
+  it("preserves search and hash when building the player reset path", () => {
+    expect(buildPlayerPasswordResetPath("?foo=1", "#access_token=abc&type=recovery")).toBe(
+      "/portal/reset?foo=1#access_token=abc&type=recovery"
+    );
   });
 
   it("preserves search and hash when building the callback path", () => {

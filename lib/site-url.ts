@@ -53,6 +53,11 @@ export function getAdminInviteSetupUrl(request?: Request) {
   return `${resolveOriginFromRequest(request) ?? getSiteUrl()}/admin?invite=1`;
 }
 
+/** Canonical player password reset redirect (must be allowlisted in Supabase Auth). */
+export function getPlayerPasswordResetUrl(request?: Request) {
+  return `${resolveOriginFromRequest(request) ?? getSiteUrl()}/portal/reset`;
+}
+
 export function toAbsoluteSiteUrl(value: string | null | undefined) {
   const trimmed = String(value ?? "").trim();
 

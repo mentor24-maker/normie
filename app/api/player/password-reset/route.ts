@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { safePlayerText } from "@/lib/player-auth";
+import { getPlayerPasswordResetUrl } from "@/lib/site-url";
 import { createPublicClient } from "@/lib/supabase-public";
 
 export async function POST(request: Request) {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });
   }
 
-  const redirectTo = new URL("/portal/reset", request.url).toString();
+  const redirectTo = getPlayerPasswordResetUrl(request);
   const supabase = createPublicClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
