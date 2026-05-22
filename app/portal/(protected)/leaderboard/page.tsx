@@ -11,7 +11,7 @@ export default async function PlayerLeaderboardPage() {
   return (
     <section className="panel player-panel">
       <div className="panel-label">Leaderboard</div>
-      <h2>Registered player standings</h2>
+      <h2>Registered Player Standings</h2>
       {snapshot.leaderboard.length ? (
         <div className="table-shell">
           <table className="polls-table player-table">

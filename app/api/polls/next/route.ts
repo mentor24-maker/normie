@@ -7,7 +7,10 @@ import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { createPublicClient } from "@/lib/supabase-public";
-import { resolveCurrentPollIndexFromSession } from "@/lib/polls-next-session";
+import {
+  resolveCurrentPollIndexFromSession,
+  resolveFirstUnansweredPollIndex
+} from "@/lib/polls-next-session";
 
 const SESSION_COOKIE = "poll_session_id";
 
@@ -75,7 +78,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
 
   const responsesQuery = supabase.from("responses").select("poll_id");
   const playerResponsesQuery = player
-    ? responsesQuery.or(`session_id.eq.${sessionId},user_id.eq.${player.authUser.id}`)
+    ? responsesQuery.eq("user_id", player.authUser.id)
     : responsesQuery.eq("session_id", sessionId);
 
   const [
@@ -104,7 +107,10 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   }));
 
-  const currentIndexFromSession = resolveCurrentPollIndexFromSession(orderedPolls, answeredPollIds);
+  const hasStartPollOverride = Boolean(startPollParam) && START_POLL_UUID.test(startPollParam);
+  const currentIndexFromSession = player && !hasStartPollOverride
+    ? resolveFirstUnansweredPollIndex(orderedPolls, answeredPollIds)
+    : resolveCurrentPollIndexFromSession(orderedPolls, answeredPollIds);
 
   let currentIndex = currentIndexFromSession;
   if (startPollParam && START_POLL_UUID.test(startPollParam)) {

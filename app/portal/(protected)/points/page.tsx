@@ -13,7 +13,7 @@ export default async function PlayerPointsPage() {
     <section className="player-dashboard-grid">
       <article className="panel player-token-panel">
         <div className="panel-label">Points</div>
-        <h2>Your earned point balance</h2>
+        <h2>Your Earned Point Balance</h2>
         <div className="player-token-total">{snapshot.tokensEarned}</div>
         <p className="panel-copy">
           Points currently accrue from registered poll answers. This gives the portal a clean starting
@@ -25,7 +25,7 @@ export default async function PlayerPointsPage() {
       </article>
       <article className="panel player-panel">
         <div className="panel-label">Earning Sources</div>
-        <h2>How this total is built</h2>
+        <h2>How This Total Is Built</h2>
         <div className="player-answer-list">
           <div className="player-answer-row">
             <div>

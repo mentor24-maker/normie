@@ -1,3 +1,23 @@
+/** First published poll in order the participant has not answered yet. */
+export function resolveFirstUnansweredPollIndex(
+  orderedPolls: Array<{ id: string }>,
+  answeredPollIds: Set<string>
+): number {
+  if (orderedPolls.length === 0) {
+    return -1;
+  }
+
+  for (let index = 0; index < orderedPolls.length; index += 1) {
+    const poll = orderedPolls[index];
+
+    if (poll && !answeredPollIds.has(poll.id)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
 /**
  * Index of the poll to show as "current" for this session.
  * Uses the furthest answered poll in list order so deep-linked (`startPoll`) answers

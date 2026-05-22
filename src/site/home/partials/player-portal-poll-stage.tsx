@@ -24,7 +24,12 @@ export function PlayerPortalPollStage({
   }
 
   if (payload?.done) {
-    return <div className="notice success">You&apos;re done. Thanks for finishing the full poll sequence.</div>;
+    return (
+      <div className="notice success">
+        You&apos;re done for now. You&apos;ve answered every published poll on your account — check back when new
+        questions are published.
+      </div>
+    );
   }
 
   if (payload?.currentPoll) {

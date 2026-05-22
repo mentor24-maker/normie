@@ -44,7 +44,23 @@ export async function GET() {
     poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   }));
 
-  return auth.finish(NextResponse.json({ polls }));
+  const { count: totalAnswers, error: responsesError } = await supabase
+    .from("responses")
+    .select("id", { count: "exact", head: true });
+
+  if (responsesError) {
+    return auth.finish(NextResponse.json({ error: responsesError.message }, { status: 500 }));
+  }
+
+  return auth.finish(
+    NextResponse.json({
+      polls,
+      metrics: {
+        questionCount: polls.length,
+        totalAnswers: totalAnswers ?? 0
+      }
+    })
+  );
 }
 
 export async function POST(request: Request) {

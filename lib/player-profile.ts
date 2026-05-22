@@ -10,37 +10,19 @@ import {
   type AuthorizedPlayer,
   type PlayerProfileRow
 } from "@/lib/player-auth";
+import {
+  EMPTY_PLAYER_SOCIAL_LINKS,
+  socialHandlesFromLinks,
+  socialLinksFromHandles,
+  type PlayerSocialLinks
+} from "@/lib/player-social-handles";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-export type PlayerSocialLinks = {
-  website: string;
-  x: string;
-  instagram: string;
-  tiktok: string;
-  youtube: string;
-  discord: string;
-};
+export type { PlayerSocialLinks } from "@/lib/player-social-handles";
+export { EMPTY_PLAYER_SOCIAL_LINKS } from "@/lib/player-social-handles";
 
-export type PlayerProfileDetails = {
-  id: string;
-  email: string;
-  fullName: string;
-  handle: string;
-  avatarUrl: string;
-  bio: string;
-  socialLinks: PlayerSocialLinks;
-  shareProfile: boolean;
-  sharePollResponses: boolean;
-};
-
-export const EMPTY_PLAYER_SOCIAL_LINKS: PlayerSocialLinks = {
-  website: "",
-  x: "",
-  instagram: "",
-  tiktok: "",
-  youtube: "",
-  discord: ""
-};
+export type { PlayerProfileDetails } from "@/lib/player-profile-details";
+import type { PlayerProfileDetails } from "@/lib/player-profile-details";
 
 export function parsePlayerSocialLinks(value: unknown): PlayerSocialLinks {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -59,31 +41,8 @@ export function parsePlayerSocialLinks(value: unknown): PlayerSocialLinks {
   };
 }
 
-function normalizeOptionalUrl(value: unknown, max = 500): string {
-  const trimmed = safePlayerText(value, max);
-
-  if (!trimmed) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://${trimmed}`;
-}
-
 export function normalizePlayerSocialLinks(value: unknown): PlayerSocialLinks {
-  const parsed = parsePlayerSocialLinks(value);
-
-  return {
-    website: normalizeOptionalUrl(parsed.website),
-    x: normalizeOptionalUrl(parsed.x),
-    instagram: normalizeOptionalUrl(parsed.instagram),
-    tiktok: normalizeOptionalUrl(parsed.tiktok),
-    youtube: normalizeOptionalUrl(parsed.youtube),
-    discord: safePlayerText(parsed.discord, 120)
-  };
+  return socialLinksFromHandles(parsePlayerSocialLinks(value));
 }
 
 export function normalizeAvatarUrl(value: unknown): string {
@@ -111,7 +70,7 @@ export function buildPlayerProfileDetails(
     handle: safePlayerText(profile.handle, 40),
     avatarUrl: normalizeAvatarUrl(profile.avatar_url),
     bio: safePlayerText(profile.bio, 500),
-    socialLinks: parsePlayerSocialLinks(profile.social_links),
+    socialLinks: socialHandlesFromLinks(parsePlayerSocialLinks(profile.social_links)),
     shareProfile: Boolean(profile.share_profile),
     sharePollResponses: Boolean(profile.share_poll_responses)
   };

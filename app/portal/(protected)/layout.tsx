@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { PlayerLogoutButton } from "@/components/player-logout-button";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
@@ -26,34 +27,49 @@ export default async function ProtectedPortalLayout({
     <main className="player-portal-page">
       <div className="player-portal-frame">
         <header className="player-portal-top">
-          <div className="player-portal-brand">
-            <Image
-              src={logoSquare}
-              alt="Normie logo"
-              className="player-portal-logo"
-              priority
-            />
-            <div className="player-portal-brand-copy">
-              <p className="player-portal-eyebrow">Player Portal</p>
-              <h1 className="player-portal-title">Hey, {displayName}</h1>
-              <p className="player-portal-tagline">
-                Track your poll picks, points, and where you rank among other Normies.
-                {handle ? (
-                  <>
-                    {" "}
-                    <span className="player-portal-handle">@{handle}</span>
-                  </>
-                ) : null}
-              </p>
+          <div className="player-portal-top-eyebrow-row">
+            <p className="player-portal-eyebrow">Player Portal</p>
+            <div className="player-portal-header-utility">
+              <Link className="secondary-button player-portal-profile-cta" href="/portal/profile">
+                Profile
+              </Link>
+              <PlayerLogoutButton className="player-portal-header-logout" />
             </div>
           </div>
-          <div className="player-portal-top-actions">
-            <Link className="secondary-button player-portal-profile-cta" href="/portal/profile">
-              Profile
-            </Link>
+          <div className="player-portal-top-body">
+          <div className="player-portal-brand">
+            <div className="player-portal-brand-main">
+              <Link
+                className="player-portal-logo-link"
+                href="https://normie.one"
+                rel="noopener noreferrer"
+              >
+                <Image
+                  src={logoSquare}
+                  alt="Normie home"
+                  className="player-portal-logo"
+                  priority
+                />
+              </Link>
+              <div className="player-portal-brand-greeting">
+                <h1 className="player-portal-title">Hey, {displayName}</h1>
+                <p className="player-portal-tagline">
+                  Track your poll picks, points, and where you rank among other Normies.
+                  {handle ? (
+                    <>
+                      {" "}
+                      <span className="player-portal-handle">@{handle}</span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="player-portal-play-slot">
             <Link className="submit-button player-portal-play-cta" href="/portal/dashboard?playPolls=1">
-              Play Polls
+              Would You Rather...?
             </Link>
+          </div>
           </div>
         </header>
 

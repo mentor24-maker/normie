@@ -3,30 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { PlayerSettingRow } from "@/components/player-setting-row";
+import type { PlayerProfileDetails } from "@/lib/player-profile-details";
 import {
   EMPTY_PLAYER_SOCIAL_LINKS,
-  type PlayerProfileDetails,
   type PlayerSocialLinks
-} from "@/lib/player-profile";
+} from "@/lib/player-social-handles";
+import { getPublicPlayerProfilePath } from "@/lib/public-player-profile-path";
+import { PLAYER_SOCIAL_FIELD_CONFIG } from "@/lib/player-social-handles";
 
 type PlayerProfileFormProps = {
   initialProfile: PlayerProfileDetails;
 };
 
-const socialFields: { key: keyof PlayerSocialLinks; label: string; placeholder: string }[] = [
-  { key: "website", label: "Website", placeholder: "https://yoursite.com" },
-  { key: "x", label: "X", placeholder: "https://x.com/you" },
-  { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/you" },
-  { key: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@you" },
-  { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/@you" },
-  { key: "discord", label: "Discord", placeholder: "yourname or invite link" }
-];
-
 export function PlayerProfileForm({ initialProfile }: PlayerProfileFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fullName, setFullName] = useState(initialProfile.fullName);
-  const [handle, setHandle] = useState(initialProfile.handle);
+  const [handle, setHandle] = useState(initialProfile.handle ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialProfile.avatarUrl);
   const [bio, setBio] = useState(initialProfile.bio);
   const [socialLinks, setSocialLinks] = useState<PlayerSocialLinks>(initialProfile.socialLinks);
@@ -131,20 +124,35 @@ export function PlayerProfileForm({ initialProfile }: PlayerProfileFormProps) {
   }
 
   const avatarPreview = avatarUrl.trim();
+  const normalizedHandle = handle.trim();
+  const publicProfileHref = normalizedHandle ? getPublicPlayerProfilePath(normalizedHandle) : null;
 
   return (
     <form className="player-profile-form" onSubmit={handleSubmit}>
       <section className="panel player-panel player-profile-section" aria-labelledby="player-profile-public-heading">
         <div className="panel-label">Public Profile</div>
-        <h2 id="player-profile-public-heading">How other Normies see you</h2>
+        <div className="player-profile-public-heading-row">
+          <h2 id="player-profile-public-heading">How Other Normies See You</h2>
+          {publicProfileHref ? (
+            <a
+              className="secondary-button player-profile-public-profile-cta"
+              href={publicProfileHref}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Public Profile
+            </a>
+          ) : null}
+        </div>
         <p className="panel-copy">
-          Set your display name, username, avatar, and short bio. Privacy toggles below control what gets shared.
+          Set your display name, username, avatar, and short bio. Social and privacy settings are in the sections below.
         </p>
 
         <div className="player-profile-fields">
           <PlayerSettingRow label="Display Name">
             <input
               autoComplete="name"
+              className="player-form-control"
               onChange={(event) => setFullName(event.target.value)}
               placeholder="Your name"
               type="text"
@@ -153,10 +161,11 @@ export function PlayerProfileForm({ initialProfile }: PlayerProfileFormProps) {
           </PlayerSettingRow>
 
           <PlayerSettingRow label="Username" hint="Letters, numbers, and underscores only.">
-            <div className="player-profile-handle-field">
-              <span className="player-profile-handle-prefix">@</span>
+            <div className="player-prefix-field">
+              <span className="player-prefix-field-label">@</span>
               <input
                 autoComplete="nickname"
+                className="player-form-control"
                 onChange={(event) => setHandle(event.target.value)}
                 placeholder="normie_player"
                 type="text"
@@ -194,6 +203,7 @@ export function PlayerProfileForm({ initialProfile }: PlayerProfileFormProps) {
                   {isUploadingAvatar ? "Uploading..." : "Upload Image"}
                 </button>
                 <input
+                  className="player-form-control"
                   onChange={(event) => setAvatarUrl(event.target.value)}
                   placeholder="https://..."
                   type="url"
@@ -205,6 +215,7 @@ export function PlayerProfileForm({ initialProfile }: PlayerProfileFormProps) {
 
           <PlayerSettingRow label="Bio">
             <textarea
+              className="player-form-control player-form-textarea"
               maxLength={500}
               onChange={(event) => setBio(event.target.value)}
               placeholder="Tell other Normies a little about yourself."
@@ -215,57 +226,79 @@ export function PlayerProfileForm({ initialProfile }: PlayerProfileFormProps) {
         </div>
       </section>
 
-      <section className="panel player-panel player-profile-section" aria-labelledby="player-profile-social-heading">
-        <div className="panel-label">Social Profiles</div>
-        <h2 id="player-profile-social-heading">Links and handles</h2>
-        <p className="panel-copy">Add the profiles you want on your public Normie card.</p>
+      <div className="player-profile-split-grid">
+        <section
+          className="panel player-panel player-profile-section"
+          aria-labelledby="player-profile-social-heading"
+        >
+          <div className="panel-label">Social Profiles</div>
+          <h2 id="player-profile-social-heading">Links and Handles</h2>
+          <p className="panel-copy">Enter handles only — platform domains are added for you.</p>
 
-        <div className="player-profile-fields">
-          {socialFields.map((field) => (
-            <PlayerSettingRow key={field.key} label={field.label}>
-              <input
-                onChange={(event) => updateSocialLink(field.key, event.target.value)}
-                placeholder={field.placeholder}
-                type={field.key === "discord" ? "text" : "url"}
-                value={socialLinks[field.key] ?? EMPTY_PLAYER_SOCIAL_LINKS[field.key]}
-              />
+          <div className="player-profile-fields">
+            {PLAYER_SOCIAL_FIELD_CONFIG.map((field) => (
+              <PlayerSettingRow key={field.key} label={field.label}>
+                {field.prefix ? (
+                  <div className="player-prefix-field">
+                    <span className="player-prefix-field-label">{field.prefix}</span>
+                    <input
+                      className="player-form-control"
+                      onChange={(event) => updateSocialLink(field.key, event.target.value)}
+                      placeholder={field.placeholder}
+                      type="text"
+                      value={socialLinks[field.key] ?? EMPTY_PLAYER_SOCIAL_LINKS[field.key]}
+                    />
+                  </div>
+                ) : (
+                  <input
+                    className="player-form-control"
+                    onChange={(event) => updateSocialLink(field.key, event.target.value)}
+                    placeholder={field.placeholder}
+                    type="text"
+                    value={socialLinks[field.key] ?? EMPTY_PLAYER_SOCIAL_LINKS[field.key]}
+                  />
+                )}
+              </PlayerSettingRow>
+            ))}
+          </div>
+        </section>
+
+        <section
+          className="panel player-panel player-profile-section"
+          aria-labelledby="player-profile-privacy-heading"
+        >
+          <div className="panel-label">Privacy</div>
+          <h2 id="player-profile-privacy-heading">Sharing Preferences</h2>
+          <p className="panel-copy">
+            More granular privacy controls are coming soon. For now, choose whether Normie can share your profile and
+            poll responses.
+          </p>
+
+          <div className="player-profile-fields">
+            <PlayerSettingRow label="Share Profile Info">
+              <label className="player-profile-toggle">
+                <input
+                  checked={shareProfile}
+                  onChange={(event) => setShareProfile(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>{shareProfile ? "On" : "Off"}</span>
+              </label>
             </PlayerSettingRow>
-          ))}
-        </div>
-      </section>
 
-      <section className="panel player-panel player-profile-section" aria-labelledby="player-profile-privacy-heading">
-        <div className="panel-label">Privacy</div>
-        <h2 id="player-profile-privacy-heading">Sharing preferences</h2>
-        <p className="panel-copy">
-          More granular privacy controls are coming soon. For now, choose whether Normie can share your profile and poll
-          responses.
-        </p>
-
-        <div className="player-profile-fields">
-          <PlayerSettingRow label="Share Profile Info">
-            <label className="player-profile-toggle">
-              <input
-                checked={shareProfile}
-                onChange={(event) => setShareProfile(event.target.checked)}
-                type="checkbox"
-              />
-              <span>{shareProfile ? "On" : "Off"}</span>
-            </label>
-          </PlayerSettingRow>
-
-          <PlayerSettingRow label="Share Poll Responses">
-            <label className="player-profile-toggle">
-              <input
-                checked={sharePollResponses}
-                onChange={(event) => setSharePollResponses(event.target.checked)}
-                type="checkbox"
-              />
-              <span>{sharePollResponses ? "On" : "Off"}</span>
-            </label>
-          </PlayerSettingRow>
-        </div>
-      </section>
+            <PlayerSettingRow label="Share Poll Responses">
+              <label className="player-profile-toggle">
+                <input
+                  checked={sharePollResponses}
+                  onChange={(event) => setSharePollResponses(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>{sharePollResponses ? "On" : "Off"}</span>
+              </label>
+            </PlayerSettingRow>
+          </div>
+        </section>
+      </div>
 
       <div className="player-profile-actions">
         <button className="submit-button player-profile-save-button" disabled={isSaving} type="submit">

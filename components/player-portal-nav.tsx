@@ -6,8 +6,6 @@ import {
   isPlayerPortalPlayPollsOpen,
   PLAYER_PORTAL_PLAY_POLLS_HREF
 } from "@/components/player-portal-poll-section";
-import { PlayerLogoutButton } from "@/components/player-logout-button";
-
 const navItems = [
   { href: "/portal/dashboard", label: "Dashboard" },
   { href: "/portal/polls", label: "My Polls" },
@@ -52,7 +50,6 @@ export function PlayerPortalNav() {
           Play Polls
         </Link>
       </div>
-      <PlayerLogoutButton />
     </nav>
   );
 }

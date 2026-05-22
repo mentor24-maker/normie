@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 
-export function PlayerLogoutButton() {
+type PlayerLogoutButtonProps = {
+  className?: string;
+};
+
+export function PlayerLogoutButton({ className }: PlayerLogoutButtonProps) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -11,12 +15,12 @@ export function PlayerLogoutButton() {
     router.refresh();
   }
 
+  const buttonClassName = className
+    ? `player-portal-nav-link player-portal-nav-link-logout ${className}`
+    : "player-portal-nav-link player-portal-nav-link-logout";
+
   return (
-    <button
-      className="player-portal-nav-link player-portal-nav-link-logout"
-      onClick={() => void handleLogout()}
-      type="button"
-    >
+    <button className={buttonClassName} onClick={() => void handleLogout()} type="button">
       Logout
     </button>
   );

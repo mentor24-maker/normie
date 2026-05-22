@@ -17,7 +17,7 @@ export default async function PlayerDashboardPage() {
   return (
     <div className="player-stack">
       <section className="player-stat-grid" aria-label="Player stats">
-        <article className="player-stat-card player-stat-card-sky">
+        <article className="scalar-metric-pod player-stat-card player-stat-card-sky">
           <Link
             aria-label={`Polls taken: ${snapshot.pollsTaken}. View My Polls`}
             className="player-stat-card-hit"
@@ -26,7 +26,7 @@ export default async function PlayerDashboardPage() {
           <span>Polls Taken</span>
           <strong>{snapshot.pollsTaken}</strong>
         </article>
-        <article className="player-stat-card player-stat-card-gold">
+        <article className="scalar-metric-pod player-stat-card player-stat-card-gold">
           <Link
             aria-label={`Points earned: ${snapshot.tokensEarned}. View Points`}
             className="player-stat-card-hit"
@@ -35,7 +35,7 @@ export default async function PlayerDashboardPage() {
           <span>Points Earned</span>
           <strong>{snapshot.tokensEarned}</strong>
         </article>
-        <article className="player-stat-card player-stat-card-mint">
+        <article className="scalar-metric-pod player-stat-card player-stat-card-mint">
           <Link
             aria-label={`Leaderboard rank: ${snapshot.playerRank ? `#${snapshot.playerRank}` : "New"}. View Leaderboard`}
             className="player-stat-card-hit"
@@ -51,7 +51,7 @@ export default async function PlayerDashboardPage() {
       <section className="player-dashboard-grid">
         <article className="panel player-panel">
           <div className="player-panel-header">
-            <div><div className="panel-label">Recent Answers</div><h2>Your latest poll choices</h2></div>
+            <div><div className="panel-label">Recent Answers</div><h2>Your Latest Poll Choices</h2></div>
             <Link className="site-link-pill" href="/portal/polls">View All</Link>
           </div>
           {recentAnswers.length ? (
@@ -67,7 +67,7 @@ export default async function PlayerDashboardPage() {
         </article>
         <article className="panel player-panel">
           <div className="player-panel-header">
-            <div><div className="panel-label">Leaderboard</div><h2>Top point earners</h2></div>
+            <div><div className="panel-label">Leaderboard</div><h2>Top Point Earners</h2></div>
             <Link className="site-link-pill" href="/portal/leaderboard">Open</Link>
           </div>
           {snapshot.leaderboard.length ? (

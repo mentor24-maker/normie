@@ -54,22 +54,84 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
 
   const supabase = createAdminClient();
 
-  const existingQuery = supabase.from("responses").select("id").eq("poll_id", validation.pollId);
-  const { data: existing, error: existingError } = player
-    ? await existingQuery.or(`session_id.eq.${sessionId},user_id.eq.${player.authUser.id}`).limit(1).maybeSingle()
-    : await existingQuery.eq("session_id", sessionId).maybeSingle();
+  if (player) {
+    const { data: existingForPlayer, error: existingForPlayerError } = await supabase
+      .from("responses")
+      .select("id")
+      .eq("poll_id", validation.pollId)
+      .eq("user_id", player.authUser.id)
+      .maybeSingle();
 
-  if (existingError) {
-    return publicErrorResponse(request, {
-      logEvent: "polls.answer.lookup_failed",
-      error: existingError,
-      message: "Failed to save your answer.",
-      context: { pollId }
-    });
-  }
+    if (existingForPlayerError) {
+      return publicErrorResponse(request, {
+        logEvent: "polls.answer.lookup_failed",
+        error: existingForPlayerError,
+        message: "Failed to save your answer.",
+        context: { pollId }
+      });
+    }
 
-  if (existing) {
-    return NextResponse.json({ ok: true, duplicate: true });
+    if (existingForPlayer) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+
+    const { data: anonymousSessionAnswer, error: anonymousSessionError } = await supabase
+      .from("responses")
+      .select("id")
+      .eq("poll_id", validation.pollId)
+      .eq("session_id", sessionId)
+      .is("user_id", null)
+      .maybeSingle();
+
+    if (anonymousSessionError) {
+      return publicErrorResponse(request, {
+        logEvent: "polls.answer.lookup_failed",
+        error: anonymousSessionError,
+        message: "Failed to save your answer.",
+        context: { pollId }
+      });
+    }
+
+    if (anonymousSessionAnswer) {
+      const { error: claimError } = await supabase
+        .from("responses")
+        .update({
+          user_id: player.authUser.id,
+          tokens_earned: TOKENS_PER_ANSWER
+        })
+        .eq("id", anonymousSessionAnswer.id);
+
+      if (claimError) {
+        return publicErrorResponse(request, {
+          logEvent: "polls.answer.claim_failed",
+          error: claimError,
+          message: "Failed to save your answer.",
+          context: { pollId }
+        });
+      }
+
+      return NextResponse.json({ ok: true, claimed: true });
+    }
+  } else {
+    const { data: existing, error: existingError } = await supabase
+      .from("responses")
+      .select("id")
+      .eq("poll_id", validation.pollId)
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (existingError) {
+      return publicErrorResponse(request, {
+        logEvent: "polls.answer.lookup_failed",
+        error: existingError,
+        message: "Failed to save your answer.",
+        context: { pollId }
+      });
+    }
+
+    if (existing) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
   }
 
   const { error } = await supabase.from("responses").insert({

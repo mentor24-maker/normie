@@ -18,7 +18,7 @@ function PlayerPortalPollSectionOpen({ onClose }: { onClose: () => void }) {
       <header className="player-portal-polls-bar">
         <div className="player-portal-polls-bar-copy">
           <p className="panel-label">Play Polls</p>
-          <h2 className="player-portal-polls-title">Answer the current question</h2>
+          <h2 className="player-portal-polls-title">Answer the Current Question</h2>
         </div>
         <button
           aria-label="Close Play Polls"

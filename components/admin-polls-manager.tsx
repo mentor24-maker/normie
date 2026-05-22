@@ -33,6 +33,11 @@ type AdminPoll = {
   poll_options: PollOption[];
 };
 
+type PollMetrics = {
+  questionCount: number;
+  totalAnswers: number;
+};
+
 type PollFilterState = {
   order: string;
   category: string;
@@ -78,6 +83,10 @@ function matchesFilter(value: string | number | null | undefined, filter: string
 
 export function AdminPollsManager() {
   const [polls, setPolls] = useState<AdminPoll[]>([]);
+  const [metrics, setMetrics] = useState<PollMetrics>({
+    questionCount: 0,
+    totalAnswers: 0
+  });
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<PollFilterState>(emptyFilters);
@@ -97,17 +106,26 @@ export function AdminPollsManager() {
         cache: "no-store"
       });
 
-      const data = (await response.json()) as { polls?: AdminPoll[]; error?: string };
+      const data = (await response.json()) as {
+        polls?: AdminPoll[];
+        metrics?: Partial<PollMetrics>;
+        error?: string;
+      };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load polls.");
       }
 
       setPolls(data.polls ?? []);
+      setMetrics({
+        questionCount: data.metrics?.questionCount ?? data.polls?.length ?? 0,
+        totalAnswers: data.metrics?.totalAnswers ?? 0
+      });
       setSelectedPollIds((current) => current.filter((id) => (data.polls ?? []).some((poll) => poll.id === id)));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load polls.");
       setPolls([]);
+      setMetrics({ questionCount: 0, totalAnswers: 0 });
     } finally {
       setIsLoading(false);
     }
@@ -250,36 +268,55 @@ export function AdminPollsManager() {
   }
 
   return (
-    <div className="admin-stack">
-      <section className="admin-section">
-        <div className="admin-toolbar">
-          <div>
+    <div className="admin-stack admin-polls-stack">
+      <section className="admin-section admin-polls-workspace">
+        <div className="admin-polls-header">
+          <div className="admin-polls-eyebrow-row">
             <div className="panel-label">Polls</div>
-            <h2>Poll Manager</h2>
-            <p className="page-copy admin-copy">{pollCountSummary}</p>
+            <div className="admin-polls-action-bar admin-actions">
+              <Link className="submit-button admin-blog-add-button" href="/admin/polls/new">
+                Create Poll
+              </Link>
+              <button
+                className="secondary-button admin-polls-import-button"
+                onClick={() => setIsImportOpen((current) => !current)}
+                type="button"
+              >
+                {isImportOpen ? "Hide Import" : "Import"}
+              </button>
+              <Link className="secondary-button admin-polls-settings-button" href="/admin/polls/settings">
+                Settings
+              </Link>
+              <button
+                className="danger-button"
+                onClick={() => void handleBulkDelete()}
+                type="button"
+                disabled={isDeleting || selectedPollIds.length === 0}
+              >
+                {isDeleting ? "Deleting..." : `Delete Selected (${selectedPollIds.length})`}
+              </button>
+            </div>
           </div>
-          <div className="admin-actions">
-            <Link className="submit-button" href="/admin/polls/new">
-              Create Poll
-            </Link>
-            <button
-              className="secondary-button"
-              onClick={() => setIsImportOpen((current) => !current)}
-              type="button"
-            >
-              {isImportOpen ? "Hide Import" : "Import"}
-            </button>
-            <Link className="secondary-button" href="/admin/polls/settings">
-              Settings
-            </Link>
-            <button
-              className="danger-button"
-              onClick={() => void handleBulkDelete()}
-              type="button"
-              disabled={isDeleting || selectedPollIds.length === 0}
-            >
-              {isDeleting ? "Deleting..." : `Delete Selected (${selectedPollIds.length})`}
-            </button>
+
+          <div className="admin-polls-heading-row">
+            <div className="admin-polls-heading-copy">
+              <h2>Poll Manager</h2>
+              <p className="page-copy admin-copy">{pollCountSummary}</p>
+            </div>
+            <div className="admin-polls-metrics" aria-label="Key poll metrics">
+              <article className="scalar-metric-pod admin-polls-metric-card admin-polls-metric-card-sky">
+                <span className="scalar-metric-pod-label admin-polls-metric-label">Questions</span>
+                <strong className="scalar-metric-pod-value admin-polls-metric-value">
+                  {isLoading ? "—" : metrics.questionCount}
+                </strong>
+              </article>
+              <article className="scalar-metric-pod admin-polls-metric-card admin-polls-metric-card-mint">
+                <span className="scalar-metric-pod-label admin-polls-metric-label">Answers</span>
+                <strong className="scalar-metric-pod-value admin-polls-metric-value">
+                  {isLoading ? "—" : metrics.totalAnswers}
+                </strong>
+              </article>
+            </div>
           </div>
         </div>
 
@@ -316,7 +353,7 @@ export function AdminPollsManager() {
           </section>
         ) : null}
 
-        <div className="polls-filter-grid">
+        <div className="polls-filter-grid admin-polls-filter-bar">
           <label className="polls-filter-select-all" aria-label="Select all visible polls">
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={filteredPolls.length === 0} />
           </label>
@@ -326,7 +363,6 @@ export function AdminPollsManager() {
               type="text"
               value={filters.order}
               onChange={(event) => setFilters((current) => ({ ...current, order: event.target.value }))}
-              placeholder="Filter order"
             />
           </label>
           <label className="field polls-filter-field">
@@ -349,7 +385,6 @@ export function AdminPollsManager() {
               type="text"
               value={filters.question}
               onChange={(event) => setFilters((current) => ({ ...current, question: event.target.value }))}
-              placeholder="Filter question"
             />
           </label>
           <div className="polls-filter-spacer polls-filter-spacer-image" aria-hidden />
@@ -359,7 +394,6 @@ export function AdminPollsManager() {
               type="text"
               value={filters.options}
               onChange={(event) => setFilters((current) => ({ ...current, options: event.target.value }))}
-              placeholder="Filter options"
             />
           </label>
           <label className="field polls-filter-field polls-filter-checkbox-field">

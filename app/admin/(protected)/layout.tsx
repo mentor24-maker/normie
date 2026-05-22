@@ -25,13 +25,21 @@ export default async function ProtectedAdminLayout({
       <section className="admin-shell admin-shell-wide">
         <div className="admin-header">
           <div className="admin-brand">
-            <Image src={logoSquare} alt="Normie logo" className="admin-brand-logo" priority />
-            <div className="admin-brand-copy">
-              <div className="page-eyebrow">Admin</div>
-              <h1 className="admin-title">Normie Control Room</h1>
-              <p className="page-copy admin-copy">
-                Manage polls, imports, and modular pages from one soft, colorful workspace.
-              </p>
+            <div className="page-eyebrow">Admin</div>
+            <div className="admin-brand-main">
+              <Link
+                className="admin-brand-logo-link"
+                href="https://normie.one"
+                rel="noopener noreferrer"
+              >
+                <Image src={logoSquare} alt="Normie home" className="admin-brand-logo" priority />
+              </Link>
+              <div className="admin-brand-greeting">
+                <h1 className="admin-title">Normie Control Room</h1>
+                <p className="page-copy admin-copy">
+                  Manage polls, imports, and modular pages from one soft, colorful workspace.
+                </p>
+              </div>
             </div>
           </div>
         </div>

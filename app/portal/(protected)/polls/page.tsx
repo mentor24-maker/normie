@@ -12,7 +12,7 @@ export default async function PlayerPollsPage() {
   return (
     <section className="panel player-panel">
       <div className="panel-label">My Polls</div>
-      <h2>Polls you took and your answers</h2>
+      <h2>Polls You Took and Your Answers</h2>
       {snapshot.answers.length ? (
         <PlayerPollsAnswersTable answers={snapshot.answers} />
       ) : (
