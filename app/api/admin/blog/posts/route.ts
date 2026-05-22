@@ -31,21 +31,21 @@ export async function POST(request: Request) {
     return auth.response;
   }
 
-  const body = (await request.json()) as Record<string, unknown>;
-  const input = normalizeBlogPostEditorInput(body);
-  const validationError = validateBlogPostInput(input);
-
-  if (validationError) {
-    return auth.finish(NextResponse.json({ error: validationError }, { status: 400 }));
-  }
-
-  const statusError = assertBlogStatusAllowed(auth.admin, input.status);
-
-  if (statusError) {
-    return auth.finish(statusError);
-  }
-
   try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const input = normalizeBlogPostEditorInput(body);
+    const validationError = validateBlogPostInput(input);
+
+    if (validationError) {
+      return auth.finish(NextResponse.json({ error: validationError }, { status: 400 }));
+    }
+
+    const statusError = assertBlogStatusAllowed(auth.admin, input.status);
+
+    if (statusError) {
+      return auth.finish(statusError);
+    }
+
     const post = await saveAdminBlogPost(input);
     return auth.finish(NextResponse.json({ post }, { status: 201 }));
   } catch (error) {

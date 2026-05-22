@@ -1,3 +1,5 @@
+import { ADMIN_SESSION_EXPIRED_CODE } from "@/lib/admin-session-client";
+
 type AdminApiPayload = {
   error?: string;
   code?: string;
@@ -29,6 +31,11 @@ export async function readAdminJson<T>(
 
   if (!response.ok) {
     const payload = data as AdminApiPayload;
+
+    if (payload.code === ADMIN_SESSION_EXPIRED_CODE) {
+      throw new Error("Your admin session expired. Sign in again at /admin, then retry.");
+    }
+
     throw new Error(payload.error ?? fallbackMessage);
   }
 

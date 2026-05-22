@@ -34,9 +34,10 @@ export async function POST(request: Request) {
   const body = (await request.json()) as { name?: unknown; slug?: unknown };
 
   try {
+    const name = safeText(body.name, 255);
     const topic = await saveAdminBlogTopic({
-      name: safeText(body.name, 255),
-      slug: slugifyBlogText(body.slug, 120)
+      name,
+      slug: slugifyBlogText(body.slug || name, 120)
     });
     return auth.finish(NextResponse.json({ topic }, { status: 201 }));
   } catch (error) {

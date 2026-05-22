@@ -9,7 +9,7 @@ import type {
   BlogTagRecord,
   BlogTopicRecord
 } from "@/lib/blog";
-import { getBlogPostPath, normalizeBlogSlugInput, slugifyBlogText } from "@/lib/blog";
+import { getBlogPostPath, normalizeBlogSlugInput, slugifyBlogText, validateBlogPostInput } from "@/lib/blog";
 import { DEFAULT_BLOG_SETTINGS, type BlogSettingsSnapshot } from "@/lib/blog-settings";
 import { parseAdminJsonResponse, readAdminJson } from "@/lib/admin-fetch";
 import { AdminBlogPostEditor } from "@/components/admin-blog-post-editor";
@@ -366,17 +366,25 @@ export function AdminBlogWorkspace() {
       return;
     }
 
+    const validationError = validateBlogPostInput(editingDraft);
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setIsSaving(true);
     setError("");
     setMessage("");
 
     try {
+      const { id, ...createPayload } = editingDraft;
       const response = await fetch(
         editingDraft.id ? `/api/admin/blog/posts/${editingDraft.id}` : "/api/admin/blog/posts",
         {
           method: editingDraft.id ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editingDraft)
+          body: JSON.stringify(editingDraft.id ? editingDraft : createPayload)
         }
       );
       await readAdminJson<{ post?: BlogPostRecord; error?: string }>(response, "Failed to save post.");

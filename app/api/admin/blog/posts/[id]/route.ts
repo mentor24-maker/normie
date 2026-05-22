@@ -44,21 +44,22 @@ export async function PATCH(request: Request, context: BlogPostRouteContext) {
   }
 
   const { id } = await context.params;
-  const body = (await request.json()) as Record<string, unknown>;
-  const input = normalizeBlogPostEditorInput({ ...body, id });
-  const validationError = validateBlogPostInput(input);
-
-  if (validationError) {
-    return auth.finish(NextResponse.json({ error: validationError }, { status: 400 }));
-  }
-
-  const statusError = assertBlogStatusAllowed(auth.admin, input.status);
-
-  if (statusError) {
-    return auth.finish(statusError);
-  }
 
   try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const input = normalizeBlogPostEditorInput({ ...body, id });
+    const validationError = validateBlogPostInput(input);
+
+    if (validationError) {
+      return auth.finish(NextResponse.json({ error: validationError }, { status: 400 }));
+    }
+
+    const statusError = assertBlogStatusAllowed(auth.admin, input.status);
+
+    if (statusError) {
+      return auth.finish(statusError);
+    }
+
     const post = await saveAdminBlogPost(input, safeText(id, 120));
 
     if (!post) {

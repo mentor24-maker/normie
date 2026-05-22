@@ -159,16 +159,35 @@ function isAllowedBlogEmbedSrc(src: string) {
   }
 }
 
-export function sanitizeBlogBodyHtml(html: string) {
-  ensureConfigured();
-
-  const clean = getDomPurify().sanitize(html, {
-    ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS, ...BLOG_BODY_EXTRA_TAGS],
-    ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR, ...BLOG_BODY_EXTRA_ATTR],
-    ALLOW_DATA_ATTR: false
-  });
-
-  return clean.replace(/<iframe\b[^>]*\ssrc=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) =>
+function filterAllowedBlogEmbeds(html: string) {
+  return html.replace(/<iframe\b[^>]*\ssrc=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) =>
     isAllowedBlogEmbedSrc(src) ? match : ""
   );
+}
+
+/** Used when DOMPurify/jsdom is unavailable on the server (e.g. Vercel function crash). */
+export function stripDangerousBlogBodyHtml(html: string) {
+  return filterAllowedBlogEmbeds(
+    html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+      .replace(/javascript:/gi, "")
+  );
+}
+
+export function sanitizeBlogBodyHtml(html: string) {
+  try {
+    ensureConfigured();
+
+    const clean = getDomPurify().sanitize(html, {
+      ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS, ...BLOG_BODY_EXTRA_TAGS],
+      ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR, ...BLOG_BODY_EXTRA_ATTR],
+      ALLOW_DATA_ATTR: false
+    });
+
+    return filterAllowedBlogEmbeds(clean);
+  } catch {
+    return stripDangerousBlogBodyHtml(html);
+  }
 }

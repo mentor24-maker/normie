@@ -17,6 +17,20 @@ import {
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
 
+function blogStoreErrorMessage(error: { message?: string } | null | undefined, fallback: string) {
+  const message = error?.message?.trim() || fallback;
+
+  if (/blog_categories|blog_post_categories|primary_category_id/i.test(message)) {
+    return "Blog categories are not set up in the database. Run supabase/migrations/003_blog_categories.sql in the Supabase SQL Editor, then try again.";
+  }
+
+  if (/blog_settings/i.test(message)) {
+    return "Blog settings are not set up in the database. Run supabase/migrations/011_blog_settings.sql in the Supabase SQL Editor, then try again.";
+  }
+
+  return message;
+}
+
 const POST_SELECT = `
   id,
   title,
@@ -180,7 +194,7 @@ export async function listAdminBlogTopics() {
   const { data, error } = await supabase.from("blog_topics").select("*").order("name", { ascending: true });
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   return (data ?? []).map((row) => rowToBlogTopic(row));
@@ -191,7 +205,7 @@ export async function listAdminBlogCategories() {
   const { data, error } = await supabase.from("blog_categories").select("*").order("name", { ascending: true });
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   return (data ?? []).map((row) => rowToBlogCategory(row));
@@ -202,7 +216,7 @@ export async function listAdminBlogTags() {
   const { data, error } = await supabase.from("blog_tags").select("*").order("name", { ascending: true });
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   return (data ?? []).map((row) => rowToBlogTag(row));
@@ -216,7 +230,7 @@ export async function listAdminBlogPosts() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   const rows = (data ?? []) as Record<string, unknown>[];
@@ -243,7 +257,7 @@ export async function getAdminBlogPostById(postId: string) {
   const { data, error } = await supabase.from("blog_posts").select(POST_SELECT).eq("id", postId).maybeSingle();
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   if (!data) {
@@ -280,7 +294,7 @@ async function syncPostRelations(supabase: SupabaseClient, postId: string, input
     );
 
     if (error) {
-      throw new Error(error.message);
+      throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
     }
   }
 
@@ -290,7 +304,7 @@ async function syncPostRelations(supabase: SupabaseClient, postId: string, input
     );
 
     if (error) {
-      throw new Error(error.message);
+      throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
     }
   }
 
@@ -300,7 +314,7 @@ async function syncPostRelations(supabase: SupabaseClient, postId: string, input
     );
 
     if (error) {
-      throw new Error(error.message);
+      throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
     }
   }
 
@@ -314,7 +328,7 @@ async function syncPostRelations(supabase: SupabaseClient, postId: string, input
     );
 
     if (error) {
-      throw new Error(error.message);
+      throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
     }
   }
 }
@@ -355,7 +369,7 @@ export async function saveAdminBlogPost(input: BlogPostEditorInput, postId?: str
       .single();
 
     if (error || !data) {
-      throw new Error(error?.message ?? "Failed to update post.");
+      throw new Error(blogStoreErrorMessage(error, "Failed to update post."));
     }
 
     await syncPostRelations(supabase, postId, input);
@@ -369,7 +383,7 @@ export async function saveAdminBlogPost(input: BlogPostEditorInput, postId?: str
     .single();
 
   if (error || !data) {
-    throw new Error(error?.message ?? "Failed to create post.");
+    throw new Error(blogStoreErrorMessage(error, "Failed to create post."));
   }
 
   const newId = String(data.id);
@@ -382,7 +396,7 @@ export async function deleteAdminBlogPost(postId: string) {
   const { error } = await supabase.from("blog_posts").delete().eq("id", postId);
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 }
 
@@ -429,7 +443,7 @@ export async function deleteAdminBlogTopic(topicId: string) {
   const { error } = await supabase.from("blog_topics").delete().eq("id", topicId);
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 }
 
@@ -476,7 +490,7 @@ export async function deleteAdminBlogCategory(categoryId: string) {
   const { error } = await supabase.from("blog_categories").delete().eq("id", categoryId);
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 }
 
@@ -523,7 +537,7 @@ export async function deleteAdminBlogTag(tagId: string) {
   const { error } = await supabase.from("blog_tags").delete().eq("id", tagId);
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 }
 
@@ -684,7 +698,7 @@ async function getPublicPostIdsLinkedToTaxonomy(
   const { data, error } = await supabase.from(table).select("post_id").in(foreignKey, ids);
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   const seen = new Set<string>();
@@ -721,7 +735,7 @@ async function fetchPublicBlogCardsForPostIds(postIds: string[], limit: number) 
     .limit(limit);
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   const rows = (data ?? []).filter((row) => isBlogPostPubliclyVisible(row)) as Record<string, unknown>[];
@@ -872,7 +886,7 @@ export async function listPublicBlogPostPaths() {
     .lte("published_at", new Date().toISOString());
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(blogStoreErrorMessage(error, "Blog request failed."));
   }
 
   const visiblePosts = (posts ?? []).filter((row) => isBlogPostPubliclyVisible(row));

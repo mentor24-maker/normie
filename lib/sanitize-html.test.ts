@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { escapeHtmlText, sanitizeEmbedHtml, sanitizeRichTextHtml } from "@/lib/sanitize-html";
+import {
+  escapeHtmlText,
+  sanitizeBlogBodyHtml,
+  sanitizeEmbedHtml,
+  sanitizeRichTextHtml,
+  stripDangerousBlogBodyHtml
+} from "@/lib/sanitize-html";
 
 describe("escapeHtmlText", () => {
   it("escapes angle brackets and quotes", () => {
@@ -19,6 +25,23 @@ describe("sanitizeRichTextHtml", () => {
   it("keeps basic formatting tags", () => {
     const clean = sanitizeRichTextHtml("<p><strong>Bold</strong></p>");
     expect(clean).toContain("<strong>Bold</strong>");
+  });
+});
+
+describe("sanitizeBlogBodyHtml", () => {
+  it("strips script tags from blog body html", () => {
+    const clean = sanitizeBlogBodyHtml('<p>Hello</p><script>alert("x")</script>');
+    expect(clean).toContain("<p>Hello</p>");
+    expect(clean.toLowerCase()).not.toContain("<script");
+  });
+});
+
+describe("stripDangerousBlogBodyHtml", () => {
+  it("removes scripts and inline handlers", () => {
+    const clean = stripDangerousBlogBodyHtml('<p onclick="x()">Hi</p><script>bad()</script>');
+    expect(clean).toContain("<p");
+    expect(clean.toLowerCase()).not.toContain("<script");
+    expect(clean).not.toContain("onclick");
   });
 });
 
