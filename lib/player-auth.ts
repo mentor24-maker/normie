@@ -34,12 +34,30 @@ export type AuthorizedPlayer = {
   profile: PlayerProfileRow;
 };
 
+export const PLAYER_PROFILE_BASE_SELECT =
+  "id, full_name, handle, status, created_at, updated_at";
+
+export const PLAYER_PROFILE_EXTENDED_SELECT =
+  "avatar_url, bio, social_links, share_profile, share_poll_responses";
+
+export const PLAYER_PROFILE_FULL_SELECT =
+  "id, full_name, handle, status, created_at, updated_at, avatar_url, bio, social_links, share_profile, share_poll_responses";
+
 export function isMissingPlayerSchemaError(error: { message?: string; code?: string } | null | undefined) {
   return Boolean(
     error &&
       (error.code === "PGRST205" ||
         error.message?.includes("Could not find the table") ||
         error.message?.includes("schema cache"))
+  );
+}
+
+export function isMissingProfileColumnError(error: { message?: string; code?: string } | null | undefined) {
+  return Boolean(
+    error &&
+      (error.code === "42703" ||
+        error.code === "PGRST204" ||
+        (error.message?.includes("column") && error.message?.includes("player_profiles")))
   );
 }
 
@@ -164,15 +182,100 @@ export async function getPlayerUserFromToken(accessToken: string | undefined | n
   return data.user ?? null;
 }
 
-export async function getPlayerProfile(userId: string): Promise<PlayerProfileRow | null> {
+export async function fetchPlayerProfileRow(
+  userId: string,
+  options?: { includeExtended?: boolean }
+): Promise<PlayerProfileRow | null> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  const includeExtended = options?.includeExtended ?? false;
+
+  let { data, error } = await supabase
     .from("player_profiles")
-    .select(
-      "id, full_name, handle, status, avatar_url, bio, social_links, share_profile, share_poll_responses, created_at, updated_at"
-    )
+    .select(includeExtended ? PLAYER_PROFILE_FULL_SELECT : PLAYER_PROFILE_BASE_SELECT)
     .eq("id", userId)
     .maybeSingle();
+
+  if (isMissingProfileColumnError(error) && includeExtended) {
+    ({ data, error } = await supabase
+      .from("player_profiles")
+      .select(PLAYER_PROFILE_BASE_SELECT)
+      .eq("id", userId)
+      .maybeSingle());
+  }
+
+  if (isMissingPlayerSchemaError(error)) {
+    return null;
+  }
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as unknown as PlayerProfileRow;
+}
+
+export async function getPlayerProfile(userId: string): Promise<PlayerProfileRow | null> {
+  return fetchPlayerProfileRow(userId);
+}
+
+async function resolveUniquePlayerHandle(
+  userId: string,
+  preferredHandle: string
+): Promise<string> {
+  const supabase = createAdminClient();
+  let candidate = preferredHandle;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const { data, error } = await supabase
+      .from("player_profiles")
+      .select("id")
+      .eq("handle", candidate)
+      .maybeSingle();
+
+    if (isMissingPlayerSchemaError(error)) {
+      return preferredHandle;
+    }
+
+    if (error) {
+      return preferredHandle;
+    }
+
+    if (!data || data.id === userId) {
+      return candidate;
+    }
+
+    const suffix = attempt === 0 ? userId.slice(0, 6) : `${userId.slice(0, 4)}${attempt}`;
+    candidate = `${preferredHandle.slice(0, Math.max(4, 24 - suffix.length - 1))}_${suffix}`;
+  }
+
+  return `player_${userId.slice(0, 8)}`;
+}
+
+export async function ensurePlayerProfileForAuthUser(authUser: User): Promise<PlayerProfileRow | null> {
+  const existing = await getPlayerProfile(authUser.id);
+
+  if (existing) {
+    return existing;
+  }
+
+  const supabase = createAdminClient();
+  const preferredHandle = normalizePlayerHandle(authUser.user_metadata?.handle, authUser.email);
+  const handle = await resolveUniquePlayerHandle(authUser.id, preferredHandle);
+  const fullName = safePlayerText(authUser.user_metadata?.full_name, 255);
+
+  const { data, error } = await supabase
+    .from("player_profiles")
+    .upsert(
+      {
+        id: authUser.id,
+        full_name: fullName,
+        handle,
+        status: "active"
+      },
+      { onConflict: "id" }
+    )
+    .select(PLAYER_PROFILE_BASE_SELECT)
+    .single();
 
   if (isMissingPlayerSchemaError(error)) {
     return null;
@@ -183,6 +286,61 @@ export async function getPlayerProfile(userId: string): Promise<PlayerProfileRow
   }
 
   return data as PlayerProfileRow;
+}
+
+export type PlayerLoginProfileResult =
+  | { ok: true; profile: PlayerProfileRow }
+  | {
+      ok: false;
+      code: "missing_schema" | "missing_profile" | "inactive";
+      error: string;
+    };
+
+export async function resolvePlayerProfileForLogin(authUser: User): Promise<PlayerLoginProfileResult> {
+  let profile = await getPlayerProfile(authUser.id);
+
+  if (!profile) {
+    profile = await ensurePlayerProfileForAuthUser(authUser);
+  }
+
+  if (!profile) {
+    const schemaProbe = await createAdminClient().from("player_profiles").select("id").limit(1);
+
+    if (isMissingPlayerSchemaError(schemaProbe.error)) {
+      return {
+        ok: false,
+        code: "missing_schema",
+        error:
+          "Player Portal database tables are not installed yet. Apply supabase/migrations/005_player_portal.sql and try again."
+      };
+    }
+
+    return {
+      ok: false,
+      code: "missing_profile",
+      error: "No player profile exists for this account yet. Register again or contact support."
+    };
+  }
+
+  const status = safePlayerText(profile.status, 40).toLowerCase() || "active";
+
+  if (status === "suspended") {
+    return {
+      ok: false,
+      code: "inactive",
+      error: "This player account has been suspended."
+    };
+  }
+
+  if (status !== "active") {
+    return {
+      ok: false,
+      code: "inactive",
+      error: "This player account is not active."
+    };
+  }
+
+  return { ok: true, profile };
 }
 
 export async function getAuthorizedPlayerFromToken(
@@ -196,7 +354,13 @@ export async function getAuthorizedPlayerFromToken(
 
   const profile = await getPlayerProfile(authUser.id);
 
-  if (!profile || profile.status !== "active") {
+  if (!profile) {
+    return null;
+  }
+
+  const status = safePlayerText(profile.status, 40).toLowerCase() || "active";
+
+  if (status !== "active" && status !== "") {
     return null;
   }
 

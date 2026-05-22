@@ -93,9 +93,7 @@ export async function POST(request: Request) {
   const { data: profileRow, error: profileError } = await adminClient
     .from("player_profiles")
     .upsert(profile, { onConflict: "id" })
-    .select(
-      "id, full_name, handle, status, avatar_url, bio, social_links, share_profile, share_poll_responses, created_at, updated_at"
-    )
+    .select("id, full_name, handle, status, created_at, updated_at")
     .single();
 
   if (isMissingPlayerSchemaError(profileError)) {

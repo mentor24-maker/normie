@@ -1,7 +1,11 @@
 import {
+  fetchPlayerProfileRow,
   getPlayerProfile,
   isMissingPlayerSchemaError,
+  isMissingProfileColumnError,
   normalizePlayerHandle,
+  PLAYER_PROFILE_BASE_SELECT,
+  PLAYER_PROFILE_FULL_SELECT,
   safePlayerText,
   type AuthorizedPlayer,
   type PlayerProfileRow
@@ -37,9 +41,6 @@ export const EMPTY_PLAYER_SOCIAL_LINKS: PlayerSocialLinks = {
   youtube: "",
   discord: ""
 };
-
-const PROFILE_SELECT =
-  "id, full_name, handle, status, avatar_url, bio, social_links, share_profile, share_poll_responses, created_at, updated_at";
 
 export function parsePlayerSocialLinks(value: unknown): PlayerSocialLinks {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -117,22 +118,13 @@ export function buildPlayerProfileDetails(
 }
 
 export async function getPlayerProfileDetails(player: AuthorizedPlayer): Promise<PlayerProfileDetails | null> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("player_profiles")
-    .select(PROFILE_SELECT)
-    .eq("id", player.authUser.id)
-    .maybeSingle();
+  const profile = await fetchPlayerProfileRow(player.authUser.id, { includeExtended: true });
 
-  if (isMissingPlayerSchemaError(error)) {
+  if (!profile) {
     return null;
   }
 
-  if (error || !data) {
-    return null;
-  }
-
-  return buildPlayerProfileDetails(player, data as PlayerProfileRow);
+  return buildPlayerProfileDetails(player, profile);
 }
 
 export type UpdatePlayerProfileInput = {
@@ -195,21 +187,37 @@ export async function updatePlayerProfile(
     return { ok: false, error: "That username is already taken.", status: 409 };
   }
 
-  const { data, error } = await supabase
+  const updatedAt = new Date().toISOString();
+  const extendedPayload = {
+    full_name: fullName,
+    handle,
+    avatar_url: avatarUrl || null,
+    bio,
+    social_links: socialLinks,
+    share_profile: shareProfile,
+    share_poll_responses: sharePollResponses,
+    updated_at: updatedAt
+  };
+
+  let { data, error } = await supabase
     .from("player_profiles")
-    .update({
-      full_name: fullName,
-      handle,
-      avatar_url: avatarUrl || null,
-      bio,
-      social_links: socialLinks,
-      share_profile: shareProfile,
-      share_poll_responses: sharePollResponses,
-      updated_at: new Date().toISOString()
-    })
+    .update(extendedPayload)
     .eq("id", player.authUser.id)
-    .select(PROFILE_SELECT)
+    .select(PLAYER_PROFILE_FULL_SELECT)
     .single();
+
+  if (isMissingProfileColumnError(error)) {
+    ({ data, error } = await supabase
+      .from("player_profiles")
+      .update({
+        full_name: fullName,
+        handle,
+        updated_at: updatedAt
+      })
+      .eq("id", player.authUser.id)
+      .select(PLAYER_PROFILE_BASE_SELECT)
+      .single());
+  }
 
   if (isMissingPlayerSchemaError(error)) {
     return {

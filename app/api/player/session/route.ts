@@ -8,7 +8,7 @@ import {
   buildPlayerSessionSnapshot,
   clearPlayerCookieOptions,
   getAuthorizedPlayerFromCookieStore,
-  getPlayerProfile,
+  resolvePlayerProfileForLogin,
   safePlayerText
 } from "@/lib/player-auth";
 import { createPublicClient } from "@/lib/supabase-public";
@@ -47,11 +47,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error?.message ?? "Invalid email or password." }, { status: 401 });
   }
 
-  const profile = await getPlayerProfile(data.user.id);
+  const profileResult = await resolvePlayerProfileForLogin(data.user);
 
-  if (!profile || profile.status !== "active") {
-    return NextResponse.json({ error: "This player account is not active." }, { status: 403 });
+  if (!profileResult.ok) {
+    const status =
+      profileResult.code === "missing_schema" || profileResult.code === "missing_profile" ? 503 : 403;
+
+    return NextResponse.json({ error: profileResult.error }, { status });
   }
+
+  const profile = profileResult.profile;
 
   const response = NextResponse.json({
     user: {
