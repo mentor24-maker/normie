@@ -12,7 +12,8 @@ const navItems = [
   { href: "/portal/dashboard", label: "Dashboard" },
   { href: "/portal/polls", label: "My Polls" },
   { href: "/portal/points", label: "Points" },
-  { href: "/portal/leaderboard", label: "Leaderboard" }
+  { href: "/portal/leaderboard", label: "Leaderboard" },
+  { href: "/portal/profile", label: "Profile" }
 ] as const;
 
 function isNavActive(pathname: string, href: string, playPollsOpen: boolean): boolean {

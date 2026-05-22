@@ -47,9 +47,14 @@ export default async function ProtectedPortalLayout({
               </p>
             </div>
           </div>
-          <Link className="submit-button player-portal-play-cta" href="/portal/dashboard?playPolls=1">
-            Play Polls
-          </Link>
+          <div className="player-portal-top-actions">
+            <Link className="secondary-button player-portal-profile-cta" href="/portal/profile">
+              Profile
+            </Link>
+            <Link className="submit-button player-portal-play-cta" href="/portal/dashboard?playPolls=1">
+              Play Polls
+            </Link>
+          </div>
         </header>
 
         <Suspense fallback={<nav aria-label="Player navigation" className="player-portal-nav player-portal-nav-fallback" />}>

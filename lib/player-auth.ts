@@ -12,6 +12,11 @@ export type PlayerProfileRow = {
   full_name: string | null;
   handle: string | null;
   status: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  social_links?: Record<string, unknown> | null;
+  share_profile?: boolean | null;
+  share_poll_responses?: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -163,7 +168,9 @@ export async function getPlayerProfile(userId: string): Promise<PlayerProfileRow
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("player_profiles")
-    .select("id, full_name, handle, status, created_at, updated_at")
+    .select(
+      "id, full_name, handle, status, avatar_url, bio, social_links, share_profile, share_poll_responses, created_at, updated_at"
+    )
     .eq("id", userId)
     .maybeSingle();
 
