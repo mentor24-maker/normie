@@ -1,4 +1,8 @@
 import type { BuilderTemplateModule } from "@/lib/builder-template";
+import {
+  BuilderInlineNumberSelect,
+  BuilderInlineNumberSelectRow
+} from "./builder-inline-number-select";
 import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
 
 type BuilderFloatingImageModuleSettingsProps = {
@@ -70,22 +74,34 @@ export function BuilderFloatingImageModuleSettings({
             <option value="bottom-right">Bottom right</option>
           </select>
         </label>
-        <label className="field">
-          <span>Border thickness</span>
-          <input
-            type="range"
-            min="0"
-            max="24"
-            step="1"
+        <BuilderInlineNumberSelectRow>
+          <BuilderInlineNumberSelect
+            label="Border thickness"
             value={module.settings.borderThickness ?? "0"}
-            onChange={(event) =>
+            min={0}
+            max={24}
+            fallback="0"
+            onChange={(borderThickness) =>
               onUpdateModule((current) => ({
                 ...current,
-                settings: { ...current.settings, borderThickness: event.target.value }
+                settings: { ...current.settings, borderThickness }
               }))
             }
           />
-        </label>
+          <BuilderInlineNumberSelect
+            label="Border radius"
+            value={module.settings.borderRadius ?? "18"}
+            min={0}
+            max={80}
+            fallback="18"
+            onChange={(borderRadius) =>
+              onUpdateModule((current) => ({
+                ...current,
+                settings: { ...current.settings, borderRadius }
+              }))
+            }
+          />
+        </BuilderInlineNumberSelectRow>
         <label className="field">
           <span>Border color</span>
           <input
@@ -95,22 +111,6 @@ export function BuilderFloatingImageModuleSettings({
               onUpdateModule((current) => ({
                 ...current,
                 settings: { ...current.settings, borderColor: event.target.value }
-              }))
-            }
-          />
-        </label>
-        <label className="field">
-          <span>Border radius</span>
-          <input
-            type="range"
-            min="0"
-            max="80"
-            step="1"
-            value={module.settings.borderRadius ?? "18"}
-            onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: { ...current.settings, borderRadius: event.target.value }
               }))
             }
           />

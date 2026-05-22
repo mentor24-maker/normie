@@ -163,7 +163,7 @@ function CreatedModulesTable({
                 <th>Section</th>
                 <th>ID</th>
                 <th>Updated</th>
-                <th>Actions</th>
+                <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -180,11 +180,11 @@ function CreatedModulesTable({
                       <code>{item.module.id}</code>
                     </td>
                     <td>{formatTemplateTimestamp(item.updatedAt)}</td>
-                    <td>
+                    <td className="crud-actions-cell">
                       <div className="builder-template-actions">
                         <button
                           aria-label="Edit created module"
-                          className="polls-icon-button"
+                          className="polls-icon-button polls-icon-button-edit"
                           disabled={isSaving}
                           onClick={() => onStartEditing(item)}
                           title="Edit module"
@@ -333,7 +333,7 @@ function RepositoryTable({
                 <th>Contents</th>
                 <th>ID</th>
                 <th>Updated</th>
-                <th>Actions</th>
+                <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -348,11 +348,11 @@ function RepositoryTable({
                       <code>{item.id}</code>
                     </td>
                     <td>{formatTemplateTimestamp(item.updatedAt)}</td>
-                    <td>
+                    <td className="crud-actions-cell">
                       <div className="builder-template-actions">
                         <button
                           aria-label="Edit saved module"
-                          className="polls-icon-button"
+                          className="polls-icon-button polls-icon-button-edit"
                           disabled={isSaving}
                           onClick={() => onStartEditing(item)}
                           title="Edit module"
@@ -1044,7 +1044,7 @@ export function BuilderModuleRepositoryList({
                   <th>Modules</th>
                   <th>ID</th>
                   <th>Updated</th>
-                  <th>Actions</th>
+                  <th className="crud-actions-cell">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1060,11 +1060,11 @@ export function BuilderModuleRepositoryList({
                         <code>{section.id}</code>
                       </td>
                       <td>{formatTemplateTimestamp(section.updatedAt)}</td>
-                      <td>
+                      <td className="crud-actions-cell">
                         <div className="builder-template-actions">
                           <button
                             aria-label="Edit saved section"
-                            className="polls-icon-button"
+                            className="polls-icon-button polls-icon-button-edit"
                             disabled={isSaving}
                             onClick={() => startEditingSection(section)}
                             title="Edit section"
@@ -1134,6 +1134,7 @@ export function BuilderModuleRepositoryList({
                               onMoveModule={(moduleId, direction) => moveEditingSectionModule(moduleId, direction)}
                               onMoveUp={() => undefined}
                               onOpenGallery={(moduleId) => setEditingSectionGalleryTarget({ kind: "module", moduleId })}
+                              onOpenButtonBackgroundGallery={() => undefined}
                               onOpenModulePalette={(column) => setEditingSectionPaletteColumn(column)}
                               onOpenSectionBackgroundGallery={() => setEditingSectionGalleryTarget({ kind: "section-background" })}
                               onOpenSocialIconGallery={(moduleId, itemId) =>
@@ -1163,6 +1164,7 @@ export function BuilderModuleRepositoryList({
                               onUpdateModuleBackground={updateEditingSectionModuleBackground}
                               onUpdateSection={updateEditingSection}
                               onUploadMediaForModule={() => undefined}
+                              onUploadButtonBackgroundMedia={() => undefined}
                               onUploadSectionBackgroundMedia={() => undefined}
                             />
                           </div>

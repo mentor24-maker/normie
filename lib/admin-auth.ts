@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 import type { UserProfileRow } from "./admin-users";
+import { resolveAdminTeamProfileForAuthUser } from "./admin-team-session";
 import { createAdminClient } from "./supabase-admin";
 import { createPublicClient } from "./supabase-public";
 
@@ -128,16 +129,20 @@ export async function getAuthorizedAdminFromToken(
     return null;
   }
 
-  const profile = await getAdminProfile(authUser.id);
+  try {
+    const profile = await resolveAdminTeamProfileForAuthUser(authUser);
 
-  if (!profile || profile.status !== "active") {
+    if (!profile || profile.status !== "active") {
+      return null;
+    }
+
+    return {
+      authUser,
+      profile
+    };
+  } catch {
     return null;
   }
-
-  return {
-    authUser,
-    profile
-  };
 }
 
 async function refreshAdminAccessSession(refreshToken: string) {

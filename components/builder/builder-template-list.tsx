@@ -79,15 +79,28 @@ export function BuilderTemplateList({
   return (
     <>
       <div className="builder-toolbar-shell">
-        <button
-          aria-expanded={!collapsedPanels.templates}
-          className="builder-panel-toggle"
-          onClick={() => togglePanel("templates")}
-          type="button"
-        >
-          <span className="panel-label">Templates</span>
-          <span className="builder-panel-toggle-icon">{collapsedPanels.templates ? "▸" : "▾"}</span>
-        </button>
+        <div className="builder-panel-toggle-row">
+          <button
+            aria-expanded={!collapsedPanels.templates}
+            aria-label={collapsedPanels.templates ? "Expand Templates" : "Collapse Templates"}
+            className="builder-panel-toggle"
+            onClick={() => togglePanel("templates")}
+            title={collapsedPanels.templates ? "Expand Templates" : "Collapse Templates"}
+            type="button"
+          >
+            <span className="panel-label">Templates</span>
+            <span className="builder-panel-toggle-icon">{collapsedPanels.templates ? "▸" : "▾"}</span>
+          </button>
+          <span className="builder-panel-heading-actions">
+            <button
+              className="submit-button builder-panel-heading-button"
+              onClick={handleNewTemplate}
+              type="button"
+            >
+              New Template
+            </button>
+          </span>
+        </div>
         {!collapsedPanels.templates ? (
           <div className="table-shell builder-templates-shell">
             <table className="polls-table builder-templates-table">
@@ -96,7 +109,7 @@ export function BuilderTemplateList({
                   <th>Name</th>
                   <th>ID</th>
                   <th>Updated</th>
-                  <th>Actions</th>
+                  <th className="crud-actions-cell">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -112,10 +125,10 @@ export function BuilderTemplateList({
                         <code>{template.id}</code>
                       </td>
                       <td>{formatTemplateTimestamp(template.updatedAt)}</td>
-                      <td>
+                      <td className="crud-actions-cell">
                         <div className="builder-template-actions">
                           <button
-                            className="polls-icon-button"
+                            className="polls-icon-button polls-icon-button-edit"
                             onClick={() => handleEditTemplate(template.id)}
                             type="button"
                             aria-label={isSelected ? "Editing current template" : "Edit template"}
@@ -124,13 +137,13 @@ export function BuilderTemplateList({
                             {isSelected ? "●" : "✎"}
                           </button>
                           <button
-                            className="polls-icon-button"
+                            className="polls-icon-button polls-icon-button-view"
                             onClick={() => onPreviewTemplate(template)}
                             type="button"
                             aria-label="Preview template"
                             title="Preview template"
                           >
-                            👁
+                            <span aria-hidden="true" className="polls-icon-glyph-eye" />
                           </button>
                           <button
                             className="polls-icon-button polls-icon-button-danger"
@@ -159,27 +172,28 @@ export function BuilderTemplateList({
       </div>
 
       <div className="builder-toolbar-shell">
-        <div className="builder-panel-toggle">
-          <span className="panel-label">Template Details</span>
-          <span className="builder-panel-heading-actions">
-            <button
-              className="secondary-button builder-panel-heading-button"
-              onClick={handleNewTemplate}
-              type="button"
-            >
-              New Template
-            </button>
-          </span>
+        <div className="builder-panel-toggle-row">
           <button
             aria-expanded={!collapsedPanels.details}
             aria-label={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
-            className="builder-panel-toggle-icon"
+            className="builder-panel-toggle"
             onClick={() => togglePanel("details")}
             title={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
             type="button"
           >
-            {collapsedPanels.details ? "▸" : "▾"}
+            <span className="panel-label">Template Details</span>
+            <span className="builder-panel-toggle-icon">{collapsedPanels.details ? "▸" : "▾"}</span>
           </button>
+          <span className="builder-panel-heading-actions">
+            <button
+              className="submit-button admin-blog-add-button builder-panel-heading-button"
+              disabled={isSaving}
+              onClick={onSaveTemplate}
+              type="button"
+            >
+              {isSaving ? "Saving..." : "Save Template"}
+            </button>
+          </span>
         </div>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid">
@@ -194,9 +208,6 @@ export function BuilderTemplateList({
               />
             </label>
             <div className="builder-meta-actions">
-              <button className="submit-button" onClick={onSaveTemplate} type="button" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Template"}
-              </button>
               <div className="builder-template-preview-controls">
                 <fieldset className="builder-preview-radio-group" aria-label="Preview device">
                   <label>
@@ -218,7 +229,7 @@ export function BuilderTemplateList({
                     <span>Mobile</span>
                   </label>
                 </fieldset>
-                <button className="secondary-button" onClick={onPreviewDraft} type="button">
+                <button className="submit-button" onClick={onPreviewDraft} type="button">
                   Preview
                 </button>
               </div>

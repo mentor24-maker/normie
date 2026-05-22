@@ -4,6 +4,7 @@ import {
   createDefaultBackgroundSettings,
   normalizeBuilderAssetUrl
 } from "@/lib/builder-template";
+import { BuilderSettingRow } from "./builder-setting-row";
 
 type BuilderBackgroundControlsProps = {
   label: string;
@@ -12,6 +13,7 @@ type BuilderBackgroundControlsProps = {
   onChooseImage?: () => void;
   onUploadImage?: (file: File | null) => void;
   compact?: boolean;
+  horizontal?: boolean;
 };
 
 export function BuilderBackgroundControls({
@@ -20,8 +22,139 @@ export function BuilderBackgroundControls({
   onChange,
   onChooseImage,
   onUploadImage,
-  compact = false
+  compact = false,
+  horizontal = false
 }: BuilderBackgroundControlsProps) {
+  if (horizontal) {
+    return (
+      <div className="builder-background-controls builder-background-controls-horizontal">
+        <BuilderSettingRow label={label} fullWidth>
+          <select
+            value={background.mode}
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                mode: event.target.value as BackgroundSettings["mode"]
+              }))
+            }
+          >
+            <option value="none">None</option>
+            <option value="color">Color</option>
+            <option value="gradient">Gradient</option>
+            <option value="image">Image</option>
+            <option value="style">Style</option>
+          </select>
+        </BuilderSettingRow>
+
+        {background.mode === "color" || background.mode === "gradient" ? (
+          <BuilderSettingRow label="Primary color" fullWidth>
+            <input
+              type="color"
+              value={background.color}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  color: event.target.value
+                }))
+              }
+            />
+          </BuilderSettingRow>
+        ) : null}
+
+        {background.mode === "gradient" ? (
+          <BuilderSettingRow label="Secondary color" fullWidth>
+            <input
+              type="color"
+              value={background.color2}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  color2: event.target.value
+                }))
+              }
+            />
+          </BuilderSettingRow>
+        ) : null}
+
+        {background.mode === "style" ? (
+          <BuilderSettingRow label="Style" fullWidth>
+            <select
+              value={background.styleKey}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  styleKey: event.target.value as BackgroundSettings["styleKey"]
+                }))
+              }
+            >
+              <option value="">Choose a style</option>
+              {BACKGROUND_STYLE_PRESETS.map((style) => (
+                <option key={style.value} value={style.value}>
+                  {style.label}
+                </option>
+              ))}
+            </select>
+          </BuilderSettingRow>
+        ) : null}
+
+        {background.mode === "image" ? (
+          <>
+            <BuilderSettingRow label="Background image URL" fullWidth>
+              <input
+                type="text"
+                value={background.imageUrl}
+                onChange={(event) =>
+                  onChange((current) => ({
+                    ...current,
+                    imageUrl: normalizeBuilderAssetUrl(event.target.value)
+                  }))
+                }
+                placeholder="https://... or /api/admin/media-file/..."
+              />
+            </BuilderSettingRow>
+            <div className="builder-media-actions">
+              {onChooseImage ? (
+                <button
+                  className="secondary-button builder-gallery-button"
+                  onClick={onChooseImage}
+                  type="button"
+                >
+                  Choose Background Image
+                </button>
+              ) : null}
+              {onUploadImage ? (
+                <label className="secondary-button builder-gallery-button builder-upload-button">
+                  <span>Upload Background</span>
+                  <input
+                    className="builder-upload-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      onUploadImage(event.target.files?.[0] ?? null);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+
+        {background.mode !== "none" ? (
+          <BuilderSettingRow label="Clear background">
+            <button
+              className="secondary-button"
+              onClick={() => onChange(() => createDefaultBackgroundSettings())}
+              type="button"
+            >
+              Clear
+            </button>
+          </BuilderSettingRow>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="builder-background-controls">
       <div className={compact ? "builder-background-inline-row" : undefined}>

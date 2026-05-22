@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, type DragEvent, useRef, useState } from "react";
 import type { BackgroundSettings, BuilderProductRecord, BuilderTemplateModule, BuilderTemplateModuleType } from "@/lib/builder-template";
 import {
   createEmptyModule,
@@ -38,10 +38,21 @@ import {
   getModuleAlignment,
   getModuleBackgroundSettings,
   getModuleMarginStyle,
+  getModuleOuterSpacingStyle,
   getVerticalMarginStyle,
+  getButtonModuleStyle,
   getVideoEmbedSource,
   isVideoMedia
 } from "./builder-utils";
+import { BuilderButtonDesignSettings } from "./builder-button-design-settings";
+import { BuilderHeadingModuleSettings } from "./builder-heading-module-settings";
+import { BuilderPlayerPortalSettings } from "./builder-player-portal-settings";
+import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/player-portal-auth-form";
+import { BuilderSettingRow } from "./builder-setting-row";
+import {
+  BuilderInlineNumberSelect,
+  BuilderInlineNumberSelectRow
+} from "./builder-inline-number-select";
 
 type BuilderModuleCardProps = {
   module: BuilderTemplateModule;
@@ -57,10 +68,13 @@ type BuilderModuleCardProps = {
   onRemove: () => void;
   onSaveModule: () => void;
   onOpenGallery: () => void;
+  onOpenButtonBackgroundGallery?: () => void;
   onOpenSocialIconGallery: (itemId: string) => void;
   onUploadMedia: (file: File | null) => void;
+  onUploadButtonBackgroundMedia?: (file: File | null) => void;
   onClone: () => void;
   hideHeaderActions?: boolean;
+  onModuleDragStart?: (event: DragEvent<HTMLDivElement>) => void;
 };
 
 type ContactFormField = {
@@ -216,14 +230,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
   if (module.type === "button") {
     const s = module.settings;
     const sizeClass = `builder-preview-button-${s.buttonSize ?? "medium"}`;
-    const btnStyle = {
-      "--btn-bg": s.buttonColor || "#214c71",
-      "--btn-bg-hover": s.buttonHoverColor || "#0f4f8f",
-      "--btn-color": s.textColor || "#ffffff",
-      "--btn-color-hover": s.textHoverColor || "#ffffff",
-      "--btn-border": s.borderColor || "#214c71",
-      padding: `${s.paddingY || "12"}px ${s.paddingX || "24"}px`
-    } as CSSProperties;
+    const btnStyle = getButtonModuleStyle(s);
     return (
       <div className="builder-module-preview-copy">
         <span
@@ -261,6 +268,16 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "contact-form") {
     return renderContactFormPreview(module.settings);
+  }
+
+  if (module.type === "player-portal") {
+    return (
+      <PlayerPortalAuthForm
+        settings={getPlayerPortalAuthSettings(module.settings)}
+        heading={module.text}
+        previewMode
+      />
+    );
   }
 
   if (module.type === "video" || (module.type === "image" && module.settings.variant === "video")) {
@@ -812,12 +829,13 @@ function TableCellModules({
         <div key={mod.id} className="builder-table-cell-module">
           <div className="builder-table-cell-module-header">
             <button
+              aria-expanded={editingId === mod.id}
               type="button"
               className="builder-table-cell-module-toggle"
               onClick={() => setEditingId(editingId === mod.id ? null : mod.id)}
             >
               <span className="builder-table-cell-module-label">{mod.name || mod.type}</span>
-              <span>{editingId === mod.id ? "▾" : "▸"}</span>
+              <span className="builder-collapse-chevron">{editingId === mod.id ? "▾" : "▸"}</span>
             </button>
             <button type="button" className="builder-icon-button" onClick={() => moveModule(mod.id, -1)} title="Move up">↑</button>
             <button type="button" className="builder-icon-button" onClick={() => moveModule(mod.id, 1)} title="Move down">↓</button>
@@ -831,45 +849,15 @@ function TableCellModules({
                 <input type="text" value={mod.name} onChange={(e) => updateModuleField(mod.id, "name", e.target.value)} placeholder="Optional internal label" />
               </label>
 
-              {mod.type === "heading" && (
-                <>
-                  <label className="field">
-                    <span>Heading text</span>
-                    <input type="text" value={mod.text} onChange={(e) => updateModuleField(mod.id, "text", e.target.value)} placeholder="Enter heading" />
-                  </label>
-                  <div className="builder-table-cell-module-inline-grid">
-                    <label className="field">
-                      <span>Level</span>
-                      <select value={mod.settings.level ?? "h2"} onChange={(e) => updateModuleSettings(mod.id, { level: e.target.value })}>
-                        <option value="h1">H1</option>
-                        <option value="h2">H2</option>
-                        <option value="h3">H3</option>
-                        <option value="h4">H4</option>
-                        <option value="h5">H5</option>
-                        <option value="h6">H6</option>
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span>Size</span>
-                      <input type="number" min="10" max="160" step="1" value={mod.settings.fontSize ?? "32"} onChange={(e) => updateModuleSettings(mod.id, { fontSize: e.target.value })} />
-                    </label>
-                    <label className="field">
-                      <span>Color</span>
-                      <input type="color" value={mod.settings.color ?? "#18324a"} onChange={(e) => updateModuleSettings(mod.id, { color: e.target.value })} />
-                    </label>
-                  </div>
-                  <BuilderModuleOffsetFields
-                    horizontalOffset={mod.settings.horizontalOffset ?? "0"}
-                    verticalOffset={mod.settings.verticalOffset ?? "0"}
-                    onHorizontalOffsetChange={(horizontalOffset) =>
-                      updateModuleSettings(mod.id, { horizontalOffset })
-                    }
-                    onVerticalOffsetChange={(verticalOffset) =>
-                      updateModuleSettings(mod.id, { verticalOffset })
-                    }
-                  />
-                </>
-              )}
+              {mod.type === "heading" ? (
+                <BuilderHeadingModuleSettings
+                  compact
+                  module={mod}
+                  onUpdateModule={(updater) => {
+                    onUpdate(cellKey, modules.map((item) => (item.id === mod.id ? updater(item) : item)));
+                  }}
+                />
+              ) : null}
 
               {mod.type === "text" && (
                 <label className="field">
@@ -886,26 +874,38 @@ function TableCellModules({
               )}
 
               {mod.type === "button" && (
-                <>
-                  <label className="field">
-                    <span>Button label</span>
-                    <input type="text" value={mod.text} onChange={(e) => updateModuleField(mod.id, "text", e.target.value)} placeholder="Button text" />
-                  </label>
-                  <div className="builder-table-cell-module-inline-grid">
-                    <label className="field">
-                      <span>Link</span>
-                      <input type="text" value={mod.settings.href ?? ""} onChange={(e) => updateModuleSettings(mod.id, { href: e.target.value })} placeholder="/path-or-url" />
-                    </label>
-                    <label className="field">
-                      <span>Button color</span>
-                      <input type="color" value={mod.settings.buttonColor ?? "#214c71"} onChange={(e) => updateModuleSettings(mod.id, { buttonColor: e.target.value })} />
-                    </label>
-                    <label className="field">
-                      <span>Text color</span>
-                      <input type="color" value={mod.settings.textColor ?? "#ffffff"} onChange={(e) => updateModuleSettings(mod.id, { textColor: e.target.value })} />
-                    </label>
-                  </div>
-                </>
+                <div className="builder-table-cell-button-settings">
+                  <BuilderSettingRow label="Button label" fullWidth>
+                    <input
+                      type="text"
+                      value={mod.text}
+                      onChange={(e) => updateModuleField(mod.id, "text", e.target.value)}
+                      placeholder="Button text"
+                    />
+                  </BuilderSettingRow>
+                  <BuilderSettingRow label="Link" fullWidth>
+                    <input
+                      type="text"
+                      value={mod.settings.href ?? ""}
+                      onChange={(e) => updateModuleSettings(mod.id, { href: e.target.value })}
+                      placeholder="/path-or-url"
+                    />
+                  </BuilderSettingRow>
+                  <BuilderSettingRow label="Button color">
+                    <input
+                      type="color"
+                      value={mod.settings.buttonColor ?? "#214c71"}
+                      onChange={(e) => updateModuleSettings(mod.id, { buttonColor: e.target.value })}
+                    />
+                  </BuilderSettingRow>
+                  <BuilderSettingRow label="Text color">
+                    <input
+                      type="color"
+                      value={mod.settings.textColor ?? "#ffffff"}
+                      onChange={(e) => updateModuleSettings(mod.id, { textColor: e.target.value })}
+                    />
+                  </BuilderSettingRow>
+                </div>
               )}
 
               {mod.type === "image" && (
@@ -1060,9 +1060,25 @@ function TableModuleEditor({
   return (
     <>
       <div className="builder-table-design-grid">
-        <label className="field"><span>Border width</span><input type="range" min="0" max="6" step="1" value={module.settings.borderWidth ?? "1"} onChange={(e) => updateSetting("borderWidth", e.target.value)} /></label>
+        <BuilderInlineNumberSelectRow>
+          <BuilderInlineNumberSelect
+            label="Border width"
+            value={module.settings.borderWidth ?? "1"}
+            min={0}
+            max={6}
+            fallback="1"
+            onChange={(value) => updateSetting("borderWidth", value)}
+          />
+          <BuilderInlineNumberSelect
+            label="Cell padding"
+            value={module.settings.cellPadding ?? "8"}
+            min={2}
+            max={24}
+            fallback="8"
+            onChange={(value) => updateSetting("cellPadding", value)}
+          />
+        </BuilderInlineNumberSelectRow>
         <label className="field"><span>Border color</span><input type="color" value={module.settings.borderColor ?? "#cccccc"} onChange={(e) => updateSetting("borderColor", e.target.value)} /></label>
-        <label className="field"><span>Cell padding</span><input type="range" min="2" max="24" step="1" value={module.settings.cellPadding ?? "8"} onChange={(e) => updateSetting("cellPadding", e.target.value)} /></label>
         <label className="field"><span>Background</span><input type="color" value={module.settings.backgroundColor ?? "#ffffff"} onChange={(e) => updateSetting("backgroundColor", e.target.value)} /></label>
       </div>
       <div className="builder-table-structure-actions">
@@ -1143,8 +1159,30 @@ function SliderModuleEditor({
   return (
     <>
       <div className="builder-slider-design-grid">
-        <label className="field"><span>Card width</span><input type="range" min="180" max="420" step="10" value={module.settings.sliderCardWidth ?? "280"} onChange={(e) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, sliderCardWidth: e.target.value } }))} /></label>
-        <label className="field"><span>Gap</span><input type="range" min="8" max="40" step="2" value={module.settings.sliderGap ?? "16"} onChange={(e) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, sliderGap: e.target.value } }))} /></label>
+        <BuilderInlineNumberSelectRow>
+          <BuilderInlineNumberSelect
+            label="Card width"
+            value={module.settings.sliderCardWidth ?? "280"}
+            min={180}
+            max={420}
+            step={10}
+            fallback="280"
+            onChange={(value) =>
+              onUpdateModule((current) => ({ ...current, settings: { ...current.settings, sliderCardWidth: value } }))
+            }
+          />
+          <BuilderInlineNumberSelect
+            label="Gap"
+            value={module.settings.sliderGap ?? "16"}
+            min={8}
+            max={40}
+            step={2}
+            fallback="16"
+            onChange={(value) =>
+              onUpdateModule((current) => ({ ...current, settings: { ...current.settings, sliderGap: value } }))
+            }
+          />
+        </BuilderInlineNumberSelectRow>
       </div>
       <div className="builder-slider-items">
         {items.map((item, index) => (
@@ -1218,8 +1256,30 @@ function SocialModuleEditor({
   return (
     <>
       <div className="builder-slider-design-grid">
-        <label className="field"><span>Icon size</span><input type="range" min="24" max="84" step="2" value={module.settings.socialIconSize ?? "44"} onChange={(e) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialIconSize: e.target.value } }))} /></label>
-        <label className="field"><span>Gap</span><input type="range" min="6" max="32" step="2" value={module.settings.socialGap ?? "14"} onChange={(e) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialGap: e.target.value } }))} /></label>
+        <BuilderInlineNumberSelectRow>
+          <BuilderInlineNumberSelect
+            label="Icon size"
+            value={module.settings.socialIconSize ?? "44"}
+            min={24}
+            max={84}
+            step={2}
+            fallback="44"
+            onChange={(value) =>
+              onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialIconSize: value } }))
+            }
+          />
+          <BuilderInlineNumberSelect
+            label="Gap"
+            value={module.settings.socialGap ?? "14"}
+            min={6}
+            max={32}
+            step={2}
+            fallback="14"
+            onChange={(value) =>
+              onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialGap: value } }))
+            }
+          />
+        </BuilderInlineNumberSelectRow>
         <label className="field builder-checkbox-field">
           <span>Show labels</span>
           <input type="checkbox" checked={module.settings.socialShowLabels !== "false"} onChange={(e) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialShowLabels: e.target.checked ? "true" : "false" } }))} />
@@ -1333,18 +1393,25 @@ function SocialShareModuleEditor({
             placeholder="Normie765714"
           />
         </label>
-        <label className="field">
-          <span>Label font size</span>
-          <input
-            type="range"
-            min="8"
-            max="64"
-            step="1"
+        <BuilderInlineNumberSelectRow>
+          <BuilderInlineNumberSelect
+            label="Label font size"
             value={module.settings.shareLabelSize ?? "14"}
-            onChange={(event) => updateSetting("shareLabelSize", event.target.value)}
+            min={8}
+            max={64}
+            fallback="14"
+            onChange={(value) => updateSetting("shareLabelSize", value)}
           />
-          <small>{module.settings.shareLabelSize ?? "14"}px</small>
-        </label>
+          <BuilderInlineNumberSelect
+            label="Icon size"
+            value={module.settings.shareIconSize ?? "36"}
+            min={20}
+            max={120}
+            step={2}
+            fallback="36"
+            onChange={(value) => updateSetting("shareIconSize", value)}
+          />
+        </BuilderInlineNumberSelectRow>
         <label className="field">
           <span>Icon background</span>
           <input
@@ -1353,42 +1420,24 @@ function SocialShareModuleEditor({
             onChange={(event) => updateSetting("shareIconBackground", event.target.value)}
           />
         </label>
-        <label className="field">
-          <span>Icon size</span>
-          <input
-            type="range"
-            min="20"
-            max="120"
-            step="2"
-            value={module.settings.shareIconSize ?? "36"}
-            onChange={(event) => updateSetting("shareIconSize", event.target.value)}
-          />
-          <small>{module.settings.shareIconSize ?? "36"}px</small>
-        </label>
-        <label className="field">
-          <span>Glyph size</span>
-          <input
-            type="range"
-            min="10"
-            max="96"
-            step="1"
+        <BuilderInlineNumberSelectRow>
+          <BuilderInlineNumberSelect
+            label="Glyph size"
             value={module.settings.shareGlyphSize ?? "20"}
-            onChange={(event) => updateSetting("shareGlyphSize", event.target.value)}
+            min={10}
+            max={96}
+            fallback="20"
+            onChange={(value) => updateSetting("shareGlyphSize", value)}
           />
-          <small>{module.settings.shareGlyphSize ?? "20"}px</small>
-        </label>
-        <label className="field">
-          <span>Icon gap</span>
-          <input
-            type="range"
-            min="0"
-            max="64"
-            step="1"
+          <BuilderInlineNumberSelect
+            label="Icon gap"
             value={module.settings.shareIconGap ?? "12"}
-            onChange={(event) => updateSetting("shareIconGap", event.target.value)}
+            min={0}
+            max={64}
+            fallback="12"
+            onChange={(value) => updateSetting("shareIconGap", value)}
           />
-          <small>{module.settings.shareIconGap ?? "12"}px</small>
-        </label>
+        </BuilderInlineNumberSelectRow>
       </div>
       <label className="field">
         <span>Default post template</span>
@@ -1703,12 +1752,15 @@ export function BuilderModuleCard({
   onMoveDown,
   onRemove,
   onOpenGallery,
+  onOpenButtonBackgroundGallery,
   onOpenSocialIconGallery,
   onUploadMedia,
+  onUploadButtonBackgroundMedia,
   onSaveModule,
   onClone,
   products = [],
-  hideHeaderActions = false
+  hideHeaderActions = false,
+  onModuleDragStart
 }: BuilderModuleCardProps) {
     const moduleAlignment = getModuleAlignment(module.settings);
     const mobileAlignment = module.settings.mobileAlignment ?? "";
@@ -1720,16 +1772,33 @@ export function BuilderModuleCard({
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
       style={{
-        ...(getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
+        ...(module.type !== "button"
+          ? getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}
+          : {}),
         ...(isHeadingModule
           ? getModuleMarginStyle(module.settings)
-          : getVerticalMarginStyle(module.settings.verticalMargin))
+          : module.type === "button"
+            ? getModuleOuterSpacingStyle(module.settings)
+            : getVerticalMarginStyle(module.settings.verticalMargin))
       }}
     >
-      <div className="builder-module-header">
+      <div aria-expanded={isExpanded} className="builder-module-header">
         <div className="builder-module-title">
-          <strong>{module.name || module.type}</strong>
-          <span>{module.type}</span>
+          {onModuleDragStart ? (
+            <div
+              aria-label="Drag module"
+              className="builder-module-drag-handle"
+              draggable
+              onDragStart={onModuleDragStart}
+              title="Drag Module"
+            >
+              ⋮⋮
+            </div>
+          ) : null}
+          <div className="builder-module-title-text">
+            <strong>{module.name || module.type}</strong>
+            <span>{module.type}</span>
+          </div>
         </div>
         {hideHeaderActions ? (
           <div className="builder-section-actions">
@@ -1764,9 +1833,20 @@ export function BuilderModuleCard({
       </div>
 
       {!isExpanded ? (
-        <button className="builder-module-preview-button" onClick={onToggleExpanded} type="button">
+        <div
+          className="builder-module-preview-button"
+          role="button"
+          tabIndex={0}
+          onClick={onToggleExpanded}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onToggleExpanded();
+            }
+          }}
+        >
           {renderModulePreview(module)}
-        </button>
+        </div>
       ) : null}
 
       {isExpanded ? (
@@ -1776,20 +1856,36 @@ export function BuilderModuleCard({
             <span className="builder-module-editor-copy">These controls stay available from the module header.</span>
           </div>
 
-          <label className="field">
-            <span>Module label</span>
-            <input
-              type="text"
-              value={module.name}
-              onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
-              placeholder="Optional internal label"
-            />
-          </label>
+          {module.type === "button" || module.type === "heading" ? (
+            <BuilderSettingRow label="Module label" fullWidth>
+              <input
+                type="text"
+                value={module.name}
+                onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Optional internal label"
+              />
+            </BuilderSettingRow>
+          ) : (
+            <label className="field">
+              <span>Module label</span>
+              <input
+                type="text"
+                value={module.name}
+                onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Optional internal label"
+              />
+            </label>
+          )}
 
           {editorDevice === "mobile" ? (
-            <div className="builder-module-settings-row builder-module-settings-row-mobile">
-              <label className="field builder-checkbox-field">
-                <span>Hide module on mobile</span>
+            <div
+              className={
+                module.type === "heading"
+                  ? "builder-heading-module-settings"
+                  : "builder-module-settings-row builder-module-settings-row-mobile"
+              }
+            >
+              <BuilderSettingRow label="Hide Module on Mobile">
                 <input
                   type="checkbox"
                   checked={module.settings.mobileHidden === "true"}
@@ -1800,9 +1896,8 @@ export function BuilderModuleCard({
                     }))
                   }
                 />
-              </label>
-              <label className="field">
-                <span>Mobile alignment</span>
+              </BuilderSettingRow>
+              <BuilderSettingRow label="Mobile Alignment">
                 <select
                   value={mobileAlignment}
                   onChange={(event) =>
@@ -1817,10 +1912,9 @@ export function BuilderModuleCard({
                   <option value="center">Center</option>
                   <option value="right">Right</option>
                 </select>
-              </label>
+              </BuilderSettingRow>
               {(module.type === "heading" || module.type === "headline-rotator") ? (
-                <label className="field">
-                  <span>Mobile font size</span>
+                <BuilderSettingRow label="Mobile Font Size">
                   <input
                     type="number"
                     min="10"
@@ -1835,7 +1929,7 @@ export function BuilderModuleCard({
                     }
                     placeholder="Auto"
                   />
-                </label>
+                </BuilderSettingRow>
               ) : null}
               <div className="builder-mobile-context-note">
                 Mobile overrides are kept separate from browser settings.
@@ -1843,54 +1937,99 @@ export function BuilderModuleCard({
             </div>
           ) : (
           <>
-          <div className="builder-module-settings-row">
-            <BuilderBackgroundControls
-              label="Module Background"
-              background={getModuleBackgroundSettings(module.settings)}
-              compact
-              onChange={onUpdateModuleBackground}
-            />
-            <div className="builder-module-alignment-controls">
-              <span>Alignment</span>
-              <div className="builder-alignment-icon-group" role="group" aria-label="Module alignment">
-                {([
-                  { value: "left", label: "Align left", icon: "≡" },
-                  { value: "center", label: "Align center", icon: "≣" },
-                  { value: "right", label: "Align right", icon: "☰" }
-                ] as const).map((option) => (
-                  <button
-                    key={option.value}
-                    aria-label={option.label}
-                    className={option.value === moduleAlignment ? "builder-icon-button builder-icon-button-active" : "builder-icon-button"}
-                    onClick={() => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, alignment: option.value } }))}
-                    title={option.label}
-                    type="button"
-                  >
-                    {option.icon}
-                  </button>
-                ))}
+          {module.type !== "button" ? (
+            module.type === "heading" ? (
+              <div className="builder-heading-module-chrome">
+                <BuilderBackgroundControls
+                  label="Module Background"
+                  background={getModuleBackgroundSettings(module.settings)}
+                  horizontal
+                  onChange={onUpdateModuleBackground}
+                />
+                <BuilderSettingRow label="Alignment">
+                  <div className="builder-alignment-icon-group" role="group" aria-label="Module alignment">
+                    {([
+                      { value: "left", label: "Align left", icon: "≡" },
+                      { value: "center", label: "Align center", icon: "≣" },
+                      { value: "right", label: "Align right", icon: "☰" }
+                    ] as const).map((option) => (
+                      <button
+                        key={option.value}
+                        aria-label={option.label}
+                        className={
+                          option.value === moduleAlignment
+                            ? "builder-icon-button builder-icon-button-active"
+                            : "builder-icon-button"
+                        }
+                        onClick={() =>
+                          onUpdateModule((current) => ({
+                            ...current,
+                            settings: { ...current.settings, alignment: option.value }
+                          }))
+                        }
+                        title={option.label}
+                        type="button"
+                      >
+                        {option.icon}
+                      </button>
+                    ))}
+                  </div>
+                </BuilderSettingRow>
               </div>
-            </div>
-            {module.type !== "heading" ? (
-              <label className="field builder-module-vertical-margin-field">
-                <span>Vertical margin</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="160"
-                  step="1"
+            ) : (
+              <div className="builder-module-settings-row">
+                <BuilderBackgroundControls
+                  label="Module Background"
+                  background={getModuleBackgroundSettings(module.settings)}
+                  compact
+                  onChange={onUpdateModuleBackground}
+                />
+                <div className="builder-module-alignment-controls">
+                  <span>Alignment</span>
+                  <div className="builder-alignment-icon-group" role="group" aria-label="Module alignment">
+                    {([
+                      { value: "left", label: "Align left", icon: "≡" },
+                      { value: "center", label: "Align center", icon: "≣" },
+                      { value: "right", label: "Align right", icon: "☰" }
+                    ] as const).map((option) => (
+                      <button
+                        key={option.value}
+                        aria-label={option.label}
+                        className={
+                          option.value === moduleAlignment
+                            ? "builder-icon-button builder-icon-button-active"
+                            : "builder-icon-button"
+                        }
+                        onClick={() =>
+                          onUpdateModule((current) => ({
+                            ...current,
+                            settings: { ...current.settings, alignment: option.value }
+                          }))
+                        }
+                        title={option.label}
+                        type="button"
+                      >
+                        {option.icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <BuilderInlineNumberSelect
+                  label="Vertical margin"
                   value={module.settings.verticalMargin ?? "0"}
-                  onChange={(event) =>
+                  min={0}
+                  max={160}
+                  fallback="0"
+                  onChange={(verticalMargin) =>
                     onUpdateModule((current) => ({
                       ...current,
-                      settings: { ...current.settings, verticalMargin: event.target.value }
+                      settings: { ...current.settings, verticalMargin }
                     }))
                   }
                 />
-                <small>{module.settings.verticalMargin ?? "0"}px</small>
-              </label>
-            ) : null}
-          </div>
+              </div>
+            )
+          ) : null}
 
           {isStandardImage ? (
             <BuilderModuleOffsetFields
@@ -1911,28 +2050,25 @@ export function BuilderModuleCard({
             />
           ) : null}
 
-          {(isStandardImage || isFloatingImage || module.type === "video" || module.type === "button") && (
+          {(isStandardImage || isFloatingImage || module.type === "video") && (
             <label className="field">
-              <span>{module.type === "button" ? "Link" : isVideoModule ? "Video embed URL" : "URL"}</span>
+              <span>{isVideoModule ? "Video embed URL" : "URL"}</span>
               <input
                 type="text"
-                value={module.settings[module.type === "button" ? "href" : "url"] ?? ""}
+                value={module.settings.url ?? ""}
                 onChange={(event) =>
                   onUpdateModule((current) => ({
                     ...current,
                     settings: {
                       ...current.settings,
-                      [module.type === "button" ? "href" : "url"]:
-                        module.type === "button" ? event.target.value : normalizeBuilderAssetUrl(event.target.value)
+                      url: normalizeBuilderAssetUrl(event.target.value)
                     }
                   }))
                 }
                 placeholder={
                   isVideoModule
                     ? "YouTube, Vimeo, embed URL, or uploaded video"
-                    : isStandardImage || isFloatingImage
-                      ? "https://..."
-                      : "/path-or-url"
+                    : "https://..."
                 }
               />
             </label>
@@ -1971,28 +2107,14 @@ export function BuilderModuleCard({
             </label>
           ) : null}
 
-          {module.type === "button" && (
-            <div className="builder-button-design-grid">
-              <label className="field">
-                <span>Size</span>
-                <select
-                  value={module.settings.buttonSize ?? "medium"}
-                  onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, buttonSize: e.target.value } }))}
-                >
-                  <option value="small">Small</option>
-                  <option value="medium">Medium</option>
-                  <option value="large">Large</option>
-                </select>
-              </label>
-              <label className="field"><span>Button color</span><input type="color" value={module.settings.buttonColor ?? "#214c71"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, buttonColor: e.target.value } }))} /></label>
-              <label className="field"><span>Hover color</span><input type="color" value={module.settings.buttonHoverColor ?? "#0f4f8f"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, buttonHoverColor: e.target.value } }))} /></label>
-              <label className="field"><span>Text color</span><input type="color" value={module.settings.textColor ?? "#ffffff"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, textColor: e.target.value } }))} /></label>
-              <label className="field"><span>Text hover</span><input type="color" value={module.settings.textHoverColor ?? "#ffffff"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, textHoverColor: e.target.value } }))} /></label>
-              <label className="field"><span>Border color</span><input type="color" value={module.settings.borderColor ?? "#214c71"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, borderColor: e.target.value } }))} /></label>
-              <label className="field"><span>H padding</span><input type="range" min="4" max="60" step="2" value={module.settings.paddingX ?? "24"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, paddingX: e.target.value } }))} /></label>
-              <label className="field"><span>V padding</span><input type="range" min="2" max="40" step="2" value={module.settings.paddingY ?? "12"} onChange={(e) => onUpdateModule((c) => ({ ...c, settings: { ...c.settings, paddingY: e.target.value } }))} /></label>
-            </div>
-          )}
+          {module.type === "button" ? (
+            <BuilderButtonDesignSettings
+              module={module}
+              onUpdateModule={onUpdateModule}
+              onOpenButtonBackgroundGallery={onOpenButtonBackgroundGallery}
+              onUploadButtonBackgroundMedia={onUploadButtonBackgroundMedia}
+            />
+          ) : null}
 
           {module.type === "contact-form" && (
             <div className="builder-contact-form-settings">
@@ -2020,6 +2142,10 @@ export function BuilderModuleCard({
               ) : null}
             </div>
           )}
+
+          {module.type === "player-portal" ? (
+            <BuilderPlayerPortalSettings module={module} onUpdateModule={onUpdateModule} />
+          ) : null}
 
           {isVideoModule ? (
             <div className="builder-video-controls-grid">
@@ -2076,9 +2202,29 @@ export function BuilderModuleCard({
                     <option value="100">100%</option>
                   </select>
                 </label>
-                <label className="field"><span>Border thickness</span><input type="range" min="0" max="24" step="1" value={module.settings.borderThickness ?? "0"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderThickness: event.target.value } }))} /></label>
+                <BuilderInlineNumberSelectRow>
+                  <BuilderInlineNumberSelect
+                    label="Border thickness"
+                    value={module.settings.borderThickness ?? "0"}
+                    min={0}
+                    max={24}
+                    fallback="0"
+                    onChange={(borderThickness) =>
+                      onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderThickness } }))
+                    }
+                  />
+                  <BuilderInlineNumberSelect
+                    label="Border radius"
+                    value={module.settings.borderRadius ?? "18"}
+                    min={0}
+                    max={80}
+                    fallback="18"
+                    onChange={(borderRadius) =>
+                      onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderRadius } }))
+                    }
+                  />
+                </BuilderInlineNumberSelectRow>
                 <label className="field"><span>Border color</span><input type="color" value={module.settings.borderColor ?? "#0f4f8f"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderColor: event.target.value } }))} /></label>
-                <label className="field"><span>Border radius</span><input type="range" min="0" max="80" step="1" value={module.settings.borderRadius ?? "18"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, borderRadius: event.target.value } }))} /></label>
                 <label className="field">
                   <span>Effect</span>
                   <select value={module.settings.effect ?? "none"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, effect: event.target.value } }))}>
@@ -2094,72 +2240,7 @@ export function BuilderModuleCard({
           ) : null}
 
           {module.type === "heading" ? (
-            <>
-            <div className="builder-typography-controls-grid">
-              <label className="field">
-                <span>Top margin</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="160"
-                  step="1"
-                  value={module.settings.marginTop ?? module.settings.verticalMargin ?? "0"}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, marginTop: event.target.value }
-                    }))
-                  }
-                />
-                <small>{module.settings.marginTop ?? module.settings.verticalMargin ?? "0"}px</small>
-              </label>
-              <label className="field">
-                <span>Bottom margin</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="160"
-                  step="1"
-                  value={module.settings.marginBottom ?? module.settings.verticalMargin ?? "0"}
-                  onChange={(event) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, marginBottom: event.target.value }
-                    }))
-                  }
-                />
-                <small>{module.settings.marginBottom ?? module.settings.verticalMargin ?? "0"}px</small>
-              </label>
-              <label className="field"><span>Level</span><select value={module.settings.level ?? "h2"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, level: event.target.value } }))}><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option><option value="h4">H4</option><option value="h5">H5</option><option value="h6">H6</option></select></label>
-              <label className="field"><span>Size (px)</span><input type="number" min="10" max="160" step="1" value={module.settings.fontSize ?? "32"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, fontSize: event.target.value } }))} /></label>
-              <label className="field"><span>Color</span><input type="color" value={module.settings.color ?? "#18324a"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, color: event.target.value } }))} /></label>
-              <label className="field"><span>Bold</span><select value={module.settings.bold ?? "true"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, bold: event.target.value } }))}><option value="true">On</option><option value="false">Off</option></select></label>
-              <label className="field"><span>Italic</span><select value={module.settings.italic ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, italic: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
-              <label className="field"><span>Underline</span><select value={module.settings.underline ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, underline: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
-              <label className="field"><span>Drop shadow</span><select value={module.settings.dropShadow ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadow: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
-              <label className="field"><span>Shadow color</span><input type="color" value={module.settings.dropShadowColor?.startsWith("#") ? module.settings.dropShadowColor : "#000000"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowColor: event.target.value } }))} /></label>
-              <label className="field"><span>Shadow X</span><input type="number" min="-20" max="20" step="1" value={module.settings.dropShadowX ?? "3"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowX: event.target.value } }))} /></label>
-              <label className="field"><span>Shadow Y</span><input type="number" min="-20" max="20" step="1" value={module.settings.dropShadowY ?? "3"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowY: event.target.value } }))} /></label>
-              <label className="field"><span>Shadow blur</span><input type="number" min="0" max="30" step="1" value={module.settings.dropShadowBlur ?? "2"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, dropShadowBlur: event.target.value } }))} /></label>
-              <label className="field"><span>Outline</span><select value={module.settings.outline ?? "false"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, outline: event.target.value } }))}><option value="false">Off</option><option value="true">On</option></select></label>
-            </div>
-            <BuilderModuleOffsetFields
-              horizontalOffset={module.settings.horizontalOffset ?? "0"}
-              verticalOffset={module.settings.verticalOffset ?? "0"}
-              onHorizontalOffsetChange={(horizontalOffset) =>
-                onUpdateModule((current) => ({
-                  ...current,
-                  settings: { ...current.settings, horizontalOffset }
-                }))
-              }
-              onVerticalOffsetChange={(verticalOffset) =>
-                onUpdateModule((current) => ({
-                  ...current,
-                  settings: { ...current.settings, verticalOffset }
-                }))
-              }
-            />
-            </>
+            <BuilderHeadingModuleSettings module={module} onUpdateModule={onUpdateModule} />
           ) : null}
 
           {module.type === "table" && <TableModuleEditor module={module} onUpdateModule={onUpdateModule} />}
@@ -2219,6 +2300,7 @@ export function BuilderModuleCard({
           {module.type !== "image" &&
           module.type !== "floating-image" &&
           module.type !== "contact-form" &&
+          module.type !== "player-portal" &&
           module.type !== "table" &&
           module.type !== "slider" &&
           module.type !== "social" &&
@@ -2228,9 +2310,11 @@ export function BuilderModuleCard({
           module.type !== "merch" &&
           module.type !== "code" &&
           module.type !== "previous-results" &&
-          module.type !== "current-poll" ? (
+          module.type !== "current-poll" &&
+          module.type !== "button" &&
+          module.type !== "heading" ? (
             <label className="field">
-              <span>{module.type === "button" ? "Button label" : "Content"}</span>
+              <span>Content</span>
               {module.type === "text" ? (
                 <BuilderRichTextEditor value={module.text} onChange={(value) => onUpdateModule((current) => ({ ...current, text: value }))} />
               ) : (

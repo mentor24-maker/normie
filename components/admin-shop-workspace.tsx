@@ -315,7 +315,12 @@ function ProductEditor({
         <button className="secondary-button" onClick={onCancel} type="button">
           Cancel
         </button>
-        <button className="submit-button" disabled={isSaving} onClick={onSave} type="button">
+        <button
+          className="submit-button admin-blog-add-button"
+          disabled={isSaving}
+          onClick={onSave}
+          type="button"
+        >
           {isSaving ? "Saving..." : "Save Product"}
         </button>
       </div>
@@ -555,7 +560,7 @@ export function AdminShopWorkspace() {
                     />
                   </th>
                 ))}
-                <th>Actions</th>
+                <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -574,10 +579,10 @@ export function AdminShopWorkspace() {
                     />
                   </td>
                   <td>{formatTemplateTimestamp(product.updatedAt)}</td>
-                  <td>
+                  <td className="crud-actions-cell">
                     <div className="table-actions">
                       <button
-                        className="polls-icon-button"
+                        className="polls-icon-button polls-icon-button-edit"
                         disabled={isSaving}
                         onClick={() => startEditing(product)}
                         type="button"

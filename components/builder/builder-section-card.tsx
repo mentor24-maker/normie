@@ -1,6 +1,5 @@
 import type {
   BackgroundSettings,
-  BuilderTemplateLayout,
   BuilderCellModuleRecord,
   BuilderProductRecord,
   BuilderTemplateModule,
@@ -8,21 +7,18 @@ import type {
 } from "@/lib/builder-template";
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent } from "react";
-import {
-  createDefaultBackgroundSettings,
-  getBuilderBackgroundStyle,
-  getLayoutColumns,
-  getLayoutGridTemplate
-} from "@/lib/builder-template";
-import { BuilderBackgroundControls } from "./builder-background-controls";
+import { getBuilderBackgroundStyle, getLayoutColumns, getLayoutGridTemplate } from "@/lib/builder-template";
+import { BuilderCellPanelHeader } from "./builder-cell-panel-header";
+import { BuilderCellStyleSettings } from "./builder-cell-style-settings";
+import { cancelBuilderDragIfFormField } from "./builder-drag-utils";
 import { BuilderModuleCard } from "./builder-module-card";
+import { BuilderSectionControls } from "./builder-section-controls";
 import {
   getAlignmentClass,
   getSectionBackgroundStyle,
   getSectionMarginStyle,
   getVerticalMarginStyle
 } from "./builder-utils";
-import { layoutOptions } from "./builder-types";
 
 type BuilderSectionCardProps = {
   section: BuilderTemplateSection;
@@ -62,8 +58,10 @@ type BuilderSectionCardProps = {
   onInsertCellModule: (column: string, cellModuleId: string) => void;
   onInsertSavedModule: (column: string, cellModuleId: string) => void;
   onOpenGallery: (moduleId: string) => void;
+  onOpenButtonBackgroundGallery: (moduleId: string) => void;
   onOpenSocialIconGallery: (moduleId: string, itemId: string) => void;
   onUploadMediaForModule: (moduleId: string, file: File | null) => void;
+  onUploadButtonBackgroundMedia: (moduleId: string, file: File | null) => void;
   onOpenSectionBackgroundGallery: () => void;
   onUploadSectionBackgroundMedia: (file: File | null) => void;
   onOpenModulePalette: (column: string) => void;
@@ -101,8 +99,10 @@ export function BuilderSectionCard({
   onInsertCellModule,
   onInsertSavedModule,
   onOpenGallery,
+  onOpenButtonBackgroundGallery,
   onOpenSocialIconGallery,
   onUploadMediaForModule,
+  onUploadButtonBackgroundMedia,
   onOpenSectionBackgroundGallery,
   onUploadSectionBackgroundMedia,
   onOpenModulePalette
@@ -152,16 +152,6 @@ export function BuilderSectionCard({
         }
       };
     });
-  }
-
-  function updateCellSetting(column: string, key: string, value: string) {
-    onUpdateSection((current) => ({
-      ...current,
-      [`cell${key.charAt(0).toUpperCase()}${key.slice(1)}`]: {
-        ...(current as unknown as Record<string, Record<string, string>>)[`cell${key.charAt(0).toUpperCase()}${key.slice(1)}`],
-        [column]: value
-      }
-    }));
   }
 
   function getCellStyle(column: string): CSSProperties {
@@ -245,7 +235,7 @@ export function BuilderSectionCard({
 
   return (
     <article className="builder-section-card" style={getSectionStyle()}>
-      <div className="builder-section-header">
+      <div aria-expanded={!isCollapsed} className="builder-section-header">
         <div className="builder-section-title">
           {isEditingTitle ? (
             <input
@@ -285,112 +275,13 @@ export function BuilderSectionCard({
 
       {!isCollapsed ? (
         <>
-          {editorDevice === "mobile" ? (
-            <div className="builder-section-controls builder-section-controls-mobile">
-              <label className="field">
-                <span>Mobile layout</span>
-                <select
-                  value={section.mobileLayout ?? "stack"}
-                  onChange={(event) =>
-                    onUpdateSection((current) => ({
-                      ...current,
-                      mobileLayout: event.target.value as BuilderTemplateSection["mobileLayout"]
-                    }))
-                  }
-                >
-                  <option value="stack">Stack columns</option>
-                  <option value="keep">Keep columns</option>
-                  <option value="reverse-stack">Reverse stack</option>
-                </select>
-              </label>
-              <div className="builder-mobile-context-note">
-                Mobile mode only changes mobile-specific row, cell, and module overrides.
-              </div>
-            </div>
-          ) : (
-            <div className="builder-section-controls">
-              <label className="field">
-                <span>Layout</span>
-                <select
-                  value={section.layout}
-                  onChange={(event) => {
-                    const nextLayout = event.target.value as BuilderTemplateLayout;
-                    const allowedColumns = new Set(getLayoutColumns(nextLayout));
-                    onUpdateSection((current) => ({
-                      ...current,
-                      layout: nextLayout,
-                      modules: current.modules.map((module) => ({
-                        ...module,
-                        column: allowedColumns.has(module.column) ? module.column : getLayoutColumns(nextLayout)[0]
-                      }))
-                    }));
-                  }}
-                >
-                  {layoutOptions.map((layout) => (
-                    <option key={layout.value} value={layout.value}>{layout.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>Alignment</span>
-                <select
-                  value={section.alignment}
-                  onChange={(event) =>
-                    onUpdateSection((current) => ({
-                      ...current,
-                      alignment: event.target.value as "left" | "center" | "right"
-                    }))
-                  }
-                >
-                  <option value="left">Left</option>
-                  <option value="center">Center</option>
-                  <option value="right">Right</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>Top margin</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="160"
-                  step="1"
-                  value={section.marginTop ?? "0"}
-                  onChange={(event) =>
-                    onUpdateSection((current) => ({
-                      ...current,
-                      marginTop: event.target.value
-                    }))
-                  }
-                />
-                <small>{section.marginTop ?? "0"}px</small>
-              </label>
-              <label className="field">
-                <span>Bottom margin</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="160"
-                  step="1"
-                  value={section.marginBottom ?? "0"}
-                  onChange={(event) =>
-                    onUpdateSection((current) => ({
-                      ...current,
-                      marginBottom: event.target.value
-                    }))
-                  }
-                />
-                <small>{section.marginBottom ?? "0"}px</small>
-              </label>
-              <BuilderBackgroundControls
-                label="Row Background"
-                background={section.background}
-                compact
-                onChange={(updater) => onUpdateSection((current) => ({ ...current, background: updater(current.background) }))}
-                onChooseImage={onOpenSectionBackgroundGallery}
-                onUploadImage={onUploadSectionBackgroundMedia}
-              />
-            </div>
-          )}
+          <BuilderSectionControls
+            section={section}
+            editorDevice={editorDevice}
+            onUpdateSection={onUpdateSection}
+            onOpenSectionBackgroundGallery={onOpenSectionBackgroundGallery}
+            onUploadSectionBackgroundMedia={onUploadSectionBackgroundMedia}
+          />
 
           <div
             className={`builder-columns builder-columns-${columns.length} ${getAlignmentClass(section.alignment)}`}
@@ -399,12 +290,6 @@ export function BuilderSectionCard({
             {columns.map((column) => {
               const columnModules = columnModuleMap[column] ?? [];
               const cellPanels = getCellPanelState(column);
-              const borderStyle = getCellExtra(column, "cellBorderStyle", "solid");
-              const shadow = getCellExtra(column, "cellShadow", "none");
-              const opacity = getCellExtra(column, "cellOpacity", "1");
-              const hAlign = getCellExtra(column, "cellHAlign", "left");
-              const vAlign = getCellExtra(column, "cellVAlign", "top");
-
               return (
                 <div
                   className="builder-column-card"
@@ -420,215 +305,63 @@ export function BuilderSectionCard({
                   ) : null}
 
                   <div className="builder-cell-panel">
-                    <button
-                      aria-expanded={!cellPanels.styles}
-                      className="builder-cell-panel-toggle"
-                      onClick={() => toggleCellPanel(column, "styles")}
-                      type="button"
-                    >
-                      <strong>{editorDevice === "mobile" ? "Mobile" : "Styles"}</strong>
-                      <span>{cellPanels.styles ? "▸" : "▾"}</span>
-                    </button>
+                    <BuilderCellPanelHeader
+                      isCollapsed={cellPanels.styles}
+                      onToggle={() => toggleCellPanel(column, "styles")}
+                      panelName={editorDevice === "mobile" ? "Mobile styles" : "Styles"}
+                      title={editorDevice === "mobile" ? "Mobile" : "Styles"}
+                    />
 
-                    {!cellPanels.styles ? editorDevice === "mobile" ? (
-                      <div className="builder-cell-styles-grid builder-cell-styles-grid-mobile">
-                        <div className="builder-cell-style-group">
-                          <div className="builder-cell-style-group-label">Mobile display</div>
-                          <label className="field builder-checkbox-field">
-                            <span>Hide this cell on mobile</span>
-                            <input
-                              type="checkbox"
-                              checked={getCellExtra(column, "cellMobileHidden", "false") === "true"}
-                              onChange={(event) =>
-                                setCellExtra(column, "cellMobileHidden", event.target.checked ? "true" : "false")
-                              }
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="builder-cell-styles-grid">
-
-                        {/* BORDER */}
-                        <div className="builder-cell-style-group">
-                          <div className="builder-cell-style-group-label">Border</div>
-                          <label className="field">
-                            <span>Style</span>
-                            <select
-                              value={borderStyle}
-                              onChange={(e) => setCellExtra(column, "cellBorderStyle", e.target.value)}
-                            >
-                              <option value="none">None</option>
-                              <option value="solid">Solid</option>
-                              <option value="dashed">Dashed</option>
-                              <option value="dotted">Dotted</option>
-                            </select>
-                          </label>
-                          {borderStyle !== "none" ? (
-                            <>
-                              <label className="field">
-                                <span>Width</span>
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="20"
-                                  step="1"
-                                  value={section.cellBorderWidth[column] ?? "1"}
-                                  onChange={(e) => onUpdateCellBorderWidth(column, e.target.value)}
-                                />
-                                <small>{section.cellBorderWidth[column] ?? "1"}px</small>
-                              </label>
-                              <label className="field">
-                                <span>Color</span>
-                                <input
-                                  type="color"
-                                  value={section.cellBorderColor[column] ?? "#d9e4ef"}
-                                  onChange={(e) => onUpdateCellBorderColor(column, e.target.value)}
-                                />
-                              </label>
-                            </>
-                          ) : null}
-                          <label className="field">
-                            <span>Radius</span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="60"
-                              step="1"
-                              value={section.cellBorderRadius[column] ?? "24"}
-                              onChange={(e) => onUpdateCellBorderRadius(column, e.target.value)}
-                            />
-                            <small>{section.cellBorderRadius[column] ?? "24"}px</small>
-                          </label>
-                          <label className="field">
-                            <span>Shadow</span>
-                            <select
-                              value={shadow}
-                              onChange={(e) => setCellExtra(column, "cellShadow", e.target.value)}
-                            >
-                              <option value="none">None</option>
-                              <option value="light">Light</option>
-                              <option value="medium">Medium</option>
-                              <option value="heavy">Heavy</option>
-                            </select>
-                          </label>
-                        </div>
-
-                        {/* BACKGROUND */}
-                        <div className="builder-cell-style-group">
-                          <div className="builder-cell-style-group-label">Background</div>
-                          <BuilderBackgroundControls
-                            label=""
-                            background={section.cellBackgrounds[column] ?? createDefaultBackgroundSettings()}
-                            compact
-                            onChange={(updater) => onUpdateCellBackground(column, updater)}
-                          />
-                          <label className="field">
-                            <span>Opacity</span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="1"
-                              step="0.05"
-                              value={opacity}
-                              onChange={(e) => setCellExtra(column, "cellOpacity", e.target.value)}
-                            />
-                            <small>{Math.round(Number.parseFloat(opacity) * 100)}%</small>
-                          </label>
-                        </div>
-
-                        {/* PADDING */}
-                        <div className="builder-cell-style-group">
-                          <div className="builder-cell-style-group-label">Padding</div>
-                          <label className="field">
-                            <span>Size</span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="50"
-                              step="1"
-                              value={section.cellPadding[column] ?? "18"}
-                              onChange={(e) => onUpdateCellPadding(column, e.target.value)}
-                            />
-                            <small>{section.cellPadding[column] ?? "18"}px</small>
-                          </label>
-                          <label className="field">
-                            <span>Vertical margin</span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="160"
-                              step="1"
-                              value={getCellExtra(column, "cellVerticalMargin", "0")}
-                              onChange={(e) => setCellExtra(column, "cellVerticalMargin", e.target.value)}
-                            />
-                            <small>{getCellExtra(column, "cellVerticalMargin", "0")}px</small>
-                          </label>
-                        </div>
-
-                        {/* ALIGNMENT */}
-                        <div className="builder-cell-style-group">
-                          <div className="builder-cell-style-group-label">Alignment</div>
-                          <label className="field">
-                            <span>Horizontal</span>
-                            <select
-                              value={hAlign}
-                              onChange={(e) => setCellExtra(column, "cellHAlign", e.target.value)}
-                            >
-                              <option value="left">Left</option>
-                              <option value="center">Center</option>
-                              <option value="right">Right</option>
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Vertical</span>
-                            <select
-                              value={vAlign}
-                              onChange={(e) => setCellExtra(column, "cellVAlign", e.target.value)}
-                            >
-                              <option value="top">Top</option>
-                              <option value="center">Center</option>
-                              <option value="bottom">Bottom</option>
-                            </select>
-                          </label>
-                        </div>
-
-                      </div>
+                    {!cellPanels.styles ? (
+                      <BuilderCellStyleSettings
+                        column={column}
+                        section={section}
+                        editorDevice={editorDevice}
+                        onUpdateCellBackground={onUpdateCellBackground}
+                        onUpdateCellPadding={onUpdateCellPadding}
+                        onUpdateCellBorderWidth={onUpdateCellBorderWidth}
+                        onUpdateCellBorderColor={onUpdateCellBorderColor}
+                        onUpdateCellBorderRadius={onUpdateCellBorderRadius}
+                        onSetCellExtra={setCellExtra}
+                        getCellExtra={getCellExtra}
+                      />
                     ) : null}
                   </div>
 
                   <div className="builder-cell-panel">
-                    <button
-                      aria-expanded={!cellPanels.content}
-                      className="builder-cell-panel-toggle"
-                      onClick={() => toggleCellPanel(column, "content")}
-                      type="button"
-                    >
-                      <strong>Content</strong>
-                      <span>{cellPanels.content ? "▸" : "▾"}</span>
-                    </button>
+                    <BuilderCellPanelHeader
+                      isCollapsed={cellPanels.content}
+                      headingActions={
+                        <button
+                          className="submit-button admin-blog-add-button builder-panel-heading-button"
+                          disabled={columnModules.length === 0}
+                          onClick={() => onSaveCellModules(column)}
+                          type="button"
+                        >
+                          Save Cell
+                        </button>
+                      }
+                      onToggle={() => toggleCellPanel(column, "content")}
+                      panelName="Content"
+                      title="Content"
+                    />
 
                     {!cellPanels.content ? (
                       <>
                         <div className="builder-cell-repository-actions">
-                          <button
-                            className="submit-button admin-blog-add-button"
-                            disabled={columnModules.length === 0}
-                            onClick={() => onSaveCellModules(column)}
-                            type="button"
-                          >
-                            Save Cell
-                          </button>
-                          <label className="field builder-cell-repository-select">
-                            <span>Insert saved cell</span>
+                          <label className="field builder-cell-repository-dropdown">
                             <select
-                              value=""
+                              defaultValue=""
                               onChange={(event) => {
-                                onInsertCellModule(column, event.target.value);
-                                event.currentTarget.value = "";
+                                const cellModuleId = event.target.value;
+                                if (!cellModuleId) return;
+                                onInsertCellModule(column, cellModuleId);
+                                event.target.value = "";
                               }}
                             >
-                              <option value="">Choose saved cell</option>
+                              <option disabled value="">
+                                Saved Cells
+                              </option>
                               {savedCells.map((cellModule) => (
                                 <option key={cellModule.id} value={cellModule.id}>
                                   {cellModule.name}
@@ -636,16 +369,19 @@ export function BuilderSectionCard({
                               ))}
                             </select>
                           </label>
-                          <label className="field builder-cell-repository-select">
-                            <span>Insert saved module</span>
+                          <label className="field builder-cell-repository-dropdown">
                             <select
-                              value=""
+                              defaultValue=""
                               onChange={(event) => {
-                                onInsertSavedModule(column, event.target.value);
-                                event.currentTarget.value = "";
+                                const cellModuleId = event.target.value;
+                                if (!cellModuleId) return;
+                                onInsertSavedModule(column, cellModuleId);
+                                event.target.value = "";
                               }}
                             >
-                              <option value="">Choose saved module</option>
+                              <option disabled value="">
+                                Saved Modules
+                              </option>
                               {savedModules.map((cellModule) => (
                                 <option key={cellModule.id} value={cellModule.id}>
                                   {cellModule.name}
@@ -663,12 +399,7 @@ export function BuilderSectionCard({
                             {columnModules.map((module, moduleIndex) => (
                               <div
                                 className="builder-module-stack-item"
-                                draggable
                                 key={module.id}
-                                onDragStart={(event) => {
-                                  event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData("application/normie-builder-module", encodeDragPayload(module.id, column));
-                                }}
                                 onDragOver={(event) => {
                                   event.preventDefault();
                                   event.stopPropagation();
@@ -691,8 +422,21 @@ export function BuilderSectionCard({
                                   onClone={() => onCloneModule(section.id, module.id)}
                                   onSaveModule={() => onSaveModule(module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
+                                  onOpenButtonBackgroundGallery={() => onOpenButtonBackgroundGallery(module.id)}
                                   onOpenSocialIconGallery={(itemId) => onOpenSocialIconGallery(module.id, itemId)}
                                   onUploadMedia={(file) => onUploadMediaForModule(module.id, file)}
+                                  onUploadButtonBackgroundMedia={(file) => onUploadButtonBackgroundMedia(module.id, file)}
+                                  onModuleDragStart={(event) => {
+                                    if (cancelBuilderDragIfFormField(event)) {
+                                      return;
+                                    }
+
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData(
+                                      "application/normie-builder-module",
+                                      encodeDragPayload(module.id, column)
+                                    );
+                                  }}
                                 />
                                 {moduleIndex === columnModules.length - 1 ? (
                                   <button aria-label="Add module" className="builder-column-add-circle builder-column-add-button-inline" onClick={() => onOpenModulePalette(column)} type="button">+</button>

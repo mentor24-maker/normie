@@ -5,6 +5,20 @@ export function isAdminApiRequestUrl(url: string) {
   return url.includes("/api/admin/") || url.includes("/api/import");
 }
 
+export function isAdminPublicAuthRequest(url: string, method: string) {
+  const normalizedMethod = method.toUpperCase();
+
+  if (normalizedMethod !== "POST") {
+    return false;
+  }
+
+  return (
+    url.includes("/api/admin/session") ||
+    url.includes("/api/admin/register") ||
+    url.includes("/api/admin/session/oauth")
+  );
+}
+
 export async function signOutAdminSession() {
   await fetch("/api/admin/session", { method: "DELETE" });
 }

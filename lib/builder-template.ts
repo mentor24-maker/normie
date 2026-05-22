@@ -30,6 +30,7 @@ export type BuilderTemplateModuleType =
   | "quote"
   | "button"
   | "contact-form"
+  | "player-portal"
   | "table"
   | "slider"
   | "social"
@@ -492,6 +493,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "quote" ||
     type === "button" ||
     type === "contact-form" ||
+    type === "player-portal" ||
     type === "table" ||
     type === "slider" ||
     type === "social" ||
@@ -900,6 +902,13 @@ export function createEmptyModule(
           ? {
               formMode: "squeeze"
             }
+          : type === "player-portal"
+            ? {
+                redirectPath: "/portal/dashboard",
+                defaultMode: "login",
+                showRegister: "true",
+                showForgotPassword: "true"
+              }
         : type === "table"
           ? {
               columns: "3",

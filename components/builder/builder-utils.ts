@@ -82,6 +82,22 @@ export function getVerticalMarginStyle(value: unknown): CSSProperties {
   };
 }
 
+export function getHorizontalMarginStyle(value: unknown): CSSProperties {
+  const margin = normalizeSpacingValue(value, "0", 0, 160);
+
+  return {
+    marginLeft: `${margin}px`,
+    marginRight: `${margin}px`
+  };
+}
+
+export function getModuleOuterSpacingStyle(settings: Record<string, string>): CSSProperties {
+  return {
+    ...getVerticalMarginStyle(settings.verticalMargin),
+    ...getHorizontalMarginStyle(settings.horizontalMargin)
+  };
+}
+
 export function getSplitVerticalMarginStyle(top: unknown, bottom: unknown): CSSProperties {
   return {
     marginTop: `${normalizeSpacingValue(top, "0", 0, 160)}px`,
@@ -320,22 +336,112 @@ export function getModuleBackgroundSettings(settings: Record<string, string>): B
   };
 }
 
-export function getHeadingModuleStyle(settings: Record<string, string>): CSSProperties {
-  const fontSize = Number.parseInt(settings.fontSize ?? "32", 10);
-  const color = settings.color || "#18324a";
+export function getButtonBackgroundSettings(settings: Record<string, string>): BackgroundSettings {
+  const mode = settings.buttonBackgroundMode as BackgroundSettings["mode"] | undefined;
+
+  if (mode) {
+    return {
+      mode,
+      color: settings.buttonBackgroundColor || settings.buttonColor || "#214c71",
+      color2: settings.buttonBackgroundColor2 || "#eaf4ff",
+      imageUrl: normalizeBuilderAssetUrl(settings.buttonBackgroundImageUrl),
+      styleKey: settings.buttonBackgroundStyleKey === "blue-yellow-circles" ? "blue-yellow-circles" : ""
+    };
+  }
+
+  return {
+    mode: "color",
+    color: settings.buttonColor || "#214c71",
+    color2: "#eaf4ff",
+    imageUrl: "",
+    styleKey: ""
+  };
+}
+
+export function getModuleDropShadowStyle(settings: Record<string, string>): string {
   const shadowX = Number.parseInt(settings.dropShadowX ?? "3", 10);
   const shadowY = Number.parseInt(settings.dropShadowY ?? "3", 10);
   const shadowBlur = Number.parseInt(settings.dropShadowBlur ?? "2", 10);
   const shadowColor = settings.dropShadowColor || "rgba(0, 0, 0, 0.55)";
   const dropShadowEnabled = settings.dropShadow === "true" || settings.dropShadow === "on";
-  const dropShadow = dropShadowEnabled
-    ? `${Number.isFinite(shadowX) ? shadowX : 3}px ${Number.isFinite(shadowY) ? shadowY : 3}px ${Number.isFinite(shadowBlur) ? shadowBlur : 2}px ${shadowColor}`
-    : "none";
+
+  if (!dropShadowEnabled) {
+    return "none";
+  }
+
+  return `${Number.isFinite(shadowX) ? shadowX : 3}px ${Number.isFinite(shadowY) ? shadowY : 3}px ${Number.isFinite(shadowBlur) ? shadowBlur : 2}px ${shadowColor}`;
+}
+
+export function applyButtonBackgroundSettings(
+  settings: Record<string, string>,
+  background: BackgroundSettings
+): Record<string, string> {
+  return {
+    ...settings,
+    buttonBackgroundMode: background.mode,
+    buttonBackgroundColor: background.color,
+    buttonBackgroundColor2: background.color2,
+    buttonBackgroundImageUrl: background.imageUrl,
+    buttonBackgroundStyleKey: background.styleKey,
+    ...(background.mode === "color" ? { buttonColor: background.color } : {})
+  };
+}
+
+export function getButtonModuleStyle(settings: Record<string, string>): CSSProperties {
+  const fontSize = Number.parseInt(settings.fontSize ?? "", 10);
+  const textColor = settings.textColor || "#ffffff";
+  const textShadow = getModuleDropShadowStyle(settings);
+  const borderStyle = settings.borderStyle === "none" || settings.borderStyle === "dashed" || settings.borderStyle === "dotted"
+    ? settings.borderStyle
+    : "solid";
+  const borderWidth = Number.parseInt(settings.borderWidth ?? "2", 10);
+  const borderRadius = Number.parseInt(settings.borderRadius ?? "0", 10);
+  const resolvedBorderWidth = borderStyle === "none" ? 0 : Math.max(Number.isFinite(borderWidth) ? borderWidth : 2, 0);
+  const buttonBackground = getButtonBackgroundSettings(settings);
+  const buttonFillStyle = getBuilderBackgroundStyle(buttonBackground);
+
+  return {
+    ...buttonFillStyle,
+    ...(!buttonFillStyle ? { "--btn-bg": settings.buttonColor || "#214c71" } : {}),
+    "--btn-bg-hover": settings.buttonHoverColor || "#0f4f8f",
+    "--btn-color": textColor,
+    "--btn-color-hover": settings.textHoverColor || "#ffffff",
+    "--btn-text-shadow": textShadow,
+    "--btn-border": settings.borderColor || "#214c71",
+    color: textColor,
+    textShadow,
+    padding: `${settings.paddingY || "12"}px ${settings.paddingX || "24"}px`,
+    borderStyle,
+    borderColor: borderStyle === "none" ? "transparent" : settings.borderColor || "#214c71",
+    borderWidth: `${resolvedBorderWidth}px`,
+    borderRadius: `${Math.max(Number.isFinite(borderRadius) ? borderRadius : 0, 0)}px`,
+    ...(Number.isFinite(fontSize) && fontSize >= 10 ? { fontSize: `${fontSize}px` } : {}),
+    fontWeight: settings.bold === "false" ? 500 : 700,
+    fontStyle: settings.italic === "true" ? "italic" : "normal",
+    textDecoration: settings.underline === "true" ? "underline" : "none",
+    textDecorationColor: settings.underline === "true" ? textColor : undefined
+  } as CSSProperties;
+}
+
+export const HEADING_VARIANT_PRESETS = {
+  eyebrow: { variant: "eyebrow", level: "h6", fontSize: "14" },
+  section: { variant: "section", level: "h2", fontSize: "32" },
+  hero: { variant: "hero", level: "h1", fontSize: "56" },
+  default: { variant: "default", level: "h2", fontSize: "32" }
+} as const;
+
+export type HeadingVariantPresetKey = keyof typeof HEADING_VARIANT_PRESETS;
+
+export function getHeadingModuleStyle(settings: Record<string, string>): CSSProperties {
+  const fontSize = Number.parseInt(settings.fontSize ?? "32", 10);
+  const color = settings.color || "#18324a";
+  const dropShadow = getModuleDropShadowStyle(settings);
   const nudgeTransform = getModuleNudgeTransform(settings);
   const verticalOffset = Number.parseInt(normalizeSignedOffsetValue(settings.verticalOffset, "0"), 10);
   const offsetY = Number.isFinite(verticalOffset) ? verticalOffset : 0;
 
   return {
+    margin: 0,
     fontSize: `${Math.max(Number.isFinite(fontSize) ? fontSize : 32, 10)}px`,
     color,
     fontWeight: settings.bold === "false" ? 500 : 800,

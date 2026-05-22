@@ -60,7 +60,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const profile = await resolveAdminTeamProfileForAuthUser(data.user);
+  let profile;
+
+  try {
+    profile = await resolveAdminTeamProfileForAuthUser(data.user);
+  } catch (profileError) {
+    return NextResponse.json(
+      {
+        error:
+          profileError instanceof Error
+            ? profileError.message
+            : "This account could not be authorized for admin access."
+      },
+      { status: 403 }
+    );
+  }
 
   if (!profile || profile.status !== "active") {
     return NextResponse.json(

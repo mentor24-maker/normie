@@ -7,7 +7,8 @@ import {
   ADMIN_SESSION_EXPIRED_EVENT,
   dispatchAdminSessionExpired,
   handleAdminSessionExpired,
-  isAdminApiRequestUrl
+  isAdminApiRequestUrl,
+  isAdminPublicAuthRequest
 } from "@/lib/admin-session-client";
 
 const SESSION_CHECK_INTERVAL_MS = 4 * 60 * 1000;
@@ -16,7 +17,10 @@ type SessionStatus = "valid" | "expired" | "unavailable";
 
 async function verifyAdminSession(): Promise<SessionStatus> {
   try {
-    const response = await fetch("/api/admin/session", { cache: "no-store" });
+    const response = await fetch("/api/admin/session", {
+      cache: "no-store",
+      credentials: "include"
+    });
 
     if (response.ok) {
       return "valid";
@@ -71,29 +75,42 @@ export function AdminSessionGuard() {
 
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
+      const request =
+        typeof args[0] === "string"
+          ? null
+          : args[0] instanceof Request
+            ? args[0]
+            : null;
       const requestUrl =
         typeof args[0] === "string"
           ? args[0]
-          : args[0] instanceof Request
-            ? args[0].url
-            : "";
+          : request?.url ?? "";
+      const requestMethod =
+        request?.method ??
+        (typeof args[1] === "object" && args[1] && "method" in args[1] && args[1].method
+          ? String(args[1].method)
+          : "GET");
 
-      if (response.status === 401 && isAdminApiRequestUrl(requestUrl)) {
+      if (
+        response.status === 401 &&
+        isAdminApiRequestUrl(requestUrl) &&
+        !isAdminPublicAuthRequest(requestUrl, requestMethod)
+      ) {
         try {
           const clone = response.clone();
           const payload = (await clone.json()) as { code?: string };
+
           if (payload.code === ADMIN_SESSION_EXPIRED_CODE) {
             dispatchAdminSessionExpired();
           }
         } catch {
-          dispatchAdminSessionExpired();
+          // Ignore non-JSON 401 responses; login failures are handled in the form.
         }
       }
 
       return response;
     };
 
-    void checkSession();
     const intervalId = window.setInterval(() => {
       void checkSession();
     }, SESSION_CHECK_INTERVAL_MS);

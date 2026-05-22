@@ -451,16 +451,16 @@ export function AdminPollsManager() {
                   <td className="polls-actions-cell">
                     <div className="polls-row-actions">
                       <Link
-                        className="polls-icon-button"
+                        className="polls-icon-button polls-icon-button-view"
                         href={buildPublicPollViewPath(poll)}
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label="View poll on site"
                       >
-                        ◎
+                        <span aria-hidden="true" className="polls-icon-glyph-eye" />
                       </Link>
                       <Link
-                        className="polls-icon-button"
+                        className="polls-icon-button polls-icon-button-edit"
                         href={`/admin/polls/${poll.id}/edit`}
                         aria-label="Edit poll"
                       >

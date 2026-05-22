@@ -111,4 +111,10 @@ describe("getHeadingModuleStyle", () => {
     expect(style.position).toBe("relative");
     expect(style.marginBottom).toBe("-8px");
   });
+
+  it("zeros default heading margins so h3–h6 presets do not inherit browser spacing", () => {
+    const style = getHeadingModuleStyle({ fontSize: "14" });
+
+    expect(style.margin).toBe(0);
+  });
 });

@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { readAdminJson } from "@/lib/admin-fetch";
 import { createBrowserClient } from "@/lib/supabase-browser";
 
 type AuthMode = "login" | "register";
 
 export function AdminLoginScreen() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -56,26 +56,24 @@ export function AdminLoginScreen() {
         throw new Error("Passwords do not match.");
       }
 
-      const response = await fetch(mode === "login" ? "/api/admin/session" : "/api/admin/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(
-          mode === "login"
-            ? { email, password }
-            : { email, password, fullName }
-        )
-      });
+      await readAdminJson<{ user?: { id: string } }>(
+        await fetch(mode === "login" ? "/api/admin/session" : "/api/admin/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "include",
+          cache: "no-store",
+          body: JSON.stringify(
+            mode === "login"
+              ? { email, password }
+              : { email, password, fullName }
+          )
+        }),
+        mode === "login" ? "Login failed." : "Registration failed."
+      );
 
-      const data = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? (mode === "login" ? "Login failed." : "Registration failed."));
-      }
-
-      router.push("/admin/dashboard");
-      router.refresh();
+      window.location.assign("/admin/dashboard");
     } catch (submitError) {
       setError(
         submitError instanceof Error

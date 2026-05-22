@@ -89,27 +89,27 @@ export function BuilderPageList({
   return (
     <>
       <div className="builder-toolbar-shell">
-        <div className="builder-panel-toggle">
-          <span className="panel-label">Pages</span>
+        <div className="builder-panel-toggle-row">
+          <button
+            aria-expanded={!collapsedPanels.pages}
+            aria-label={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
+            className="builder-panel-toggle"
+            onClick={() => togglePanel("pages")}
+            title={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
+            type="button"
+          >
+            <span className="panel-label">Pages</span>
+            <span className="builder-panel-toggle-icon">{collapsedPanels.pages ? "▸" : "▾"}</span>
+          </button>
           <span className="builder-panel-heading-actions">
             <button
-              className="secondary-button builder-panel-heading-button"
+              className="submit-button builder-panel-heading-button"
               onClick={handleNewPage}
               type="button"
             >
               New Page
             </button>
           </span>
-          <button
-            aria-expanded={!collapsedPanels.pages}
-            aria-label={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
-            className="builder-panel-toggle-icon"
-            onClick={() => togglePanel("pages")}
-            title={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
-            type="button"
-          >
-            {collapsedPanels.pages ? "▸" : "▾"}
-          </button>
         </div>
         {!collapsedPanels.pages ? (
           <div className="table-shell builder-templates-shell">
@@ -120,7 +120,7 @@ export function BuilderPageList({
                   <th>Slug</th>
                   <th>Template</th>
                   <th>Updated</th>
-                  <th>Actions</th>
+                  <th className="crud-actions-cell">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,10 +137,10 @@ export function BuilderPageList({
                       </td>
                       <td>{templates.find((template) => template.id === page.templateId)?.name || "Unknown"}</td>
                       <td>{formatTemplateTimestamp(page.updatedAt)}</td>
-                      <td>
+                      <td className="crud-actions-cell">
                         <div className="builder-template-actions">
                           <button
-                            className="polls-icon-button"
+                            className="polls-icon-button polls-icon-button-edit"
                             onClick={() => handleEditPage(page.id)}
                             type="button"
                             aria-label={isSelected ? "Editing current page" : "Edit page"}
@@ -149,13 +149,13 @@ export function BuilderPageList({
                             {isSelected ? "●" : "✎"}
                           </button>
                           <button
-                            className="polls-icon-button"
+                            className="polls-icon-button polls-icon-button-view"
                             onClick={() => onPreviewPage(page.slug)}
                             type="button"
                             aria-label="Preview page"
                             title="Preview page"
                           >
-                            👁
+                            <span aria-hidden="true" className="polls-icon-glyph-eye" />
                           </button>
                           <button
                             className="polls-icon-button polls-icon-button-danger"
@@ -184,8 +184,18 @@ export function BuilderPageList({
       </div>
 
       <div className="builder-toolbar-shell">
-        <div className="builder-panel-toggle">
-          <span className="panel-label">Page Details</span>
+        <div className="builder-panel-toggle-row">
+          <button
+            aria-expanded={!collapsedPanels.details}
+            aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+            className="builder-panel-toggle"
+            onClick={() => togglePanel("details")}
+            title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+            type="button"
+          >
+            <span className="panel-label">Page Details</span>
+            <span className="builder-panel-toggle-icon">{collapsedPanels.details ? "▸" : "▾"}</span>
+          </button>
           <span className="builder-panel-heading-actions">
             <button
               className="submit-button admin-blog-add-button builder-panel-heading-button"
@@ -196,16 +206,6 @@ export function BuilderPageList({
               {isSaving ? "Saving..." : "Save Page"}
             </button>
           </span>
-          <button
-            aria-expanded={!collapsedPanels.details}
-            aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
-            className="builder-panel-toggle-icon"
-            onClick={() => togglePanel("details")}
-            title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
-            type="button"
-          >
-            {collapsedPanels.details ? "▸" : "▾"}
-          </button>
         </div>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid builder-meta-grid-pages">
@@ -242,7 +242,7 @@ export function BuilderPageList({
                 ))}
               </select>
             </label>
-            <label className="field">
+            <label className="field builder-meta-field-status">
               <span>Status</span>
               <select
                 value={isPublishedPage ? "published" : "draft"}
@@ -252,17 +252,26 @@ export function BuilderPageList({
                 <option value="draft">Draft</option>
               </select>
             </label>
-            <div className="builder-meta-actions">
-              <button className="secondary-button" onClick={onMakeTemplate} type="button" disabled={isSaving}>
-                Make Template
+            <div className="builder-meta-grid-pages-background">
+              <BuilderBackgroundControls
+                label="Background"
+                background={pageBackground}
+                compact
+                onChange={onUpdatePageBackground}
+              />
+            </div>
+            <div className="builder-meta-grid-pages-actions">
+              <button
+                aria-label="Make Template"
+                className="builder-icon-button"
+                disabled={isSaving}
+                onClick={onMakeTemplate}
+                title="Make Template"
+                type="button"
+              >
+                💾
               </button>
             </div>
-            <BuilderBackgroundControls
-              label="Page Background"
-              background={pageBackground}
-              compact
-              onChange={onUpdatePageBackground}
-            />
           </div>
         ) : null}
       </div>

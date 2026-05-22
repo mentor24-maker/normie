@@ -293,7 +293,12 @@ export function AdminUsersWorkspace({
                 {isInviting ? "Inviting..." : "Invite Team Member"}
               </button>
             ) : null}
-            <button className="submit-button" onClick={() => void handleSubmit()} type="button" disabled={isSaving}>
+            <button
+              className="submit-button admin-blog-add-button"
+              onClick={() => void handleSubmit()}
+              type="button"
+              disabled={isSaving}
+            >
               {isSaving ? "Saving..." : selectedUserId ? "Save Changes" : createButtonLabel}
             </button>
           </div>
@@ -431,7 +436,7 @@ export function AdminUsersWorkspace({
                 <th>Status</th>
                 {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Source</th>}
                 <th>Created</th>
-                <th>Actions</th>
+                <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -451,10 +456,10 @@ export function AdminUsersWorkspace({
                         : ""}
                   </td>
                   <td>{formatTimestamp(user.createdAt)}</td>
-                  <td>
+                  <td className="crud-actions-cell">
                     <div className="table-actions">
                       <button
-                        className="polls-icon-button"
+                        className="polls-icon-button polls-icon-button-edit"
                         onClick={() => setSelectedUserId(user.id)}
                         type="button"
                         aria-label="Edit user"

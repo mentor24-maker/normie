@@ -25,6 +25,7 @@ import {
 } from "@/lib/headline-rotator";
 import {
   getAlignmentClass,
+  getButtonModuleStyle,
   getHeadingModuleStyle,
   columnHasOnlyOverlayImageModules,
   getOverlayFlowCollapsedColumnStyle,
@@ -36,6 +37,7 @@ import {
   getModuleBackgroundSettings,
   getSectionMarginStyle,
   getModuleMarginStyle,
+  getModuleOuterSpacingStyle,
   getVerticalMarginStyle,
   getVideoEmbedSource,
   isVideoMedia
@@ -43,6 +45,7 @@ import {
 import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
 import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
 import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
+import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/player-portal-auth-form";
 
 type BuilderTemplatePreviewProps = {
   layoutSections: BuilderTemplateSection[];
@@ -278,14 +281,16 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
                     module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
                   }${isOverlayFlowModule ? " builder-preview-module-overlay-flow" : ""}`}
                   style={{
-                    ...(module.type === "navigation" || isOverlayFlowModule
+                    ...(module.type === "navigation" || isOverlayFlowModule || module.type === "button"
                       ? {}
                       : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
                     ...(isOverlayFlowModule
                       ? {}
                       : module.type === "heading"
                         ? getModuleMarginStyle(module.settings)
-                        : getVerticalMarginStyle(module.settings.verticalMargin)),
+                        : module.type === "button"
+                          ? getModuleOuterSpacingStyle(module.settings)
+                          : getVerticalMarginStyle(module.settings.verticalMargin)),
                     ...getOverlayFlowCollapsedModuleStyle(isOverlayFlowModule),
                     "--builder-mobile-font-size": module.settings.mobileFontSize
                       ? `${module.settings.mobileFontSize}px`
@@ -360,14 +365,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
 
   if (module.type === "button") {
     const s = module.settings;
-    const btnStyle = {
-      "--btn-bg": s.buttonColor || "#214c71",
-      "--btn-bg-hover": s.buttonHoverColor || "#0f4f8f",
-      "--btn-color": s.textColor || "#ffffff",
-      "--btn-color-hover": s.textHoverColor || "#ffffff",
-      "--btn-border": s.borderColor || "#214c71",
-      padding: `${s.paddingY || "12"}px ${s.paddingX || "24"}px`
-    } as CSSProperties;
+    const btnStyle = getButtonModuleStyle(s);
     return (
       <Link
         className={`builder-preview-button builder-preview-button-styled builder-preview-button-${variant || "default"} builder-preview-button-${s.buttonSize ?? "medium"}`}
@@ -381,6 +379,15 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
 
   if (module.type === "contact-form") {
     return <ContactFormPreview settings={module.settings} />;
+  }
+
+  if (module.type === "player-portal") {
+    return (
+      <PlayerPortalAuthForm
+        settings={getPlayerPortalAuthSettings(module.settings)}
+        heading={module.text}
+      />
+    );
   }
 
   if (module.type === "video" || (module.type === "image" && module.settings.variant === "video")) {

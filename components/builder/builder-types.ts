@@ -10,6 +10,7 @@ export type ModulePaletteGroup = BuilderTemplateModuleType;
 
 export type GalleryTarget =
   | { kind: "module"; sectionId: string; moduleId: string }
+  | { kind: "button-background"; sectionId: string; moduleId: string }
   | { kind: "section-background"; sectionId: string }
   | { kind: "social-icon"; sectionId: string; moduleId: string; itemId: string };
 
@@ -60,6 +61,7 @@ export const modulePaletteGroups: Array<{
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
   { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
   { value: "contact-form", label: "Contact Forms", icon: "CF", description: "Lead capture forms with simple presets." },
+  { value: "player-portal", label: "Player Portal", icon: "PP", description: "Player login and registration on any page." },
   { value: "previous-results", label: "Previous Results", icon: "PR", description: "Only the live previous-poll results panel." },
   { value: "current-poll", label: "Polls", icon: "P?", description: "The current live poll with vote actions." },
   { value: "social-share", label: "Social Share", icon: "↗", description: "Share buttons with dynamic post text from the current poll." },
@@ -89,7 +91,14 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     description: "Small label above a larger message.",
     name: "",
     text: "",
-    settings: { variant: "eyebrow", level: "h6", fontSize: "14", bold: "true" }
+    settings: {
+      variant: "eyebrow",
+      level: "h6",
+      fontSize: "14",
+      bold: "true",
+      marginTop: "0",
+      marginBottom: "0"
+    }
   },
   {
     id: "heading-section",
@@ -309,6 +318,22 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "",
     text: "",
     settings: { formMode: "squeeze" }
+  },
+  {
+    id: "player-portal-login",
+    type: "player-portal",
+    group: "player-portal",
+    label: "Player Login",
+    icon: "PP",
+    description: "Login and register for the Player Portal on any public page.",
+    name: "Player Login",
+    text: "",
+    settings: {
+      redirectPath: "/portal/dashboard",
+      defaultMode: "login",
+      showRegister: "true",
+      showForgotPassword: "true"
+    }
   },
   {
     id: "poll-previous-results",

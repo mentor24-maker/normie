@@ -214,7 +214,7 @@ export function AdminBlogTaxonomyList({
             </label>
             <div className="admin-blog-taxonomy-inline-actions">
               <button
-                className="submit-button"
+                className="submit-button admin-blog-add-button"
                 disabled={isBusy || !editDraft.name.trim()}
                 onClick={() => void saveEdit()}
                 type="button"

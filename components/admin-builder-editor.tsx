@@ -1,6 +1,6 @@
 "use client";
 
-import type { DragEvent } from "react";
+import type { ChangeEvent, DragEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
 import {
@@ -87,6 +87,7 @@ export function AdminBuilderEditor() {
     rowConfigurations: true,
     workspace: true
   });
+  const [savedSectionSelectKey, setSavedSectionSelectKey] = useState(0);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -349,6 +350,11 @@ export function AdminBuilderEditor() {
     setCollapsedSectionIds((current) => [...current, section.id]);
     setMessage(`Inserted saved section "${savedSection.name}".`);
     setError(null);
+    setSavedSectionSelectKey((current) => current + 1);
+  }
+
+  function handleSavedSectionSelect(event: ChangeEvent<HTMLSelectElement>) {
+    insertSavedSection(event.target.value);
   }
 
   async function saveSection(sectionId: string) {
@@ -1048,6 +1054,11 @@ export function AdminBuilderEditor() {
     setIsGalleryOpen(true);
   }
 
+  function openButtonBackgroundGallery(sectionId: string, moduleId: string) {
+    setGalleryTarget({ kind: "button-background", sectionId, moduleId });
+    setIsGalleryOpen(true);
+  }
+
   function openSocialIconGallery(sectionId: string, moduleId: string, itemId: string) {
     setGalleryTarget({ kind: "social-icon", sectionId, moduleId, itemId });
     setIsGalleryOpen(true);
@@ -1072,6 +1083,15 @@ export function AdminBuilderEditor() {
     if (galleryTarget.kind === "module") {
       updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (c) => ({
         ...c, settings: { ...c.settings, url: normalizeBuilderAssetUrl(imagePath) }
+      }));
+    } else if (galleryTarget.kind === "button-background") {
+      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (c) => ({
+        ...c,
+        settings: {
+          ...c.settings,
+          buttonBackgroundMode: "image",
+          buttonBackgroundImageUrl: normalizeBuilderAssetUrl(imagePath)
+        }
       }));
     } else if (galleryTarget.kind === "social-icon") {
       updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (current) => {
@@ -1133,6 +1153,19 @@ export function AdminBuilderEditor() {
   function uploadMediaForModule(sectionId: string, moduleId: string, file: File | null) {
     void uploadMedia((m) => {
       updateModule(sectionId, moduleId, (c) => ({ ...c, settings: { ...c.settings, url: normalizeBuilderAssetUrl(m.path) } }));
+    }, file);
+  }
+
+  function uploadButtonBackgroundMedia(sectionId: string, moduleId: string, file: File | null) {
+    void uploadMedia((m) => {
+      updateModule(sectionId, moduleId, (c) => ({
+        ...c,
+        settings: {
+          ...c.settings,
+          buttonBackgroundMode: "image",
+          buttonBackgroundImageUrl: normalizeBuilderAssetUrl(m.path)
+        }
+      }));
     }, file);
   }
 
@@ -1339,22 +1372,21 @@ export function AdminBuilderEditor() {
               onClick={() => toggleBuilderPanel("rowConfigurations")}
               type="button"
             >
-              <span className="panel-label">Row Configurations</span>
+              <span className="panel-label">Row Layouts</span>
               <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rowConfigurations ? "▸" : "▾"}</span>
             </button>
             {!collapsedBuilderPanels.rowConfigurations ? (
               <div className="builder-layout-toolbar">
                 {layoutOptions.map((layout) => renderLayoutTile(layout))}
                 <label className="field builder-cell-repository-select">
-                  <span>Insert saved section</span>
                   <select
-                    value=""
-                    onChange={(event) => {
-                      insertSavedSection(event.target.value);
-                      event.currentTarget.value = "";
-                    }}
+                    key={savedSectionSelectKey}
+                    defaultValue=""
+                    onChange={handleSavedSectionSelect}
                   >
-                    <option value="">Choose saved section</option>
+                    <option disabled value="">
+                      Saved Section
+                    </option>
                     {savedSections.map((savedSection) => (
                       <option key={savedSection.id} value={savedSection.id}>
                         {savedSection.name}
@@ -1387,7 +1419,7 @@ export function AdminBuilderEditor() {
                 {draft.layoutSections.length === 0 ? (
                   <div className="builder-workspace-empty">
                     <div className="builder-workspace-empty-title">Drop a row onto the workspace</div>
-                    <div className="builder-workspace-empty-copy">Drag a row configuration from the toolbar above, or click one to add it instantly.</div>
+                    <div className="builder-workspace-empty-copy">Drag a row layout from the toolbar above, or click one to add it instantly.</div>
                   </div>
                 ) : (
                   <div className="builder-sections">
@@ -1425,8 +1457,12 @@ export function AdminBuilderEditor() {
                         onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
                         onInsertSavedModule={(col, cellModuleId) => insertSavedModule(section.id, col, cellModuleId)}
                         onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
+                        onOpenButtonBackgroundGallery={(moduleId) => openButtonBackgroundGallery(section.id, moduleId)}
                         onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
                         onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
+                        onUploadButtonBackgroundMedia={(moduleId, file) =>
+                          uploadButtonBackgroundMedia(section.id, moduleId, file)
+                        }
                         onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
                         onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}
                         onOpenModulePalette={(col) => openModulePalette(section.id, col)}

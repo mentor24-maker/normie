@@ -14,13 +14,17 @@
 - Always write clean, self-documenting TypeScript code.
 - Ensure strict type safety and comprehensive error handling.
 - Do not add placeholders, boilerplate, or "TODO" comments unless explicitly asked.
+- **Forms:** Obey the **Form fields (iron rule)** in Style Guide — label left, field right, never stacked.
 
 ## Style Guide
+- **Form fields (iron rule):** No field label is ever stacked on top of a field. Labels always appear to the **left** of the control they describe, **left-aligned in a separate cell** from the field so that **both labels and fields are left-aligned** (label column + field column). Whenever a form or settings panel is built or updated — admin, Page Builder, portal, blog, polls, or any other UI — it **must** use this horizontal label–field layout. Do **not** use the default `.field` stacked pattern (`display: grid` with label above input) for new or revised forms. Use row/table patterns such as `BuilderSettingRow` / `.builder-setting-row` (label cell + value cell, both left-aligned) or an equivalent two-column row. If a layout cannot follow this rule, **stop and explain why** before shipping an exception; do not silently ignore it.
 - **Button labels:** Use Title Case for headlines, buttons, and similar UI chrome (e.g. `Save Settings`, not `Save settings`).
 - **Button text must not wrap:** Primary, secondary, and danger buttons use `white-space: nowrap` so labels like `Save Settings` stay on one line. Size buttons to their text (`width: fit-content`) plus horizontal padding — not full width unless a specific layout requires it.
 - **Admin notices:** Success — light green background, dark green border and text. Error — pink background, 2px dark red border, dark red text.
 - **Admin save buttons (canonical):** Any primary persist action in admin or Page Builder UI — `Save Section`, `Save Module`, `Save Cell`, `Save Page`, `Save Template`, `Add …` — must use **`className="submit-button admin-blog-add-button"`** (alias class `admin-save-button` shares the same CSS). Labels are Title Case. Cancel and non-destructive secondary actions use `secondary-button` only. Do not use plain `submit-button` alone for new save/add actions. Bulk delete — red background, white text, centered. Publish icon green; delete icon red.
-- **Admin table Actions columns:** Icon-only buttons only — no text labels inside the cell (use `aria-label` for accessibility). Primary actions (edit, save, cancel) stay visible. The delete icon is hidden until row hover or keyboard focus within the row, then appears instantly (no animation delay). Hovering the delete icon shows an instant tooltip labeled `Delete` (Title Case). Keep the Actions column sticky on wide horizontal-scroll tables.
+- **Builder save button placement:** Labeled save actions on collapsible builder panels sit on the **same row as the panel header** (e.g. `Save Page` beside Page Details, `Save Template` beside Template Details, `Save Cell` beside Content) — `builder-panel-toggle-row` + `builder-panel-heading-actions` + `builder-panel-heading-button` on the save control; never inside the expanded panel body.
+- **Admin table Actions columns:** Icon-only buttons only — no text labels inside the cell (use `aria-label` for accessibility). Primary actions (edit, save, cancel) stay visible. The delete icon is hidden until row hover or keyboard focus within the row, then appears instantly (no animation delay). Hovering the delete icon shows an instant tooltip labeled `Delete` (Title Case). Keep the Actions column sticky on wide horizontal-scroll tables. Use **`crud-actions-cell`** (centered). Icon buttons: **View** `polls-icon-button-view` (blue `--crud-view-*`), **Edit** `polls-icon-button-edit` / success styling (green `--crud-edit-*`), **Delete** `polls-icon-button-delete` (soft pink `--crud-delete-*`), **1px borders** on all CRUD icon buttons.
+- **Builder collapsible affordances:** Expand control uses **`--collapse-expand-color`** (`#22c55e`). Collapse control uses **`--collapse-collapse-color`** (`#991f1f`). Apply on builder panel toggles (▸ / ▾), not ad hoc per screen.
 - **Poll pods:** Module panel backgrounds are transparent by default; pod styling comes from Poll Settings. Header pill uses configurable colors (default header background `#5acff9`, dark turquoise ink). Keep header `border-radius: 999px` only when height is pill-like; taller headers should read as rounded boxes. ~100px gap between Current Poll and Previous Results pods. Question/content width is left-aligned, not centered.
 - **Pods container:** Site “pod” panels use white or configured backgrounds, rounded corners, alignment with main body content.
 - See `docs/look-and-feel-compiled.md` for the full list of user look-and-feel notes from prior sessions (review and merge into this section over time).
@@ -80,7 +84,7 @@ supabase/                     # DB schema and migrations
 - Module settings are always `Record<string, string>` — never typed sub-objects
 
 ### Module types
-`heading`, `text`, `quote`, `button`, `image`, `navigation`, `headline-rotator`, `table`, `slider`, `social`, `contact-form`, `previous-results`, `current-poll`
+`heading`, `text`, `quote`, `button`, `image`, `navigation`, `headline-rotator`, `table`, `slider`, `social`, `contact-form`, `previous-results`, `current-poll`, `player-portal`
 
 ### Navigation module
 - `NavigationModulePreview` in `builder-template-preview.tsx` renders from `module.settings.navItems` (JSON array of `{id, label, href}`)
@@ -92,6 +96,39 @@ Always touch all three files in order:
 1. `builder-module-card.tsx` — add to `BuilderModuleCardProps` type + destructure + use
 2. `builder-section-card.tsx` — add to `BuilderSectionCardProps` type + destructure + pass to `<BuilderModuleCard>`
 3. `admin-builder-editor.tsx` — implement the handler function + pass as prop to `<BuilderSectionCard>`
+
+### Builder visual hierarchy (headers & backgrounds)
+- **Drill-down headers** darken toward the center. Use CSS variables in order: `--builder-header-workspace` (`#17b7ee`) → `--builder-header-section` (`#1799cb`) → `--builder-header-cell` (`#177aa7`), with matching `-hover` tokens.
+- **Drill-down backgrounds** lighten toward the outside: `--builder-bg-workspace` (`#f8fdff`) → `--builder-bg-section` (`#c6e8f5`) → `--builder-bg-cell` (`#9ed4ee`) → `--builder-bg-module` (`#75c1e7`). Section must read **darker than workspace** but **lighter than columns**.
+- **`.builder-workspace`** (drop zone inside the Workspace pod) must use **`--builder-bg-workspace`**, never `--builder-bg-section`.
+- Column cards use `--builder-bg-cell`; module cards use `--builder-bg-module`.
+- **Styles / Content** panel headers inside columns use **`--builder-header-cell`** on the panel header row only (not the full column card).
+
+### Builder spacing & numeric controls
+- **Do not use range sliders** for builder spacing, padding, or margin. Use **`BuilderNumberSelectControl`** (`builder-inline-number-select.tsx`) — dropdown lists with explicit min/max (commonly **1–50** for padding).
+- **Sections and heading modules** use separate **Top Margin** and **Bottom Margin** (`marginTop` / `marginBottom`). Legacy `verticalMargin` may still map for old data.
+- Stacked modules in a column use the column grid **`gap: 16px`**. Do not rely on browser default heading margins for spacing.
+
+### Builder chrome & panels
+- Header action icons: **`builder-icon-button`** at **26×26px**; **`builder-section-actions`** gap **4px**.
+- **Save Cell** on the **Content** panel header row (`BuilderCellPanelHeader` + `headingActions` / `builder-panel-toggle-row`), not inside the expanded body.
+- **Saved Cells / Saved Modules** dropdowns: side-by-side below Content header where applicable; submit on select.
+
+### Module Library
+- Picker uses **three columns** (`.builder-module-item-grid`, `.builder-module-group-grid`).
+- Each tile: **icon and label on one row**; **no per-item description** blurb.
+
+### Button module settings (reference pattern)
+- Three vertical collapsible panels: **Button**, **Border**, **Text** — **collapsed by default** (`BuilderCellPanelHeader` / `builder-button-design-panel`).
+- **Link** is the first **full-width row** under Button. **Alignment** lives in the Button panel with Size.
+- **No standalone Module Background** on Button; **Background** opens from an icon under Button via popup (Color / Gradient / Image / Style). Same popup pattern for Border and Text color controls.
+- **Drop shadow:** multi-field `BuilderButtonDropShadowSettings`; front-end must still apply shadow via `getButtonModuleStyle` / CSS vars.
+
+### Heading module
+- Presets in **`HEADING_VARIANT_PRESETS`** (`builder-utils.ts`): Eyebrow (`h6`, 14px), Section (`h2`, 32px), Hero (`h1`, 56px). Expose **Style** dropdown in `BuilderHeadingModuleSettings`.
+- **`.builder-preview-heading`** and **`.builder-module-preview-heading`**: **`margin: 0`** (global CSS only zeros `h1`/`h2`; eyebrow uses `h6` and inherits UA margins otherwise).
+- **`getHeadingModuleStyle()`** includes **`margin: 0`**. New Eyebrow inserts: **`marginTop` / `marginBottom` `"0"`**.
+- Mobile heading `clamp()` rules must **exclude** `.builder-preview-heading-eyebrow`.
 
 ## TypeScript Conventions
 - Strict mode is on — no `any` unless absolutely unavoidable
@@ -107,7 +144,9 @@ Always touch all three files in order:
 - Builder-specific classes prefixed with `builder-`
 - Site shell classes prefixed with `site-shell-`
 - Admin classes prefixed with `admin-`
+- Player Portal classes prefixed with `player-` (avoid reusing `admin-*` chrome for logged-in portal pages when building player-facing UI)
 - Admin green save gradient: `.admin-save-button.submit-button` and `.admin-blog-add-button.submit-button` in `globals.css` (same rules)
+- Builder drill-down tokens: `--builder-header-*`, `--builder-bg-*`, `--crud-*`, `--collapse-expand-color`, `--collapse-collapse-color` (see Page Builder visual hierarchy)
 - Never use `!important` unless overriding third-party styles
 - The `.site-nav` class controls the nav bar appearance globally
 
@@ -119,15 +158,25 @@ Always touch all three files in order:
 - Templates: `GET/POST /api/admin/page-templates`, `PATCH/DELETE /api/admin/page-templates/[id]`
 - Public `GET /api/polls/next` accepts optional `startPoll` (poll UUID) plus optional `category` to show that published poll as the current question (used by Poll Manager View).
 - All API responses return `{ data?, error? }` shape
+- **Admin fetches:** use **`readAdminJson` / `parseAdminJsonResponse`** (`lib/admin-fetch.ts`) — never blind **`response.json()`** on admin routes (HTML error pages cause `Unexpected token '<'`).
+- **Middleware:** admin branch must return **JSON 401** for `/api/admin/*` on failure, not an HTML crash page.
+- **Heavy admin pages:** prefer one **bootstrap** route (pattern: `GET /api/admin/blog/bootstrap`) over many parallel loads on first paint.
+- **Live public builder pages:** render via **`BuilderTemplatePreviewClient`** with **`dynamic(..., { ssr: false })`** so DOMPurify / heavy preview does not break production HTML render.
+- **Rich HTML** at render: **`formatRichTextContent`** → **`sanitizeRichTextHtml`**; embeds use **`sanitizeEmbedHtml`**.
 
 ## Rich Text Editor (Tiptap)
 - All tiptap packages pinned to `3.22.5` — do not upgrade
 - Custom extensions: `FontSizeStyle`, `TextShadowStyle`, `TextOutlineStyle`, `LineHeightStyle`
 - Code view toggle: `isCodeView` state + `formatHTML()` for pretty-printing
 - Always use `--legacy-peer-deps` when installing tiptap-related packages
+- Toolbar headings: **H1–H3 only** (`heading.levels: [1, 2, 3]`; no H4–H6 in UI)
+- Prefer **SVG toolbar icons** from `components/builder/rich-text-toolbar-icons.tsx`
+- **Font size dropdown:** **14px through 64px** (4px steps from 36: 36, 40, …, 64)
+- Keep toolbar controls compact; avoid wrapping in narrow columns when possible
 
 ## Heading Module Styles
 Computed in `getHeadingModuleStyle()` in `builder-utils.ts`:
+- **`margin: 0`** on all builder headings (see Heading module rules above)
 - Drop shadow: `4px 4px 2px rgba(0, 0, 0, 0.5)` (lower-right, 2px blur)
 - Outline: `2px ${color}` via `WebkitTextStroke`
 - Underline color matches text color via `textDecorationColor`
@@ -158,11 +207,14 @@ function cloneSomething(id: string) {
 - Never set `showNav` prop on `SiteShell` — it no longer exists
 - Never render hardcoded logo or Login link in `NavigationModulePreview`
 - Don't assume the homepage uses `HomePageView` — it uses the builder if a "home" page exists in DB
+- **`.builder-workspace` background** must not use `--builder-bg-section` (matches section cards and hides hierarchy)
+- **Eyebrow headings (`h6`)** need explicit `margin: 0` on `.builder-preview-heading` — UA margins stack with column `gap` and look like mystery padding
 - `npm install` must always use `--legacy-peer-deps` due to tiptap peer dependency conflicts
 - Clear `.next` cache (`rm -rf .next`) after corrupted builds or `node_modules` reinstall
 - Disk space below 20GB causes `.next` build artifacts to disappear mid-session
 - The project is at `~/WebApps/normie` (moved from `~/Desktop/WebApps/normie`)
 - Supabase free tier pauses after 7 days of inactivity — resume from dashboard if connections time out
+- Player login lives on the builder page slug **`portal`** (`app/[slug]/page.tsx` redirects authed users to `/portal/dashboard`); apply **`005_player_portal.sql`** (or `supabase/player-portal.sql`) before portal auth works
 
 ## Builder Preview vs Live Site
 - `/preview` uses `BuilderTemplatePreview` directly — not wrapped in `SiteShell`

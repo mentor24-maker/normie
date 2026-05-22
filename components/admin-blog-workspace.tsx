@@ -15,6 +15,7 @@ import { parseAdminJsonResponse, readAdminJson } from "@/lib/admin-fetch";
 import { AdminBlogPostEditor } from "@/components/admin-blog-post-editor";
 import { AdminBlogTaxonomyList } from "@/components/admin-blog-taxonomy-list";
 import { BuilderGalleryModal } from "@/components/builder/builder-gallery-modal";
+import { BuilderInlineNumberSelect } from "@/components/builder/builder-inline-number-select";
 
 type BlogView = "posts" | "topics" | "categories" | "tags" | "settings";
 
@@ -613,7 +614,7 @@ export function AdminBlogWorkspace() {
                   <th>Primary topic</th>
                   <th>Primary category</th>
                   <th>Updated</th>
-                  <th>Actions</th>
+                  <th className="crud-actions-cell">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -627,10 +628,10 @@ export function AdminBlogWorkspace() {
                       <td>{post.primaryTopic?.name ?? "—"}</td>
                       <td>{post.primaryCategory?.name ?? "—"}</td>
                       <td>{new Date(post.updatedAt).toLocaleString()}</td>
-                      <td>
+                      <td className="crud-actions-cell">
                         <div className="table-actions">
                           <button
-                            className="polls-icon-button"
+                            className="polls-icon-button polls-icon-button-edit"
                             onClick={() => setEditingDraft(postToDraft(post))}
                             type="button"
                             aria-label="Edit post"
@@ -640,7 +641,7 @@ export function AdminBlogWorkspace() {
                           </button>
                           {viewUrl ? (
                             <a
-                              className="polls-icon-button"
+                              className="polls-icon-button polls-icon-button-view"
                               href={viewUrl}
                               rel="noopener noreferrer"
                               target="_blank"
@@ -651,7 +652,7 @@ export function AdminBlogWorkspace() {
                             </a>
                           ) : (
                             <button
-                              className="polls-icon-button"
+                              className="polls-icon-button polls-icon-button-view"
                               disabled
                               type="button"
                               aria-label="View post (set primary topic)"
@@ -1125,26 +1126,16 @@ export function AdminBlogWorkspace() {
                   />
                 </label>
               ) : null}
-              <label className="field admin-blog-opacity-field">
-                <span>Opacity</span>
-                <input
-                  max="100"
-                  min="0"
-                  type="range"
+              <div className="admin-blog-opacity-row">
+                <BuilderInlineNumberSelect
+                  label="Opacity"
                   value={paintDraft.opacity}
-                  onChange={(event) => updatePaintDraft({ ...paintDraft, opacity: event.target.value })}
+                  min={0}
+                  max={100}
+                  fallback="100"
+                  onChange={(opacity) => updatePaintDraft({ ...paintDraft, opacity })}
                 />
-              </label>
-              <label className="field admin-blog-opacity-value-field">
-                <span>%</span>
-                <input
-                  max="100"
-                  min="0"
-                  type="number"
-                  value={paintDraft.opacity}
-                  onChange={(event) => updatePaintDraft({ ...paintDraft, opacity: event.target.value })}
-                />
-              </label>
+              </div>
             </div>
           </div>
         </div>

@@ -9,6 +9,18 @@ import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
 import { formatRichTextContent } from "@/lib/builder-template";
+import {
+  RichTextAlignCenterIcon,
+  RichTextAlignLeftIcon,
+  RichTextAlignRightIcon,
+  RichTextBlockquoteIcon,
+  RichTextBulletListIcon,
+  RichTextClearIcon,
+  RichTextCodeIcon,
+  RichTextOrderedListIcon,
+  RichTextOutlineIcon,
+  RichTextShadowIcon
+} from "@/components/builder/rich-text-toolbar-icons";
 
 type BuilderRichTextEditorProps = {
   value: string;
@@ -133,7 +145,23 @@ export function BuilderRichTextEditor({
   onChange,
   placeholder = "Enter content"
 }: BuilderRichTextEditorProps) {
-  const fontSizeOptions = ["14", "16", "18", "20", "24", "28", "32"];
+  const fontSizeOptions = [
+    "14",
+    "16",
+    "18",
+    "20",
+    "24",
+    "28",
+    "32",
+    "36",
+    "40",
+    "44",
+    "48",
+    "52",
+    "56",
+    "60",
+    "64"
+  ];
   const lineHeightOptions = ["1.2", "1.4", "1.6", "1.8", "2"];
   const [activeFontSize, setActiveFontSize] = useState("16");
   const [activeLineHeight, setActiveLineHeight] = useState("default");
@@ -145,7 +173,7 @@ export function BuilderRichTextEditor({
     extensions: [
       StarterKit.configure({
         heading: {
-          levels: [1, 2, 3, 4, 5, 6]
+          levels: [1, 2, 3]
         }
       }),
       TextStyle,
@@ -343,11 +371,11 @@ export function BuilderRichTextEditor({
         >
           P
         </button>
-        {[1, 2, 3, 4, 5, 6].map((level) => (
+        {([1, 2, 3] as const).map((level) => (
           <button
             key={level}
             className={editor.isActive("heading", { level }) ? "is-active" : undefined}
-            onClick={() => editor.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 }).run()}
+            onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
             title={`Heading ${level}`}
             type="button"
           >
@@ -384,7 +412,7 @@ export function BuilderRichTextEditor({
           title="Drop shadow"
           type="button"
         >
-          S
+          <RichTextShadowIcon />
         </button>
         <button
           className={hasTextOutline ? "is-active" : undefined}
@@ -392,7 +420,7 @@ export function BuilderRichTextEditor({
           title="Outline"
           type="button"
         >
-          O
+          <RichTextOutlineIcon />
         </button>
         <button
           className={hasTextAlign && editor.isActive({ textAlign: "left" }) ? "is-active" : undefined}
@@ -405,7 +433,7 @@ export function BuilderRichTextEditor({
           title="Align left"
           type="button"
         >
-          ≡
+          <RichTextAlignLeftIcon />
         </button>
         <button
           className={hasTextAlign && editor.isActive({ textAlign: "center" }) ? "is-active" : undefined}
@@ -418,7 +446,7 @@ export function BuilderRichTextEditor({
           title="Align center"
           type="button"
         >
-          ≣
+          <RichTextAlignCenterIcon />
         </button>
         <button
           className={hasTextAlign && editor.isActive({ textAlign: "right" }) ? "is-active" : undefined}
@@ -431,7 +459,7 @@ export function BuilderRichTextEditor({
           title="Align right"
           type="button"
         >
-          ☰
+          <RichTextAlignRightIcon />
         </button>
         <button
           className={isCodeView ? "is-active" : undefined}
@@ -439,7 +467,7 @@ export function BuilderRichTextEditor({
           title="Code view"
           type="button"
         >
-          {"</>"}
+          <RichTextCodeIcon />
         </button>
         <label className="builder-rich-text-color" title="Text color">
           <select
@@ -490,7 +518,7 @@ export function BuilderRichTextEditor({
           title="Bullet list"
           type="button"
         >
-          ••
+          <RichTextBulletListIcon />
         </button>
         <button
           className={editor.isActive("orderedList") ? "is-active" : undefined}
@@ -498,7 +526,7 @@ export function BuilderRichTextEditor({
           title="Numbered list"
           type="button"
         >
-          1.
+          <RichTextOrderedListIcon />
         </button>
         <button
           className={editor.isActive("blockquote") ? "is-active" : undefined}
@@ -506,14 +534,14 @@ export function BuilderRichTextEditor({
           title="Block quote"
           type="button"
         >
-          ❝
+          <RichTextBlockquoteIcon />
         </button>
         <button
           onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().setParagraph().run()}
           title="Clear formatting"
           type="button"
         >
-          ⨯
+          <RichTextClearIcon />
         </button>
       </div>
 

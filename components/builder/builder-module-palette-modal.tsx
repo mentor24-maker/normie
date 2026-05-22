@@ -67,7 +67,6 @@ export function BuilderModulePaletteModal({
                 >
                   <span className="builder-module-item-icon">{item.icon}</span>
                   <strong>{item.label}</strong>
-                  <span>{item.description}</span>
                 </button>
               ))}
             </div>
@@ -83,7 +82,6 @@ export function BuilderModulePaletteModal({
               >
                 <span className="builder-module-group-card-icon">{group.icon}</span>
                 <strong>{group.label}</strong>
-                <span>{group.description}</span>
               </button>
             ))}
           </div>
