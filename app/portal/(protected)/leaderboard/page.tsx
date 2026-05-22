@@ -15,7 +15,7 @@ export default async function PlayerLeaderboardPage() {
       {snapshot.leaderboard.length ? (
         <div className="table-shell">
           <table className="polls-table player-table">
-            <thead><tr><th>Rank</th><th>Player</th><th>Handle</th><th>Polls</th><th>Tokens</th></tr></thead>
+            <thead><tr><th>Rank</th><th>Player</th><th>Handle</th><th>Polls</th><th>Points</th></tr></thead>
             <tbody>
               {snapshot.leaderboard.map((entry) => (
                 <tr className={entry.playerId === snapshot.player.id ? "player-table-highlight" : undefined} key={entry.playerId}>

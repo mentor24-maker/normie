@@ -12,7 +12,11 @@ export function PlayerLogoutButton() {
   }
 
   return (
-    <button className="admin-nav-link admin-logout-button" onClick={() => void handleLogout()} type="button">
+    <button
+      className="player-portal-nav-link player-portal-nav-link-logout"
+      onClick={() => void handleLogout()}
+      type="button"
+    >
       Logout
     </button>
   );

@@ -1,13 +1,21 @@
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
 
+export type PlayerPollOption = {
+  id: string;
+  label: string;
+};
+
 export type PlayerAnswer = {
   id: string;
+  pollId: string;
+  optionId: string;
   question: string;
   answer: string;
   category: string;
   tokensEarned: number;
   answeredAt: string;
+  options: PlayerPollOption[];
 };
 
 export type LeaderboardEntry = {
@@ -28,16 +36,31 @@ export type PlayerPortalSnapshot = {
   playerRank: number | null;
 };
 
+type PollOptionRow = {
+  id: string;
+  label: string | null;
+  sort_order: number | null;
+};
+
 type ResponseRow = {
   id: string;
+  poll_id: string;
+  option_id: string;
   user_id: string | null;
   tokens_earned: number | null;
   created_at: string;
   polls:
-    | { question: string | null; category: string | null }
-    | Array<{ question: string | null; category: string | null }>
+    | {
+        question: string | null;
+        category: string | null;
+        poll_options: PollOptionRow[] | PollOptionRow | null;
+      }
+    | Array<{
+        question: string | null;
+        category: string | null;
+        poll_options: PollOptionRow[] | PollOptionRow | null;
+      }>
     | null;
-  poll_options: { label: string | null } | Array<{ label: string | null }> | null;
 };
 
 type LeaderboardResponseRow = {
@@ -66,7 +89,9 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     await Promise.all([
       supabase
         .from("responses")
-        .select("id, user_id, tokens_earned, created_at, polls(question, category), poll_options(label)")
+        .select(
+          "id, poll_id, option_id, user_id, tokens_earned, created_at, polls(question, category, poll_options(id, label, sort_order))"
+        )
         .eq("user_id", player.authUser.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -85,15 +110,27 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
 
   const answers: PlayerAnswer[] = ((responseRows ?? []) as unknown as ResponseRow[]).map((row) => {
     const poll = firstRelation(row.polls);
-    const option = firstRelation(row.poll_options);
+    const rawOptions = poll?.poll_options;
+    const optionRows = Array.isArray(rawOptions) ? rawOptions : rawOptions ? [rawOptions] : [];
+    const options = optionRows
+      .slice()
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((option) => ({
+        id: option.id,
+        label: option.label?.trim() || "Option"
+      }));
+    const selectedOption = options.find((option) => option.id === row.option_id);
 
     return {
       id: row.id,
+      pollId: row.poll_id,
+      optionId: row.option_id,
       question: poll?.question ?? "Untitled poll",
-      answer: option?.label ?? "Unknown answer",
+      answer: selectedOption?.label ?? "Unknown answer",
       category: poll?.category ?? "General",
       tokensEarned: row.tokens_earned ?? 0,
-      answeredAt: row.created_at
+      answeredAt: row.created_at,
+      options
     };
   });
 

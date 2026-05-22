@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { PlayerLogoutButton } from "@/components/player-logout-button";
+import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
 
@@ -19,32 +20,44 @@ export default async function ProtectedPortalLayout({
   }
 
   const displayName = player.profile.full_name || player.profile.handle || "Normie Player";
+  const handle = player.profile.handle?.trim();
 
   return (
-    <main className="admin-page player-page">
-      <section className="admin-shell admin-shell-wide player-shell">
-        <div className="admin-header">
-          <div className="admin-brand">
-            <Image src={logoSquare} alt="Normie logo" className="admin-brand-logo" priority />
-            <div className="admin-brand-copy">
-              <div className="page-eyebrow">Player Portal</div>
-              <h1 className="admin-title">Welcome, {displayName}</h1>
-              <p className="page-copy admin-copy">
-                Review your poll history, token progress, and leaderboard position.
+    <main className="player-portal-page">
+      <div className="player-portal-frame">
+        <header className="player-portal-top">
+          <div className="player-portal-brand">
+            <Image
+              src={logoSquare}
+              alt="Normie logo"
+              className="player-portal-logo"
+              priority
+            />
+            <div className="player-portal-brand-copy">
+              <p className="player-portal-eyebrow">Player Portal</p>
+              <h1 className="player-portal-title">Hey, {displayName}</h1>
+              <p className="player-portal-tagline">
+                Track your poll picks, points, and where you rank among other Normies.
+                {handle ? (
+                  <>
+                    {" "}
+                    <span className="player-portal-handle">@{handle}</span>
+                  </>
+                ) : null}
               </p>
             </div>
           </div>
-        </div>
-        <nav className="admin-nav admin-nav-bar" aria-label="Player navigation">
-          <Link className="admin-nav-link" href="/portal/dashboard">Dashboard</Link>
-          <Link className="admin-nav-link" href="/portal/polls">My Polls</Link>
-          <Link className="admin-nav-link" href="/portal/tokens">Tokens</Link>
-          <Link className="admin-nav-link" href="/portal/leaderboard">Leaderboard</Link>
-          <Link className="admin-nav-link" href="/">Play</Link>
-          <PlayerLogoutButton />
-        </nav>
-        {children}
-      </section>
+          <Link className="submit-button player-portal-play-cta" href="/portal/dashboard?playPolls=1">
+            Play Polls
+          </Link>
+        </header>
+
+        <Suspense fallback={<nav aria-label="Player navigation" className="player-portal-nav player-portal-nav-fallback" />}>
+          <PlayerPortalNav />
+        </Suspense>
+
+        <div className="player-portal-main">{children}</div>
+      </div>
     </main>
   );
 }

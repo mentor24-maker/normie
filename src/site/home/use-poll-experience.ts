@@ -9,7 +9,11 @@ import {
 } from "@/lib/poll-categories";
 import type { PollPayload } from "@/src/site/home/types";
 
-export function usePollExperience() {
+type UsePollExperienceOptions = {
+  onAnswered?: () => void;
+};
+
+export function usePollExperience(options?: UsePollExperienceOptions) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
   const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
@@ -82,6 +86,7 @@ export function usePollExperience() {
 
       stripStartPollFromBrowserUrl();
       await loadPolls({ startPoll: "" });
+      options?.onAnswered?.();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {
