@@ -17,6 +17,8 @@ export type PlayerProfileRow = {
   social_links?: Record<string, unknown> | null;
   share_profile?: boolean | null;
   share_poll_responses?: boolean | null;
+  preferred_poll_categories?: unknown;
+  default_play_poll_category?: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -40,8 +42,11 @@ export const PLAYER_PROFILE_BASE_SELECT =
 export const PLAYER_PROFILE_EXTENDED_SELECT =
   "avatar_url, bio, social_links, share_profile, share_poll_responses";
 
+export const PLAYER_PROFILE_PREFERENCES_SELECT =
+  "preferred_poll_categories, default_play_poll_category";
+
 export const PLAYER_PROFILE_FULL_SELECT =
-  "id, full_name, handle, status, created_at, updated_at, avatar_url, bio, social_links, share_profile, share_poll_responses";
+  "id, full_name, handle, status, created_at, updated_at, avatar_url, bio, social_links, share_profile, share_poll_responses, preferred_poll_categories, default_play_poll_category";
 
 export function isMissingPlayerSchemaError(error: { message?: string; code?: string } | null | undefined) {
   return Boolean(
@@ -184,18 +189,20 @@ export async function getPlayerUserFromToken(accessToken: string | undefined | n
 
 export async function fetchPlayerProfileRow(
   userId: string,
-  options?: { includeExtended?: boolean }
+  options?: { includeExtended?: boolean; select?: string }
 ): Promise<PlayerProfileRow | null> {
   const supabase = createAdminClient();
   const includeExtended = options?.includeExtended ?? false;
+  const selectColumns =
+    options?.select ?? (includeExtended ? PLAYER_PROFILE_FULL_SELECT : PLAYER_PROFILE_BASE_SELECT);
 
   let { data, error } = await supabase
     .from("player_profiles")
-    .select(includeExtended ? PLAYER_PROFILE_FULL_SELECT : PLAYER_PROFILE_BASE_SELECT)
+    .select(selectColumns)
     .eq("id", userId)
     .maybeSingle();
 
-  if (isMissingProfileColumnError(error) && includeExtended) {
+  if (isMissingProfileColumnError(error) && includeExtended && !options?.select) {
     ({ data, error } = await supabase
       .from("player_profiles")
       .select(PLAYER_PROFILE_BASE_SELECT)

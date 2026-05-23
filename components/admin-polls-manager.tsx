@@ -10,6 +10,7 @@ import {
 } from "@/components/admin-poll-deep-dive-editor";
 import { buildPublicPollViewPath } from "@/lib/poll-categories";
 import { CsvImportForm } from "@/components/csv-import-form";
+import { StarcasterCsvImportForm } from "@/components/starcaster-csv-import-form";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 
 type PollOption = {
@@ -325,26 +326,24 @@ export function AdminPollsManager() {
 
         {isImportOpen ? (
           <section className="builder-toolbar-shell">
-            <div className="panel-label">CSV Import</div>
+            <div className="panel-label">Starcaster Import</div>
             <p className="page-copy admin-copy">
-              Upload a CSV with `Category`, `Question`, `Option_A`, and `Option_B` columns, then review
-              and clean up the imported polls below.
+              Upload the Normie 200 Would You Rather scoring CSV (`Category B`, `Option 1`, `Option B`,
+              `Question`, and scoring columns). Use this form only — not the simple CSV layout below.
+              If import fails, open Import Diagnostics for header details.
             </p>
-            <CsvImportForm
+            <StarcasterCsvImportForm
               onImported={async () => {
                 await loadPolls();
                 setIsImportOpen(false);
               }}
             />
-            <div className="panel-label">Advanced Import</div>
+            <div className="panel-label">Simple CSV Import</div>
             <p className="page-copy admin-copy">
-              Upload the Starcaster scoring CSV with question IDs, personality metadata, score codes,
-              scoring logic, weights, reverse-scoring flags, and AI interpretation tags.
+              For basic polls only: `Category`, `Question`, `Option_A`, and `Option_B` — not the
+              Starcaster scoring file.
             </p>
             <CsvImportForm
-              importType="advanced"
-              helpColumns="Question ID,Category,Personality System,Trait / Dimension,Option A,Option B,One-Line Question,Option A Score Code,Option B Score Code,Scoring Logic,Weight,Reverse Scored?,AI Interpretation Tag"
-              submitLabel="Upload Advanced CSV"
               onImported={async () => {
                 await loadPolls();
                 setIsImportOpen(false);

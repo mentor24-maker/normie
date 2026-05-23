@@ -531,6 +531,28 @@ h2 {
   line-height: 1.6;
 }
 
+.starcaster-import-diagnostics {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.starcaster-import-diagnostics summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #18324a;
+}
+
+.starcaster-import-diagnostics pre {
+  margin: 10px 0 0;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
 .page-copy {
   max-width: 56rem;
   font-size: 1.08rem;
@@ -2571,9 +2593,50 @@ h2 {
   transform: translateX(-100px) translateY(-3px) scale(1.01);
 }
 
-.player-profile-form {
+.player-profile-form,
+.player-preferences-form {
   display: grid;
   gap: 18px;
+}
+
+.player-preferences-category-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.player-preferences-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border: 1px solid rgba(11, 143, 196, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.72), transparent 48%),
+    linear-gradient(145deg, #f3fbff 0%, #e8f6fc 52%, #d4eef9 100%);
+}
+
+.player-preferences-category-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.player-preferences-category-option input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.player-preferences-fields {
+  margin-top: 18px;
 }
 
 .player-profile-split-grid {
@@ -7449,7 +7512,8 @@ code {
     transform: translateY(-3px) scale(1.01);
   }
 
-  .player-profile-split-grid {
+  .player-profile-split-grid,
+  .player-preferences-category-grid {
     grid-template-columns: 1fr;
   }
 

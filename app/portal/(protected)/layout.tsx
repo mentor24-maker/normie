@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { PlayerLogoutButton } from "@/components/player-logout-button";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
+import { buildPlayerPortalPlayPollsHref, getPlayerPreferences } from "@/lib/player-preferences";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
 
 export default async function ProtectedPortalLayout({
@@ -22,6 +23,8 @@ export default async function ProtectedPortalLayout({
 
   const displayName = player.profile.full_name || player.profile.handle || "Normie Player";
   const handle = player.profile.handle?.trim();
+  const preferences = await getPlayerPreferences(player);
+  const playPollsHref = buildPlayerPortalPlayPollsHref(preferences);
 
   return (
     <main className="player-portal-page">
@@ -66,7 +69,7 @@ export default async function ProtectedPortalLayout({
             </div>
           </div>
           <div className="player-portal-play-slot">
-            <Link className="submit-button player-portal-play-cta" href="/portal/dashboard?playPolls=1">
+            <Link className="submit-button player-portal-play-cta" href={playPollsHref}>
               Would You Rather...?
             </Link>
           </div>

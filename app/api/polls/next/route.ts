@@ -6,6 +6,7 @@ import { getPublicPollSettings, pollSettingsToClientPayload } from "@/lib/poll-s
 import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
+import { getPlayerPreferences } from "@/lib/player-preferences";
 import { createPublicClient } from "@/lib/supabase-public";
 import {
   resolveCurrentPollIndexFromSession,
@@ -102,10 +103,19 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   }
 
   const answeredPollIds = new Set((responses ?? []).map((response) => response.poll_id));
-  const orderedPolls = (polls ?? []).map((poll) => ({
+  let orderedPolls = (polls ?? []).map((poll) => ({
     ...poll,
     poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   }));
+
+  if (player && !categoryParam) {
+    const preferences = await getPlayerPreferences(player);
+
+    if (preferences && preferences.preferredPollCategories.length > 0) {
+      const allowed = new Set(preferences.preferredPollCategories);
+      orderedPolls = orderedPolls.filter((poll) => allowed.has(poll.category?.trim() ?? ""));
+    }
+  }
 
   const hasStartPollOverride = Boolean(startPollParam) && START_POLL_UUID.test(startPollParam);
   const currentIndexFromSession = player && !hasStartPollOverride

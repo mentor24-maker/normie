@@ -24,6 +24,11 @@ add column if not exists social_links jsonb not null default '{}'::jsonb,
 add column if not exists share_profile boolean not null default false,
 add column if not exists share_poll_responses boolean not null default false;
 
+-- Preferences (migration 014)
+alter table public.player_profiles
+add column if not exists preferred_poll_categories jsonb not null default '[]'::jsonb,
+add column if not exists default_play_poll_category text;
+
 create index if not exists player_profiles_status_idx on public.player_profiles (status);
 create index if not exists player_profiles_handle_idx on public.player_profiles (handle);
 

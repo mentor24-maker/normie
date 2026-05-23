@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  isPlayerPortalPlayPollsOpen,
-  PLAYER_PORTAL_PLAY_POLLS_HREF
-} from "@/components/player-portal-poll-section";
+import { isPlayerPortalPlayPollsOpen } from "@/components/player-portal-poll-section";
+
 const navItems = [
   { href: "/portal/dashboard", label: "Dashboard" },
   { href: "/portal/polls", label: "My Polls" },
   { href: "/portal/points", label: "Points" },
   { href: "/portal/leaderboard", label: "Leaderboard" },
-  { href: "/portal/profile", label: "Profile" }
+  { href: "/portal/preferences", label: "Preferences" }
 ] as const;
 
 function isNavActive(pathname: string, href: string, playPollsOpen: boolean): boolean {
@@ -41,14 +39,6 @@ export function PlayerPortalNav() {
             {item.label}
           </Link>
         ))}
-        <Link
-          className={`player-portal-nav-link player-portal-nav-link-play${
-            playPollsActive ? " is-active" : ""
-          }`}
-          href={PLAYER_PORTAL_PLAY_POLLS_HREF}
-        >
-          Play Polls
-        </Link>
       </div>
     </nav>
   );

@@ -1,17 +1,19 @@
 import Papa from "papaparse";
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import {
+  buildStarcasterImportDiagnostics,
+  importStarcasterPollRows,
+  normalizeCsvHeader,
+  normalizeCsvValue,
+  parseStarcasterCsvText,
+  shouldUseStarcasterImport
+} from "@/lib/starcaster-poll-csv-import";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
 
-function normalizeValue(value: string | undefined | null) {
-  return (value ?? "").trim();
-}
-
-function normalizeHeader(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
-}
+const ENDPOINT = "/api/import";
 
 function parseBoolean(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -23,6 +25,19 @@ function parseWeight(value: string) {
   return Number.isFinite(parsed) ? parsed : 1;
 }
 
+function importFailure(
+  auth: Awaited<ReturnType<typeof requireAdminRoute>>,
+  message: string,
+  diagnostics: ReturnType<typeof buildStarcasterImportDiagnostics>,
+  status = 400
+) {
+  if ("response" in auth) {
+    return auth.response;
+  }
+
+  return auth.finish(NextResponse.json({ error: message, diagnostics }, { status }));
+}
+
 export async function POST(request: Request) {
   const auth = await requireAdminRoute("content:write");
 
@@ -32,27 +47,94 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
-  const importType = normalizeValue(formData.get("import_type")?.toString()).toLowerCase();
+  const importType = normalizeCsvValue(formData.get("import_type")?.toString()).toLowerCase();
   const isAdvancedImport = importType === "advanced";
 
   if (!(file instanceof File)) {
-    return auth.finish(NextResponse.json({ error: "A CSV file is required." }, { status: 400 }));
+    return importFailure(auth, "A CSV file is required.", {
+      importType,
+      endpoint: ENDPOINT,
+      rawHeaders: [],
+      normalizedHeaders: [],
+      useStarcasterImport: false,
+      isStarcasterPollCsv: false,
+      hasCategoryB: false,
+      starcasterExpected: [],
+      starcasterMissing: [],
+      parsedRowCount: 0,
+      importableRowCount: 0
+    });
   }
 
   const csvText = await file.text();
-  const parsed = Papa.parse<ImportRow>(csvText, {
-    header: true,
-    skipEmptyLines: true,
-    transformHeader: (header) => normalizeHeader(header)
-  });
+  const starcasterParsed = parseStarcasterCsvText(csvText);
+  const diagnostics = buildStarcasterImportDiagnostics(
+    importType,
+    ENDPOINT,
+    starcasterParsed.rawHeaders,
+    starcasterParsed.normalizedHeaders,
+    starcasterParsed.rows.length,
+    starcasterParsed.importableRows.length
+  );
 
-  if (parsed.errors.length > 0) {
-    return auth.finish(
-      NextResponse.json({ error: parsed.errors[0]?.message ?? "Failed to parse CSV." }, { status: 400 })
+  if (starcasterParsed.parseErrors.length > 0) {
+    return importFailure(
+      auth,
+      starcasterParsed.parseErrors[0]?.message ?? "Failed to parse CSV.",
+      diagnostics
     );
   }
 
-  const fields = (parsed.meta.fields ?? []).map((field) => normalizeHeader(field));
+  const fields = diagnostics.normalizedHeaders;
+  const useStarcasterImport = shouldUseStarcasterImport(importType, fields);
+  diagnostics.useStarcasterImport = useStarcasterImport;
+
+  if (useStarcasterImport) {
+    if (starcasterParsed.importableRows.length === 0) {
+      return importFailure(
+        auth,
+        "No importable poll rows found. Check that headers match the Starcaster export.",
+        diagnostics
+      );
+    }
+
+    try {
+      const supabase = createAdminClient();
+      const createdCount = await importStarcasterPollRows(supabase, starcasterParsed.importableRows);
+
+      return auth.finish(
+        NextResponse.json({
+          ok: true,
+          createdCount,
+          diagnostics: { ...diagnostics, createdCount }
+        })
+      );
+    } catch (importError) {
+      return importFailure(
+        auth,
+        importError instanceof Error ? importError.message : "Starcaster import failed.",
+        diagnostics,
+        500
+      );
+    }
+  }
+
+  const parsed = Papa.parse<ImportRow>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (header) => normalizeCsvHeader(header)
+  });
+
+  const rows = parsed.data
+    .map((row) =>
+      Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeCsvHeader(key), normalizeCsvValue(value)]))
+    )
+    .filter((row) => Object.values(row).some(Boolean));
+
+  if (rows.length === 0) {
+    return importFailure(auth, "The CSV file had no usable rows.", diagnostics);
+  }
+
   const questionField = fields.includes("question")
     ? "question"
     : isAdvancedImport && fields.includes("one_line_question")
@@ -64,55 +146,11 @@ export async function POST(request: Request) {
     : fields.filter((field) => /^option(?:_|$)/.test(field));
 
   if (!questionField || !categoryField || optionFields.length < 2) {
-    return auth.finish(
-      NextResponse.json(
-        {
-          error:
-            "CSV must include Category, Question, and at least two option columns such as Option_A and Option_B."
-        },
-        { status: 400 }
-      )
+    return importFailure(
+      auth,
+      "This file looks like the Starcaster Would You Rather CSV (Category B, Option 1, Option B). Use Starcaster Import or POST /api/admin/polls/import-starcaster instead of the simple CSV import.",
+      diagnostics
     );
-  }
-
-  if (isAdvancedImport) {
-    const requiredFields = [
-      "question_id",
-      "category",
-      "personality_system",
-      "trait_dimension",
-      "option_a",
-      "option_b",
-      "one_line_question",
-      "option_a_score_code",
-      "option_b_score_code",
-      "scoring_logic",
-      "weight",
-      "reverse_scored",
-      "ai_interpretation_tag"
-    ];
-    const missingFields = requiredFields.filter((field) => !fields.includes(field));
-
-    if (missingFields.length > 0) {
-      return auth.finish(
-        NextResponse.json(
-          {
-            error: `Advanced CSV is missing required column(s): ${missingFields.join(", ")}.`
-          },
-          { status: 400 }
-        )
-      );
-    }
-  }
-
-  const rows = parsed.data
-    .map((row) =>
-      Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeHeader(key), normalizeValue(value)]))
-    )
-    .filter((row) => Object.values(row).some(Boolean));
-
-  if (rows.length === 0) {
-    return auth.finish(NextResponse.json({ error: "The CSV file had no usable rows." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -125,26 +163,22 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (lastPollError) {
-    return auth.finish(NextResponse.json({ error: lastPollError.message }, { status: 500 }));
+    return importFailure(auth, lastPollError.message, diagnostics, 500);
   }
 
   let nextOrderIndex = (lastPoll?.order_index ?? 0) + 1;
   let createdCount = 0;
 
   for (const row of rows) {
-    const category = normalizeValue(row[categoryField]);
-    const question = normalizeValue(row[questionField]);
-    const options = optionFields.map((field) => normalizeValue(row[field])).filter(Boolean);
+    const category = normalizeCsvValue(row[categoryField]);
+    const question = normalizeCsvValue(row[questionField]);
+    const options = optionFields.map((field) => normalizeCsvValue(row[field])).filter(Boolean);
 
     if (!category || !question || options.length < 2) {
-      return auth.finish(
-        NextResponse.json(
-          {
-            error:
-              `Each row needs a category, a question, and at least two options. Problem row: ${JSON.stringify(row)}`
-          },
-          { status: 400 }
-        )
+      return importFailure(
+        auth,
+        `Each row needs a category, a question, and at least two options. Problem row: ${JSON.stringify(row)}`,
+        diagnostics
       );
     }
 
@@ -153,19 +187,6 @@ export async function POST(request: Request) {
       .insert({
         category,
         question,
-        ...(isAdvancedImport
-          ? {
-              source_question_id: normalizeValue(row.question_id),
-              personality_system: normalizeValue(row.personality_system),
-              trait_dimension: normalizeValue(row.trait_dimension),
-              option_a_score_code: normalizeValue(row.option_a_score_code),
-              option_b_score_code: normalizeValue(row.option_b_score_code),
-              scoring_logic: normalizeValue(row.scoring_logic),
-              scoring_weight: parseWeight(normalizeValue(row.weight)),
-              reverse_scored: parseBoolean(normalizeValue(row.reverse_scored)),
-              ai_interpretation_tag: normalizeValue(row.ai_interpretation_tag)
-            }
-          : {}),
         order_index: nextOrderIndex,
         is_published: true
       })
@@ -173,9 +194,7 @@ export async function POST(request: Request) {
       .single();
 
     if (pollError || !poll) {
-      return auth.finish(
-        NextResponse.json({ error: pollError?.message ?? "Failed to create poll." }, { status: 500 })
-      );
+      return importFailure(auth, pollError?.message ?? "Failed to create poll.", diagnostics, 500);
     }
 
     const { error: optionError } = await supabase.from("poll_options").insert(
@@ -187,12 +206,12 @@ export async function POST(request: Request) {
     );
 
     if (optionError) {
-      return auth.finish(NextResponse.json({ error: optionError.message }, { status: 500 }));
+      return importFailure(auth, optionError.message, diagnostics, 500);
     }
 
     nextOrderIndex += 1;
     createdCount += 1;
   }
 
-  return auth.finish(NextResponse.json({ ok: true, createdCount }));
+  return auth.finish(NextResponse.json({ ok: true, createdCount, diagnostics }));
 }
