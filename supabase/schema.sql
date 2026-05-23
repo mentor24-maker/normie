@@ -31,6 +31,9 @@ create table if not exists public.polls (
   scoring_weight numeric not null default 1,
   reverse_scored boolean not null default false,
   ai_interpretation_tag text not null default '',
+  collection text not null default 'Standard' check (
+    collection in ('Standard', 'Personality Type A', 'Personality Type B')
+  ),
   question text not null,
   deep_dive text not null default '',
   deep_dive_youtube_url text not null default '',

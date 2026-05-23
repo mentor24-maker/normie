@@ -162,30 +162,3 @@ export async function updatePlayerPreferences(
   };
 }
 
-export function buildPlayerPortalPlayPollsHref(preferences: PlayerPreferences | null): string {
-  const params = new URLSearchParams();
-  params.set("playPolls", "1");
-
-  const categorySlug = preferences ? getPlayPollCategoryParam(preferences) : null;
-
-  if (categorySlug) {
-    params.set("category", categorySlug);
-  }
-
-  return `/portal/dashboard?${params.toString()}`;
-}
-
-export function getPlayPollCategoryParam(preferences: PlayerPreferences): string | null {
-  if (preferences.defaultPlayPollCategory) {
-    const seeded = POLL_CATEGORY_SEEDS.find((c) => c.name === preferences.defaultPlayPollCategory);
-    return seeded?.slug ?? null;
-  }
-
-  if (preferences.preferredPollCategories.length > 0) {
-    const first = preferences.preferredPollCategories[0];
-    const seeded = POLL_CATEGORY_SEEDS.find((c) => c.name === first);
-    return seeded?.slug ?? null;
-  }
-
-  return null;
-}

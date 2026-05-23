@@ -64,6 +64,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       const settings = await settingsPromise;
       return NextResponse.json({
         done: true,
+        doneReason: "invalid_category",
         activeCategory: null,
         currentPoll: null,
         previousPoll: null,
@@ -108,13 +109,12 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   }));
 
-  if (player && !categoryParam) {
-    const preferences = await getPlayerPreferences(player);
+  const preferences = player && !categoryParam ? await getPlayerPreferences(player) : null;
+  const usesPreferenceFilter = Boolean(preferences && preferences.preferredPollCategories.length > 0);
 
-    if (preferences && preferences.preferredPollCategories.length > 0) {
-      const allowed = new Set(preferences.preferredPollCategories);
-      orderedPolls = orderedPolls.filter((poll) => allowed.has(poll.category?.trim() ?? ""));
-    }
+  if (usesPreferenceFilter && preferences) {
+    const allowed = new Set(preferences.preferredPollCategories);
+    orderedPolls = orderedPolls.filter((poll) => allowed.has(poll.category?.trim() ?? ""));
   }
 
   let currentPoll = pickRandomUnansweredPoll(orderedPolls, answeredPollIds);
@@ -127,9 +127,37 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     }
   }
 
+  let doneReason:
+    | "all_answered"
+    | "all_answered_in_category"
+    | "all_answered_in_preferences"
+    | "no_polls_in_category"
+    | "no_polls_matching_preferences"
+    | "invalid_category"
+    | null = null;
+
+  if (!currentPoll) {
+    if (categoryParam && !categoryFilter) {
+      doneReason = "invalid_category";
+    } else if (orderedPolls.length === 0) {
+      doneReason = usesPreferenceFilter
+        ? "no_polls_matching_preferences"
+        : categoryParam
+          ? "no_polls_in_category"
+          : "all_answered";
+    } else if (categoryParam) {
+      doneReason = "all_answered_in_category";
+    } else if (usesPreferenceFilter) {
+      doneReason = "all_answered_in_preferences";
+    } else {
+      doneReason = "all_answered";
+    }
+  }
+
   if (!currentPoll) {
     const doneResponse = NextResponse.json({
       done: true,
+      doneReason: doneReason ?? "all_answered",
       activeCategory,
       currentPoll: null,
       previousPoll: null,

@@ -11,25 +11,15 @@ import {
 import { buildPublicPollViewPath } from "@/lib/poll-categories";
 import { AdminPollUploadPod } from "@/components/admin-poll-upload-pod";
 import { CsvImportForm } from "@/components/csv-import-form";
-import { StarcasterCsvImportForm } from "@/components/starcaster-csv-import-form";
+import { PersonalityCsvImportForm } from "@/components/personality-csv-import-form";
+import {
+  PERSONALITY_TYPE_A_COLUMNS,
+  PERSONALITY_TYPE_B_COLUMNS
+} from "@/lib/personality-poll-import";
+import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
+import { POLL_COLLECTIONS, type PollCollection } from "@/lib/poll-collections";
 
 const STANDARD_UPLOAD_COLUMNS = ["Category", "Question", "Option_A", "Option_B"];
-
-const PERSONALITY_SYSTEMS_UPLOAD_COLUMNS = [
-  "Category B",
-  "Personality System",
-  "Trait / Dimension",
-  "Option 1",
-  "Option B",
-  "Question",
-  "Option A Score Code",
-  "Option B Score Code",
-  "Scoring Logic",
-  "Weight",
-  "Reverse Scored?",
-  "AI Interpretation Tag"
-];
-import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 
 type PollOption = {
   id: string;
@@ -40,6 +30,7 @@ type PollOption = {
 type AdminPoll = {
   id: string;
   category: string | null;
+  collection?: string | null;
   question: string;
   deep_dive?: string;
   deep_dive_youtube_url?: string;
@@ -58,7 +49,7 @@ type PollMetrics = {
 };
 
 type PollFilterState = {
-  order: string;
+  collection: "" | PollCollection;
   category: string;
   question: string;
   options: string;
@@ -81,7 +72,7 @@ const POLL_CATEGORIES = [
 ] as const;
 
 const emptyFilters: PollFilterState = {
-  order: "",
+  collection: "",
   category: "",
   question: "",
   options: "",
@@ -89,6 +80,11 @@ const emptyFilters: PollFilterState = {
   requireYoutube: false,
   requireBlogPost: false
 };
+
+function formatPollCollection(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  return POLL_COLLECTIONS.includes(normalized as PollCollection) ? normalized : "Standard";
+}
 
 function matchesFilter(value: string | number | null | undefined, filter: string) {
   if (!filter.trim()) {
@@ -196,7 +192,7 @@ export function AdminPollsManager() {
       const hasBlogPost = Boolean((poll.deep_dive_blog_post_id ?? "").toString().trim());
 
       return (
-        matchesFilter(poll.order_index, filters.order) &&
+        (!filters.collection || formatPollCollection(poll.collection) === filters.collection) &&
         (!filters.category || (poll.category ?? "") === filters.category) &&
         matchesFilter(poll.question, filters.question) &&
         matchesFilter(optionsText, filters.options) &&
@@ -290,54 +286,56 @@ export function AdminPollsManager() {
     <div className="admin-stack admin-polls-stack">
       <section className="admin-section admin-polls-workspace">
         <div className="admin-polls-header">
-          <div className="admin-polls-eyebrow-row">
-            <div className="panel-label">Polls</div>
-            <div className="admin-polls-action-bar admin-actions">
-              <Link
-                className="submit-button admin-blog-add-button admin-polls-create-button"
-                href="/admin/polls/new"
-              >
-                Create Poll
-              </Link>
-              <button
-                className={`secondary-button admin-polls-import-button${isImportOpen ? " admin-polls-import-button-is-open" : ""}`}
-                onClick={() => setIsImportOpen((current) => !current)}
-                type="button"
-              >
-                {isImportOpen ? "Hide Import" : "Import"}
-              </button>
-              <Link className="secondary-button admin-polls-settings-button" href="/admin/polls/settings">
-                Settings
-              </Link>
-              <button
-                className="danger-button"
-                onClick={() => void handleBulkDelete()}
-                type="button"
-                disabled={isDeleting || selectedPollIds.length === 0}
-              >
-                {isDeleting ? "Deleting..." : `Delete Selected (${selectedPollIds.length})`}
-              </button>
-            </div>
-          </div>
+          <div className="panel-label admin-polls-eyebrow">Polls</div>
 
-          <div className="admin-polls-heading-row">
+          <div className="admin-polls-title-row">
             <div className="admin-polls-heading-copy">
               <h2>Poll Manager</h2>
               <p className="page-copy admin-copy">{pollCountSummary}</p>
             </div>
-            <div className="admin-polls-metrics" aria-label="Key poll metrics">
-              <article className="scalar-metric-pod admin-polls-metric-card admin-polls-metric-card-sky">
-                <span className="scalar-metric-pod-label admin-polls-metric-label">Questions</span>
-                <strong className="scalar-metric-pod-value admin-polls-metric-value">
-                  {isLoading ? "—" : metrics.questionCount}
-                </strong>
-              </article>
-              <article className="scalar-metric-pod admin-polls-metric-card admin-polls-metric-card-mint">
-                <span className="scalar-metric-pod-label admin-polls-metric-label">Answers</span>
-                <strong className="scalar-metric-pod-value admin-polls-metric-value">
-                  {isLoading ? "—" : metrics.totalAnswers}
-                </strong>
-              </article>
+
+            <div className="admin-polls-title-aside">
+              <div className="admin-polls-action-bar admin-actions">
+                <Link
+                  className="submit-button admin-blog-add-button admin-polls-create-button"
+                  href="/admin/polls/new"
+                >
+                  Create Poll
+                </Link>
+                <button
+                  className={`secondary-button admin-polls-import-button${isImportOpen ? " admin-polls-import-button-is-open" : ""}`}
+                  onClick={() => setIsImportOpen((current) => !current)}
+                  type="button"
+                >
+                  {isImportOpen ? "Hide Import" : "Import"}
+                </button>
+                <Link className="secondary-button admin-polls-settings-button" href="/admin/polls/settings">
+                  Settings
+                </Link>
+                <button
+                  className="danger-button"
+                  onClick={() => void handleBulkDelete()}
+                  type="button"
+                  disabled={isDeleting || selectedPollIds.length === 0}
+                >
+                  {isDeleting ? "Deleting..." : `Delete Selected (${selectedPollIds.length})`}
+                </button>
+              </div>
+
+              <div className="admin-polls-metrics" aria-label="Key poll metrics">
+                <article className="scalar-metric-pod admin-polls-metric-card admin-polls-metric-card-sky">
+                  <span className="scalar-metric-pod-label admin-polls-metric-label">Questions</span>
+                  <strong className="scalar-metric-pod-value admin-polls-metric-value">
+                    {isLoading ? "—" : metrics.questionCount}
+                  </strong>
+                </article>
+                <article className="scalar-metric-pod admin-polls-metric-card admin-polls-metric-card-mint">
+                  <span className="scalar-metric-pod-label admin-polls-metric-label">Answers</span>
+                  <strong className="scalar-metric-pod-value admin-polls-metric-value">
+                    {isLoading ? "—" : metrics.totalAnswers}
+                  </strong>
+                </article>
+              </div>
             </div>
           </div>
         </div>
@@ -355,8 +353,17 @@ export function AdminPollsManager() {
                 }}
               />
             </AdminPollUploadPod>
-            <AdminPollUploadPod title="Personality Systems" columns={PERSONALITY_SYSTEMS_UPLOAD_COLUMNS}>
-              <StarcasterCsvImportForm
+            <AdminPollUploadPod title="Personality Type A" columns={[...PERSONALITY_TYPE_A_COLUMNS]}>
+              <PersonalityCsvImportForm
+                endpoint="/api/admin/polls/import-personality-type-a"
+                onImported={async () => {
+                  await loadPolls();
+                }}
+              />
+            </AdminPollUploadPod>
+            <AdminPollUploadPod title="Personality Type B" columns={[...PERSONALITY_TYPE_B_COLUMNS]}>
+              <PersonalityCsvImportForm
+                endpoint="/api/admin/polls/import-personality-type-b"
                 onImported={async () => {
                   await loadPolls();
                 }}
@@ -370,12 +377,23 @@ export function AdminPollsManager() {
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={filteredPolls.length === 0} />
           </label>
           <label className="field polls-filter-field">
-            <span>Order</span>
-            <input
-              type="text"
-              value={filters.order}
-              onChange={(event) => setFilters((current) => ({ ...current, order: event.target.value }))}
-            />
+            <span>Collection</span>
+            <select
+              value={filters.collection}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  collection: event.target.value as PollFilterState["collection"]
+                }))
+              }
+            >
+              <option value="">All collections</option>
+              {POLL_COLLECTIONS.map((collection) => (
+                <option key={collection} value={collection}>
+                  {collection}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="field polls-filter-field">
             <span>Category</span>
@@ -399,7 +417,6 @@ export function AdminPollsManager() {
               onChange={(event) => setFilters((current) => ({ ...current, question: event.target.value }))}
             />
           </label>
-          <div className="polls-filter-spacer polls-filter-spacer-image" aria-hidden />
           <label className="field polls-filter-field">
             <span>Options</span>
             <input
@@ -457,10 +474,9 @@ export function AdminPollsManager() {
             <thead>
               <tr>
                 <th className="checkbox-cell" aria-label="Select rows" />
-                <th>Order</th>
+                <th>Collection</th>
                 <th>Category</th>
                 <th>Question</th>
-                <th>Image</th>
                 <th>Options</th>
                 <th>YouTube</th>
                 <th>Blog Post</th>
@@ -479,10 +495,9 @@ export function AdminPollsManager() {
                       onChange={() => togglePollSelection(poll.id)}
                     />
                   </td>
-                  <td>{poll.order_index}</td>
+                  <td>{formatPollCollection(poll.collection)}</td>
                   <td>{poll.category ?? "Uncategorized"}</td>
                   <td>{poll.question}</td>
-                  <td>{poll.image_url ? <code>{poll.image_url}</code> : "None"}</td>
                   <td>{poll.poll_options.map((option) => option.label).join(" / ")}</td>
                   <td className="polls-summary-cell">{summarizeYoutube(poll.deep_dive_youtube_url ?? "")}</td>
                   <td className="polls-summary-cell">
@@ -527,7 +542,7 @@ export function AdminPollsManager() {
               ))}
               {filteredPolls.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={11}>
+                  <td className="empty-cell" colSpan={10}>
                     No polls found.
                   </td>
                 </tr>

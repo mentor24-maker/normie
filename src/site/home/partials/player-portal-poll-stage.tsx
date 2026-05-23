@@ -1,3 +1,4 @@
+import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import type { PollCategoryFilter, PollPayload } from "@/src/site/home/types";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
@@ -24,10 +25,14 @@ export function PlayerPortalPollStage({
   }
 
   if (payload?.done) {
+    const isBlocked =
+      payload.doneReason === "no_polls_matching_preferences" ||
+      payload.doneReason === "no_polls_in_category" ||
+      payload.doneReason === "invalid_category";
+
     return (
-      <div className="notice success">
-        You&apos;re done for now. You&apos;ve answered every published poll on your account — check back when new
-        questions are published.
+      <div className={isBlocked ? "notice error admin-notice" : "notice success admin-notice"}>
+        {getPollDoneMessage(payload.doneReason)}
       </div>
     );
   }

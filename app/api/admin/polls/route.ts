@@ -3,6 +3,7 @@ import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
+import { POLL_COLLECTION_STANDARD } from "@/lib/poll-collections";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionInput = {
@@ -20,7 +21,7 @@ function safeInteger(value: unknown, fallback = 0) {
 }
 
 const POLL_SELECT =
-  "id, category, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, image_url, order_index, created_at, is_published, poll_options(id, label, sort_order)";
+  "id, category, collection, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, image_url, order_index, created_at, is_published, poll_options(id, label, sort_order)";
 
 export async function GET() {
   const auth = await requireAdminRoute();
@@ -118,6 +119,7 @@ export async function POST(request: Request) {
     .from("polls")
     .insert({
       category: category || null,
+      collection: POLL_COLLECTION_STANDARD,
       question,
       image_url: imageUrl,
       deep_dive: deepDive,

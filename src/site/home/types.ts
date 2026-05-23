@@ -36,8 +36,17 @@ export type PollCategoryFilter = {
   name: string;
 };
 
+export type PollDoneReason =
+  | "all_answered"
+  | "all_answered_in_category"
+  | "all_answered_in_preferences"
+  | "no_polls_in_category"
+  | "no_polls_matching_preferences"
+  | "invalid_category";
+
 export type PollPayload = {
   done?: boolean;
+  doneReason?: PollDoneReason;
   error?: string;
   activeCategory?: PollCategoryFilter | null;
   currentPoll: CurrentPoll | null;

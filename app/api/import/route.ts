@@ -2,33 +2,33 @@ import Papa from "papaparse";
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import {
-  buildStarcasterImportDiagnostics,
-  importStarcasterPollRows,
+  buildPersonalityImportDiagnostics,
+  importPersonalityPollRows,
   normalizeCsvHeader,
   normalizeCsvValue,
-  parseStarcasterCsvText,
-  shouldUseStarcasterImport
-} from "@/lib/starcaster-poll-csv-import";
+  parsePersonalityTypeACsvText,
+  parsePersonalityTypeBCsvText
+} from "@/lib/personality-poll-csv-import";
+import {
+  PERSONALITY_TYPE_A_FIELDS,
+  PERSONALITY_TYPE_B_FIELDS,
+  resolvePersonalityImportKind
+} from "@/lib/personality-poll-import";
+import {
+  POLL_COLLECTION_PERSONALITY_TYPE_A,
+  POLL_COLLECTION_PERSONALITY_TYPE_B,
+  POLL_COLLECTION_STANDARD
+} from "@/lib/poll-collections";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
 
 const ENDPOINT = "/api/import";
 
-function parseBoolean(value: string) {
-  const normalized = value.trim().toLowerCase();
-  return ["1", "true", "yes", "y"].includes(normalized);
-}
-
-function parseWeight(value: string) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 1;
-}
-
 function importFailure(
   auth: Awaited<ReturnType<typeof requireAdminRoute>>,
   message: string,
-  diagnostics: ReturnType<typeof buildStarcasterImportDiagnostics>,
+  diagnostics: ReturnType<typeof buildPersonalityImportDiagnostics>,
   status = 400
 ) {
   if ("response" in auth) {
@@ -36,6 +36,18 @@ function importFailure(
   }
 
   return auth.finish(NextResponse.json({ error: message, diagnostics }, { status }));
+}
+
+function emptyDiagnostics(importType: string): ReturnType<typeof buildPersonalityImportDiagnostics> {
+  return buildPersonalityImportDiagnostics(
+    importType,
+    ENDPOINT,
+    PERSONALITY_TYPE_A_FIELDS,
+    [],
+    [],
+    0,
+    0
+  );
 }
 
 export async function POST(request: Request) {
@@ -48,59 +60,51 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get("file");
   const importType = normalizeCsvValue(formData.get("import_type")?.toString()).toLowerCase();
-  const isAdvancedImport = importType === "advanced";
 
   if (!(file instanceof File)) {
-    return importFailure(auth, "A CSV file is required.", {
-      importType,
-      endpoint: ENDPOINT,
-      rawHeaders: [],
-      normalizedHeaders: [],
-      useStarcasterImport: false,
-      isStarcasterPollCsv: false,
-      hasCategoryB: false,
-      starcasterExpected: [],
-      starcasterMissing: [],
-      parsedRowCount: 0,
-      importableRowCount: 0
-    });
+    return importFailure(auth, "A CSV file is required.", emptyDiagnostics(importType));
   }
 
   const csvText = await file.text();
-  const starcasterParsed = parseStarcasterCsvText(csvText);
-  const diagnostics = buildStarcasterImportDiagnostics(
-    importType,
-    ENDPOINT,
-    starcasterParsed.rawHeaders,
-    starcasterParsed.normalizedHeaders,
-    starcasterParsed.rows.length,
-    starcasterParsed.importableRows.length
-  );
+  const typeAParsed = parsePersonalityTypeACsvText(csvText);
+  const fields = typeAParsed.normalizedHeaders;
+  const personalityKind = resolvePersonalityImportKind(importType, fields);
 
-  if (starcasterParsed.parseErrors.length > 0) {
-    return importFailure(
-      auth,
-      starcasterParsed.parseErrors[0]?.message ?? "Failed to parse CSV.",
-      diagnostics
+  if (personalityKind) {
+    const parsed =
+      personalityKind === "b" ? parsePersonalityTypeBCsvText(csvText) : typeAParsed;
+    const fieldMap = personalityKind === "b" ? PERSONALITY_TYPE_B_FIELDS : PERSONALITY_TYPE_A_FIELDS;
+    const diagnostics = buildPersonalityImportDiagnostics(
+      importType,
+      ENDPOINT,
+      fieldMap,
+      parsed.rawHeaders,
+      parsed.normalizedHeaders,
+      parsed.rows.length,
+      parsed.importableRows.length
     );
-  }
 
-  const fields = diagnostics.normalizedHeaders;
-  const useStarcasterImport = shouldUseStarcasterImport(importType, fields);
-  diagnostics.useStarcasterImport = useStarcasterImport;
-
-  if (useStarcasterImport) {
-    if (starcasterParsed.importableRows.length === 0) {
+    if (parsed.parseErrors.length > 0) {
       return importFailure(
         auth,
-        "No importable poll rows found. Check that headers match the Starcaster export.",
+        parsed.parseErrors[0]?.message ?? "Failed to parse CSV.",
+        diagnostics
+      );
+    }
+
+    if (parsed.importableRows.length === 0) {
+      return importFailure(
+        auth,
+        `No importable poll rows found. Check that headers match Personality Type ${personalityKind === "b" ? "B" : "A"}.`,
         diagnostics
       );
     }
 
     try {
       const supabase = createAdminClient();
-      const createdCount = await importStarcasterPollRows(supabase, starcasterParsed.importableRows);
+      const collection =
+        personalityKind === "b" ? POLL_COLLECTION_PERSONALITY_TYPE_B : POLL_COLLECTION_PERSONALITY_TYPE_A;
+      const createdCount = await importPersonalityPollRows(supabase, parsed.importableRows, collection);
 
       return auth.finish(
         NextResponse.json({
@@ -112,7 +116,7 @@ export async function POST(request: Request) {
     } catch (importError) {
       return importFailure(
         auth,
-        importError instanceof Error ? importError.message : "Starcaster import failed.",
+        importError instanceof Error ? importError.message : "Personality import failed.",
         diagnostics,
         500
       );
@@ -125,6 +129,16 @@ export async function POST(request: Request) {
     transformHeader: (header) => normalizeCsvHeader(header)
   });
 
+  const diagnostics = buildPersonalityImportDiagnostics(
+    importType,
+    ENDPOINT,
+    PERSONALITY_TYPE_A_FIELDS,
+    parsed.meta.fields ?? [],
+    fields,
+    parsed.data.length,
+    0
+  );
+
   const rows = parsed.data
     .map((row) =>
       Object.fromEntries(Object.entries(row).map(([key, value]) => [normalizeCsvHeader(key), normalizeCsvValue(value)]))
@@ -135,20 +149,14 @@ export async function POST(request: Request) {
     return importFailure(auth, "The CSV file had no usable rows.", diagnostics);
   }
 
-  const questionField = fields.includes("question")
-    ? "question"
-    : isAdvancedImport && fields.includes("one_line_question")
-      ? "one_line_question"
-      : null;
+  const questionField = fields.includes("question") ? "question" : null;
   const categoryField = fields.includes("category") ? "category" : null;
-  const optionFields = isAdvancedImport
-    ? ["option_a", "option_b"].filter((field) => fields.includes(field))
-    : fields.filter((field) => /^option(?:_|$)/.test(field));
+  const optionFields = fields.filter((field) => /^option(?:_|$)/.test(field));
 
   if (!questionField || !categoryField || optionFields.length < 2) {
     return importFailure(
       auth,
-      "This file looks like the Starcaster Would You Rather CSV (Category B, Option 1, Option B). Use Starcaster Import or POST /api/admin/polls/import-starcaster instead of the simple CSV import.",
+      "This file looks like a personality import CSV. Use Personality Type A or B in Poll Manager, or Standard Upload for Category / Question / Option_A / Option_B only.",
       diagnostics
     );
   }
@@ -187,6 +195,7 @@ export async function POST(request: Request) {
       .insert({
         category,
         question,
+        collection: POLL_COLLECTION_STANDARD,
         order_index: nextOrderIndex,
         is_published: true
       })

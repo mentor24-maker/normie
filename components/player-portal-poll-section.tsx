@@ -3,9 +3,12 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PlayerPortalPollStage } from "@/src/site/home/partials/player-portal-poll-stage";
 import { usePollExperience } from "@/src/site/home/use-poll-experience";
+import {
+  PLAYER_PORTAL_PLAY_POLLS_HREF,
+  PLAYER_PORTAL_PLAY_POLLS_PARAM
+} from "@/lib/player-portal-play-polls";
 
-export const PLAYER_PORTAL_PLAY_POLLS_PARAM = "playPolls";
-export const PLAYER_PORTAL_PLAY_POLLS_HREF = `/portal/dashboard?${PLAYER_PORTAL_PLAY_POLLS_PARAM}=1`;
+export { PLAYER_PORTAL_PLAY_POLLS_HREF, PLAYER_PORTAL_PLAY_POLLS_PARAM };
 
 function PlayerPortalPollSectionOpen({ onClose }: { onClose: () => void }) {
   const router = useRouter();

@@ -16,7 +16,7 @@ export function AdminPollUploadPod({ title, columns, children }: AdminPollUpload
             <li key={column}>{column}</li>
           ))}
         </ul>
-        <div className="admin-poll-upload-pod-upload">{children}</div>
+        <div className="admin-poll-upload-pod-actions">{children}</div>
       </div>
     </article>
   );

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import chooseLogo from "@/images/logo_normie_choose.png";
+import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import type { PollCategoryFilter, PollPayload } from "@/src/site/home/types";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
@@ -20,7 +21,7 @@ export function PollStage({ activeCategory, isLoading, isSubmitting, payload, on
   }
 
   if (payload?.done) {
-    return <div className="notice success">You&apos;re done. Thanks for finishing the full poll sequence.</div>;
+    return <div className="notice success">{getPollDoneMessage(payload.doneReason)}</div>;
   }
 
   if (payload?.currentPoll) {

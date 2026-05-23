@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { AdminPollUploadFileInput } from "@/components/admin-poll-upload-file-input";
 
 type CsvImportFormProps = {
   onImported?: () => Promise<void> | void;
@@ -58,12 +59,7 @@ export function CsvImportForm({
 
   return (
     <form className="admin-poll-upload-form" onSubmit={handleSubmit}>
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-        required
-      />
+      <AdminPollUploadFileInput file={file} onFileChange={setFile} />
       <button
         className="submit-button admin-blog-add-button admin-poll-upload-submit"
         disabled={isSubmitting}
