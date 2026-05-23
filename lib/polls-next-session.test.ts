@@ -1,50 +1,48 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveCurrentPollIndexFromSession,
-  resolveFirstUnansweredPollIndex
-} from "@/lib/polls-next-session";
+import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
 
 function ids(...labels: string[]) {
   return labels.map((id) => ({ id }));
 }
 
-describe("resolveFirstUnansweredPollIndex", () => {
-  it("returns first unanswered poll even when later polls were answered", () => {
-    const ordered = ids("p0", "p1", "p2", "p3", "p4");
-    expect(resolveFirstUnansweredPollIndex(ordered, new Set(["p2", "p4"]))).toBe(0);
+describe("pickRandomUnansweredPoll", () => {
+  it("returns null when every poll is answered", () => {
+    const ordered = ids("a", "b");
+    expect(pickRandomUnansweredPoll(ordered, new Set(["a", "b"]))).toBeNull();
   });
 
-  it("returns -1 when every poll is answered", () => {
-    const ordered = ids("a", "b");
-    expect(resolveFirstUnansweredPollIndex(ordered, new Set(["a", "b"]))).toBe(-1);
+  it("returns null for an empty list", () => {
+    expect(pickRandomUnansweredPoll([], new Set())).toBeNull();
+  });
+
+  it("only selects from unanswered polls", () => {
+    const ordered = ids("a", "b", "c", "d");
+    const answered = new Set(["a", "c"]);
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const picked = pickRandomUnansweredPoll(ordered, answered);
+      expect(picked).not.toBeNull();
+      expect(["b", "d"]).toContain(picked?.id);
+    }
   });
 });
 
-describe("resolveCurrentPollIndexFromSession", () => {
-  it("returns -1 for empty list", () => {
-    expect(resolveCurrentPollIndexFromSession([], new Set())).toBe(-1);
-  });
-
-  it("returns first poll when nothing answered", () => {
+describe("resolveMostRecentAnsweredPoll", () => {
+  it("returns the first matching response in newest-first order", () => {
     const ordered = ids("a", "b", "c");
-    expect(resolveCurrentPollIndexFromSession(ordered, new Set())).toBe(0);
+    const responses = [{ poll_id: "c" }, { poll_id: "a" }];
+
+    expect(resolveMostRecentAnsweredPoll(ordered, responses)?.id).toBe("c");
   });
 
-  it("returns next poll after consecutive answers from the start", () => {
-    const ordered = ids("a", "b", "c", "d");
-    expect(resolveCurrentPollIndexFromSession(ordered, new Set(["a"]))).toBe(1);
-    expect(resolveCurrentPollIndexFromSession(ordered, new Set(["a", "b"]))).toBe(2);
-    expect(resolveCurrentPollIndexFromSession(ordered, new Set(["a", "b", "c"]))).toBe(3);
+  it("skips excluded poll id", () => {
+    const ordered = ids("a", "b", "c");
+    const responses = [{ poll_id: "c" }, { poll_id: "a" }];
+
+    expect(resolveMostRecentAnsweredPoll(ordered, responses, "c")?.id).toBe("a");
   });
 
-  it("advances after the furthest answered index (deep-link / viewer case)", () => {
-    const ordered = ids("p0", "p1", "p2", "p3", "p4");
-    const answered = new Set(["p2"]);
-    expect(resolveCurrentPollIndexFromSession(ordered, answered)).toBe(3);
-  });
-
-  it("returns -1 when every poll is answered", () => {
-    const ordered = ids("a", "b");
-    expect(resolveCurrentPollIndexFromSession(ordered, new Set(["a", "b"]))).toBe(-1);
+  it("returns null when there are no responses", () => {
+    expect(resolveMostRecentAnsweredPoll(ids("a", "b"), [])).toBeNull();
   });
 });

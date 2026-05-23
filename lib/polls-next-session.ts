@@ -1,47 +1,42 @@
-/** First published poll in order the participant has not answered yet. */
-export function resolveFirstUnansweredPollIndex(
-  orderedPolls: Array<{ id: string }>,
-  answeredPollIds: Set<string>
-): number {
-  if (orderedPolls.length === 0) {
-    return -1;
-  }
-
-  for (let index = 0; index < orderedPolls.length; index += 1) {
-    const poll = orderedPolls[index];
-
-    if (poll && !answeredPollIds.has(poll.id)) {
-      return index;
-    }
-  }
-
-  return -1;
+function randomUnansweredIndex(length: number) {
+  const randomValue = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+  return Math.floor((randomValue / 2 ** 32) * length);
 }
 
-/**
- * Index of the poll to show as "current" for this session.
- * Uses the furthest answered poll in list order so deep-linked (`startPoll`) answers
- * advance to the next poll instead of snapping back to the first unanswered slot.
- */
-export function resolveCurrentPollIndexFromSession(
-  orderedPolls: Array<{ id: string }>,
+/** Pick one unanswered poll at random from the eligible list. */
+export function pickRandomUnansweredPoll<T extends { id: string }>(
+  polls: T[],
   answeredPollIds: Set<string>
-): number {
-  if (orderedPolls.length === 0) {
-    return -1;
+): T | null {
+  const unanswered = polls.filter((poll) => !answeredPollIds.has(poll.id));
+
+  if (unanswered.length === 0) {
+    return null;
   }
 
-  const lastAnsweredIndex = orderedPolls.reduce(
-    (maxIdx, poll, idx) => (answeredPollIds.has(poll.id) ? Math.max(maxIdx, idx) : maxIdx),
-    -1
-  );
+  const index = randomUnansweredIndex(unanswered.length);
+  return unanswered[index] ?? null;
+}
 
-  for (let i = lastAnsweredIndex + 1; i < orderedPolls.length; i++) {
-    const poll = orderedPolls[i];
-    if (poll && !answeredPollIds.has(poll.id)) {
-      return i;
+/** Most recently answered poll (responses newest-first), optionally skipping one id. */
+export function resolveMostRecentAnsweredPoll<T extends { id: string }>(
+  orderedPolls: T[],
+  responses: Array<{ poll_id: string }>,
+  excludePollId?: string | null
+): T | null {
+  const pollById = new Map(orderedPolls.map((poll) => [poll.id, poll]));
+
+  for (const response of responses) {
+    if (excludePollId && response.poll_id === excludePollId) {
+      continue;
+    }
+
+    const poll = pollById.get(response.poll_id);
+
+    if (poll) {
+      return poll;
     }
   }
 
-  return -1;
+  return null;
 }

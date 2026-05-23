@@ -531,8 +531,8 @@ h2 {
   line-height: 1.6;
 }
 
-.starcaster-import-diagnostics {
-  margin-top: 12px;
+.admin-poll-upload-pod .starcaster-import-diagnostics {
+  margin-top: 0;
   padding: 12px 14px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
@@ -1533,27 +1533,78 @@ h2 {
   gap: 12px;
 }
 
-.admin-polls-action-bar .admin-polls-import-button {
-  background: linear-gradient(135deg, #4ae09a 0%, var(--success) 100%);
-  color: #ffffff;
-  border-color: transparent;
+.admin-polls-import-shell {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
-.admin-polls-action-bar .admin-polls-import-button:hover {
-  background: linear-gradient(135deg, #5ce8a8 0%, #268f58 100%);
-  color: #ffffff;
+.admin-poll-upload-pod {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid rgba(11, 143, 196, 0.22);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.72), transparent 48%),
+    linear-gradient(145deg, #f8fdff 0%, #e8f6fc 52%, #d4eef9 100%);
+  box-shadow:
+    0 12px 26px rgba(10, 143, 196, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
-.admin-polls-action-bar .admin-polls-settings-button {
-  background: linear-gradient(135deg, #11b7ef 0%, #0a8fc4 100%);
-  color: #ffffff;
-  border-color: transparent;
-  text-decoration: none;
+.admin-poll-upload-pod-title {
+  margin: 0;
+  width: 100%;
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  color: #18324a;
 }
 
-.admin-polls-action-bar .admin-polls-settings-button:hover {
-  background: linear-gradient(135deg, #22c4f8 0%, #087aa8 100%);
-  color: #ffffff;
+.admin-poll-upload-pod-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px 28px;
+  align-items: start;
+}
+
+.admin-poll-upload-pod-columns {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.admin-poll-upload-pod-columns li + li {
+  margin-top: 4px;
+}
+
+.admin-poll-upload-pod-upload {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.admin-poll-upload-form {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.admin-poll-upload-form input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+}
+
+.admin-poll-upload-submit {
+  justify-self: start;
+}
+
+.admin-poll-upload-feedback {
+  margin-top: 4px;
 }
 
 .admin-polls-heading-row {
@@ -1989,6 +2040,55 @@ h2 {
 .admin-save-button.submit-button:hover,
 .admin-blog-add-button.submit-button:hover {
   background: linear-gradient(135deg, #5ce8a8 0%, #268f58 100%);
+  color: #ffffff;
+}
+
+/* After global .secondary-button:hover — same specificity, must come later. */
+.admin-polls-action-bar .submit-button.admin-blog-add-button.admin-polls-create-button {
+  text-decoration: none;
+  background: linear-gradient(135deg, #4ae09a 0%, var(--success) 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.admin-polls-action-bar .secondary-button.admin-polls-import-button {
+  background: linear-gradient(135deg, #4ae09a 0%, var(--success) 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.admin-polls-action-bar .secondary-button.admin-polls-settings-button {
+  background: linear-gradient(135deg, #11b7ef 0%, #0a8fc4 100%);
+  color: #ffffff;
+  border-color: transparent;
+  text-decoration: none;
+}
+
+.admin-polls-action-bar .submit-button.admin-blog-add-button.admin-polls-create-button:hover,
+.admin-polls-action-bar .secondary-button.admin-polls-import-button:hover,
+.admin-polls-action-bar .secondary-button.admin-polls-settings-button:hover {
+  transform: translateY(-3px) scale(1.01);
+}
+
+.admin-polls-action-bar .submit-button.admin-blog-add-button.admin-polls-create-button:hover,
+.admin-polls-action-bar .secondary-button.admin-polls-import-button:hover {
+  background: linear-gradient(135deg, #5ce8a8 0%, #268f58 100%);
+  color: #ffffff;
+}
+
+.admin-polls-action-bar .secondary-button.admin-polls-import-button.admin-polls-import-button-is-open {
+  background: linear-gradient(135deg, #cf3d3d 0%, #991f1f 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.admin-polls-action-bar .secondary-button.admin-polls-import-button.admin-polls-import-button-is-open:hover {
+  background: linear-gradient(135deg, #e04a4a 0%, #7a1818 100%);
+  color: #ffffff;
+}
+
+.admin-polls-action-bar .secondary-button.admin-polls-settings-button:hover {
+  background: linear-gradient(135deg, #22c4f8 0%, #087aa8 100%);
   color: #ffffff;
 }
 
@@ -7631,6 +7731,14 @@ code {
 
   .admin-polls-metric-card {
     flex: 1 1 140px;
+  }
+
+  .admin-polls-import-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-poll-upload-pod-body {
+    grid-template-columns: 1fr;
   }
 
   .player-portal-page {

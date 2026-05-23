@@ -9,8 +9,26 @@ import {
   type AdminBlogPostOption
 } from "@/components/admin-poll-deep-dive-editor";
 import { buildPublicPollViewPath } from "@/lib/poll-categories";
+import { AdminPollUploadPod } from "@/components/admin-poll-upload-pod";
 import { CsvImportForm } from "@/components/csv-import-form";
 import { StarcasterCsvImportForm } from "@/components/starcaster-csv-import-form";
+
+const STANDARD_UPLOAD_COLUMNS = ["Category", "Question", "Option_A", "Option_B"];
+
+const PERSONALITY_SYSTEMS_UPLOAD_COLUMNS = [
+  "Category B",
+  "Personality System",
+  "Trait / Dimension",
+  "Option 1",
+  "Option B",
+  "Question",
+  "Option A Score Code",
+  "Option B Score Code",
+  "Scoring Logic",
+  "Weight",
+  "Reverse Scored?",
+  "AI Interpretation Tag"
+];
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 
 type PollOption = {
@@ -275,11 +293,14 @@ export function AdminPollsManager() {
           <div className="admin-polls-eyebrow-row">
             <div className="panel-label">Polls</div>
             <div className="admin-polls-action-bar admin-actions">
-              <Link className="submit-button admin-blog-add-button" href="/admin/polls/new">
+              <Link
+                className="submit-button admin-blog-add-button admin-polls-create-button"
+                href="/admin/polls/new"
+              >
                 Create Poll
               </Link>
               <button
-                className="secondary-button admin-polls-import-button"
+                className={`secondary-button admin-polls-import-button${isImportOpen ? " admin-polls-import-button-is-open" : ""}`}
                 onClick={() => setIsImportOpen((current) => !current)}
                 type="button"
               >
@@ -325,30 +346,22 @@ export function AdminPollsManager() {
         {error ? <div className="notice error admin-notice">{error}</div> : null}
 
         {isImportOpen ? (
-          <section className="builder-toolbar-shell">
-            <div className="panel-label">Starcaster Import</div>
-            <p className="page-copy admin-copy">
-              Upload the Normie 200 Would You Rather scoring CSV (`Category B`, `Option 1`, `Option B`,
-              `Question`, and scoring columns). Use this form only — not the simple CSV layout below.
-              If import fails, open Import Diagnostics for header details.
-            </p>
-            <StarcasterCsvImportForm
-              onImported={async () => {
-                await loadPolls();
-                setIsImportOpen(false);
-              }}
-            />
-            <div className="panel-label">Simple CSV Import</div>
-            <p className="page-copy admin-copy">
-              For basic polls only: `Category`, `Question`, `Option_A`, and `Option_B` — not the
-              Starcaster scoring file.
-            </p>
-            <CsvImportForm
-              onImported={async () => {
-                await loadPolls();
-                setIsImportOpen(false);
-              }}
-            />
+          <section className="admin-polls-import-shell" aria-label="Poll CSV import">
+            <AdminPollUploadPod title="Standard Upload" columns={STANDARD_UPLOAD_COLUMNS}>
+              <CsvImportForm
+                submitLabel="Upload CSV"
+                onImported={async () => {
+                  await loadPolls();
+                }}
+              />
+            </AdminPollUploadPod>
+            <AdminPollUploadPod title="Personality Systems" columns={PERSONALITY_SYSTEMS_UPLOAD_COLUMNS}>
+              <StarcasterCsvImportForm
+                onImported={async () => {
+                  await loadPolls();
+                }}
+              />
+            </AdminPollUploadPod>
           </section>
         ) : null}
 

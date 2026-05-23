@@ -5,14 +5,12 @@ import { FormEvent, useState } from "react";
 type CsvImportFormProps = {
   onImported?: () => Promise<void> | void;
   importType?: "standard" | "advanced";
-  helpColumns?: string;
   submitLabel?: string;
 };
 
 export function CsvImportForm({
   onImported,
   importType = "standard",
-  helpColumns = "ID,Category,Question,Option_A,Option_B",
   submitLabel = "Upload CSV"
 }: CsvImportFormProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -59,27 +57,23 @@ export function CsvImportForm({
   }
 
   return (
-    <form className="import-form" onSubmit={handleSubmit}>
-      <label className="field">
-        <span>CSV file</span>
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          required
-        />
-      </label>
-
-      <div className="csv-help">
-        Example columns: <code>{helpColumns}</code>
-      </div>
-
-      <button className="submit-button" disabled={isSubmitting} type="submit">
+    <form className="admin-poll-upload-form" onSubmit={handleSubmit}>
+      <input
+        type="file"
+        accept=".csv,text/csv"
+        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        required
+      />
+      <button
+        className="submit-button admin-blog-add-button admin-poll-upload-submit"
+        disabled={isSubmitting}
+        type="submit"
+      >
         {isSubmitting ? "Importing..." : submitLabel}
       </button>
 
-      {message ? <div className="notice success">{message}</div> : null}
-      {error ? <div className="notice error">{error}</div> : null}
+      {message ? <div className="notice success admin-notice admin-poll-upload-feedback">{message}</div> : null}
+      {error ? <div className="notice error admin-notice admin-poll-upload-feedback">{error}</div> : null}
     </form>
   );
 }

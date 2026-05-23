@@ -8,10 +8,7 @@ import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPreferences } from "@/lib/player-preferences";
 import { createPublicClient } from "@/lib/supabase-public";
-import {
-  resolveCurrentPollIndexFromSession,
-  resolveFirstUnansweredPollIndex
-} from "@/lib/polls-next-session";
+import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
 
 const SESSION_COOKIE = "poll_session_id";
 
@@ -77,7 +74,10 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     pollsQuery = pollsQuery.eq("category", categoryFilter);
   }
 
-  const responsesQuery = supabase.from("responses").select("poll_id");
+  const responsesQuery = supabase
+    .from("responses")
+    .select("poll_id, created_at")
+    .order("created_at", { ascending: false });
   const playerResponsesQuery = player
     ? responsesQuery.eq("user_id", player.authUser.id)
     : responsesQuery.eq("session_id", sessionId);
@@ -117,20 +117,17 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     }
   }
 
-  const hasStartPollOverride = Boolean(startPollParam) && START_POLL_UUID.test(startPollParam);
-  const currentIndexFromSession = player && !hasStartPollOverride
-    ? resolveFirstUnansweredPollIndex(orderedPolls, answeredPollIds)
-    : resolveCurrentPollIndexFromSession(orderedPolls, answeredPollIds);
+  let currentPoll = pickRandomUnansweredPoll(orderedPolls, answeredPollIds);
 
-  let currentIndex = currentIndexFromSession;
   if (startPollParam && START_POLL_UUID.test(startPollParam)) {
-    const forced = orderedPolls.findIndex((poll) => poll.id === startPollParam);
-    if (forced >= 0) {
-      currentIndex = forced;
+    const forced = orderedPolls.find((poll) => poll.id === startPollParam);
+
+    if (forced) {
+      currentPoll = forced;
     }
   }
 
-  if (currentIndex === -1) {
+  if (!currentPoll) {
     const doneResponse = NextResponse.json({
       done: true,
       activeCategory,
@@ -148,14 +145,17 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     return doneResponse;
   }
 
-  const currentPoll = orderedPolls[currentIndex];
-  const previousPoll = currentIndex > 0 ? orderedPolls[currentIndex - 1] : null;
-
   const isStartPollPendingPreview =
     Boolean(startPollParam) &&
     START_POLL_UUID.test(startPollParam) &&
     startPollParam === currentPoll.id &&
     !answeredPollIds.has(currentPoll.id);
+
+  const previousPoll = resolveMostRecentAnsweredPoll(
+    orderedPolls,
+    responses ?? [],
+    isStartPollPendingPreview ? currentPoll.id : null
+  );
 
   let previousPollResults = null;
 
