@@ -1,9 +1,10 @@
-import { getPollPodAppearanceStyle } from "@/lib/poll-pod-config";
+import { getCurrentPollPanelStyle } from "@/lib/current-poll-module";
 import type { CurrentPoll, PollSettingsSnapshot } from "@/src/site/home/types";
 
 type CurrentPollPanelProps = {
   currentPoll: CurrentPoll;
   isSubmitting: boolean;
+  moduleSettings?: Record<string, string>;
   onSubmit: (optionId: string) => void | Promise<void>;
   settings?: PollSettingsSnapshot | null;
 };
@@ -11,13 +12,14 @@ type CurrentPollPanelProps = {
 export function CurrentPollPanel({
   currentPoll,
   isSubmitting,
+  moduleSettings = {},
   onSubmit,
   settings
 }: CurrentPollPanelProps) {
   return (
     <article
       className="panel action-panel poll-module-panel"
-      style={getPollPodAppearanceStyle(settings, "polls")}
+      style={getCurrentPollPanelStyle(moduleSettings, settings)}
     >
       <div className="panel-label">Current Poll</div>
       <div className="poll-question-area">

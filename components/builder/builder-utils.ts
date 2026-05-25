@@ -122,13 +122,40 @@ export function getSectionBackgroundStyle(section: BuilderTemplateSection): CSSP
   return getBuilderBackgroundStyle(section.background);
 }
 
-export function getImageModuleStyle(settings: Record<string, string>): CSSProperties {
+export function getModuleWidthPercent(settings: Record<string, string>) {
   const size = Number.parseInt(settings.size ?? "100", 10);
+  return Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100);
+}
+
+export function getModuleWidthStyle(settings: Record<string, string>): CSSProperties {
+  return {
+    width: `${getModuleWidthPercent(settings)}%`,
+    maxWidth: "100%",
+    boxSizing: "border-box"
+  };
+}
+
+export function getModuleWidthShellStyle(settings: Record<string, string>): CSSProperties {
+  const widthPercent = getModuleWidthPercent(settings);
+  const alignment = getModuleAlignment(settings);
+
+  return {
+    ...getModuleWidthStyle(settings),
+  ...(widthPercent >= 100
+      ? { alignSelf: "stretch" }
+      : {
+          alignSelf:
+            alignment === "center" ? "center" : alignment === "right" ? "flex-end" : "flex-start"
+        })
+  };
+}
+
+export function getImageModuleStyle(settings: Record<string, string>): CSSProperties {
   const borderThickness = Number.parseInt(settings.borderThickness ?? "0", 10);
   const borderRadius = Number.parseInt(settings.borderRadius ?? "18", 10);
 
   return {
-    width: `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`,
+    ...getModuleWidthStyle(settings),
     border: `${Math.max(Number.isFinite(borderThickness) ? borderThickness : 0, 0)}px solid ${
       settings.borderColor || "#0f4f8f"
     }`,

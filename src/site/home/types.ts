@@ -40,6 +40,7 @@ export type PollDoneReason =
   | "all_answered"
   | "all_answered_in_category"
   | "all_answered_in_preferences"
+  | "no_polls_available"
   | "no_polls_in_category"
   | "no_polls_matching_preferences"
   | "invalid_category";

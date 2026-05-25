@@ -8,6 +8,10 @@ import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPreferences } from "@/lib/player-preferences";
 import { createPublicClient } from "@/lib/supabase-public";
+import {
+  buildAnsweredPollIdSet,
+  filterResponsesToEligiblePolls
+} from "@/lib/poll-response-eligibility";
 import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
 
 const SESSION_COOKIE = "poll_session_id";
@@ -103,7 +107,6 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     });
   }
 
-  const answeredPollIds = new Set((responses ?? []).map((response) => response.poll_id));
   let orderedPolls = (polls ?? []).map((poll) => ({
     ...poll,
     poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
@@ -116,6 +119,10 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     const allowed = new Set(preferences.preferredPollCategories);
     orderedPolls = orderedPolls.filter((poll) => allowed.has(poll.category?.trim() ?? ""));
   }
+
+  const eligiblePollIds = new Set(orderedPolls.map((poll) => poll.id));
+  const eligibleResponses = filterResponsesToEligiblePolls(responses ?? [], eligiblePollIds);
+  const answeredPollIds = buildAnsweredPollIdSet(eligibleResponses, eligiblePollIds);
 
   let currentPoll = pickRandomUnansweredPoll(orderedPolls, answeredPollIds);
 
@@ -131,6 +138,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     | "all_answered"
     | "all_answered_in_category"
     | "all_answered_in_preferences"
+    | "no_polls_available"
     | "no_polls_in_category"
     | "no_polls_matching_preferences"
     | "invalid_category"
@@ -144,7 +152,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
         ? "no_polls_matching_preferences"
         : categoryParam
           ? "no_polls_in_category"
-          : "all_answered";
+          : "no_polls_available";
     } else if (categoryParam) {
       doneReason = "all_answered_in_category";
     } else if (usesPreferenceFilter) {
@@ -181,7 +189,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
 
   const previousPoll = resolveMostRecentAnsweredPoll(
     orderedPolls,
-    responses ?? [],
+    eligibleResponses,
     isStartPollPendingPreview ? currentPoll.id : null
   );
 

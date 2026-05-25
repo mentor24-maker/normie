@@ -1,6 +1,6 @@
 "use client";
 
-import type { BuilderTemplateLayout, BuilderTemplateSection } from "@/lib/builder-template";
+import type { BackgroundSettings, BuilderTemplateLayout, BuilderTemplateSection } from "@/lib/builder-template";
 import { getLayoutColumns } from "@/lib/builder-template";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { BuilderNumberSelectControl } from "./builder-inline-number-select";
@@ -14,6 +14,13 @@ type BuilderSectionControlsProps = {
   onOpenSectionBackgroundGallery?: () => void;
   onUploadSectionBackgroundMedia?: (file: File | null) => void;
 };
+
+function updateSectionBackground(
+  onUpdateSection: BuilderSectionControlsProps["onUpdateSection"],
+  updater: (background: BackgroundSettings) => BackgroundSettings
+) {
+  onUpdateSection((current) => ({ ...current, background: updater(current.background) }));
+}
 
 export function BuilderSectionControls({
   section,
@@ -49,85 +56,97 @@ export function BuilderSectionControls({
 
   return (
     <div className="builder-section-settings">
-      <div className="builder-button-setting-columns">
-        <div className="builder-button-setting-column">
-          <BuilderSettingRow label="Layout">
-            <select
-              value={section.layout}
-              onChange={(event) => {
-                const nextLayout = event.target.value as BuilderTemplateLayout;
-                const allowedColumns = new Set(getLayoutColumns(nextLayout));
-                onUpdateSection((current) => ({
-                  ...current,
-                  layout: nextLayout,
-                  modules: current.modules.map((module) => ({
-                    ...module,
-                    column: allowedColumns.has(module.column) ? module.column : getLayoutColumns(nextLayout)[0]
-                  }))
-                }));
-              }}
-            >
-              {layoutOptions.map((layout) => (
-                <option key={layout.value} value={layout.value}>
-                  {layout.label}
-                </option>
-              ))}
-            </select>
-          </BuilderSettingRow>
-          <BuilderSettingRow label="Top Margin">
-            <BuilderNumberSelectControl
-              value={section.marginTop ?? "0"}
-              min={0}
-              max={160}
-              fallback="0"
-              onChange={(marginTop) =>
-                onUpdateSection((current) => ({
-                  ...current,
-                  marginTop
+      <div className="builder-section-settings-grid">
+        <BuilderSettingRow label="Layout">
+          <select
+            value={section.layout}
+            onChange={(event) => {
+              const nextLayout = event.target.value as BuilderTemplateLayout;
+              const allowedColumns = new Set(getLayoutColumns(nextLayout));
+              onUpdateSection((current) => ({
+                ...current,
+                layout: nextLayout,
+                modules: current.modules.map((module) => ({
+                  ...module,
+                  column: allowedColumns.has(module.column) ? module.column : getLayoutColumns(nextLayout)[0]
                 }))
-              }
-            />
-          </BuilderSettingRow>
-        </div>
-        <div className="builder-button-setting-column">
-          <BuilderSettingRow label="Alignment">
-            <select
-              value={section.alignment}
-              onChange={(event) =>
-                onUpdateSection((current) => ({
-                  ...current,
-                  alignment: event.target.value as "left" | "center" | "right"
-                }))
-              }
-            >
-              <option value="left">Left</option>
-              <option value="center">Center</option>
-              <option value="right">Right</option>
-            </select>
-          </BuilderSettingRow>
-          <BuilderSettingRow label="Bottom Margin">
-            <BuilderNumberSelectControl
-              value={section.marginBottom ?? "0"}
-              min={0}
-              max={160}
-              fallback="0"
-              onChange={(marginBottom) =>
-                onUpdateSection((current) => ({
-                  ...current,
-                  marginBottom
-                }))
-              }
-            />
-          </BuilderSettingRow>
-        </div>
+              }));
+            }}
+          >
+            {layoutOptions.map((layout) => (
+              <option key={layout.value} value={layout.value}>
+                {layout.label}
+              </option>
+            ))}
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Alignment">
+          <select
+            value={section.alignment}
+            onChange={(event) =>
+              onUpdateSection((current) => ({
+                ...current,
+                alignment: event.target.value as "left" | "center" | "right"
+              }))
+            }
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Row Background">
+          <select
+            value={section.background.mode}
+            onChange={(event) =>
+              updateSectionBackground(onUpdateSection, (current) => ({
+                ...current,
+                mode: event.target.value as BackgroundSettings["mode"]
+              }))
+            }
+          >
+            <option value="none">None</option>
+            <option value="color">Color</option>
+            <option value="gradient">Gradient</option>
+            <option value="image">Image</option>
+            <option value="style">Style</option>
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Top Margin">
+          <BuilderNumberSelectControl
+            value={section.marginTop ?? "0"}
+            min={0}
+            max={160}
+            fallback="0"
+            onChange={(marginTop) =>
+              onUpdateSection((current) => ({
+                ...current,
+                marginTop
+              }))
+            }
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Bottom Margin">
+          <BuilderNumberSelectControl
+            value={section.marginBottom ?? "0"}
+            min={0}
+            max={160}
+            fallback="0"
+            onChange={(marginBottom) =>
+              onUpdateSection((current) => ({
+                ...current,
+                marginBottom
+              }))
+            }
+          />
+        </BuilderSettingRow>
       </div>
       <BuilderBackgroundControls
+        hideModeRow
         label="Row Background"
         background={section.background}
         horizontal
-        onChange={(updater) =>
-          onUpdateSection((current) => ({ ...current, background: updater(current.background) }))
-        }
+        onChange={(updater) => updateSectionBackground(onUpdateSection, updater)}
         onChooseImage={onOpenSectionBackgroundGallery}
         onUploadImage={onUploadSectionBackgroundMedia}
       />

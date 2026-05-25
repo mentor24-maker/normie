@@ -187,7 +187,7 @@ function CreatedModulesTable({
                           className="polls-icon-button polls-icon-button-edit"
                           disabled={isSaving}
                           onClick={() => onStartEditing(item)}
-                          title="Edit module"
+                          title="Edit"
                           type="button"
                         >
                           ✎
@@ -355,7 +355,7 @@ function RepositoryTable({
                           className="polls-icon-button polls-icon-button-edit"
                           disabled={isSaving}
                           onClick={() => onStartEditing(item)}
-                          title="Edit module"
+                          title="Edit"
                           type="button"
                         >
                           ✎

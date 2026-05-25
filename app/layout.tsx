@@ -5,7 +5,15 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Normie Polls",
-  description: "Personality polls for normal people."
+  description: "Personality polls for normal people.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png", sizes: "392x392" },
+      { url: "/icon.png", type: "image/png", sizes: "392x392" }
+    ],
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "392x392" }]
+  }
 };
 
 export default function RootLayout({

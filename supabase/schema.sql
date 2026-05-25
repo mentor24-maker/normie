@@ -192,6 +192,56 @@ create table if not exists public.products (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.game_level_tiers (
+  id uuid primary key default gen_random_uuid(),
+  level integer not null check (level > 0),
+  tier text not null,
+  name text not null,
+  points_required integer not null default 0 check (points_required >= 0),
+  sort_order integer not null default 0,
+  perks jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (level, tier)
+);
+
+create table if not exists public.game_levels (
+  id uuid primary key default gen_random_uuid(),
+  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons')),
+  level_order integer not null check (level_order between 1 and 10),
+  game_level_levels jsonb not null default '[]'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (level_order)
+);
+
+create table if not exists public.game_rewards (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text not null default '',
+  reward_type text not null default 'custom' check (reward_type in ('merch', 'digital', 'access', 'token', 'custom')),
+  points_cost integer not null default 0 check (points_cost >= 0),
+  inventory_count integer check (inventory_count is null or inventory_count >= 0),
+  status text not null default 'draft' check (status in ('active', 'draft', 'archived')),
+  image_url text not null default '',
+  redemption_url text not null default '',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.game_scoring (
+  id uuid primary key default gen_random_uuid(),
+  score_name text not null,
+  description text not null default '',
+  specific_criteria text not null default '',
+  points integer not null default 0 check (points >= 0),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------------
 -- Blog
 -- ---------------------------------------------------------------------------
@@ -330,6 +380,14 @@ create index if not exists builder_cell_modules_updated_at_idx on public.builder
 create index if not exists builder_saved_sections_updated_at_idx on public.builder_saved_sections (updated_at desc);
 create index if not exists products_product_type_idx on public.products (product_type);
 create index if not exists products_updated_at_idx on public.products (updated_at desc);
+create index if not exists game_levels_level_name_idx on public.game_levels (level_name);
+create index if not exists game_levels_updated_at_idx on public.game_levels (updated_at desc);
+create index if not exists game_level_tiers_level_sort_idx on public.game_level_tiers (level, sort_order);
+create index if not exists game_level_tiers_points_required_idx on public.game_level_tiers (points_required);
+create index if not exists game_rewards_status_points_idx on public.game_rewards (status, points_cost);
+create index if not exists game_rewards_updated_at_idx on public.game_rewards (updated_at desc);
+create index if not exists game_scoring_points_idx on public.game_scoring (points);
+create index if not exists game_scoring_updated_at_idx on public.game_scoring (updated_at desc);
 create unique index if not exists blog_topics_slug_unique_idx on public.blog_topics (slug);
 create unique index if not exists blog_tags_slug_unique_idx on public.blog_tags (slug);
 create unique index if not exists blog_categories_slug_unique_idx on public.blog_categories (slug);
@@ -359,6 +417,10 @@ alter table public.team_users enable row level security;
 alter table public.builder_cell_modules enable row level security;
 alter table public.builder_saved_sections enable row level security;
 alter table public.products enable row level security;
+alter table public.game_levels enable row level security;
+alter table public.game_level_tiers enable row level security;
+alter table public.game_rewards enable row level security;
+alter table public.game_scoring enable row level security;
 alter table public.blog_settings enable row level security;
 alter table public.blog_topics enable row level security;
 alter table public.blog_tags enable row level security;
@@ -473,6 +535,34 @@ for select
 to anon, authenticated
 using (true);
 
+drop policy if exists "game level tiers are readable" on public.game_level_tiers;
+create policy "game level tiers are readable"
+on public.game_level_tiers
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "game levels are readable" on public.game_levels;
+create policy "game levels are readable"
+on public.game_levels
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "active game rewards are readable" on public.game_rewards;
+create policy "active game rewards are readable"
+on public.game_rewards
+for select
+to anon, authenticated
+using (status = 'active');
+
+drop policy if exists "game scoring rules are readable" on public.game_scoring;
+create policy "game scoring rules are readable"
+on public.game_scoring
+for select
+to anon, authenticated
+using (true);
+
 drop policy if exists "blog settings are readable" on public.blog_settings;
 create policy "blog settings are readable"
 on public.blog_settings
@@ -575,3 +665,28 @@ using (
       and public.blog_posts.published_at <= now()
   )
 );
+
+grant select on public.game_level_tiers to anon, authenticated, service_role;
+grant select on public.game_levels to anon, authenticated, service_role;
+grant select on public.game_rewards to anon, authenticated, service_role;
+grant select on public.game_scoring to anon, authenticated, service_role;
+grant insert, update, delete on public.game_level_tiers to service_role;
+grant insert, update, delete on public.game_levels to service_role;
+grant insert, update, delete on public.game_rewards to service_role;
+grant insert, update, delete on public.game_scoring to service_role;
+
+insert into public.game_level_tiers (level, tier, name, points_required, sort_order, perks)
+values
+  (1, 'Bronze', 'First Signal', 0, 10, '["Start earning points from poll answers"]'::jsonb),
+  (1, 'Silver', 'Pattern Spotter', 25, 20, '["Unlock early engagement experiments"]'::jsonb),
+  (1, 'Gold', 'Culture Mapper', 100, 30, '["Qualify for featured reward drops"]'::jsonb)
+on conflict (level, tier) do nothing;
+
+insert into public.game_levels (level_name, level_order, game_level_levels)
+values ('Rank', 1, '["Apprentice", "Acolyte", "Wizard"]'::jsonb)
+on conflict (level_order) do nothing;
+
+insert into public.game_scoring (score_name, description, specific_criteria, points)
+values
+  ('Poll answer', 'Awarded when a signed-in player answers a poll.', 'Player must submit one valid answer to a published poll they have not already answered.', 1)
+on conflict do nothing;

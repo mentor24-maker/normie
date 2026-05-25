@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { BackgroundSettings, BuilderTemplateModule } from "@/lib/builder-template";
+import { BuilderAlignmentIconGroup } from "./builder-alignment-icon-group";
 import { BuilderButtonBackgroundPicker } from "./builder-button-background-picker";
 import {
   borderStyleOptions,
@@ -23,12 +24,6 @@ import {
   getButtonBackgroundSettings,
   getModuleAlignment
 } from "./builder-utils";
-
-const alignmentOptions = [
-  { value: "left", label: "Align left", icon: "≡" },
-  { value: "center", label: "Align center", icon: "≣" },
-  { value: "right", label: "Align right", icon: "☰" }
-] as const;
 
 type BuilderButtonDesignSettingsProps = {
   module: BuilderTemplateModule;
@@ -167,24 +162,10 @@ export function BuilderButtonDesignSettings({
               </select>
             </BuilderSettingRow>
             <BuilderSettingRow label="Alignment">
-              <div className="builder-alignment-icon-group" role="group" aria-label="Module alignment">
-                {alignmentOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    aria-label={option.label}
-                    className={
-                      option.value === moduleAlignment
-                        ? "builder-icon-button builder-icon-button-active"
-                        : "builder-icon-button"
-                    }
-                    onClick={() => updateSetting("alignment", option.value)}
-                    title={option.label}
-                    type="button"
-                  >
-                    {option.icon}
-                  </button>
-                ))}
-              </div>
+              <BuilderAlignmentIconGroup
+                value={moduleAlignment}
+                onChange={(alignment) => updateSetting("alignment", alignment)}
+              />
             </BuilderSettingRow>
           </div>
           <div className="builder-button-setting-column">

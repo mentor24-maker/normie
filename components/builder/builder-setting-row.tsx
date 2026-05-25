@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 type BuilderSettingRowProps = {
-  label: string;
+  label: ReactNode;
   children: ReactNode;
   fullWidth?: boolean;
 };

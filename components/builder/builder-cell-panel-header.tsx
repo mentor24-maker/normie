@@ -5,6 +5,7 @@ type BuilderCellPanelHeaderProps = {
   isCollapsed: boolean;
   onToggle: () => void;
   panelName?: string;
+  leadingActions?: ReactNode;
   headingActions?: ReactNode;
 };
 
@@ -13,6 +14,7 @@ export function BuilderCellPanelHeader({
   isCollapsed,
   onToggle,
   panelName,
+  leadingActions,
   headingActions
 }: BuilderCellPanelHeaderProps) {
   const label = panelName ?? title;
@@ -20,6 +22,9 @@ export function BuilderCellPanelHeader({
   const header = (
     <div aria-expanded={!isCollapsed} className="builder-cell-panel-header">
       <div className="builder-cell-panel-title">
+        {leadingActions ? (
+          <span className="builder-cell-panel-leading-actions">{leadingActions}</span>
+        ) : null}
         <button className="builder-cell-panel-title-label" onClick={onToggle} type="button">
           <strong>{title}</strong>
         </button>

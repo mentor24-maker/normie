@@ -3,6 +3,8 @@ import {
   columnHasOnlyOverlayImageModules,
   getHeadingModuleStyle,
   getImageModuleShellStyle,
+  getModuleWidthShellStyle,
+  getModuleWidthStyle,
   getOverlayFlowCollapsedModuleStyle,
   getOverlayFlowCollapsedSectionStyle,
   isFloatingImageModule,
@@ -116,5 +118,26 @@ describe("getHeadingModuleStyle", () => {
     const style = getHeadingModuleStyle({ fontSize: "14" });
 
     expect(style.margin).toBe(0);
+  });
+});
+
+describe("module width styles", () => {
+  it("clamps poll module width to supported percentages", () => {
+    expect(getModuleWidthStyle({ size: "66" })).toEqual({
+      width: "66%",
+      maxWidth: "100%",
+      boxSizing: "border-box"
+    });
+  });
+
+  it("aligns undersized poll modules within the column", () => {
+    expect(getModuleWidthShellStyle({ size: "75", alignment: "center" })).toMatchObject({
+      width: "75%",
+      alignSelf: "center"
+    });
+    expect(getModuleWidthShellStyle({ size: "100", alignment: "left" })).toMatchObject({
+      width: "100%",
+      alignSelf: "stretch"
+    });
   });
 });

@@ -33,6 +33,16 @@ export default function AdminDashboardPage() {
           Open Gallery
         </Link>
       </article>
+      <article className="admin-hub-card admin-hub-card-blue">
+        <div className="panel-label">Game</div>
+        <h2>Progression and rewards</h2>
+        <p className="panel-copy">
+          Shape level tiers and point redemptions for the player engagement layer.
+        </p>
+        <Link className="admin-hub-link" href="/admin/game">
+          Open Game
+        </Link>
+      </article>
     </section>
   );
 }

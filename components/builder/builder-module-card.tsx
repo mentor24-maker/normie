@@ -7,6 +7,8 @@ import {
   normalizeBuilderAssetUrl,
   formatRichTextContent
 } from "@/lib/builder-template";
+import { resolveBuilderDrillDownSurfaceBackground } from "@/lib/builder-drill-down-surface";
+import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
@@ -24,10 +26,13 @@ import {
   getSocialSharePlatformEnabled,
   type SocialSharePlatformId
 } from "@/components/social-share-module";
+import { BuilderAlignmentIconGroup } from "./builder-alignment-icon-group";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { MerchModuleEditor } from "./builder-merch-module-editor";
 import { BuilderCodeEmbed } from "./builder-code-embed";
 import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
+import { BuilderCurrentPollModuleSettings } from "./builder-current-poll-module-settings";
+import { BuilderSocialModuleSettings } from "./builder-social-module-settings";
 import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
 import { BuilderImagePreview } from "./builder-image-preview";
 import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
@@ -441,32 +446,34 @@ function renderModulePreview(module: BuilderTemplateModule) {
   if (module.type === "social") {
     const items = parseSocialItems(module.settings);
     const gap = Number.parseInt(module.settings.socialGap || "14", 10);
-    const iconSize = Number.parseInt(module.settings.socialIconSize || "44", 10) * 2;
+    const iconSize = Number.parseInt(module.settings.socialIconSize || "44", 10);
     const showLabels = module.settings.socialShowLabels !== "false";
 
     return (
       <div className="builder-module-preview-social" style={{ gap: `${gap}px` }}>
         {items.length > 0 ? (
           items.map((item) => (
-            <a
-              key={item.id}
-              className="builder-module-preview-social-item"
-              href={item.href || "#"}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <span
-                className="builder-module-preview-social-icon"
-                style={{ width: `${iconSize}px`, height: `${iconSize}px`, background: item.backgroundColor }}
+            <div key={item.id} className="builder-module-preview-social-entry">
+              <a
+                className="builder-module-preview-social-item"
+                href={item.href || "#"}
+                rel="noopener noreferrer"
+                target="_blank"
+                aria-label={item.label || "Social link"}
+                style={{
+                  width: `${iconSize}px`,
+                  height: `${iconSize}px`,
+                  background: item.backgroundColor
+                }}
               >
                 {item.iconUrl ? (
                   <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
                 ) : (
-                  <span>{item.label.slice(0, 1) || "@"}</span>
+                  <span className="builder-module-preview-social-fallback">{item.label.slice(0, 1) || "@"}</span>
                 )}
-              </span>
-              {showLabels ? <span>{item.label || "Social"}</span> : null}
-            </a>
+              </a>
+              {showLabels ? <span className="builder-module-preview-social-label">{item.label || "Social"}</span> : null}
+            </div>
           ))
         ) : (
           <div className="builder-module-preview-placeholder">Add social icons</div>
@@ -639,16 +646,12 @@ function parseSocialItems(settings: Record<string, string>): SocialItem[] {
         label: String(raw.label || ""),
         href: String(raw.href || ""),
         iconUrl: normalizeBuilderAssetUrl(raw.iconUrl),
-        backgroundColor: String(raw.backgroundColor || "rgba(255, 255, 255, 0.94)")
+        backgroundColor: normalizeSocialIconBackgroundColor(raw.backgroundColor)
       };
     });
   } catch {
     return [];
   }
-}
-
-function serializeSocialItems(items: SocialItem[]) {
-  return JSON.stringify(items);
 }
 
 function parseTableData(settings: Record<string, string>): ParsedTableData {
@@ -1209,123 +1212,6 @@ function SliderModuleEditor({
   );
 }
 
-function SocialModuleEditor({
-  module,
-  onUpdateModule,
-  onOpenGallery
-}: {
-  module: BuilderTemplateModule;
-  onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
-  onOpenGallery: (itemId: string) => void;
-}) {
-  const items = parseSocialItems(module.settings);
-
-  function persist(nextItems: SocialItem[]) {
-    onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialItems: serializeSocialItems(nextItems) } }));
-  }
-
-  function updateItem(id: string, updates: Partial<SocialItem>) {
-    persist(items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
-  }
-
-  function moveItem(id: string, direction: -1 | 1) {
-    const index = items.findIndex((item) => item.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= items.length) return;
-    const nextItems = [...items];
-    const [moved] = nextItems.splice(index, 1);
-    nextItems.splice(target, 0, moved);
-    persist(nextItems);
-  }
-
-  function removeItem(id: string) { persist(items.filter((item) => item.id !== id)); }
-
-  function addItem() {
-    persist([
-      ...items,
-      {
-        id: `social-${Date.now()}-${items.length + 1}`,
-        label: "",
-        href: "",
-        iconUrl: "",
-        backgroundColor: "rgba(255, 255, 255, 0.94)"
-      }
-    ]);
-  }
-
-  return (
-    <>
-      <div className="builder-slider-design-grid">
-        <BuilderInlineNumberSelectRow>
-          <BuilderInlineNumberSelect
-            label="Icon size"
-            value={module.settings.socialIconSize ?? "44"}
-            min={24}
-            max={84}
-            step={2}
-            fallback="44"
-            onChange={(value) =>
-              onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialIconSize: value } }))
-            }
-          />
-          <BuilderInlineNumberSelect
-            label="Gap"
-            value={module.settings.socialGap ?? "14"}
-            min={6}
-            max={32}
-            step={2}
-            fallback="14"
-            onChange={(value) =>
-              onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialGap: value } }))
-            }
-          />
-        </BuilderInlineNumberSelectRow>
-        <label className="field builder-checkbox-field">
-          <span>Show labels</span>
-          <input type="checkbox" checked={module.settings.socialShowLabels !== "false"} onChange={(e) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, socialShowLabels: e.target.checked ? "true" : "false" } }))} />
-        </label>
-      </div>
-      <div className="builder-slider-items">
-        {items.map((item, index) => (
-          <div key={item.id} className="builder-slider-item-card">
-            <div className="builder-slider-item-header">
-              <strong>{item.label || `Network ${index + 1}`}</strong>
-              <div className="builder-section-actions">
-                <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, -1)} title="Move up">↑</button>
-                <button type="button" className="builder-icon-button" onClick={() => moveItem(item.id, 1)} title="Move down">↓</button>
-                <button type="button" className="builder-icon-button builder-icon-button-danger" onClick={() => removeItem(item.id)} title="Delete icon">✕</button>
-              </div>
-            </div>
-            <div className="builder-slider-item-grid">
-              <label className="field"><span>Label</span><input type="text" value={item.label} onChange={(e) => updateItem(item.id, { label: e.target.value })} /></label>
-              <label className="field"><span>Link</span><input type="text" value={item.href} onChange={(e) => updateItem(item.id, { href: e.target.value })} placeholder="https://..." /></label>
-              <label className="field">
-                <span>Background color</span>
-                <input
-                  type="text"
-                  value={item.backgroundColor}
-                  onChange={(e) => updateItem(item.id, { backgroundColor: e.target.value })}
-                  placeholder="#ffffff or rgba(255,255,255,0.94)"
-                />
-              </label>
-              <div className="builder-slider-item-grid-full builder-social-icon-picker">
-                <label className="field">
-                  <span>Icon</span>
-                  <input type="text" value={item.iconUrl} readOnly placeholder="Choose an icon from the gallery" />
-                </label>
-                <button className="secondary-button builder-social-icon-picker-button" onClick={() => onOpenGallery(item.id)} type="button">
-                  Choose From Gallery
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button type="button" className="secondary-button" onClick={addItem}>Add Social Icon</button>
-    </>
-  );
-}
-
 function SocialShareModuleEditor({
   module,
   onUpdateModule
@@ -1551,7 +1437,7 @@ function NavModuleEditor({
         <label className="field"><span>Padding</span><input type="text" value={module.settings.navPadding ?? "8px 12px"} onChange={(e) => updateSetting("navPadding", e.target.value)} placeholder="8px 12px" /></label>
         <label className="field"><span>Text color</span><input type="text" value={module.settings.navColor ?? ""} onChange={(e) => updateSetting("navColor", e.target.value)} placeholder="#ffffff" /></label>
         <label className="field"><span>Hover text color</span><input type="text" value={module.settings.navHoverColor ?? ""} onChange={(e) => updateSetting("navHoverColor", e.target.value)} placeholder="#ffffff" /></label>
-        <label className="field"><span>Hover background</span><input type="text" value={module.settings.navHoverBackground ?? ""} onChange={(e) => updateSetting("navHoverBackground", e.target.value)} placeholder="rgba(0,0,0,0.1)" /></label>
+        <label className="field"><span>Hover background</span><input type="text" value={module.settings.navHoverBackground ?? ""} onChange={(e) => updateSetting("navHoverBackground", e.target.value)} placeholder="#e8f8ff" /></label>
       </div>
       <div className="builder-slider-items">
         {items.map((item, index) => (
@@ -1768,12 +1654,15 @@ export function BuilderModuleCard({
     const isStandardImage = module.type === "image" && !isVideoModule;
     const isFloatingImage = module.type === "floating-image";
     const isHeadingModule = module.type === "heading";
+    const isCurrentPollModule = module.type === "current-poll";
+    const isSocialModule = module.type === "social";
+    const isPollRuntimeModule = isCurrentPollModule || module.type === "previous-results";
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
       style={{
         ...(module.type !== "button"
-          ? getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}
+          ? resolveBuilderDrillDownSurfaceBackground(getModuleBackgroundSettings(module.settings), "module")
           : {}),
         ...(isHeadingModule
           ? getModuleMarginStyle(module.settings)
@@ -1782,19 +1671,19 @@ export function BuilderModuleCard({
             : getVerticalMarginStyle(module.settings.verticalMargin))
       }}
     >
+      {onModuleDragStart ? (
+        <div
+          aria-label="Drag module"
+          className="builder-module-drag-handle"
+          draggable
+          onDragStart={onModuleDragStart}
+          title="Drag Module"
+        >
+          ⋮⋮
+        </div>
+      ) : null}
       <div aria-expanded={isExpanded} className="builder-module-header">
         <div className="builder-module-title">
-          {onModuleDragStart ? (
-            <div
-              aria-label="Drag module"
-              className="builder-module-drag-handle"
-              draggable
-              onDragStart={onModuleDragStart}
-              title="Drag Module"
-            >
-              ⋮⋮
-            </div>
-          ) : null}
           <div className="builder-module-title-text">
             <strong>{module.name || module.type}</strong>
             <span>{module.type}</span>
@@ -1851,13 +1740,23 @@ export function BuilderModuleCard({
 
       {isExpanded ? (
         <div className="builder-module-editor">
-          <div className="builder-module-header">
-            <strong>Edit module</strong>
-            <span className="builder-module-editor-copy">These controls stay available from the module header.</span>
-          </div>
+          {module.type !== "social" ? (
+            <div className="builder-module-header">
+              <span className="builder-module-editor-copy">These controls stay available from the module header.</span>
+            </div>
+          ) : null}
 
           {module.type === "button" || module.type === "heading" ? (
             <BuilderSettingRow label="Module label" fullWidth>
+              <input
+                type="text"
+                value={module.name}
+                onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Optional internal label"
+              />
+            </BuilderSettingRow>
+          ) : module.type === "social" ? (
+            <BuilderSettingRow label="Label" fullWidth>
               <input
                 type="text"
                 value={module.name}
@@ -1938,7 +1837,20 @@ export function BuilderModuleCard({
           ) : (
           <>
           {module.type !== "button" ? (
-            module.type === "heading" ? (
+            isCurrentPollModule ? (
+              <BuilderCurrentPollModuleSettings
+                module={module}
+                onUpdateModule={onUpdateModule}
+                onUpdateModuleBackground={onUpdateModuleBackground}
+              />
+            ) : isSocialModule ? (
+              <BuilderSocialModuleSettings
+                module={module}
+                onUpdateModule={onUpdateModule}
+                onUpdateModuleBackground={onUpdateModuleBackground}
+                onOpenGallery={onOpenSocialIconGallery}
+              />
+            ) : module.type === "heading" ? (
               <div className="builder-heading-module-chrome">
                 <BuilderBackgroundControls
                   label="Module Background"
@@ -1947,33 +1859,15 @@ export function BuilderModuleCard({
                   onChange={onUpdateModuleBackground}
                 />
                 <BuilderSettingRow label="Alignment">
-                  <div className="builder-alignment-icon-group" role="group" aria-label="Module alignment">
-                    {([
-                      { value: "left", label: "Align left", icon: "≡" },
-                      { value: "center", label: "Align center", icon: "≣" },
-                      { value: "right", label: "Align right", icon: "☰" }
-                    ] as const).map((option) => (
-                      <button
-                        key={option.value}
-                        aria-label={option.label}
-                        className={
-                          option.value === moduleAlignment
-                            ? "builder-icon-button builder-icon-button-active"
-                            : "builder-icon-button"
-                        }
-                        onClick={() =>
-                          onUpdateModule((current) => ({
-                            ...current,
-                            settings: { ...current.settings, alignment: option.value }
-                          }))
-                        }
-                        title={option.label}
-                        type="button"
-                      >
-                        {option.icon}
-                      </button>
-                    ))}
-                  </div>
+                  <BuilderAlignmentIconGroup
+                    value={moduleAlignment}
+                    onChange={(alignment) =>
+                      onUpdateModule((current) => ({
+                        ...current,
+                        settings: { ...current.settings, alignment }
+                      }))
+                    }
+                  />
                 </BuilderSettingRow>
               </div>
             ) : (
@@ -1986,33 +1880,15 @@ export function BuilderModuleCard({
                 />
                 <div className="builder-module-alignment-controls">
                   <span>Alignment</span>
-                  <div className="builder-alignment-icon-group" role="group" aria-label="Module alignment">
-                    {([
-                      { value: "left", label: "Align left", icon: "≡" },
-                      { value: "center", label: "Align center", icon: "≣" },
-                      { value: "right", label: "Align right", icon: "☰" }
-                    ] as const).map((option) => (
-                      <button
-                        key={option.value}
-                        aria-label={option.label}
-                        className={
-                          option.value === moduleAlignment
-                            ? "builder-icon-button builder-icon-button-active"
-                            : "builder-icon-button"
-                        }
-                        onClick={() =>
-                          onUpdateModule((current) => ({
-                            ...current,
-                            settings: { ...current.settings, alignment: option.value }
-                          }))
-                        }
-                        title={option.label}
-                        type="button"
-                      >
-                        {option.icon}
-                      </button>
-                    ))}
-                  </div>
+                  <BuilderAlignmentIconGroup
+                    value={moduleAlignment}
+                    onChange={(alignment) =>
+                      onUpdateModule((current) => ({
+                        ...current,
+                        settings: { ...current.settings, alignment }
+                      }))
+                    }
+                  />
                 </div>
                 <BuilderInlineNumberSelect
                   label="Vertical margin"
@@ -2245,13 +2121,6 @@ export function BuilderModuleCard({
 
           {module.type === "table" && <TableModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "slider" && <SliderModuleEditor module={module} onUpdateModule={onUpdateModule} />}
-          {module.type === "social" && (
-            <SocialModuleEditor
-              module={module}
-              onUpdateModule={onUpdateModule}
-              onOpenGallery={onOpenSocialIconGallery}
-            />
-          )}
           {module.type === "navigation" && <NavModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "headline-rotator" && <HeadlineRotatorModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "social-share" && <SocialShareModuleEditor module={module} onUpdateModule={onUpdateModule} />}

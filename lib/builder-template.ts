@@ -1,4 +1,7 @@
 import type { CSSProperties } from "react";
+import { normalizeCurrentPollModuleWidth } from "@/lib/current-poll-module";
+import { sanitizeCellBackgroundForDrillDown } from "@/lib/builder-drill-down-surface";
+import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
   HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
@@ -356,8 +359,8 @@ export function normalizeBackgroundSettings(value: unknown): BackgroundSettings 
 
   return {
     mode: normalizeBackgroundMode(background.mode),
-    color: safeText(background.color, 40) || "#ffffff",
-    color2: safeText(background.color2, 40) || "#eaf4ff",
+    color: normalizeBuilderHexColor(safeText(background.color, 40), "#ffffff"),
+    color2: normalizeBuilderHexColor(safeText(background.color2, 40), "#eaf4ff"),
     imageUrl: normalizeBuilderAssetUrl(background.imageUrl),
     styleKey: normalizeBackgroundStyleKey(background.styleKey)
   };
@@ -410,7 +413,10 @@ function normalizeCellBackgrounds(
 
   const raw = value as Record<string, unknown>;
   return Object.fromEntries(
-    columns.map((column) => [column, normalizeBackgroundSettings(raw[column])])
+    columns.map((column) => {
+      const background = normalizeBackgroundSettings(raw[column]);
+      return [column, sanitizeCellBackgroundForDrillDown(background)];
+    })
   );
 }
 
@@ -581,6 +587,10 @@ function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: 
     settings.marginBottom = normalizeSpacingValue(settings.marginBottom ?? legacy, "0");
     settings.horizontalOffset = normalizeSignedOffsetValue(settings.horizontalOffset, "0");
     settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
+  }
+
+  if (type === "current-poll") {
+    settings.size = normalizeCurrentPollModuleWidth(settings.size);
   }
 
   if (type === "headline-rotator") {
@@ -938,11 +948,13 @@ export function createEmptyModule(
                 }
               : type === "previous-results"
                 ? {
-                    showFallbackCopy: "true"
+                    showFallbackCopy: "true",
+                    size: "100"
                   }
                 : type === "current-poll"
                   ? {
-                      showPromptCopy: "true"
+                      showPromptCopy: "true",
+                      size: "100"
                     }
                   : type === "social-share"
                     ? {

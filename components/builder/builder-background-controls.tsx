@@ -14,6 +14,7 @@ type BuilderBackgroundControlsProps = {
   onUploadImage?: (file: File | null) => void;
   compact?: boolean;
   horizontal?: boolean;
+  hideModeRow?: boolean;
 };
 
 export function BuilderBackgroundControls({
@@ -23,28 +24,31 @@ export function BuilderBackgroundControls({
   onChooseImage,
   onUploadImage,
   compact = false,
-  horizontal = false
+  horizontal = false,
+  hideModeRow = false
 }: BuilderBackgroundControlsProps) {
   if (horizontal) {
     return (
       <div className="builder-background-controls builder-background-controls-horizontal">
-        <BuilderSettingRow label={label} fullWidth>
-          <select
-            value={background.mode}
-            onChange={(event) =>
-              onChange((current) => ({
-                ...current,
-                mode: event.target.value as BackgroundSettings["mode"]
-              }))
-            }
-          >
-            <option value="none">None</option>
-            <option value="color">Color</option>
-            <option value="gradient">Gradient</option>
-            <option value="image">Image</option>
-            <option value="style">Style</option>
-          </select>
-        </BuilderSettingRow>
+        {!hideModeRow ? (
+          <BuilderSettingRow label={label} fullWidth>
+            <select
+              value={background.mode}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  mode: event.target.value as BackgroundSettings["mode"]
+                }))
+              }
+            >
+              <option value="none">None</option>
+              <option value="color">Color</option>
+              <option value="gradient">Gradient</option>
+              <option value="image">Image</option>
+              <option value="style">Style</option>
+            </select>
+          </BuilderSettingRow>
+        ) : null}
 
         {background.mode === "color" || background.mode === "gradient" ? (
           <BuilderSettingRow label="Primary color" fullWidth>

@@ -1,13 +1,16 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   buildPollsNextRequestUrl,
   getPollCategoryMeta,
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
+import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import { getPollPodAppearanceStyle, type PollPodType } from "@/lib/poll-pod-config";
+import { getCurrentPollModuleShellStyle } from "@/lib/current-poll-module";
+import { getModuleWidthShellStyle } from "@/components/builder/builder-utils";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import type { PollPayload } from "@/src/site/home/types";
@@ -169,10 +172,12 @@ function useSharedPollRuntime(categoryParam: string, startPollParam: string) {
 
 export function BuilderPollModuleRuntime({
   kind,
-  className
+  className,
+  settings = {}
 }: {
   kind: PollModuleKind;
   className?: string;
+  settings?: Record<string, string>;
 }) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
@@ -183,6 +188,8 @@ export function BuilderPollModuleRuntime({
   );
   const categoryFromUrl = getPollCategoryMeta(categoryParam);
   const activeCategory = payload?.activeCategory ?? categoryFromUrl;
+  const shellStyle =
+    kind === "current-poll" ? getCurrentPollModuleShellStyle(settings) : getModuleWidthShellStyle(settings);
   const builderPodType: PollPodType =
     kind === "previous-results"
       ? payload?.previousPoll
@@ -192,8 +199,16 @@ export function BuilderPollModuleRuntime({
   const panelStyle = getPollPodAppearanceStyle(payload?.settings, builderPodType);
   const panelClassName = className ? `${className} panel poll-module-panel` : "panel poll-module-panel";
 
-  if (isLoading) {
+  function wrapPollModule(content: ReactNode) {
     return (
+      <div className="builder-poll-module-shell" style={shellStyle}>
+        {content}
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return wrapPollModule(
       <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">Loading polls...</p>
@@ -202,7 +217,7 @@ export function BuilderPollModuleRuntime({
   }
 
   if (error) {
-    return (
+    return wrapPollModule(
       <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
         <p className="panel-copy">{error}</p>
@@ -211,43 +226,36 @@ export function BuilderPollModuleRuntime({
   }
 
   if (payload?.done) {
-    return (
+    return wrapPollModule(
       <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
-        <p className="panel-copy">
-          {activeCategory
-            ? `You&apos;re done with the ${activeCategory.name} polls. Thanks for playing.`
-            : "You&apos;re done. Thanks for finishing the full poll sequence."}
-        </p>
+        <p className="panel-copy">{getPollDoneMessage(payload.doneReason)}</p>
       </article>
     );
   }
 
   if (kind === "previous-results") {
-    return (
-      <div className={className}>
-        <PreviousResultsPanel
-          previousPoll={payload?.previousPoll ?? null}
-          settings={payload?.settings}
-        />
-      </div>
+    return wrapPollModule(
+      <PreviousResultsPanel
+        previousPoll={payload?.previousPoll ?? null}
+        settings={payload?.settings}
+      />
     );
   }
 
   if (payload?.currentPoll) {
-    return (
-      <div className={className}>
-        <CurrentPollPanel
-          currentPoll={payload.currentPoll}
-          isSubmitting={isSubmitting}
-          onSubmit={onSubmit}
-          settings={payload.settings}
-        />
-      </div>
+    return wrapPollModule(
+      <CurrentPollPanel
+        currentPoll={payload.currentPoll}
+        isSubmitting={isSubmitting}
+        moduleSettings={settings}
+        onSubmit={onSubmit}
+        settings={payload.settings}
+      />
     );
   }
 
-  return (
+  return wrapPollModule(
     <article className={panelClassName} style={panelStyle}>
       <div className="panel-label">Current Poll</div>
       <p className="panel-copy">

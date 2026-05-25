@@ -14,6 +14,8 @@ export function getPollDoneMessage(doneReason: PollDoneReason | undefined) {
       return "You have answered every published poll in your preferred categories. Add more categories in Preferences, or clear your selection to include newly imported polls.";
     case "all_answered":
       return "You have answered every published poll. Check back when new questions are published.";
+    case "no_polls_available":
+      return "No published polls are available right now. Check back after new questions are published or imported.";
     default:
       return "You are done for now. Check back when new questions are published.";
   }

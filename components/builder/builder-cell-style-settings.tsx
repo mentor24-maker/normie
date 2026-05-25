@@ -42,7 +42,7 @@ export function BuilderCellStyleSettings({
   if (editorDevice === "mobile") {
     return (
       <div className="builder-cell-style-settings">
-        <BuilderSettingRow label="Hide on Mobile">
+        <BuilderSettingRow label="Hide on Mobile" fullWidth>
           <input
             type="checkbox"
             checked={getCellExtra(column, "cellMobileHidden", "false") === "true"}
@@ -66,46 +66,44 @@ export function BuilderCellStyleSettings({
     <div className="builder-cell-style-settings">
       <div className="builder-cell-style-group">
         <div className="builder-cell-style-group-label">Border</div>
-        <div className="builder-button-border-grid">
-          <BuilderSettingRow label="Style">
-            <select
-              value={borderStyle}
-              onChange={(event) => onSetCellExtra(column, "cellBorderStyle", event.target.value)}
-            >
-              <option value="none">None</option>
-              <option value="solid">Solid</option>
-              <option value="dashed">Dashed</option>
-              <option value="dotted">Dotted</option>
-            </select>
-          </BuilderSettingRow>
-          <BuilderSettingRow label="Width">
-            <BuilderNumberSelectControl
-              disabled={borderDisabled}
-              value={section.cellBorderWidth[column] ?? "1"}
-              min={0}
-              max={20}
-              fallback="1"
-              onChange={(value) => onUpdateCellBorderWidth(column, value)}
-            />
-          </BuilderSettingRow>
-          <BuilderSettingRow label="Color">
-            <input
-              type="color"
-              disabled={borderDisabled}
-              value={section.cellBorderColor[column] ?? "#d9e4ef"}
-              onChange={(event) => onUpdateCellBorderColor(column, event.target.value)}
-            />
-          </BuilderSettingRow>
-          <BuilderSettingRow label="Radius">
-            <BuilderNumberSelectControl
-              value={section.cellBorderRadius[column] ?? "24"}
-              min={0}
-              max={60}
-              fallback="24"
-              onChange={(value) => onUpdateCellBorderRadius(column, value)}
-            />
-          </BuilderSettingRow>
-        </div>
+        <BuilderSettingRow label="Style" fullWidth>
+          <select
+            value={borderStyle}
+            onChange={(event) => onSetCellExtra(column, "cellBorderStyle", event.target.value)}
+          >
+            <option value="none">None</option>
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Width" fullWidth>
+          <BuilderNumberSelectControl
+            disabled={borderDisabled}
+            value={section.cellBorderWidth[column] ?? "1"}
+            min={0}
+            max={20}
+            fallback="1"
+            onChange={(value) => onUpdateCellBorderWidth(column, value)}
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Color" fullWidth>
+          <input
+            type="color"
+            disabled={borderDisabled}
+            value={section.cellBorderColor[column] ?? "#d9e4ef"}
+            onChange={(event) => onUpdateCellBorderColor(column, event.target.value)}
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Radius" fullWidth>
+          <BuilderNumberSelectControl
+            value={section.cellBorderRadius[column] ?? "24"}
+            min={0}
+            max={60}
+            fallback="24"
+            onChange={(value) => onUpdateCellBorderRadius(column, value)}
+          />
+        </BuilderSettingRow>
         <BuilderSettingRow label="Shadow" fullWidth>
           <select value={shadow} onChange={(event) => onSetCellExtra(column, "cellShadow", event.target.value)}>
             <option value="none">None</option>
@@ -124,7 +122,7 @@ export function BuilderCellStyleSettings({
           horizontal
           onChange={(updater) => onUpdateCellBackground(column, updater)}
         />
-        <BuilderSettingRow label="Opacity">
+        <BuilderSettingRow label="Opacity" fullWidth>
           <BuilderNumberSelectControl
             value={opacityPercentValue(opacity)}
             min={0}
@@ -137,54 +135,42 @@ export function BuilderCellStyleSettings({
 
       <div className="builder-cell-style-group">
         <div className="builder-cell-style-group-label">Padding</div>
-        <div className="builder-button-setting-columns">
-          <div className="builder-button-setting-column">
-            <BuilderSettingRow label="Size">
-              <BuilderNumberSelectControl
-                value={section.cellPadding[column] ?? "18"}
-                min={0}
-                max={50}
-                fallback="18"
-                onChange={(value) => onUpdateCellPadding(column, value)}
-              />
-            </BuilderSettingRow>
-          </div>
-          <div className="builder-button-setting-column">
-            <BuilderSettingRow label="Vertical Margin">
-              <BuilderNumberSelectControl
-                value={getCellExtra(column, "cellVerticalMargin", "0")}
-                min={0}
-                max={160}
-                fallback="0"
-                onChange={(value) => onSetCellExtra(column, "cellVerticalMargin", value)}
-              />
-            </BuilderSettingRow>
-          </div>
-        </div>
+        <BuilderSettingRow label="Size" fullWidth>
+          <BuilderNumberSelectControl
+            value={section.cellPadding[column] ?? "18"}
+            min={0}
+            max={50}
+            fallback="18"
+            onChange={(value) => onUpdateCellPadding(column, value)}
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Vertical Margin" fullWidth>
+          <BuilderNumberSelectControl
+            value={getCellExtra(column, "cellVerticalMargin", "0")}
+            min={0}
+            max={160}
+            fallback="0"
+            onChange={(value) => onSetCellExtra(column, "cellVerticalMargin", value)}
+          />
+        </BuilderSettingRow>
       </div>
 
       <div className="builder-cell-style-group">
         <div className="builder-cell-style-group-label">Alignment</div>
-        <div className="builder-button-setting-columns">
-          <div className="builder-button-setting-column">
-            <BuilderSettingRow label="Horizontal">
-              <select value={hAlign} onChange={(event) => onSetCellExtra(column, "cellHAlign", event.target.value)}>
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </BuilderSettingRow>
-          </div>
-          <div className="builder-button-setting-column">
-            <BuilderSettingRow label="Vertical">
-              <select value={vAlign} onChange={(event) => onSetCellExtra(column, "cellVAlign", event.target.value)}>
-                <option value="top">Top</option>
-                <option value="center">Center</option>
-                <option value="bottom">Bottom</option>
-              </select>
-            </BuilderSettingRow>
-          </div>
-        </div>
+        <BuilderSettingRow label="Horizontal" fullWidth>
+          <select value={hAlign} onChange={(event) => onSetCellExtra(column, "cellHAlign", event.target.value)}>
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow label="Vertical" fullWidth>
+          <select value={vAlign} onChange={(event) => onSetCellExtra(column, "cellVAlign", event.target.value)}>
+            <option value="top">Top</option>
+            <option value="center">Center</option>
+            <option value="bottom">Bottom</option>
+          </select>
+        </BuilderSettingRow>
       </div>
     </div>
   );

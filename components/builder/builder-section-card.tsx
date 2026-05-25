@@ -7,7 +7,8 @@ import type {
 } from "@/lib/builder-template";
 import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent } from "react";
-import { getBuilderBackgroundStyle, getLayoutColumns, getLayoutGridTemplate } from "@/lib/builder-template";
+import { getLayoutColumns, getLayoutGridTemplate } from "@/lib/builder-template";
+import { resolveBuilderDrillDownSurfaceBackground } from "@/lib/builder-drill-down-surface";
 import { BuilderCellPanelHeader } from "./builder-cell-panel-header";
 import { BuilderCellStyleSettings } from "./builder-cell-style-settings";
 import { cancelBuilderDragIfFormField } from "./builder-drag-utils";
@@ -15,7 +16,6 @@ import { BuilderModuleCard } from "./builder-module-card";
 import { BuilderSectionControls } from "./builder-section-controls";
 import {
   getAlignmentClass,
-  getSectionBackgroundStyle,
   getSectionMarginStyle,
   getVerticalMarginStyle
 } from "./builder-utils";
@@ -169,7 +169,7 @@ export function BuilderSectionCard({
     };
 
     return {
-      ...getBuilderBackgroundStyle(section.cellBackgrounds[column]),
+      ...resolveBuilderDrillDownSurfaceBackground(section.cellBackgrounds[column], "cell"),
       ...getVerticalMarginStyle(section.cellVerticalMargin?.[column] ?? "0"),
       padding: `${section.cellPadding[column] ?? "18"}px`,
       borderStyle: borderStyle === "none" ? "none" : borderStyle,
@@ -185,7 +185,7 @@ export function BuilderSectionCard({
 
   function getSectionStyle(): CSSProperties {
     return {
-      ...(getSectionBackgroundStyle(section) ?? {}),
+      ...resolveBuilderDrillDownSurfaceBackground(section.background, "section"),
       ...getSectionMarginStyle(section)
     };
   }
@@ -349,7 +349,7 @@ export function BuilderSectionCard({
                     {!cellPanels.content ? (
                       <>
                         <div className="builder-cell-repository-actions">
-                          <label className="field builder-cell-repository-dropdown">
+                          <label className="builder-cell-repository-dropdown">
                             <select
                               defaultValue=""
                               onChange={(event) => {
@@ -369,7 +369,7 @@ export function BuilderSectionCard({
                               ))}
                             </select>
                           </label>
-                          <label className="field builder-cell-repository-dropdown">
+                          <label className="builder-cell-repository-dropdown">
                             <select
                               defaultValue=""
                               onChange={(event) => {

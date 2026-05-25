@@ -15,8 +15,8 @@ export function BuilderModuleOffsetFields({
   onVerticalOffsetChange
 }: BuilderModuleOffsetFieldsProps) {
   return (
-    <div className="builder-module-offset-grid">
-      <BuilderSettingRow label="Horizontal Offset">
+    <div className="builder-module-offset-fields">
+      <BuilderSettingRow label="Horizontal Offset" fullWidth>
         <div className="builder-setting-value-stack">
           <input
             type="number"
@@ -31,7 +31,7 @@ export function BuilderModuleOffsetFields({
           <span className="builder-module-offset-hint">Positive moves right; negative moves left.</span>
         </div>
       </BuilderSettingRow>
-      <BuilderSettingRow label="Vertical Offset">
+      <BuilderSettingRow label="Vertical Offset" fullWidth>
         <div className="builder-setting-value-stack">
           <input
             type="number"

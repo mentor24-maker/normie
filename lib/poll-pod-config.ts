@@ -144,7 +144,7 @@ export function createDefaultPodLayout(overrides?: Partial<PollPodLayout>): Poll
 
 export function createDefaultPollPodConfig(type: PollPodType): PollPodConfig {
   const layout = createDefaultPodLayout(
-    type === "polls" ? { contentWidth: "67", backgroundImageFocus: "right" } : undefined
+    type === "polls" ? { contentWidth: "100", backgroundImageFocus: "right" } : undefined
   );
 
   if (type === "polls") {

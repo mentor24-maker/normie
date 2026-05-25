@@ -13,6 +13,7 @@ import {
   normalizeBuilderAssetUrl
 } from "@/lib/builder-template";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
+import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
@@ -269,6 +270,7 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
           >
             {columnModules.map((module) => {
               const isOverlayFlowModule = isOverlayImageModule(module);
+              const isCurrentPollModule = module.type === "current-poll";
 
               return (
                 <div
@@ -279,12 +281,17 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
                     module.settings.mobileAlignment ? `builder-preview-module-mobile-align-${module.settings.mobileAlignment}` : ""
                   } ${
                     module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
-                  }${isOverlayFlowModule ? " builder-preview-module-overlay-flow" : ""}`}
+                  }${isOverlayFlowModule ? " builder-preview-module-overlay-flow" : ""}${
+                    isCurrentPollModule ? " builder-preview-module-current-poll" : ""
+                  }`}
                   style={{
-                    ...(module.type === "navigation" || isOverlayFlowModule || module.type === "button"
+                    ...(module.type === "navigation" ||
+                    isOverlayFlowModule ||
+                    module.type === "button" ||
+                    isCurrentPollModule
                       ? {}
                       : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-                    ...(isOverlayFlowModule
+                    ...(isOverlayFlowModule || isCurrentPollModule
                       ? {}
                       : module.type === "heading"
                         ? getModuleMarginStyle(module.settings)
@@ -450,7 +457,7 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   }
 
   if (module.type === "previous-results" || module.type === "current-poll") {
-    return <BuilderPollModuleRuntime kind={module.type} />;
+    return <BuilderPollModuleRuntime kind={module.type} settings={module.settings} />;
   }
 
   if (module.type === "social-share") {
@@ -878,7 +885,7 @@ function parseSocialItems(settings: Record<string, string>): SocialItem[] {
         label: String(raw.label || ""),
         href: String(raw.href || ""),
         iconUrl: normalizeBuilderAssetUrl(raw.iconUrl),
-        backgroundColor: String(raw.backgroundColor || "rgba(255, 255, 255, 0.94)")
+        backgroundColor: normalizeSocialIconBackgroundColor(raw.backgroundColor)
       };
     });
   } catch {
@@ -889,31 +896,33 @@ function parseSocialItems(settings: Record<string, string>): SocialItem[] {
 function SocialModulePreview({ module }: { module: import("@/lib/builder-template").BuilderTemplateModule }) {
   const items = parseSocialItems(module.settings);
   const gap = Number.parseInt(module.settings.socialGap || "14", 10);
-  const iconSize = Number.parseInt(module.settings.socialIconSize || "44", 10) * 2;
+  const iconSize = Number.parseInt(module.settings.socialIconSize || "44", 10);
   const showLabels = module.settings.socialShowLabels !== "false";
 
   return (
     <div className="builder-preview-social" style={{ gap: `${gap}px` }}>
       {items.map((item) => (
-        <a
-          key={item.id}
-          className="builder-preview-social-item"
-          href={item.href || "#"}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          <span
-            className="builder-preview-social-icon"
-            style={{ width: `${iconSize}px`, height: `${iconSize}px`, background: item.backgroundColor }}
+        <div key={item.id} className="builder-preview-social-entry">
+          <a
+            className="builder-preview-social-item"
+            href={item.href || "#"}
+            rel="noopener noreferrer"
+            target="_blank"
+            aria-label={item.label || "Social link"}
+            style={{
+              width: `${iconSize}px`,
+              height: `${iconSize}px`,
+              background: item.backgroundColor
+            }}
           >
             {item.iconUrl ? (
               <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
             ) : (
-              <span>{item.label.slice(0, 1) || "@"}</span>
+              <span className="builder-preview-social-fallback">{item.label.slice(0, 1) || "@"}</span>
             )}
-          </span>
-          {showLabels ? <span>{item.label}</span> : null}
-        </a>
+          </a>
+          {showLabels ? <span className="builder-preview-social-label">{item.label}</span> : null}
+        </div>
       ))}
     </div>
   );
