@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAdminAuthCallbackPath,
+  buildPlayerAuthCallbackPath,
   buildPlayerPasswordResetPath,
   hasAuthCallbackPayload,
   shouldRouteAuthPayloadToAdminCallback,
+  shouldRouteAuthPayloadToPlayerCallback,
   shouldRouteAuthPayloadToPlayerReset
 } from "@/lib/admin-auth-hash-redirect";
 
@@ -47,9 +49,24 @@ describe("admin auth hash redirect", () => {
     ).toBe(false);
   });
 
+  it("routes player signup confirmations away from admin", () => {
+    expect(
+      shouldRouteAuthPayloadToPlayerCallback("/", "", "#access_token=abc&refresh_token=def&type=signup")
+    ).toBe(true);
+    expect(
+      shouldRouteAuthPayloadToAdminCallback("/", "", "#access_token=abc&refresh_token=def&type=signup")
+    ).toBe(false);
+  });
+
   it("preserves search and hash when building the player reset path", () => {
     expect(buildPlayerPasswordResetPath("?foo=1", "#access_token=abc&type=recovery")).toBe(
       "/portal/reset?foo=1#access_token=abc&type=recovery"
+    );
+  });
+
+  it("preserves search and hash when building the player callback path", () => {
+    expect(buildPlayerAuthCallbackPath("?foo=1", "#access_token=abc&type=signup")).toBe(
+      "/portal/auth/callback?foo=1#access_token=abc&type=signup"
     );
   });
 

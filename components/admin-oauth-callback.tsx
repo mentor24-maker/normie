@@ -24,6 +24,11 @@ export function AdminOauthCallback() {
           return;
         }
 
+        if (params.authType === "signup" || params.authType === "email" || otpType === "signup" || otpType === "email") {
+          router.replace(`/portal/auth/callback${window.location.search}${window.location.hash}`);
+          return;
+        }
+
         if (params.authError) {
           throw new Error(params.authError);
         }
@@ -83,8 +88,6 @@ export function AdminOauthCallback() {
             refreshToken: session.refresh_token
           })
         });
-
-        const data = (await response.json()) as { error?: string };
 
         if (!response.ok) {
           await supabase.auth.signOut();

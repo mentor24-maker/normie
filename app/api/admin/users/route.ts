@@ -1,38 +1,84 @@
+import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
 import {
-  buildPublicUserFullName,
   mergePublicUserRecord,
   normalizePublicUserStatus,
   type PublicUserRow
 } from "@/lib/public-users";
+import { normalizePlayerHandle } from "@/lib/player-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+type ResponseStatsRow = {
+  user_id: string | null;
+  tokens_earned: number | null;
+};
+
+function buildStatsByUserId(rows: ResponseStatsRow[]) {
+  const stats = new Map<string, { pollsTaken: number; pointsEarned: number }>();
+
+  for (const row of rows) {
+    if (!row.user_id) continue;
+
+    const current = stats.get(row.user_id) ?? { pollsTaken: 0, pointsEarned: 0 };
+    current.pollsTaken += 1;
+    current.pointsEarned += row.tokens_earned ?? 0;
+    stats.set(row.user_id, current);
+  }
+
+  return stats;
+}
+
 export async function GET() {
-  const auth = await requireAdminRoute();
+  const auth = await requireAdminRoute("users:read");
   if ("response" in auth) {
     return auth.response;
   }
 
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, first_name, last_name, full_name, email, phone, status, source, notes, created_at, updated_at")
-    .order("created_at", { ascending: false });
+  const [{ data: authData, error: authError }, { data: profiles, error: profilesError }, { data: responses, error: responsesError }] =
+    await Promise.all([
+      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      supabase
+        .from("player_profiles")
+        .select("id, full_name, handle, status, created_at, updated_at")
+        .order("created_at", { ascending: false }),
+      supabase.from("responses").select("user_id, tokens_earned").not("user_id", "is", null)
+    ]);
 
-  if (error) {
-    return auth.finish(NextResponse.json(
-      {
-        error: error.message.includes("users")
-          ? "Missing users table. Run the updated public users schema."
-          : error.message
-      },
-      { status: 500 }
-    ));
+  if (authError) {
+    return auth.finish(NextResponse.json({ error: authError.message }, { status: 500 }));
   }
 
-  return auth.finish(NextResponse.json({ users: ((data ?? []) as PublicUserRow[]).map(mergePublicUserRecord) }));
+  if (profilesError) {
+    return auth.finish(
+      NextResponse.json(
+        {
+          error: profilesError.message.includes("player_profiles")
+            ? "Missing player_profiles table. Apply the player portal migrations."
+            : profilesError.message
+        },
+        { status: 500 }
+      )
+    );
+  }
+
+  if (responsesError) {
+    return auth.finish(NextResponse.json({ error: responsesError.message }, { status: 500 }));
+  }
+
+  const authUsersById = new Map<string, User>(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
+  const statsByUserId = buildStatsByUserId((responses ?? []) as ResponseStatsRow[]);
+  const users = ((profiles ?? []) as PublicUserRow[])
+    .map((profile) => {
+      const authUser = authUsersById.get(profile.id);
+      return authUser ? mergePublicUserRecord(authUser, profile, statsByUserId.get(profile.id)) : null;
+    })
+    .filter((user): user is NonNullable<typeof user> => Boolean(user))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+
+  return auth.finish(NextResponse.json({ users }));
 }
 
 export async function POST(request: Request) {
@@ -43,52 +89,69 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     email?: unknown;
-    firstName?: unknown;
-    lastName?: unknown;
+    password?: unknown;
     fullName?: unknown;
-    phone?: unknown;
+    handle?: unknown;
     status?: unknown;
-    source?: unknown;
-    notes?: unknown;
   };
 
   const email = safeUserText(body.email, 255).toLowerCase();
-  const firstName = safeUserText(body.firstName, 120);
-  const lastName = safeUserText(body.lastName, 120);
-  const fullName = safeUserText(body.fullName, 255) || buildPublicUserFullName(firstName, lastName);
-  const phone = safeUserText(body.phone, 80);
+  const password = safeUserText(body.password, 255);
+  const fullName = safeUserText(body.fullName, 255);
+  const handle = normalizePlayerHandle(body.handle, email);
   const status = normalizePublicUserStatus(body.status);
-  const source = safeUserText(body.source, 120) || "manual";
-  const notes = safeUserText(body.notes, 4000);
 
   if (!email || !email.includes("@")) {
     return auth.finish(NextResponse.json({ error: "A valid email is required." }, { status: 400 }));
   }
 
-  const timestamp = new Date().toISOString();
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("users")
-    .insert({
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      full_name: fullName,
-      phone,
-      status,
-      source,
-      notes,
-      updated_at: timestamp
-    })
-    .select("id, first_name, last_name, full_name, email, phone, status, source, notes, created_at, updated_at")
-    .single();
-
-  if (error || !data) {
-    return auth.finish(NextResponse.json(
-      { error: error?.message ?? "Failed to create user." },
-      { status: 500 }
-    ));
+  if (!password || password.length < 8) {
+    return auth.finish(NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 }));
   }
 
-  return auth.finish(NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) }, { status: 201 }));
+  const supabase = createAdminClient();
+  const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: fullName,
+      handle
+    }
+  });
+
+  if (createError || !createdUser.user) {
+    return auth.finish(
+      NextResponse.json({ error: createError?.message ?? "Failed to create player user." }, { status: 500 })
+    );
+  }
+
+  const timestamp = new Date().toISOString();
+  const { data: profile, error: profileError } = await supabase
+    .from("player_profiles")
+    .upsert({
+      id: createdUser.user.id,
+      full_name: fullName,
+      handle,
+      status,
+      updated_at: timestamp
+    })
+    .select("id, full_name, handle, status, created_at, updated_at")
+    .single();
+
+  if (profileError || !profile) {
+    return auth.finish(
+      NextResponse.json(
+        { error: profileError?.message ?? "Auth user was created, but the player profile could not be saved." },
+        { status: 500 }
+      )
+    );
+  }
+
+  return auth.finish(
+    NextResponse.json(
+      { user: mergePublicUserRecord(createdUser.user, profile as PublicUserRow) },
+      { status: 201 }
+    )
+  );
 }

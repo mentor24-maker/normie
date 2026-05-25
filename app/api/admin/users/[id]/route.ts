@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
 import {
-  buildPublicUserFullName,
   mergePublicUserRecord,
   normalizePublicUserStatus,
   type PublicUserRow
 } from "@/lib/public-users";
+import { normalizePlayerHandle } from "@/lib/player-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function PATCH(
@@ -22,53 +22,67 @@ export async function PATCH(
   const { id } = await context.params;
   const body = (await request.json()) as {
     email?: unknown;
-    firstName?: unknown;
-    lastName?: unknown;
+    password?: unknown;
     fullName?: unknown;
-    phone?: unknown;
+    handle?: unknown;
     status?: unknown;
-    source?: unknown;
-    notes?: unknown;
   };
 
   const email = safeUserText(body.email, 255).toLowerCase();
-  const firstName = safeUserText(body.firstName, 120);
-  const lastName = safeUserText(body.lastName, 120);
-  const fullName = safeUserText(body.fullName, 255) || buildPublicUserFullName(firstName, lastName);
-  const phone = safeUserText(body.phone, 80);
+  const password = safeUserText(body.password, 255);
+  const fullName = safeUserText(body.fullName, 255);
+  const handle = normalizePlayerHandle(body.handle, email);
   const status = normalizePublicUserStatus(body.status);
-  const source = safeUserText(body.source, 120) || "manual";
-  const notes = safeUserText(body.notes, 4000);
 
   if (!email || !email.includes("@")) {
     return auth.finish(NextResponse.json({ error: "A valid email is required." }, { status: 400 }));
   }
 
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("users")
-    .update({
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      full_name: fullName,
-      phone,
-      status,
-      source,
-      notes,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", id)
-    .select("id, first_name, last_name, full_name, email, phone, status, source, notes, created_at, updated_at")
-    .single();
+  if (password && password.length < 8) {
+    return auth.finish(NextResponse.json({ error: "New password must be at least 8 characters." }, { status: 400 }));
+  }
 
-  if (error || !data) {
+  const supabase = createAdminClient();
+  const authUpdate: {
+    email: string;
+    password?: string;
+    user_metadata: { full_name: string; handle: string };
+  } = {
+    email,
+    user_metadata: { full_name: fullName, handle }
+  };
+
+  if (password) {
+    authUpdate.password = password;
+  }
+
+  const { data: updatedUser, error: updateError } = await supabase.auth.admin.updateUserById(id, authUpdate);
+
+  if (updateError || !updatedUser.user) {
     return auth.finish(
-      NextResponse.json({ error: error?.message ?? "Failed to update user." }, { status: 500 })
+      NextResponse.json({ error: updateError?.message ?? "Failed to update player user." }, { status: 500 })
     );
   }
 
-  return auth.finish(NextResponse.json({ user: mergePublicUserRecord(data as PublicUserRow) }));
+  const { data: profile, error: profileError } = await supabase
+    .from("player_profiles")
+    .upsert({
+      id,
+      full_name: fullName,
+      handle,
+      status,
+      updated_at: new Date().toISOString()
+    })
+    .select("id, full_name, handle, status, created_at, updated_at")
+    .single();
+
+  if (profileError || !profile) {
+    return auth.finish(
+      NextResponse.json({ error: profileError?.message ?? "Failed to update player profile." }, { status: 500 })
+    );
+  }
+
+  return auth.finish(NextResponse.json({ user: mergePublicUserRecord(updatedUser.user, profile as PublicUserRow) }));
 }
 
 export async function DELETE(
@@ -83,10 +97,21 @@ export async function DELETE(
 
   const { id } = await context.params;
   const supabase = createAdminClient();
-  const { error } = await supabase.from("users").delete().eq("id", id);
 
-  if (error) {
-    return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));
+  const cleanupResults = await Promise.all([
+    supabase.from("responses").delete().eq("user_id", id),
+    supabase.from("player_profiles").delete().eq("id", id)
+  ]);
+  const cleanupError = cleanupResults.find((result) => result.error)?.error;
+
+  if (cleanupError) {
+    return auth.finish(NextResponse.json({ error: cleanupError.message }, { status: 500 }));
+  }
+
+  const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(id);
+
+  if (deleteAuthError) {
+    return auth.finish(NextResponse.json({ error: deleteAuthError.message }, { status: 500 }));
   }
 
   return auth.finish(NextResponse.json({ ok: true }));

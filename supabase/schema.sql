@@ -207,13 +207,12 @@ create table if not exists public.game_level_tiers (
 
 create table if not exists public.game_levels (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons')),
+  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
   level_order integer not null check (level_order between 1 and 10),
   game_level_levels jsonb not null default '[]'::jsonb,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (level_order)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.game_rewards (
@@ -237,6 +236,17 @@ create table if not exists public.game_scoring (
   description text not null default '',
   specific_criteria text not null default '',
   points integer not null default 0 check (points >= 0),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.game_level_up_rules (
+  id uuid primary key default gen_random_uuid(),
+  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  sublevel_name text not null,
+  criteria jsonb not null default '[]'::jsonb,
+  is_active boolean not null default true,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -388,6 +398,8 @@ create index if not exists game_rewards_status_points_idx on public.game_rewards
 create index if not exists game_rewards_updated_at_idx on public.game_rewards (updated_at desc);
 create index if not exists game_scoring_points_idx on public.game_scoring (points);
 create index if not exists game_scoring_updated_at_idx on public.game_scoring (updated_at desc);
+create index if not exists game_level_up_rules_target_idx on public.game_level_up_rules (level_name, sublevel_name);
+create index if not exists game_level_up_rules_updated_at_idx on public.game_level_up_rules (updated_at desc);
 create unique index if not exists blog_topics_slug_unique_idx on public.blog_topics (slug);
 create unique index if not exists blog_tags_slug_unique_idx on public.blog_tags (slug);
 create unique index if not exists blog_categories_slug_unique_idx on public.blog_categories (slug);
@@ -421,6 +433,7 @@ alter table public.game_levels enable row level security;
 alter table public.game_level_tiers enable row level security;
 alter table public.game_rewards enable row level security;
 alter table public.game_scoring enable row level security;
+alter table public.game_level_up_rules enable row level security;
 alter table public.blog_settings enable row level security;
 alter table public.blog_topics enable row level security;
 alter table public.blog_tags enable row level security;
@@ -563,6 +576,13 @@ for select
 to anon, authenticated
 using (true);
 
+drop policy if exists "game level up rules are readable" on public.game_level_up_rules;
+create policy "game level up rules are readable"
+on public.game_level_up_rules
+for select
+to anon, authenticated
+using (true);
+
 drop policy if exists "blog settings are readable" on public.blog_settings;
 create policy "blog settings are readable"
 on public.blog_settings
@@ -670,10 +690,12 @@ grant select on public.game_level_tiers to anon, authenticated, service_role;
 grant select on public.game_levels to anon, authenticated, service_role;
 grant select on public.game_rewards to anon, authenticated, service_role;
 grant select on public.game_scoring to anon, authenticated, service_role;
+grant select on public.game_level_up_rules to anon, authenticated, service_role;
 grant insert, update, delete on public.game_level_tiers to service_role;
 grant insert, update, delete on public.game_levels to service_role;
 grant insert, update, delete on public.game_rewards to service_role;
 grant insert, update, delete on public.game_scoring to service_role;
+grant insert, update, delete on public.game_level_up_rules to service_role;
 
 insert into public.game_level_tiers (level, tier, name, points_required, sort_order, perks)
 values
@@ -683,7 +705,11 @@ values
 on conflict (level, tier) do nothing;
 
 insert into public.game_levels (level_name, level_order, game_level_levels)
-values ('Rank', 1, '["Apprentice", "Acolyte", "Wizard"]'::jsonb)
+values (
+  'Rank',
+  1,
+  '[{"name":"Apprentice","order":1},{"name":"Acolyte","order":2},{"name":"Wizard","order":3}]'::jsonb
+)
 on conflict (level_order) do nothing;
 
 insert into public.game_scoring (score_name, description, specific_criteria, points)

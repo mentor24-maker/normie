@@ -8,6 +8,7 @@ import {
 } from "@/lib/player-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
+import { getPlayerAuthCallbackUrl } from "@/lib/site-url";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -75,7 +76,8 @@ export async function POST(request: Request) {
     email,
     password,
     options: {
-      data: { full_name: fullName, handle }
+      data: { full_name: fullName, handle },
+      emailRedirectTo: getPlayerAuthCallbackUrl(request)
     }
   });
 

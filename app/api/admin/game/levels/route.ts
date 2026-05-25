@@ -17,15 +17,28 @@ function normalizeLevelName(value: unknown): GameLevelName {
   return GAME_LEVEL_NAMES.includes(levelName as GameLevelName) ? (levelName as GameLevelName) : "Rank";
 }
 
-function safeLevelLevels(value: unknown) {
+function safeSublevels(value: unknown) {
   if (Array.isArray(value)) {
-    return value.map((item) => safeText(item, 120)).filter(Boolean);
+    return value
+      .map((item, index) => {
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          const record = item as Record<string, unknown>;
+          const name = safeText(record.name, 120);
+          const order = Math.min(1000, Math.max(1, safeInteger(record.order, index + 1)));
+          return name ? { name, order } : null;
+        }
+
+        const name = safeText(item, 120);
+        return name ? { name, order: index + 1 } : null;
+      })
+      .filter(Boolean);
   }
 
   return safeText(value, 2000)
     .split("\n")
     .map((item) => item.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((name, index) => ({ name, order: index + 1 }));
 }
 
 export async function POST(request: Request) {
@@ -38,6 +51,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     levelName?: unknown;
     levelOrder?: unknown;
+    sublevels?: unknown;
     gameLevelLevels?: unknown;
   };
   const levelName = normalizeLevelName(body.levelName);
@@ -49,7 +63,7 @@ export async function POST(request: Request) {
     .insert({
       level_name: levelName,
       level_order: levelOrder,
-      game_level_levels: safeLevelLevels(body.gameLevelLevels),
+      game_level_levels: safeSublevels(body.sublevels ?? body.gameLevelLevels),
       updated_at: new Date().toISOString()
     })
     .select("id, level_name, level_order, game_level_levels, metadata, created_at, updated_at")
@@ -70,4 +84,3 @@ export async function POST(request: Request) {
 
   return auth.finish(NextResponse.json({ gameLevel: gameLevelToClient(data) }, { status: 201 }));
 }
-

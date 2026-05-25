@@ -10,16 +10,22 @@ export type GameLevelName =
   | "Phase"
   | "Degrees"
   | "Plane"
-  | "Echelons";
+  | "Echelons"
+  | "Tiers";
 
 export type GameLevel = {
   id: string;
   levelName: GameLevelName;
   levelOrder: number;
-  gameLevelLevels: string[];
+  sublevels: GameSublevel[];
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+};
+
+export type GameSublevel = {
+  name: string;
+  order: number;
 };
 
 export type GameLevelTier = {
@@ -55,6 +61,23 @@ export type GameScoringRule = {
   description: string;
   specificCriteria: string;
   points: number;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GameLevelUpCriterion = {
+  scoringRuleId: string;
+  requiredCount: number;
+  notes: string;
+};
+
+export type GameLevelUpRule = {
+  id: string;
+  levelName: GameLevelName;
+  sublevelName: string;
+  criteria: GameLevelUpCriterion[];
+  isActive: boolean;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -108,6 +131,17 @@ type GameScoringRuleRow = {
   updated_at: string;
 };
 
+type GameLevelUpRuleRow = {
+  id: string;
+  level_name: string;
+  sublevel_name: string;
+  criteria: unknown;
+  is_active: boolean | null;
+  metadata: unknown;
+  created_at: string;
+  updated_at: string;
+};
+
 export const GAME_REWARD_TYPES: GameRewardType[] = ["merch", "digital", "access", "token", "custom"];
 export const GAME_REWARD_STATUSES: GameRewardStatus[] = ["active", "draft", "archived"];
 export const GAME_LEVEL_NAMES: GameLevelName[] = [
@@ -118,7 +152,8 @@ export const GAME_LEVEL_NAMES: GameLevelName[] = [
   "Phase",
   "Degrees",
   "Plane",
-  "Echelons"
+  "Echelons",
+  "Tiers"
 ];
 
 function toStringArray(value: unknown): string[] {
@@ -129,8 +164,62 @@ function toStringArray(value: unknown): string[] {
   return value.map((item) => String(item ?? "").trim()).filter(Boolean);
 }
 
+function toGameSublevels(value: unknown): GameSublevel[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (item && typeof item === "object" && !Array.isArray(item)) {
+        const record = item as Record<string, unknown>;
+        const name = String(record.name ?? "").trim();
+        const order = Number.parseInt(String(record.order ?? index + 1), 10);
+
+        return name
+          ? {
+              name,
+              order: Number.isFinite(order) ? Math.min(Math.max(order, 1), 1000) : index + 1
+            }
+          : null;
+      }
+
+      const name = String(item ?? "").trim();
+
+      return name ? { name, order: index + 1 } : null;
+    })
+    .filter((item): item is GameSublevel => Boolean(item))
+    .sort((left, right) => left.order - right.order || left.name.localeCompare(right.name));
+}
+
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function toLevelUpCriteria(value: unknown): GameLevelUpCriterion[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const scoringRuleId = String(record.scoringRuleId ?? "").trim();
+      const requiredCount = Number.parseInt(String(record.requiredCount ?? 1), 10);
+
+      return scoringRuleId
+        ? {
+            scoringRuleId,
+            requiredCount: Number.isFinite(requiredCount) ? Math.max(1, requiredCount) : 1,
+            notes: String(record.notes ?? "").trim()
+          }
+        : null;
+    })
+    .filter((criterion): criterion is GameLevelUpCriterion => Boolean(criterion));
 }
 
 function normalizeRewardType(value: unknown): GameRewardType {
@@ -153,7 +242,7 @@ export function gameLevelToClient(row: GameLevelRow): GameLevel {
     id: row.id,
     levelName: normalizeLevelName(row.level_name),
     levelOrder: row.level_order,
-    gameLevelLevels: toStringArray(row.game_level_levels),
+    sublevels: toGameSublevels(row.game_level_levels),
     metadata: toRecord(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -204,9 +293,22 @@ export function gameScoringRuleToClient(row: GameScoringRuleRow): GameScoringRul
   };
 }
 
+export function gameLevelUpRuleToClient(row: GameLevelUpRuleRow): GameLevelUpRule {
+  return {
+    id: row.id,
+    levelName: normalizeLevelName(row.level_name),
+    sublevelName: row.sublevel_name,
+    criteria: toLevelUpCriteria(row.criteria),
+    isActive: row.is_active ?? true,
+    metadata: toRecord(row.metadata),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 export async function getAdminGameSnapshot() {
   const supabase = createAdminClient();
-  const [gameLevelsResult, levelTiersResult, rewardsResult, scoringRulesResult] = await Promise.all([
+  const [gameLevelsResult, levelTiersResult, rewardsResult, scoringRulesResult, levelUpRulesResult] = await Promise.all([
     supabase
       .from("game_levels")
       .select("id, level_name, level_order, game_level_levels, metadata, created_at, updated_at")
@@ -225,6 +327,10 @@ export async function getAdminGameSnapshot() {
     supabase
       .from("game_scoring")
       .select("id, score_name, description, specific_criteria, points, metadata, created_at, updated_at")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("game_level_up_rules")
+      .select("id, level_name, sublevel_name, criteria, is_active, metadata, created_at, updated_at")
       .order("updated_at", { ascending: false })
   ]);
 
@@ -260,10 +366,19 @@ export async function getAdminGameSnapshot() {
     );
   }
 
+  if (levelUpRulesResult.error) {
+    throw new Error(
+      levelUpRulesResult.error.message.includes("game_level_up_rules")
+        ? "Missing game_level_up_rules table. Apply migration 024_game_level_up_rules.sql."
+        : levelUpRulesResult.error.message
+    );
+  }
+
   return {
     gameLevels: ((gameLevelsResult.data ?? []) as GameLevelRow[]).map(gameLevelToClient),
     levelTiers: ((levelTiersResult.data ?? []) as GameLevelTierRow[]).map(gameLevelTierToClient),
     rewards: ((rewardsResult.data ?? []) as GameRewardRow[]).map(gameRewardToClient),
-    scoringRules: ((scoringRulesResult.data ?? []) as GameScoringRuleRow[]).map(gameScoringRuleToClient)
+    scoringRules: ((scoringRulesResult.data ?? []) as GameScoringRuleRow[]).map(gameScoringRuleToClient),
+    levelUpRules: ((levelUpRulesResult.data ?? []) as GameLevelUpRuleRow[]).map(gameLevelUpRuleToClient)
   };
 }

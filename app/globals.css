@@ -3439,6 +3439,76 @@ h2 {
   min-width: 0;
 }
 
+.player-portal-polls-header-side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.player-portal-polls-mini-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(86px, 1fr));
+  gap: 10px;
+  min-width: min(100%, 330px);
+}
+
+.player-portal-polls-mini-stat {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid rgba(9, 16, 24, 0.12);
+  border-radius: 14px;
+  color: #18324a;
+  text-decoration: none;
+  box-shadow:
+    0 8px 18px rgba(10, 73, 112, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.player-portal-polls-mini-stat span {
+  color: rgba(24, 50, 74, 0.72);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.player-portal-polls-mini-stat strong {
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.player-portal-polls-mini-stat-sky {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.72), transparent 46%),
+    linear-gradient(145deg, #f3fbff 0%, #c6e8f5 52%, #8fd6f5 100%);
+  border-color: rgba(8, 122, 168, 0.32);
+}
+
+.player-portal-polls-mini-stat-gold {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.7), transparent 44%),
+    linear-gradient(145deg, #fffbeb 0%, #fff0a8 54%, #ffd60a 100%);
+  border-color: rgba(168, 128, 0, 0.3);
+}
+
+.player-portal-polls-mini-stat-mint {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.68), transparent 44%),
+    linear-gradient(145deg, #f2fff9 0%, #ccf5e6 54%, #8cebc6 100%);
+  border-color: rgba(10, 120, 82, 0.3);
+}
+
+.player-portal-polls-mini-stat:hover,
+.player-portal-polls-mini-stat:focus-visible {
+  transform: translateY(-1px);
+}
+
 .player-portal-polls-title {
   margin: 0;
   font-size: clamp(1.2rem, 2.2vw, 1.65rem);
@@ -3600,6 +3670,25 @@ h2 {
 
 .player-login-card .panel-label {
   margin-bottom: 0;
+}
+
+.player-auth-callback-card {
+  justify-items: start;
+  gap: 14px;
+}
+
+.player-auth-callback-logo {
+  width: min(220px, 70%);
+  height: auto;
+}
+
+.player-auth-callback-title {
+  margin: 2px 0 0;
+  max-width: 520px;
+  color: var(--ink);
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.08;
 }
 
 .player-login-card .player-portal-title,
@@ -7265,8 +7354,139 @@ a.polls-icon-button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.admin-game-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.admin-game-tile {
+  min-height: 112px;
+  border: 1px solid rgba(9, 16, 24, 0.08);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-game-tile strong {
+  font-size: 1.05rem;
+}
+
+.admin-game-tile span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.admin-game-tile.is-active {
+  border-color: #0b8fc4;
+  background: #e8f8ff;
+}
+
 .admin-game-wide-field {
   grid-column: 1 / -1;
+}
+
+.admin-game-inline-field {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-game-inline-field > span {
+  margin: 0;
+}
+
+.admin-game-sublevels-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-game-sublevels-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-game-sublevels-header > span {
+  color: var(--muted);
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.admin-game-sublevels-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-game-sublevel-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(120px, 180px) auto;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.admin-game-levelup-criterion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(180px, 0.65fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.admin-game-reorder-controls,
+.admin-game-order-cell,
+.admin-game-level-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-game-reorder-controls {
+  align-self: center;
+}
+
+.admin-game-drag-handle {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(9, 16, 24, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #44627e;
+  cursor: grab;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  line-height: 1;
+  user-select: none;
+}
+
+.admin-game-draggable-row.is-dragging,
+.admin-game-sublevel-row.is-dragging {
+  opacity: 0.55;
+}
+
+.admin-game-sublevel-remove {
+  margin-bottom: 2px;
+}
+
+.admin-game-sublevels-empty {
+  margin: 0;
+}
+
+.admin-game-add-after-list {
+  justify-self: end;
 }
 
 .builder-repository-section-actions {
@@ -7965,7 +8185,11 @@ code {
   .admin-hub-grid,
   .player-stat-grid,
   .player-dashboard-grid,
-  .admin-game-editor-grid {
+  .admin-game-tile-grid,
+  .admin-game-editor-grid,
+  .admin-game-inline-field,
+  .admin-game-sublevel-row,
+  .admin-game-levelup-criterion-row {
     grid-template-columns: 1fr;
   }
 
@@ -8031,7 +8255,19 @@ code {
   }
 
   .player-portal-polls-bar {
+    flex-wrap: wrap;
     padding: 14px 16px;
+  }
+
+  .player-portal-polls-header-side {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .player-portal-polls-mini-stats {
+    flex: 1 1 auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
   }
 
   .player-portal-polls.is-open > :not(.player-portal-polls-bar) {

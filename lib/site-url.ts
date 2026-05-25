@@ -40,7 +40,8 @@ function resolveOriginFromRequest(request?: Request | null) {
     return null;
   }
 
-  const protocol = request.headers.get("x-forwarded-proto") ?? "https";
+  const forwardedProtocol = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProtocol ?? (host.startsWith("localhost:") || host.startsWith("127.0.0.1:") ? "http" : "https");
   return normalizeSiteOrigin(`${protocol}://${host}`);
 }
 
@@ -56,6 +57,11 @@ export function getAdminInviteSetupUrl(request?: Request) {
 /** Canonical player password reset redirect (must be allowlisted in Supabase Auth). */
 export function getPlayerPasswordResetUrl(request?: Request) {
   return `${resolveOriginFromRequest(request) ?? getSiteUrl()}/portal/reset`;
+}
+
+/** Canonical player signup/email confirmation redirect (must be allowlisted in Supabase Auth). */
+export function getPlayerAuthCallbackUrl(request?: Request) {
+  return `${resolveOriginFromRequest(request) ?? getSiteUrl()}/portal/auth/callback`;
 }
 
 export function toAbsoluteSiteUrl(value: string | null | undefined) {

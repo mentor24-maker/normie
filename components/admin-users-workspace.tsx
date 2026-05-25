@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   TEAM_USER_ROLES,
   TEAM_USER_STATUSES,
@@ -16,9 +16,7 @@ type UserFormState = {
   email: string;
   password: string;
   fullName: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
+  handle: string;
   role: UserRole;
   status: UserStatus | PublicUserStatus;
   source: string;
@@ -29,11 +27,9 @@ const emptyUserForm: UserFormState = {
   email: "",
   password: "",
   fullName: "",
-  firstName: "",
-  lastName: "",
-  phone: "",
+  handle: "",
   role: "editor",
-  status: "lead",
+  status: "active",
   source: "manual",
   notes: ""
 };
@@ -41,13 +37,13 @@ const emptyUserForm: UserFormState = {
 function createEmptyForm(directoryKind: "users" | "team"): UserFormState {
   return {
     ...emptyUserForm,
-    status: directoryKind === "team" ? "active" : "lead",
+    status: "active",
     source: directoryKind === "team" ? "team" : "manual"
   };
 }
 
 function isPublicUserRecord(user: DirectoryRecord): user is PublicUserRecord {
-  return "firstName" in user;
+  return "handle" in user;
 }
 
 function createFormFromUser(user: DirectoryRecord, directoryKind: "users" | "team"): UserFormState {
@@ -55,12 +51,10 @@ function createFormFromUser(user: DirectoryRecord, directoryKind: "users" | "tea
     email: user.email,
     password: "",
     fullName: user.fullName,
-    firstName: isPublicUserRecord(user) ? user.firstName : "",
-    lastName: isPublicUserRecord(user) ? user.lastName : "",
-    phone: isPublicUserRecord(user) ? user.phone : "",
+    handle: isPublicUserRecord(user) ? user.handle : "",
     role: "role" in user ? user.role : "viewer",
     status: user.status,
-    source: isPublicUserRecord(user) ? user.source : directoryKind === "team" ? "team" : "manual",
+    source: directoryKind === "team" ? "team" : "manual",
     notes: user.notes
   };
 }
@@ -94,7 +88,7 @@ export function AdminUsersWorkspace({
   eyebrow = "User Management",
   formTitleNew = "Register user",
   formTitleEdit = "Edit user",
-  introCopy = "Create end-user accounts, assign roles, and keep notes on contact or membership status.",
+  introCopy = "Manage registered player accounts, profile status, poll responses, and related end-user artifacts.",
   newButtonLabel = "New User",
   createButtonLabel = "Create User",
   directoryEyebrow = "User Directory",
@@ -116,7 +110,7 @@ export function AdminUsersWorkspace({
     [users, selectedUserId]
   );
 
-  async function loadUsers() {
+  const loadUsers = useCallback(async function loadUsers() {
     setIsLoading(true);
     setError(null);
 
@@ -135,11 +129,11 @@ export function AdminUsersWorkspace({
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [apiPath]);
 
   useEffect(() => {
     void loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   useEffect(() => {
     if (!selectedUser) {
@@ -238,7 +232,10 @@ export function AdminUsersWorkspace({
   }
 
   async function handleDelete(user: DirectoryRecord) {
-    const confirmed = window.confirm(`Delete ${user.email}? This cannot be undone.`);
+    const deleteDetail = directoryKind === "users"
+      ? " This will also delete the player's poll responses and profile data."
+      : "";
+    const confirmed = window.confirm(`Delete ${user.email}?${deleteDetail} This cannot be undone.`);
 
     if (!confirmed) {
       return;
@@ -314,7 +311,7 @@ export function AdminUsersWorkspace({
               placeholder={directoryKind === "team" ? "team@normie.one" : "reader@example.com"}
             />
           </label>
-          {directoryKind === "team" ? (
+          {directoryKind === "team" || selectedUserId === "" ? (
             <label className="field">
               <span>{selectedUserId ? "New password (optional)" : "Password"}</span>
               <input
@@ -335,44 +332,15 @@ export function AdminUsersWorkspace({
             />
           </label>
           {directoryKind === "users" ? (
-            <>
-              <label className="field">
-                <span>First name</span>
-                <input
-                  type="text"
-                  value={form.firstName}
-                  onChange={(event) => updateForm("firstName", event.target.value)}
-                  placeholder="Alex"
-                />
-              </label>
-              <label className="field">
-                <span>Last name</span>
-                <input
-                  type="text"
-                  value={form.lastName}
-                  onChange={(event) => updateForm("lastName", event.target.value)}
-                  placeholder="Normie"
-                />
-              </label>
-              <label className="field">
-                <span>Phone</span>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(event) => updateForm("phone", event.target.value)}
-                  placeholder="Optional"
-                />
-              </label>
-              <label className="field">
-                <span>Source</span>
-                <input
-                  type="text"
-                  value={form.source}
-                  onChange={(event) => updateForm("source", event.target.value)}
-                  placeholder="contact-form"
-                />
-              </label>
-            </>
+            <label className="field">
+              <span>Handle</span>
+              <input
+                type="text"
+                value={form.handle}
+                onChange={(event) => updateForm("handle", event.target.value)}
+                placeholder="normie_player"
+              />
+            </label>
           ) : (
             <label className="field">
               <span>Role</span>
@@ -398,15 +366,17 @@ export function AdminUsersWorkspace({
               ))}
             </select>
           </label>
-          <label className="field admin-form-notes">
-            <span>Notes</span>
-            <textarea
-              className="builder-textarea"
-              value={form.notes}
-              onChange={(event) => updateForm("notes", event.target.value)}
-              placeholder="What this person is responsible for, access notes, etc."
-            />
-          </label>
+          {directoryKind === "team" ? (
+            <label className="field admin-form-notes">
+              <span>Notes</span>
+              <textarea
+                className="builder-textarea"
+                value={form.notes}
+                onChange={(event) => updateForm("notes", event.target.value)}
+                placeholder="What this person is responsible for, access notes, etc."
+              />
+            </label>
+          ) : null}
         </div>
 
         {message ? <div className="notice success admin-notice">{message}</div> : null}
@@ -434,7 +404,9 @@ export function AdminUsersWorkspace({
                 <th>User</th>
                 {directoryKind === "team" ? <th>Role</th> : null}
                 <th>Status</th>
-                {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Source</th>}
+                {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Handle</th>}
+                {directoryKind === "users" ? <th>Polls</th> : null}
+                {directoryKind === "users" ? <th>Points</th> : null}
                 <th>Created</th>
                 <th className="crud-actions-cell">Actions</th>
               </tr>
@@ -451,10 +423,12 @@ export function AdminUsersWorkspace({
                   <td>
                     {directoryKind === "team" && "lastSignInAt" in user
                       ? formatTimestamp(user.lastSignInAt)
-                      : "source" in user
-                        ? user.source || "manual"
+                      : "handle" in user
+                        ? `@${user.handle}`
                         : ""}
                   </td>
+                  {directoryKind === "users" && "pollsTaken" in user ? <td>{user.pollsTaken}</td> : null}
+                  {directoryKind === "users" && "pointsEarned" in user ? <td>{user.pointsEarned}</td> : null}
                   <td>{formatTimestamp(user.createdAt)}</td>
                   <td className="crud-actions-cell">
                     <div className="table-actions">
@@ -495,7 +469,7 @@ export function AdminUsersWorkspace({
               ))}
               {users.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={6}>
+                  <td className="empty-cell" colSpan={directoryKind === "users" ? 7 : 6}>
                     {emptyMessage}
                   </td>
                 </tr>

@@ -16,37 +16,14 @@ export default async function PlayerDashboardPage() {
 
   return (
     <div className="player-stack">
-      <section className="player-stat-grid" aria-label="Player stats">
-        <article className="scalar-metric-pod player-stat-card player-stat-card-sky">
-          <Link
-            aria-label={`Polls taken: ${snapshot.pollsTaken}. View My Polls`}
-            className="player-stat-card-hit"
-            href="/portal/polls"
-          />
-          <span>Polls Taken</span>
-          <strong>{snapshot.pollsTaken}</strong>
-        </article>
-        <article className="scalar-metric-pod player-stat-card player-stat-card-gold">
-          <Link
-            aria-label={`Points earned: ${snapshot.tokensEarned}. View Points`}
-            className="player-stat-card-hit"
-            href="/portal/points"
-          />
-          <span>Points Earned</span>
-          <strong>{snapshot.tokensEarned}</strong>
-        </article>
-        <article className="scalar-metric-pod player-stat-card player-stat-card-mint">
-          <Link
-            aria-label={`Leaderboard rank: ${snapshot.playerRank ? `#${snapshot.playerRank}` : "New"}. View Leaderboard`}
-            className="player-stat-card-hit"
-            href="/portal/leaderboard"
-          />
-          <span>Leaderboard Rank</span>
-          <strong>{snapshot.playerRank ? `#${snapshot.playerRank}` : "New"}</strong>
-        </article>
-      </section>
       <Suspense fallback={<div className="notice player-portal-polls-loading">Loading polls...</div>}>
-        <PlayerPortalPollSection />
+        <PlayerPortalPollSection
+          stats={{
+            pollsTaken: snapshot.pollsTaken,
+            tokensEarned: snapshot.tokensEarned,
+            playerRank: snapshot.playerRank
+          }}
+        />
       </Suspense>
       <section className="player-dashboard-grid">
         <article className="panel player-panel">

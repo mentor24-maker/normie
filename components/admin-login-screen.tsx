@@ -165,6 +165,7 @@ export function AdminLoginScreen() {
             <span>Email</span>
             <input
               autoComplete="email"
+              name="email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -174,7 +175,8 @@ export function AdminLoginScreen() {
           <label className="field">
             <span>Password</span>
             <input
-              autoComplete="current-password"
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              name={mode === "register" ? "new-password" : "current-password"}
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -186,6 +188,7 @@ export function AdminLoginScreen() {
               <span>Confirm password</span>
               <input
                 autoComplete="new-password"
+                name="confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}

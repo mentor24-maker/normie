@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { GAME_LEVEL_NAMES, gameLevelToClient, type GameLevelName } from "@/lib/game-admin";
+import { GAME_LEVEL_NAMES, gameLevelUpRuleToClient, type GameLevelName } from "@/lib/game-admin";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-function safeText(value: unknown, maxLength = 255) {
+function safeText(value: unknown, maxLength = 2000) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
@@ -17,28 +17,30 @@ function normalizeLevelName(value: unknown): GameLevelName {
   return GAME_LEVEL_NAMES.includes(levelName as GameLevelName) ? (levelName as GameLevelName) : "Rank";
 }
 
-function safeSublevels(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .map((item, index) => {
-        if (item && typeof item === "object" && !Array.isArray(item)) {
-          const record = item as Record<string, unknown>;
-          const name = safeText(record.name, 120);
-          const order = Math.min(1000, Math.max(1, safeInteger(record.order, index + 1)));
-          return name ? { name, order } : null;
-        }
-
-        const name = safeText(item, 120);
-        return name ? { name, order: index + 1 } : null;
-      })
-      .filter(Boolean);
+function safeCriteria(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  return safeText(value, 2000)
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((name, index) => ({ name, order: index + 1 }));
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const scoringRuleId = safeText(record.scoringRuleId, 80);
+      const requiredCount = Math.max(1, safeInteger(record.requiredCount, 1));
+
+      return scoringRuleId
+        ? {
+            scoringRuleId,
+            requiredCount,
+            notes: safeText(record.notes, 500)
+          }
+        : null;
+    })
+    .filter(Boolean);
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -51,31 +53,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = (await request.json()) as {
     levelName?: unknown;
-    levelOrder?: unknown;
-    sublevels?: unknown;
-    gameLevelLevels?: unknown;
+    sublevelName?: unknown;
+    criteria?: unknown;
+    isActive?: unknown;
   };
   const levelName = normalizeLevelName(body.levelName);
-  const levelOrder = Math.min(10, Math.max(1, safeInteger(body.levelOrder, 1)));
+  const sublevelName = safeText(body.sublevelName, 160);
+
+  if (!sublevelName) {
+    return auth.finish(NextResponse.json({ error: "Sublevel is required." }, { status: 400 }));
+  }
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from("game_levels")
+    .from("game_level_up_rules")
     .update({
       level_name: levelName,
-      level_order: levelOrder,
-      game_level_levels: safeSublevels(body.sublevels ?? body.gameLevelLevels),
+      sublevel_name: sublevelName,
+      criteria: safeCriteria(body.criteria),
+      is_active: body.isActive !== false,
       updated_at: new Date().toISOString()
     })
     .eq("id", id)
-    .select("id, level_name, level_order, game_level_levels, metadata, created_at, updated_at")
+    .select("id, level_name, sublevel_name, criteria, is_active, metadata, created_at, updated_at")
     .single();
 
   if (error || !data) {
-    return auth.finish(NextResponse.json({ error: error?.message ?? "Failed to save game level." }, { status: 500 }));
+    return auth.finish(NextResponse.json({ error: error?.message ?? "Failed to save level up rule." }, { status: 500 }));
   }
 
-  return auth.finish(NextResponse.json({ gameLevel: gameLevelToClient(data) }));
+  return auth.finish(NextResponse.json({ levelUpRule: gameLevelUpRuleToClient(data) }));
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -87,7 +94,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const supabase = createAdminClient();
-  const { error } = await supabase.from("game_levels").delete().eq("id", id);
+  const { error } = await supabase.from("game_level_up_rules").delete().eq("id", id);
 
   if (error) {
     return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));

@@ -224,6 +224,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
                 <input
                   autoComplete="name"
                   disabled={fieldDisabled}
+                  name="name"
                   onChange={(event) => setFullName(event.target.value)}
                   placeholder="Your name"
                   type="text"
@@ -235,6 +236,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
                 <input
                   autoComplete="nickname"
                   disabled={fieldDisabled}
+                  name="nickname"
                   onChange={(event) => setHandle(event.target.value)}
                   placeholder="normie_player"
                   type="text"
@@ -248,6 +250,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
             <input
               autoComplete="email"
               disabled={fieldDisabled}
+              name="email"
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
               type="email"
@@ -259,6 +262,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
             <input
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               disabled={fieldDisabled}
+              name={mode === "login" ? "current-password" : "new-password"}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Your password"
               type="password"
@@ -271,6 +275,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
               <input
                 autoComplete="new-password"
                 disabled={fieldDisabled}
+                name="confirm-password"
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 placeholder="Repeat your password"
                 type="password"

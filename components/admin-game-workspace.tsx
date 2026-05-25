@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import type {
   GameLevel,
   GameLevelName,
+  GameLevelUpCriterion,
+  GameLevelUpRule,
+  GameSublevel,
   GameReward,
   GameRewardStatus,
   GameRewardType,
@@ -14,22 +17,25 @@ import { formatTemplateTimestamp } from "@/components/builder/builder-utils";
 
 type GameSnapshot = {
   gameLevels: GameLevel[];
+  levelUpRules: GameLevelUpRule[];
   rewards: GameReward[];
   scoringRules: GameScoringRule[];
 };
 
-type GameLevelDraft = Partial<GameLevel> & { gameLevelLevelsText?: string };
+type GameLevelDraft = Partial<GameLevel>;
+type LevelUpRuleDraft = Partial<GameLevelUpRule>;
 type RewardDraft = Partial<GameReward> & { inventoryCountText?: string };
 type ScoringRuleDraft = Partial<GameScoringRule>;
 type SortDirection = "asc" | "desc";
-type GameLevelSortKey = "levelName" | "levelOrder" | "gameLevelLevels" | "updatedAt";
+type GameSection = "levels" | "scoring" | "level-up" | "redemptions";
+type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels" | "updatedAt";
 type RewardSortKey = "name" | "rewardType" | "status" | "pointsCost" | "inventoryCount" | "updatedAt";
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
 
 const GAME_LEVEL_TABLE_COLUMNS: Array<{ key: GameLevelSortKey; label: string }> = [
   { key: "levelName", label: "Level Name" },
   { key: "levelOrder", label: "Order" },
-  { key: "gameLevelLevels", label: "Game Level Levels" },
+  { key: "sublevels", label: "Sublevels" },
   { key: "updatedAt", label: "Updated" }
 ];
 
@@ -50,6 +56,13 @@ const SCORING_TABLE_COLUMNS: Array<{ key: ScoringRuleSortKey; label: string }> =
   { key: "updatedAt", label: "Updated" }
 ];
 
+const GAME_SECTION_TILES: Array<{ key: GameSection; label: string; description: string }> = [
+  { key: "levels", label: "Game Levels", description: "Levels, sublevels, and order." },
+  { key: "scoring", label: "Point Scoring", description: "Ways players earn points." },
+  { key: "level-up", label: "Level Up", description: "Graduation rules and criteria." },
+  { key: "redemptions", label: "Redemptions", description: "Point rewards players can claim." }
+];
+
 async function readAdminJson<T extends { error?: string }>(response: Response, fallbackMessage: string): Promise<T> {
   const contentType = response.headers.get("content-type") ?? "";
 
@@ -68,12 +81,47 @@ async function readAdminJson<T extends { error?: string }>(response: Response, f
   return data;
 }
 
+function reorderItems<T>(items: T[], sourceIndex: number, targetIndex: number) {
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex >= items.length || targetIndex >= items.length) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(sourceIndex, 1);
+  nextItems.splice(targetIndex, 0, movedItem);
+  return nextItems;
+}
+
+function normalizeSublevelOrder(sublevels: GameSublevel[]) {
+  return sublevels.map((sublevel, index) => ({ ...sublevel, order: index + 1 }));
+}
+
 function createGameLevelDraft(): GameLevelDraft {
   return {
     levelName: "Rank",
     levelOrder: 1,
-    gameLevelLevels: [],
-    gameLevelLevelsText: ""
+    sublevels: []
+  };
+}
+
+function createLevelUpRuleDraft(gameLevels: GameLevel[] = [], scoringRules: GameScoringRule[] = []): LevelUpRuleDraft {
+  const firstLevel = gameLevels.slice().sort((left, right) => left.levelOrder - right.levelOrder)[0];
+  const firstSublevel = firstLevel?.sublevels.slice().sort((left, right) => left.order - right.order)[0];
+  const firstScoringRule = scoringRules[0];
+
+  return {
+    levelName: firstLevel?.levelName ?? "Grades",
+    sublevelName: firstSublevel?.name ?? "",
+    criteria: firstScoringRule
+      ? [
+          {
+            scoringRuleId: firstScoringRule.id,
+            requiredCount: 1,
+            notes: ""
+          }
+        ]
+      : [],
+    isActive: true
   };
 }
 
@@ -100,10 +148,11 @@ function createScoringRuleDraft(): ScoringRuleDraft {
 }
 
 function gameLevelToDraft(gameLevel: GameLevel): GameLevelDraft {
-  return {
-    ...gameLevel,
-    gameLevelLevelsText: gameLevel.gameLevelLevels.join("\n")
-  };
+  return { ...gameLevel, sublevels: gameLevel.sublevels.map((sublevel) => ({ ...sublevel })) };
+}
+
+function levelUpRuleToDraft(rule: GameLevelUpRule): LevelUpRuleDraft {
+  return { ...rule, criteria: rule.criteria.map((criterion) => ({ ...criterion })) };
 }
 
 function rewardToDraft(reward: GameReward): RewardDraft {
@@ -135,6 +184,31 @@ function compareText(left: string, right: string) {
   return left.localeCompare(right, undefined, { sensitivity: "base", numeric: true });
 }
 
+function formatSublevels(sublevels: GameSublevel[] | undefined) {
+  return (sublevels ?? [])
+    .slice()
+    .sort((left, right) => left.order - right.order || compareText(left.name, right.name))
+    .map((sublevel) => `${sublevel.order}. ${sublevel.name}`)
+    .join(", ");
+}
+
+function getSublevelsForLevel(gameLevels: GameLevel[], levelName: GameLevelName | undefined) {
+  return gameLevels.find((gameLevel) => gameLevel.levelName === levelName)?.sublevels ?? [];
+}
+
+function getScoringRuleLabel(scoringRules: GameScoringRule[], scoringRuleId: string) {
+  const scoringRule = scoringRules.find((rule) => rule.id === scoringRuleId);
+  return scoringRule ? `${scoringRule.scoreName} (${scoringRule.points} pts)` : "Unknown scoring rule";
+}
+
+function formatLevelUpCriteria(rule: GameLevelUpRule, scoringRules: GameScoringRule[]) {
+  return rule.criteria.length
+    ? rule.criteria
+        .map((criterion) => `${criterion.requiredCount}x ${getScoringRuleLabel(scoringRules, criterion.scoringRuleId)}`)
+        .join(", ")
+    : "No criteria";
+}
+
 function compareGameLevels(
   left: GameLevel,
   right: GameLevel,
@@ -147,8 +221,8 @@ function compareGameLevels(
     case "levelOrder":
       result = left.levelOrder - right.levelOrder;
       break;
-    case "gameLevelLevels":
-      result = compareText(left.gameLevelLevels.join(" "), right.gameLevelLevels.join(" "));
+    case "sublevels":
+      result = compareText(formatSublevels(left.sublevels), formatSublevels(right.sublevels));
       break;
     case "updatedAt":
       result = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
@@ -261,10 +335,79 @@ function GameLevelEditor({
   onChange: (next: GameLevelDraft) => void;
   onSave: () => void;
 }) {
+  const sublevels = draft.sublevels ?? [];
+  const [draggedSublevelIndex, setDraggedSublevelIndex] = useState<number | null>(null);
+
+  function updateSublevel(index: number, updates: Partial<GameSublevel>) {
+    onChange({
+      ...draft,
+      sublevels: sublevels.map((sublevel, currentIndex) =>
+        currentIndex === index ? { ...sublevel, ...updates } : sublevel
+      )
+    });
+  }
+
+  function addSublevel() {
+    onChange({
+      ...draft,
+      sublevels: [
+        ...sublevels,
+        {
+          name: "",
+          order: sublevels.length + 1
+        }
+      ]
+    });
+  }
+
+  function removeSublevel(index: number) {
+    onChange({
+      ...draft,
+      sublevels: normalizeSublevelOrder(sublevels.filter((_, currentIndex) => currentIndex !== index))
+    });
+  }
+
+  function moveSublevel(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    onChange({
+      ...draft,
+      sublevels: normalizeSublevelOrder(reorderItems(sublevels, index, targetIndex))
+    });
+  }
+
+  function handleSublevelDragStart(event: DragEvent<HTMLElement>, index: number) {
+    event.dataTransfer.setData("application/normie-game-sublevel-index", String(index));
+    event.dataTransfer.effectAllowed = "move";
+    setDraggedSublevelIndex(index);
+  }
+
+  function handleSublevelDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleSublevelDrop(event: DragEvent<HTMLDivElement>, targetIndex: number) {
+    event.preventDefault();
+    const sourceIndex = Number.parseInt(
+      event.dataTransfer.getData("application/normie-game-sublevel-index") || String(draggedSublevelIndex ?? -1),
+      10
+    );
+    setDraggedSublevelIndex(null);
+
+    if (!Number.isFinite(sourceIndex) || sourceIndex === targetIndex) {
+      return;
+    }
+
+    onChange({
+      ...draft,
+      sublevels: normalizeSublevelOrder(reorderItems(sublevels, sourceIndex, targetIndex))
+    });
+  }
+
   return (
     <div className="builder-product-editor admin-game-editor">
       <div className="builder-product-editor-grid admin-game-editor-grid">
-        <label className="field">
+        <label className="field admin-game-inline-field">
           <span>Level name</span>
           <select
             value={draft.levelName ?? "Rank"}
@@ -275,7 +418,7 @@ function GameLevelEditor({
             ))}
           </select>
         </label>
-        <label className="field">
+        <label className="field admin-game-inline-field">
           <span>Level order</span>
           <select
             value={String(draft.levelOrder ?? 1)}
@@ -286,15 +429,99 @@ function GameLevelEditor({
             ))}
           </select>
         </label>
-        <label className="field admin-game-wide-field">
-          <span>Game level levels</span>
-          <textarea
-            value={draft.gameLevelLevelsText ?? ""}
-            onChange={(event) => onChange({ ...draft, gameLevelLevelsText: event.target.value })}
-            placeholder="One level label per line"
-            rows={6}
-          />
-        </label>
+        <div className="admin-game-wide-field admin-game-sublevels-editor">
+          <div className="admin-game-sublevels-header">
+            <span>Sublevels</span>
+            <button className="secondary-button" disabled={isSaving} onClick={addSublevel} type="button">
+              Add Sublevel
+            </button>
+          </div>
+          <div className="admin-game-sublevels-list">
+            {sublevels.map((sublevel, index) => (
+              <div
+                className={`admin-game-sublevel-row${draggedSublevelIndex === index ? " is-dragging" : ""}`}
+                key={`${sublevel.order}-${index}`}
+                onDragEnd={() => setDraggedSublevelIndex(null)}
+                onDragOver={handleSublevelDragOver}
+                onDrop={(event) => handleSublevelDrop(event, index)}
+              >
+                <div className="admin-game-reorder-controls">
+                  <span
+                    className="admin-game-drag-handle"
+                    draggable
+                    onDragStart={(event) => handleSublevelDragStart(event, index)}
+                    title="Drag to reorder"
+                  >
+                    ⋮⋮
+                  </span>
+                  <button
+                    aria-label="Move sublevel up"
+                    className="polls-icon-button"
+                    disabled={isSaving || index === 0}
+                    onClick={() => moveSublevel(index, -1)}
+                    title="Move up"
+                    type="button"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label="Move sublevel down"
+                    className="polls-icon-button"
+                    disabled={isSaving || index === sublevels.length - 1}
+                    onClick={() => moveSublevel(index, 1)}
+                    title="Move down"
+                    type="button"
+                  >
+                    ↓
+                  </button>
+                </div>
+                <label className="field admin-game-inline-field">
+                  <span>Sublevel name</span>
+                  <input
+                    type="text"
+                    value={sublevel.name}
+                    onChange={(event) => updateSublevel(index, { name: event.target.value })}
+                    placeholder="Apprentice"
+                  />
+                </label>
+                <label className="field admin-game-inline-field">
+                  <span>Sublevel order</span>
+                  <select
+                    value={String(sublevel.order)}
+                    onChange={(event) => updateSublevel(index, { order: Number(event.target.value) })}
+                  >
+                    {Array.from({ length: 100 }, (_, orderIndex) => orderIndex + 1).map((sublevelOrder) => (
+                      <option key={sublevelOrder} value={sublevelOrder}>{sublevelOrder}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  aria-label="Remove sublevel"
+                  className="polls-icon-button polls-icon-button-danger admin-game-sublevel-remove"
+                  disabled={isSaving}
+                  onClick={() => removeSublevel(index)}
+                  title="Remove"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {sublevels.length === 0 ? (
+              <p className="admin-table-empty admin-game-sublevels-empty">No sublevels added yet.</p>
+            ) : null}
+            <button
+              aria-label="Add sublevel"
+              className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
+              disabled={isSaving}
+              onClick={addSublevel}
+              title="Add sublevel"
+              type="button"
+            >
+              +
+            </button>
+          </div>
+        </div>
       </div>
       <div className="builder-meta-actions">
         <button className="secondary-button" onClick={onCancel} type="button">
@@ -302,6 +529,185 @@ function GameLevelEditor({
         </button>
         <button className="submit-button admin-blog-add-button" disabled={isSaving} onClick={onSave} type="button">
           {isSaving ? "Saving..." : "Save Game Level"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LevelUpRuleEditor({
+  draft,
+  gameLevels,
+  isSaving,
+  onCancel,
+  onChange,
+  onSave,
+  scoringRules
+}: {
+  draft: LevelUpRuleDraft;
+  gameLevels: GameLevel[];
+  isSaving: boolean;
+  onCancel: () => void;
+  onChange: (next: LevelUpRuleDraft) => void;
+  onSave: () => void;
+  scoringRules: GameScoringRule[];
+}) {
+  const criteria = draft.criteria ?? [];
+  const sublevels = getSublevelsForLevel(gameLevels, draft.levelName);
+
+  function updateCriterion(index: number, updates: Partial<GameLevelUpCriterion>) {
+    onChange({
+      ...draft,
+      criteria: criteria.map((criterion, currentIndex) =>
+        currentIndex === index ? { ...criterion, ...updates } : criterion
+      )
+    });
+  }
+
+  function addCriterion() {
+    const firstScoringRule = scoringRules[0];
+    if (!firstScoringRule) return;
+
+    onChange({
+      ...draft,
+      criteria: [
+        ...criteria,
+        {
+          scoringRuleId: firstScoringRule.id,
+          requiredCount: 1,
+          notes: ""
+        }
+      ]
+    });
+  }
+
+  function removeCriterion(index: number) {
+    onChange({
+      ...draft,
+      criteria: criteria.filter((_, currentIndex) => currentIndex !== index)
+    });
+  }
+
+  return (
+    <div className="builder-product-editor admin-game-editor">
+      <div className="builder-product-editor-grid admin-game-editor-grid">
+        <label className="field admin-game-inline-field">
+          <span>Level</span>
+          <select
+            value={draft.levelName ?? "Grades"}
+            onChange={(event) => {
+              const levelName = event.target.value as GameLevelName;
+              const firstSublevel = getSublevelsForLevel(gameLevels, levelName).slice().sort((left, right) => left.order - right.order)[0];
+              onChange({ ...draft, levelName, sublevelName: firstSublevel?.name ?? "" });
+            }}
+          >
+            {GAME_LEVEL_NAMES.map((levelName) => (
+              <option key={levelName} value={levelName}>{levelName}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Sublevel</span>
+          <select
+            value={draft.sublevelName ?? ""}
+            onChange={(event) => onChange({ ...draft, sublevelName: event.target.value })}
+          >
+            <option value="">Select sublevel</option>
+            {sublevels
+              .slice()
+              .sort((left, right) => left.order - right.order)
+              .map((sublevel) => (
+                <option key={`${sublevel.order}-${sublevel.name}`} value={sublevel.name}>{sublevel.name}</option>
+              ))}
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Status</span>
+          <select
+            value={draft.isActive === false ? "false" : "true"}
+            onChange={(event) => onChange({ ...draft, isActive: event.target.value === "true" })}
+          >
+            <option value="true">Active</option>
+            <option value="false">Draft</option>
+          </select>
+        </label>
+        <div className="admin-game-wide-field admin-game-sublevels-editor">
+          <div className="admin-game-sublevels-header">
+            <span>Graduation criteria</span>
+            <button className="secondary-button" disabled={isSaving || scoringRules.length === 0} onClick={addCriterion} type="button">
+              Add Criteria
+            </button>
+          </div>
+          <div className="admin-game-sublevels-list">
+            {criteria.map((criterion, index) => (
+              <div className="admin-game-levelup-criterion-row" key={`${criterion.scoringRuleId}-${index}`}>
+                <label className="field admin-game-inline-field">
+                  <span>Scoring item</span>
+                  <select
+                    value={criterion.scoringRuleId}
+                    onChange={(event) => updateCriterion(index, { scoringRuleId: event.target.value })}
+                  >
+                    {scoringRules.map((scoringRule) => (
+                      <option key={scoringRule.id} value={scoringRule.id}>
+                        {scoringRule.scoreName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field admin-game-inline-field">
+                  <span>Required</span>
+                  <input
+                    min="1"
+                    type="number"
+                    value={criterion.requiredCount}
+                    onChange={(event) => updateCriterion(index, { requiredCount: Number(event.target.value) })}
+                  />
+                </label>
+                <label className="field admin-game-inline-field">
+                  <span>Notes</span>
+                  <input
+                    type="text"
+                    value={criterion.notes}
+                    onChange={(event) => updateCriterion(index, { notes: event.target.value })}
+                    placeholder="Optional condition notes"
+                  />
+                </label>
+                <button
+                  aria-label="Remove criteria"
+                  className="polls-icon-button polls-icon-button-danger admin-game-sublevel-remove"
+                  disabled={isSaving}
+                  onClick={() => removeCriterion(index)}
+                  title="Remove"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {criteria.length === 0 ? (
+              <p className="admin-table-empty admin-game-sublevels-empty">
+                Add criteria from Point Scoring to define when this graduation happens.
+              </p>
+            ) : null}
+            <button
+              aria-label="Add criteria"
+              className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
+              disabled={isSaving || scoringRules.length === 0}
+              onClick={addCriterion}
+              title="Add criteria"
+              type="button"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="builder-meta-actions">
+        <button className="secondary-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button className="submit-button admin-blog-add-button" disabled={isSaving} onClick={onSave} type="button">
+          {isSaving ? "Saving..." : "Save Level Up Rule"}
         </button>
       </div>
     </div>
@@ -477,12 +883,16 @@ function ScoringRuleEditor({
 
 export function AdminGameWorkspace() {
   const [gameLevels, setGameLevels] = useState<GameLevel[]>([]);
+  const [levelUpRules, setLevelUpRules] = useState<GameLevelUpRule[]>([]);
   const [rewards, setRewards] = useState<GameReward[]>([]);
   const [scoringRules, setScoringRules] = useState<GameScoringRule[]>([]);
+  const [activeSection, setActiveSection] = useState<GameSection>("levels");
   const [editingGameLevelId, setEditingGameLevelId] = useState("");
+  const [editingLevelUpRuleId, setEditingLevelUpRuleId] = useState("");
   const [editingRewardId, setEditingRewardId] = useState("");
   const [editingScoringRuleId, setEditingScoringRuleId] = useState("");
   const [gameLevelDraft, setGameLevelDraft] = useState<GameLevelDraft>(createGameLevelDraft());
+  const [levelUpRuleDraft, setLevelUpRuleDraft] = useState<LevelUpRuleDraft>(createLevelUpRuleDraft());
   const [rewardDraft, setRewardDraft] = useState<RewardDraft>(createRewardDraft());
   const [scoringRuleDraft, setScoringRuleDraft] = useState<ScoringRuleDraft>(createScoringRuleDraft());
   const [isLoading, setIsLoading] = useState(false);
@@ -498,6 +908,7 @@ export function AdminGameWorkspace() {
   const [gameLevelNameFilter, setGameLevelNameFilter] = useState<"" | GameLevelName>("");
   const [gameLevelOrderFilter, setGameLevelOrderFilter] = useState("");
   const [gameLevelQuery, setGameLevelQuery] = useState("");
+  const [draggedGameLevelId, setDraggedGameLevelId] = useState<string | null>(null);
   const [rewardQuery, setRewardQuery] = useState("");
   const [rewardTypeFilter, setRewardTypeFilter] = useState<"" | GameRewardType>("");
   const [rewardStatusFilter, setRewardStatusFilter] = useState<"" | GameRewardStatus>("");
@@ -520,7 +931,7 @@ export function AdminGameWorkspace() {
       }
 
       if (query) {
-        const haystack = [gameLevel.levelName, gameLevel.gameLevelLevels.join(" ")]
+        const haystack = [gameLevel.levelName, formatSublevels(gameLevel.sublevels)]
           .join(" ")
           .toLowerCase();
 
@@ -651,11 +1062,13 @@ export function AdminGameWorkspace() {
       const response = await fetch("/api/admin/game", { cache: "no-store" });
       const data = await readAdminJson<GameSnapshot & { error?: string }>(response, "Failed to load game settings.");
       setGameLevels(data.gameLevels ?? []);
+      setLevelUpRules(data.levelUpRules ?? []);
       setRewards(data.rewards ?? []);
       setScoringRules(data.scoringRules ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load game settings.");
       setGameLevels([]);
+      setLevelUpRules([]);
       setRewards([]);
       setScoringRules([]);
     } finally {
@@ -674,18 +1087,28 @@ export function AdminGameWorkspace() {
 
   function startNewGameLevel() {
     resetMessages();
+    setActiveSection("levels");
     setEditingGameLevelId("new");
     setGameLevelDraft(createGameLevelDraft());
   }
 
+  function startNewLevelUpRule() {
+    resetMessages();
+    setActiveSection("level-up");
+    setEditingLevelUpRuleId("new");
+    setLevelUpRuleDraft(createLevelUpRuleDraft(gameLevels, scoringRules));
+  }
+
   function startNewReward() {
     resetMessages();
+    setActiveSection("redemptions");
     setEditingRewardId("new");
     setRewardDraft(createRewardDraft());
   }
 
   function startNewScoringRule() {
     resetMessages();
+    setActiveSection("scoring");
     setEditingScoringRuleId("new");
     setScoringRuleDraft(createScoringRuleDraft());
   }
@@ -703,7 +1126,7 @@ export function AdminGameWorkspace() {
           body: JSON.stringify({
             levelName: gameLevelDraft.levelName,
             levelOrder: gameLevelDraft.levelOrder,
-            gameLevelLevels: gameLevelDraft.gameLevelLevelsText
+            sublevels: gameLevelDraft.sublevels ?? []
           })
         }
       );
@@ -726,6 +1149,48 @@ export function AdminGameWorkspace() {
       setGameLevelDraft(createGameLevelDraft());
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save game level.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveLevelUpRule() {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(
+        levelUpRuleDraft.id ? `/api/admin/game/level-up/${levelUpRuleDraft.id}` : "/api/admin/game/level-up",
+        {
+          method: levelUpRuleDraft.id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            levelName: levelUpRuleDraft.levelName,
+            sublevelName: levelUpRuleDraft.sublevelName,
+            criteria: levelUpRuleDraft.criteria ?? [],
+            isActive: levelUpRuleDraft.isActive !== false
+          })
+        }
+      );
+      const data = await readAdminJson<{ levelUpRule?: GameLevelUpRule; error?: string }>(
+        response,
+        "Failed to save level up rule."
+      );
+
+      if (!data.levelUpRule) {
+        throw new Error(data.error ?? "Failed to save level up rule.");
+      }
+
+      setLevelUpRules((current) =>
+        levelUpRuleDraft.id
+          ? current.map((item) => (item.id === data.levelUpRule!.id ? data.levelUpRule! : item))
+          : [data.levelUpRule!, ...current]
+      );
+      setMessage(`Saved level up rule for ${data.levelUpRule.levelName}: ${data.levelUpRule.sublevelName}.`);
+      setEditingLevelUpRuleId("");
+      setLevelUpRuleDraft(createLevelUpRuleDraft(gameLevels, scoringRules));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save level up rule.");
     } finally {
       setIsSaving(false);
     }
@@ -828,6 +1293,101 @@ export function AdminGameWorkspace() {
     }
   }
 
+  async function deleteLevelUpRule(rule: GameLevelUpRule) {
+    if (!window.confirm(`Delete level up rule for ${rule.levelName}: ${rule.sublevelName}?`)) return;
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(`/api/admin/game/level-up/${rule.id}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete level up rule.");
+      setLevelUpRules((current) => current.filter((item) => item.id !== rule.id));
+      setMessage(`Deleted level up rule for ${rule.levelName}: ${rule.sublevelName}.`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete level up rule.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function persistGameLevelOrder(nextLevels: GameLevel[]) {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const orderedLevels = nextLevels
+        .slice()
+        .sort((left, right) => left.levelOrder - right.levelOrder)
+        .map((gameLevel, index) => ({ ...gameLevel, levelOrder: index + 1 }));
+      const response = await fetch("/api/admin/game/levels/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          levels: orderedLevels.map((gameLevel) => ({
+            id: gameLevel.id,
+            levelOrder: gameLevel.levelOrder
+          }))
+        })
+      });
+      const data = await readAdminJson<{ gameLevels?: GameLevel[]; error?: string }>(
+        response,
+        "Failed to reorder game levels."
+      );
+
+      setGameLevels(data.gameLevels ?? orderedLevels);
+      setGameLevelSortKey("levelOrder");
+      setGameLevelSortDirection("asc");
+      setMessage("Updated game level order.");
+    } catch (reorderError) {
+      setError(reorderError instanceof Error ? reorderError.message : "Failed to reorder game levels.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function moveGameLevel(gameLevelId: string, direction: -1 | 1) {
+    const orderedLevels = gameLevels.slice().sort((left, right) => left.levelOrder - right.levelOrder);
+    const sourceIndex = orderedLevels.findIndex((gameLevel) => gameLevel.id === gameLevelId);
+    const targetIndex = sourceIndex + direction;
+
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= orderedLevels.length) {
+      return;
+    }
+
+    void persistGameLevelOrder(reorderItems(orderedLevels, sourceIndex, targetIndex));
+  }
+
+  function handleGameLevelDragStart(event: DragEvent<HTMLTableRowElement>, gameLevelId: string) {
+    event.dataTransfer.setData("application/normie-game-level-id", gameLevelId);
+    event.dataTransfer.effectAllowed = "move";
+    setDraggedGameLevelId(gameLevelId);
+  }
+
+  function handleGameLevelDragOver(event: DragEvent<HTMLTableRowElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleGameLevelDrop(event: DragEvent<HTMLTableRowElement>, targetGameLevelId: string) {
+    event.preventDefault();
+    const sourceGameLevelId = event.dataTransfer.getData("application/normie-game-level-id") || draggedGameLevelId;
+    setDraggedGameLevelId(null);
+
+    if (!sourceGameLevelId || sourceGameLevelId === targetGameLevelId) {
+      return;
+    }
+
+    const orderedLevels = gameLevels.slice().sort((left, right) => left.levelOrder - right.levelOrder);
+    const sourceIndex = orderedLevels.findIndex((gameLevel) => gameLevel.id === sourceGameLevelId);
+    const targetIndex = orderedLevels.findIndex((gameLevel) => gameLevel.id === targetGameLevelId);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    void persistGameLevelOrder(reorderItems(orderedLevels, sourceIndex, targetIndex));
+  }
+
   async function deleteReward(reward: GameReward) {
     if (!window.confirm(`Delete reward "${reward.name}"?`)) return;
     setIsSaving(true);
@@ -881,8 +1441,22 @@ export function AdminGameWorkspace() {
         </div>
         {message ? <div className="notice success admin-notice">{message}</div> : null}
         {error ? <div className="notice error admin-notice">{error}</div> : null}
+        <div className="admin-game-tile-grid">
+          {GAME_SECTION_TILES.map((tile) => (
+            <button
+              className={`admin-game-tile${activeSection === tile.key ? " is-active" : ""}`}
+              key={tile.key}
+              onClick={() => setActiveSection(tile.key)}
+              type="button"
+            >
+              <strong>{tile.label}</strong>
+              <span>{tile.description}</span>
+            </button>
+          ))}
+        </div>
       </section>
 
+      {activeSection === "levels" ? (
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
@@ -928,12 +1502,12 @@ export function AdminGameWorkspace() {
             </select>
           </label>
           <label className="field">
-            <span>Level labels</span>
+            <span>Sublevels</span>
             <input
               type="search"
               value={gameLevelQuery}
               onChange={(event) => setGameLevelQuery(event.target.value)}
-              placeholder="Filter level labels"
+              placeholder="Filter sublevels"
             />
           </label>
         </div>
@@ -961,13 +1535,56 @@ export function AdminGameWorkspace() {
               </tr>
             </thead>
             <tbody>
-              {sortedGameLevels.map((gameLevel) => (
-                <tr key={gameLevel.id}>
-                  <td><strong>{gameLevel.levelName}</strong></td>
-                  <td>{gameLevel.levelOrder}</td>
+              {sortedGameLevels.map((gameLevel) => {
+                const orderedIndex = gameLevels
+                  .slice()
+                  .sort((left, right) => left.levelOrder - right.levelOrder)
+                  .findIndex((item) => item.id === gameLevel.id);
+
+                return (
+                <tr
+                  className={draggedGameLevelId === gameLevel.id ? "admin-game-draggable-row is-dragging" : "admin-game-draggable-row"}
+                  draggable
+                  key={gameLevel.id}
+                  onDragEnd={() => setDraggedGameLevelId(null)}
+                  onDragOver={handleGameLevelDragOver}
+                  onDragStart={(event) => handleGameLevelDragStart(event, gameLevel.id)}
+                  onDrop={(event) => handleGameLevelDrop(event, gameLevel.id)}
+                >
                   <td>
-                    {gameLevel.gameLevelLevels.length
-                      ? gameLevel.gameLevelLevels.join(", ")
+                    <div className="admin-game-level-name-cell">
+                      <span className="admin-game-drag-handle" title="Drag to reorder">⋮⋮</span>
+                      <strong>{gameLevel.levelName}</strong>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="admin-game-order-cell">
+                      <span>{gameLevel.levelOrder}</span>
+                      <button
+                        aria-label="Move game level up"
+                        className="polls-icon-button"
+                        disabled={isSaving || orderedIndex <= 0}
+                        onClick={() => moveGameLevel(gameLevel.id, -1)}
+                        title="Move up"
+                        type="button"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        aria-label="Move game level down"
+                        className="polls-icon-button"
+                        disabled={isSaving || orderedIndex === gameLevels.length - 1}
+                        onClick={() => moveGameLevel(gameLevel.id, 1)}
+                        title="Move down"
+                        type="button"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    {gameLevel.sublevels.length
+                      ? formatSublevels(gameLevel.sublevels)
                       : <span className="admin-table-empty">None</span>}
                   </td>
                   <td>{formatTemplateTimestamp(gameLevel.updatedAt)}</td>
@@ -999,7 +1616,8 @@ export function AdminGameWorkspace() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {sortedGameLevels.length === 0 ? (
                 <tr>
                   <td className="empty-cell" colSpan={5}>
@@ -1023,8 +1641,127 @@ export function AdminGameWorkspace() {
             onSave={() => void saveGameLevel()}
           />
         ) : null}
+        <button
+          aria-label="Add game level"
+          className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
+          disabled={isSaving}
+          onClick={startNewGameLevel}
+          title="Add game level"
+          type="button"
+        >
+          +
+        </button>
       </section>
+      ) : null}
 
+      {activeSection === "level-up" ? (
+      <section className="admin-section">
+        <div className="admin-toolbar">
+          <div>
+            <div className="panel-label">Progression Logic</div>
+            <h2>Level Up</h2>
+          </div>
+          <button className="submit-button" disabled={isSaving || gameLevels.length === 0 || scoringRules.length === 0} onClick={startNewLevelUpRule} type="button">
+            New Level Up Rule
+          </button>
+        </div>
+        {editingLevelUpRuleId === "new" ? (
+          <LevelUpRuleEditor
+            draft={levelUpRuleDraft}
+            gameLevels={gameLevels}
+            isSaving={isSaving}
+            onCancel={() => setEditingLevelUpRuleId("")}
+            onChange={setLevelUpRuleDraft}
+            onSave={() => void saveLevelUpRule()}
+            scoringRules={scoringRules}
+          />
+        ) : null}
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table">
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Sublevel</th>
+                <th>Criteria</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th className="crud-actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {levelUpRules.map((rule) => (
+                <tr key={rule.id}>
+                  <td><strong>{rule.levelName}</strong></td>
+                  <td>{rule.sublevelName}</td>
+                  <td>{formatLevelUpCriteria(rule, scoringRules)}</td>
+                  <td>{rule.isActive ? "Active" : "Draft"}</td>
+                  <td>{formatTemplateTimestamp(rule.updatedAt)}</td>
+                  <td className="crud-actions-cell">
+                    <div className="table-actions">
+                      <button
+                        aria-label="Edit level up rule"
+                        className="polls-icon-button polls-icon-button-edit"
+                        disabled={isSaving}
+                        onClick={() => {
+                          setEditingLevelUpRuleId(rule.id);
+                          setLevelUpRuleDraft(levelUpRuleToDraft(rule));
+                        }}
+                        title="Edit"
+                        type="button"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        aria-label="Delete level up rule"
+                        className="polls-icon-button polls-icon-button-danger"
+                        disabled={isSaving}
+                        onClick={() => void deleteLevelUpRule(rule)}
+                        title="Delete"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {levelUpRules.length === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={6}>
+                    {isLoading
+                      ? "Loading level up rules..."
+                      : "No level up rules found. Create one to define graduation criteria."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {editingLevelUpRuleId && editingLevelUpRuleId !== "new" ? (
+          <LevelUpRuleEditor
+            draft={levelUpRuleDraft}
+            gameLevels={gameLevels}
+            isSaving={isSaving}
+            onCancel={() => setEditingLevelUpRuleId("")}
+            onChange={setLevelUpRuleDraft}
+            onSave={() => void saveLevelUpRule()}
+            scoringRules={scoringRules}
+          />
+        ) : null}
+        <button
+          aria-label="Add level up rule"
+          className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
+          disabled={isSaving || gameLevels.length === 0 || scoringRules.length === 0}
+          onClick={startNewLevelUpRule}
+          title="Add level up rule"
+          type="button"
+        >
+          +
+        </button>
+      </section>
+      ) : null}
+
+      {activeSection === "redemptions" ? (
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
@@ -1167,7 +1904,9 @@ export function AdminGameWorkspace() {
           />
         ) : null}
       </section>
+      ) : null}
 
+      {activeSection === "scoring" ? (
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
@@ -1302,6 +2041,7 @@ export function AdminGameWorkspace() {
           />
         ) : null}
       </section>
+      ) : null}
     </section>
   );
 }
