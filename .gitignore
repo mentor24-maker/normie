@@ -27,3 +27,4 @@ Thumbs.db
 **/route 2.ts
 **/route 2.tsx
 .vercel
+.env*.local

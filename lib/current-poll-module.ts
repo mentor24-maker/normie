@@ -12,6 +12,8 @@ import {
   type PollSettingsSnapshot
 } from "@/lib/poll-pod-config";
 
+type PollPanelStyle = CSSProperties & Record<`--${string}`, string | number>;
+
 export function normalizeCurrentPollModuleWidth(value: unknown) {
   return normalizePollContentWidth(value, "100");
 }
@@ -30,7 +32,7 @@ export function getCurrentPollModuleShellStyle(settings: Record<string, string>)
 export function getCurrentPollPanelStyle(
   moduleSettings: Record<string, string>,
   pollSettings?: PollSettingsSnapshot | null
-): CSSProperties {
+): PollPanelStyle {
   const podStyle = getPollPodAppearanceStyle(pollSettings, "polls");
 
   return {
