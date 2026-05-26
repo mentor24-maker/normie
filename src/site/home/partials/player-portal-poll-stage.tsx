@@ -20,7 +20,7 @@ export function PlayerPortalPollStage({
   payload,
   onSubmit
 }: PlayerPortalPollStageProps) {
-  if (isLoading) {
+  if (isLoading && !payload) {
     return <div className="notice">Loading polls...</div>;
   }
 

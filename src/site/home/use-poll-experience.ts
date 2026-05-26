@@ -10,7 +10,17 @@ import {
 import type { PollPayload } from "@/src/site/home/types";
 
 type UsePollExperienceOptions = {
-  onAnswered?: () => void;
+  onAnswered?: (result: PollAnswerResult) => void;
+};
+
+export type PollAnswerResult = {
+  ok?: boolean;
+  code?: string;
+  error?: string;
+  duplicate?: boolean;
+  claimed?: boolean;
+  playerAnswerCount?: number;
+  levelUp?: boolean;
 };
 
 export function usePollExperience(options?: UsePollExperienceOptions) {
@@ -75,7 +85,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
         })
       });
 
-      const data = (await response.json()) as { error?: string; code?: string };
+      const data = (await response.json()) as PollAnswerResult;
 
       if (!response.ok) {
         throw new Error(
@@ -85,8 +95,8 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
       }
 
       stripStartPollFromBrowserUrl();
+      options?.onAnswered?.(data);
       await loadPolls({ startPoll: "" });
-      options?.onAnswered?.();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {

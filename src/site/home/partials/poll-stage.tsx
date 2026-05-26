@@ -16,7 +16,7 @@ type PollStageProps = {
 };
 
 export function PollStage({ activeCategory, isLoading, isSubmitting, payload, onSubmit }: PollStageProps) {
-  if (isLoading) {
+  if (isLoading && !payload) {
     return <div className="notice">Loading polls...</div>;
   }
 

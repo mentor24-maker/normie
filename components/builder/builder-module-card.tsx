@@ -514,7 +514,7 @@ function renderModulePreview(module: BuilderTemplateModule) {
   if (module.type === "current-poll") {
     return (
       <article className="panel action-panel builder-module-preview-poll">
-        <div className="panel-label">Current Poll</div>
+        <div className="panel-label">Current Question</div>
         <h2>Live current poll prompt with answer choices.</h2>
         <div className="option-list">
           <div className="option-button">Option One</div>

@@ -1475,6 +1475,11 @@ h2 {
   line-height: 1.25;
 }
 
+/* Current poll module only (not previous results): question headline */
+.poll-module-panel.action-panel .poll-question {
+  font-family: var(--font-poll-question), system-ui, sans-serif;
+}
+
 .admin-stack {
   display: grid;
   gap: 28px;
@@ -3455,17 +3460,21 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, minmax(129px, 1fr));
   gap: 14px;
-  width: min(100%, 500px);
-  min-width: min(100%, 500px);
+  width: 100%;
+  min-width: 0;
 }
 
 .player-portal-reward-top-row {
-  width: min(100%, 500px);
+  display: grid;
+  grid-template-columns: minmax(42px, auto) minmax(0, 1fr);
+  align-items: end;
+  gap: 14px;
+  width: min(100%, 570px);
 }
 
 .player-portal-level-reward-stack {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: row-reverse;
   align-items: flex-end;
   justify-content: center;
   align-self: end;
@@ -3473,6 +3482,13 @@ h2 {
   min-height: 20px;
   min-width: 42px;
   padding-bottom: 0;
+}
+
+.player-portal-level-reward-column {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 6px;
 }
 
 .player-portal-level-coin {
@@ -3487,6 +3503,7 @@ h2 {
 
 .player-portal-reward-track {
   display: flex;
+  grid-column: 2;
   justify-content: center;
   flex-wrap: wrap;
   gap: 8px;

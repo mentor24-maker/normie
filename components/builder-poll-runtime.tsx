@@ -26,7 +26,7 @@ type PollRuntimeState = {
 type PollModuleKind = "previous-results" | "current-poll";
 
 function getPollModuleLabel(kind: PollModuleKind) {
-  return kind === "previous-results" ? "Poll Slider" : "Current Poll";
+  return kind === "previous-results" ? "Poll Slider" : "Current Question";
 }
 
 const initialState: PollRuntimeState = {
@@ -207,7 +207,7 @@ export function BuilderPollModuleRuntime({
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !payload) {
     return wrapPollModule(
       <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
@@ -257,7 +257,7 @@ export function BuilderPollModuleRuntime({
 
   return wrapPollModule(
     <article className={panelClassName} style={panelStyle}>
-      <div className="panel-label">Current Poll</div>
+      <div className="panel-label">Current Question</div>
       <p className="panel-copy">
         {activeCategory ? `No published polls are available in ${activeCategory.name} yet.` : "No published polls are available yet."}
       </p>

@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { AdminAuthHashRedirect } from "@/components/admin-auth-hash-redirect";
 import { buildAuthHashBootstrapScript } from "@/lib/admin-auth-hash-redirect";
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-poll-question",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   title: "Normie Polls",
@@ -30,7 +37,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body suppressHydrationWarning>
+      <body className={plusJakartaSans.variable} suppressHydrationWarning>
         <AdminAuthHashRedirect />
         {children}
       </body>

@@ -4,6 +4,7 @@ import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { validatePollAnswerSubmission } from "@/lib/poll-answer-validation";
+import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -15,6 +16,44 @@ const IP_RATE_LIMIT = 80;
 const IP_WINDOW_SECONDS = 60;
 const TOKENS_PER_ANSWER = 1;
 const UNIQUE_VIOLATION_CODE = "23505";
+
+async function getPlayerAnswerCount(supabase: ReturnType<typeof createAdminClient>, playerId: string) {
+  const { count, error } = await supabase
+    .from("poll_response")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", playerId);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
+async function playerAnswerResponse(
+  supabase: ReturnType<typeof createAdminClient>,
+  playerId: string,
+  flags: Record<string, boolean> = {}
+) {
+  const answerCount = await getPlayerAnswerCount(supabase, playerId);
+  const levelUp = answerCount > 0 && answerCount % PLAYER_LEVEL_UP_INTERVAL === 0 && !flags.duplicate;
+  const response = NextResponse.json({
+    ok: true,
+    ...flags,
+    playerAnswerCount: answerCount,
+    levelUp
+  });
+
+  if (levelUp) {
+    response.cookies.set(PLAYER_LEVEL_UP_PENDING_COOKIE, String(answerCount), {
+      maxAge: 60,
+      path: "/portal",
+      sameSite: "lax"
+    });
+  }
+
+  return response;
+}
 
 export const POST = withObservedRoute("polls.answer", async (request) => {
   const cookieStore = await cookies();
@@ -73,7 +112,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     }
 
     if (existingForPlayer) {
-      return NextResponse.json({ ok: true, duplicate: true });
+      return playerAnswerResponse(supabase, player.authUser.id, { duplicate: true });
     }
 
     const { data: anonymousSessionAnswer, error: anonymousSessionError } = await supabase
@@ -111,7 +150,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
         });
       }
 
-      return NextResponse.json({ ok: true, claimed: true });
+      return playerAnswerResponse(supabase, player.authUser.id, { claimed: true });
     }
   } else {
     const { data: existing, error: existingError } = await supabase
@@ -157,7 +196,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
         .eq("session_id", sessionId);
 
       if (!claimError) {
-        return NextResponse.json({ ok: true, claimed: true });
+        return playerAnswerResponse(supabase, player.authUser.id, { claimed: true });
       }
     }
 
@@ -173,5 +212,9 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     });
   }
 
-  return NextResponse.json({ ok: true });
+  if (player) {
+    return playerAnswerResponse(supabase, player.authUser.id);
+  }
+
+  return NextResponse.json({ ok: true, levelUp: false });
 });

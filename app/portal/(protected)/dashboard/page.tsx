@@ -14,10 +14,14 @@ export default async function PlayerDashboardPage() {
 
   const snapshot = await getPlayerPortalSnapshot(player);
   const recentAnswers = snapshot.answers.slice(0, 5);
+  const pendingLevelUpCount = Number(cookieStore.get("normie_level_up_pending")?.value);
 
   return (
     <div className="player-stack">
-      <PlayerPortalLevelUpCelebration rewardTrack={snapshot.rewardTrack} />
+      <PlayerPortalLevelUpCelebration
+        pendingLevelUpCount={Number.isFinite(pendingLevelUpCount) ? pendingLevelUpCount : null}
+        rewardTrack={snapshot.rewardTrack}
+      />
       <Suspense fallback={<div className="notice player-portal-polls-loading">Loading polls...</div>}>
         <PlayerPortalPollSection
           rewardTrack={snapshot.rewardTrack}

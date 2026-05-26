@@ -21,7 +21,7 @@ export function CurrentPollPanel({
       className="panel action-panel poll-module-panel"
       style={getCurrentPollPanelStyle(moduleSettings, settings)}
     >
-      <div className="panel-label">Current Poll</div>
+      <div className="panel-label">Current Question</div>
       <div className="poll-question-area">
         <h2 className="poll-question">{currentPoll.question}</h2>
         <div className="option-list">
