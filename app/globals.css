@@ -3465,9 +3465,11 @@ h2 {
 
 .player-portal-level-reward-stack {
   display: flex;
+  flex-direction: column-reverse;
   align-items: flex-end;
   justify-content: center;
   align-self: end;
+  gap: 6px;
   min-height: 20px;
   min-width: 42px;
   padding-bottom: 0;
@@ -6684,6 +6686,10 @@ a.polls-icon-button {
   width: 100%;
 }
 
+.page-shell .builder-preview-section:first-of-type .builder-preview-module:has(> .builder-preview-social) {
+  margin-top: -8px;
+}
+
 .builder-module-card.is-align-left .builder-module-preview-social,
 .builder-preview-module.is-align-left .builder-preview-social {
   justify-content: flex-start;
@@ -6717,7 +6723,7 @@ a.polls-icon-button {
   flex-shrink: 0;
   border: 3px solid #000000;
   border-radius: 999px;
-  overflow: visible;
+  overflow: hidden;
   background: #ffffff;
   box-shadow: 0 8px 20px rgba(10, 73, 112, 0.12);
   text-decoration: none;
@@ -6739,8 +6745,9 @@ a.polls-icon-button {
 
 .builder-module-preview-social-item img,
 .builder-preview-social-item img {
+  box-sizing: border-box;
   object-fit: contain;
-  padding: 0;
+  padding: clamp(6px, 12%, 16px);
 }
 
 .builder-button-design-sections {

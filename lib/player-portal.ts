@@ -41,6 +41,7 @@ export type PlayerPortalRewardTrack = {
   totalSlots: number;
   earnedSlots: number;
   isComplete: boolean;
+  completedLevelRewards: number;
   pollReward: PlayerPortalRewardVisual;
   levelReward: PlayerPortalRewardVisual;
 };
@@ -153,13 +154,17 @@ function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): PlayerP
     return metadata.achievementLevelName === "Grades" && metadata.achievementSublevelName === "First";
   });
   const metadata = toRecord(gradeFirstReward?.metadata);
+  const normalizedPollsTaken = Math.max(pollsTaken, 0);
+  const completedLevelRewards = Math.floor(normalizedPollsTaken / FIRST_GRADE_REWARD_SLOTS);
+  const earnedSlots = normalizedPollsTaken % FIRST_GRADE_REWARD_SLOTS;
 
   return {
     levelName: "Grades",
     sublevelName: "First",
     totalSlots: FIRST_GRADE_REWARD_SLOTS,
-    earnedSlots: Math.min(Math.max(pollsTaken, 0), FIRST_GRADE_REWARD_SLOTS),
-    isComplete: pollsTaken >= FIRST_GRADE_REWARD_SLOTS,
+    earnedSlots,
+    isComplete: normalizedPollsTaken > 0 && earnedSlots === 0,
+    completedLevelRewards,
     pollReward: gradeFirstReward
       ? buildRewardVisual(metadata, "pollReward", DEFAULT_POLL_REWARD_VISUAL)
       : DEFAULT_POLL_REWARD_VISUAL,

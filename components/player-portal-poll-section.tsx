@@ -47,9 +47,7 @@ function PlayerPortalPollSectionOpen({
   const router = useRouter();
   const { activeCategory, error, isLoading, isSubmitting, payload, submitAnswer } = usePollExperience({
     onAnswered: () => {
-      if (!rewardTrack.isComplete) {
-        markPlayerLevelUpCheckPending();
-      }
+      markPlayerLevelUpCheckPending(rewardTrack.completedLevelRewards);
       router.refresh();
     }
   });
@@ -95,20 +93,21 @@ function PlayerPortalPollSectionOpen({
               className="player-portal-level-reward-stack"
               aria-label={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} completed rewards`}
             >
-              {rewardTrack.isComplete ? (
+              {Array.from({ length: rewardTrack.completedLevelRewards }, (_, index) => (
                 <span
-                  aria-label={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} complete`}
+                  aria-label={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} complete ${index + 1}`}
                   className="player-portal-level-coin"
                   role="img"
                   style={rewardVisualStyle(rewardTrack.levelReward)}
                   tabIndex={0}
-                  title={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} Complete`}
+                  title={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} Complete ${index + 1}`}
+                  key={index}
                 >
                   <span className="player-portal-level-coin-tooltip" role="tooltip">
-                    {rewardTrack.levelName}: {rewardTrack.sublevelName} Complete
+                    {rewardTrack.levelName}: {rewardTrack.sublevelName} Complete {index + 1}
                   </span>
                 </span>
-              ) : null}
+              ))}
             </div>
             <div
               className="player-portal-reward-track"

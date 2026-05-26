@@ -7,12 +7,12 @@ import { firePlayerLevelUpConfetti } from "@/lib/player-portal-confetti";
 const LEVEL_UP_CHECK_STORAGE_KEY = "normie-player-level-up-check";
 
 /** Call before refreshing portal data after a poll answer when a level-up is still possible. */
-export function markPlayerLevelUpCheckPending(): void {
+export function markPlayerLevelUpCheckPending(completedLevelRewards: number): void {
   if (typeof window === "undefined") {
     return;
   }
 
-  sessionStorage.setItem(LEVEL_UP_CHECK_STORAGE_KEY, "1");
+  sessionStorage.setItem(LEVEL_UP_CHECK_STORAGE_KEY, String(completedLevelRewards));
 }
 
 type PlayerPortalLevelUpCelebrationProps = {
@@ -25,17 +25,17 @@ type PlayerPortalLevelUpCelebrationProps = {
  */
 export function PlayerPortalLevelUpCelebration({ rewardTrack }: PlayerPortalLevelUpCelebrationProps) {
   useEffect(() => {
-    const pending = sessionStorage.getItem(LEVEL_UP_CHECK_STORAGE_KEY);
-    if (pending !== "1") {
+    const previousCompletedRewards = Number(sessionStorage.getItem(LEVEL_UP_CHECK_STORAGE_KEY));
+    if (!Number.isFinite(previousCompletedRewards)) {
       return;
     }
 
     sessionStorage.removeItem(LEVEL_UP_CHECK_STORAGE_KEY);
 
-    if (rewardTrack.isComplete) {
+    if (rewardTrack.completedLevelRewards > previousCompletedRewards) {
       firePlayerLevelUpConfetti();
     }
-  }, [rewardTrack.isComplete, rewardTrack.levelName, rewardTrack.sublevelName]);
+  }, [rewardTrack.completedLevelRewards, rewardTrack.levelName, rewardTrack.sublevelName]);
 
   return null;
 }
