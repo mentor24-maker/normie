@@ -7,9 +7,13 @@ import type { PlayerPortalRewardTrack } from "@/lib/player-portal";
 import { PlayerPortalPollStage } from "@/src/site/home/partials/player-portal-poll-stage";
 import { type PollAnswerResult, usePollExperience } from "@/src/site/home/use-poll-experience";
 import {
+  isPlayerPortalPlayPollsOpen,
   PLAYER_PORTAL_PLAY_POLLS_HREF,
-  PLAYER_PORTAL_PLAY_POLLS_PARAM
+  PLAYER_PORTAL_PLAY_POLLS_PARAM,
+  PLAYER_PORTAL_POLLS_SECTION_ID,
+  scrollPlayerPortalPollsIntoView
 } from "@/lib/player-portal-play-polls";
+import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
 import { firePlayerLevelUpConfetti } from "@/lib/player-portal-confetti";
 
 export { PLAYER_PORTAL_PLAY_POLLS_HREF, PLAYER_PORTAL_PLAY_POLLS_PARAM };
@@ -59,9 +63,24 @@ function PlayerPortalPollSectionOpen({
       const nextPollsTaken = result.playerAnswerCount ?? previousPollsTaken + 1;
 
       optimisticPollsTakenRef.current = nextPollsTaken;
+      appendPlayerLevelUpDiagnostic("poll-answer.response", {
+        previousPollsTaken,
+        nextPollsTaken,
+        playerAnswerCount: result.playerAnswerCount ?? null,
+        levelUp: result.levelUp ?? false,
+        duplicate: result.duplicate ?? false,
+        claimed: result.claimed ?? false
+      });
 
       if (result.levelUp) {
-        firePlayerLevelUpConfetti();
+        appendPlayerLevelUpDiagnostic("poll-answer.fire-confetti-immediate", {
+          playerAnswerCount: result.playerAnswerCount ?? null
+        });
+        void firePlayerLevelUpConfetti();
+      } else {
+        appendPlayerLevelUpDiagnostic("poll-answer.no-immediate-fire", {
+          playerAnswerCount: result.playerAnswerCount ?? null
+        });
       }
 
       router.refresh();
@@ -69,11 +88,25 @@ function PlayerPortalPollSectionOpen({
   });
 
   return (
-    <section className="player-portal-polls is-open" aria-label="Play polls">
+    <section
+      className="player-portal-polls is-open"
+      aria-label="Play polls"
+      id={PLAYER_PORTAL_POLLS_SECTION_ID}
+    >
       <header className="player-portal-polls-bar">
         <div className="player-portal-polls-bar-copy">
           <p className="panel-label">Play Polls</p>
           <h2 className="player-portal-polls-title">Answer the Current Question</h2>
+          <button
+            className="secondary-button player-portal-confetti-trigger"
+            onClick={() => {
+              appendPlayerLevelUpDiagnostic("manual-confetti-button.clicked");
+              void firePlayerLevelUpConfetti();
+            }}
+            type="button"
+          >
+            Confetti
+          </button>
         </div>
         <div className="player-portal-polls-header-side">
           <div className="player-portal-reward-top-row">
@@ -106,11 +139,7 @@ function PlayerPortalPollSectionOpen({
                             tabIndex={0}
                             title={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} Complete ${rewardIndex + 1}`}
                             key={rewardIndex}
-                          >
-                            <span className="player-portal-level-coin-tooltip" role="tooltip">
-                              {rewardTrack.levelName}: {rewardTrack.sublevelName} Complete {rewardIndex + 1}
-                            </span>
-                          </span>
+                          />
                         );
                       })}
                     </span>
@@ -194,8 +223,19 @@ export function PlayerPortalPollSection({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isDashboard = pathname === "/portal/dashboard";
-  const isOpen = isDashboard && searchParams.get(PLAYER_PORTAL_PLAY_POLLS_PARAM) !== "0";
+  const isOpen = isPlayerPortalPlayPollsOpen(pathname, searchParams);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollPlayerPortalPollsIntoView();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;
@@ -208,9 +248,4 @@ export function PlayerPortalPollSection({
   return <PlayerPortalPollSectionOpen onClose={closePolls} rewardTrack={rewardTrack} stats={stats} />;
 }
 
-export function isPlayerPortalPlayPollsOpen(
-  pathname: string,
-  searchParams: Pick<URLSearchParams, "get">
-): boolean {
-  return pathname === "/portal/dashboard" && searchParams.get(PLAYER_PORTAL_PLAY_POLLS_PARAM) !== "0";
-}
+export { isPlayerPortalPlayPollsOpen } from "@/lib/player-portal-play-polls";

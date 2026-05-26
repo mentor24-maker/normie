@@ -896,6 +896,15 @@ h2 {
   gap: 14px;
 }
 
+/* Current poll module: focused question pod */
+.poll-module-panel.action-panel .poll-question-area {
+  margin-block: 18px;
+  padding: 28px 30px;
+  border-radius: 25px;
+  border: 2px solid #5b0f6d; /* dark purple */
+  background: linear-gradient(135deg, #e7f2ff 0%, #b6a0ff 45%, #8e5cff 100%);
+}
+
 .poll-previous-results-panel {
   position: relative;
   overflow: hidden;
@@ -1478,6 +1487,7 @@ h2 {
 /* Current poll module only (not previous results): question headline */
 .poll-module-panel.action-panel .poll-question {
   font-family: var(--font-poll-question), system-ui, sans-serif;
+  color: #240251;
 }
 
 .admin-stack {
@@ -2765,26 +2775,31 @@ h2 {
 }
 
 .player-portal-play-cta {
-  padding: 20px 56px;
+  padding: 24px 78px;
   border-radius: 999px;
   border: 2px solid #1a6b08;
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 800;
-  background: linear-gradient(145deg, #5fd633 0%, #3cbb17 48%, #248f0c 100%);
-  color: #fcf579;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.55);
+  background: linear-gradient(135deg, #e7f2ff 0%, #b6a0ff 45%, #8e5cff 100%);
+  color: #240251;
+  text-shadow: none;
   box-shadow: none;
   transform: translateX(-100px);
 }
 
 .player-portal-play-cta:hover,
 .player-portal-play-cta:focus-visible {
-  background: linear-gradient(145deg, #72e84a 0%, #4fd424 48%, #2da312 100%);
-  color: #fcf579;
+  background: linear-gradient(135deg, #e7f2ff 0%, #b6a0ff 45%, #8e5cff 100%);
+  color: #240251;
   border-color: #1a6b08;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.55);
+  text-shadow: none;
   box-shadow: none;
   transform: translateX(-100px) translateY(-3px) scale(1.01);
+}
+
+.poll-module-panel.action-panel .poll-answer-button-a,
+.poll-module-panel.action-panel .poll-answer-button-b {
+  font-size: 1.05rem;
 }
 
 .player-profile-form,
@@ -3415,6 +3430,7 @@ h2 {
   display: grid;
   gap: 20px;
   padding: 0;
+  scroll-margin-top: 24px;
   border-radius: 32px;
   border: 1px solid rgba(11, 143, 196, 0.14);
   background:
@@ -3645,6 +3661,11 @@ h2 {
   font-weight: 800;
   color: var(--ink);
   white-space: nowrap;
+}
+
+.player-portal-confetti-trigger {
+  margin-top: 8px;
+  width: fit-content;
 }
 
 .player-portal-polls-close {

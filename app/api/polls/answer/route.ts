@@ -37,6 +37,12 @@ async function playerAnswerResponse(
 ) {
   const answerCount = await getPlayerAnswerCount(supabase, playerId);
   const levelUp = answerCount > 0 && answerCount % PLAYER_LEVEL_UP_INTERVAL === 0 && !flags.duplicate;
+  console.info("[player-level-up] answer response", {
+    playerId,
+    answerCount,
+    levelUp,
+    flags
+  });
   const response = NextResponse.json({
     ok: true,
     ...flags,

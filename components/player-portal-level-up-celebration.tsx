@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { PlayerPortalRewardTrack } from "@/lib/player-portal";
 import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
+import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
 import { firePlayerLevelUpConfetti } from "@/lib/player-portal-confetti";
 
 const LEVEL_UP_CHECK_STORAGE_KEY = "normie-player-level-up-check";
@@ -38,11 +39,24 @@ export function PlayerPortalLevelUpCelebration({
       return;
     }
 
+    appendPlayerLevelUpDiagnostic("pending-cookie.detected", {
+      pendingLevelUpCount,
+      completedLevelRewards: rewardTrack.completedLevelRewards
+    });
     clearPendingLevelUpCookie();
 
     const completedCount = rewardTrack.completedLevelRewards * PLAYER_LEVEL_UP_INTERVAL;
     if (pendingLevelUpCount <= completedCount) {
-      firePlayerLevelUpConfetti();
+      appendPlayerLevelUpDiagnostic("pending-cookie.fire-confetti", {
+        pendingLevelUpCount,
+        completedCount
+      });
+      void firePlayerLevelUpConfetti();
+    } else {
+      appendPlayerLevelUpDiagnostic("pending-cookie.waiting-for-dashboard-count", {
+        pendingLevelUpCount,
+        completedCount
+      });
     }
   }, [pendingLevelUpCount, rewardTrack.completedLevelRewards]);
 
@@ -61,7 +75,16 @@ export function PlayerPortalLevelUpCelebration({
     sessionStorage.removeItem(LEVEL_UP_CHECK_STORAGE_KEY);
 
     if (rewardTrack.completedLevelRewards > previousCompletedRewards) {
-      firePlayerLevelUpConfetti();
+      appendPlayerLevelUpDiagnostic("session-check.fire-confetti", {
+        previousCompletedRewards,
+        completedLevelRewards: rewardTrack.completedLevelRewards
+      });
+      void firePlayerLevelUpConfetti();
+    } else {
+      appendPlayerLevelUpDiagnostic("session-check.no-fire", {
+        previousCompletedRewards,
+        completedLevelRewards: rewardTrack.completedLevelRewards
+      });
     }
   }, [rewardTrack.completedLevelRewards, rewardTrack.levelName, rewardTrack.sublevelName]);
 

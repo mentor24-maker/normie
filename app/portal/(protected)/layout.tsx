@@ -5,8 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PlayerLogoutButton } from "@/components/player-logout-button";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
+import { PlayerPortalPlayCta } from "@/components/player-portal-play-cta";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
-import { PLAYER_PORTAL_PLAY_POLLS_HREF } from "@/lib/player-portal-play-polls";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
 
 export default async function ProtectedPortalLayout({
@@ -67,9 +67,9 @@ export default async function ProtectedPortalLayout({
             </div>
           </div>
           <div className="player-portal-play-slot">
-            <Link className="submit-button player-portal-play-cta" href={PLAYER_PORTAL_PLAY_POLLS_HREF}>
-              Would You Rather...?
-            </Link>
+            <Suspense fallback={null}>
+              <PlayerPortalPlayCta />
+            </Suspense>
           </div>
           </div>
         </header>
