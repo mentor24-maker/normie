@@ -44,7 +44,7 @@ export async function GET() {
         .from("player_profiles")
         .select("id, full_name, handle, status, created_at, updated_at")
         .order("created_at", { ascending: false }),
-      supabase.from("responses").select("user_id, tokens_earned").not("user_id", "is", null)
+      supabase.from("poll_response").select("user_id, tokens_earned").not("user_id", "is", null)
     ]);
 
   if (authError) {

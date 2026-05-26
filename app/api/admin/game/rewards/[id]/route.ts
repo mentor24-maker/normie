@@ -37,6 +37,10 @@ function safeInventoryCount(value: unknown) {
   return Math.max(0, safeInteger(text, 0));
 }
 
+function safeMetadata(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminRoute("content:write");
 
@@ -54,6 +58,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     status?: unknown;
     imageUrl?: unknown;
     redemptionUrl?: unknown;
+    metadata?: unknown;
   };
   const name = safeText(body.name, 160);
 
@@ -73,6 +78,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       status: normalizeRewardStatus(body.status),
       image_url: safeText(body.imageUrl, 500),
       redemption_url: safeText(body.redemptionUrl, 500),
+      metadata: safeMetadata(body.metadata),
       updated_at: new Date().toISOString()
     })
     .eq("id", id)
@@ -105,4 +111,3 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   return auth.finish(NextResponse.json({ ok: true }));
 }
-

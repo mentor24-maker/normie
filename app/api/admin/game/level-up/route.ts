@@ -14,7 +14,8 @@ function safeInteger(value: unknown, fallback = 1) {
 
 function normalizeLevelName(value: unknown): GameLevelName {
   const levelName = safeText(value, 80);
-  return GAME_LEVEL_NAMES.includes(levelName as GameLevelName) ? (levelName as GameLevelName) : "Rank";
+  const normalizedLevelName = levelName === "Rank" ? "Levels" : levelName;
+  return GAME_LEVEL_NAMES.includes(normalizedLevelName as GameLevelName) ? (normalizedLevelName as GameLevelName) : "Levels";
 }
 
 function safeCriteria(value: unknown) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from "react";
 import type {
   GameLevel,
   GameLevelName,
@@ -13,6 +13,7 @@ import type {
   GameScoringRule
 } from "@/lib/game-admin";
 import { GAME_LEVEL_NAMES, GAME_REWARD_STATUSES, GAME_REWARD_TYPES } from "@/lib/game-admin";
+import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import { formatTemplateTimestamp } from "@/components/builder/builder-utils";
 
 type GameSnapshot = {
@@ -24,19 +25,36 @@ type GameSnapshot = {
 
 type GameLevelDraft = Partial<GameLevel>;
 type LevelUpRuleDraft = Partial<GameLevelUpRule>;
-type RewardDraft = Partial<GameReward> & { inventoryCountText?: string };
+type RewardDraft = Partial<GameReward> & {
+  inventoryCountText?: string;
+  pollVisualType?: string;
+  pollDigitalProduct?: string;
+  pollVisualColor?: string;
+  pollVisualSize?: string;
+  pollVisualBorderColor?: string;
+  pollVisualBorderWidth?: string;
+  levelVisualType?: string;
+  levelDigitalProduct?: string;
+  levelVisualColor?: string;
+  levelVisualSize?: string;
+  levelVisualBorderColor?: string;
+  levelVisualBorderWidth?: string;
+  achievementLevelName?: GameLevelName;
+  achievementSublevelName?: string;
+};
 type ScoringRuleDraft = Partial<GameScoringRule>;
 type SortDirection = "asc" | "desc";
 type GameSection = "levels" | "scoring" | "level-up" | "redemptions";
-type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels" | "updatedAt";
-type RewardSortKey = "name" | "rewardType" | "status" | "pointsCost" | "inventoryCount" | "updatedAt";
+type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels";
+type RewardSortKey = "name" | "rewardType" | "status" | "pointsCost" | "inventoryCount" | "rewardVisual";
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
 
+const DEFAULT_BADGE_BACKGROUND_COLOR = "#d8212d";
+
 const GAME_LEVEL_TABLE_COLUMNS: Array<{ key: GameLevelSortKey; label: string }> = [
-  { key: "levelName", label: "Level Name" },
+  { key: "levelName", label: "Progression Track" },
   { key: "levelOrder", label: "Order" },
-  { key: "sublevels", label: "Sublevels" },
-  { key: "updatedAt", label: "Updated" }
+  { key: "sublevels", label: "Sublevels" }
 ];
 
 const REWARD_TABLE_COLUMNS: Array<{ key: RewardSortKey; label: string }> = [
@@ -45,7 +63,7 @@ const REWARD_TABLE_COLUMNS: Array<{ key: RewardSortKey; label: string }> = [
   { key: "status", label: "Status" },
   { key: "pointsCost", label: "Cost" },
   { key: "inventoryCount", label: "Inventory" },
-  { key: "updatedAt", label: "Updated" }
+  { key: "rewardVisual", label: "Reward Disk" }
 ];
 
 const SCORING_TABLE_COLUMNS: Array<{ key: ScoringRuleSortKey; label: string }> = [
@@ -57,10 +75,10 @@ const SCORING_TABLE_COLUMNS: Array<{ key: ScoringRuleSortKey; label: string }> =
 ];
 
 const GAME_SECTION_TILES: Array<{ key: GameSection; label: string; description: string }> = [
-  { key: "levels", label: "Game Levels", description: "Levels, sublevels, and order." },
+  { key: "levels", label: "Progression Tracks", description: "Tracks, sublevels, and order." },
   { key: "scoring", label: "Point Scoring", description: "Ways players earn points." },
   { key: "level-up", label: "Level Up", description: "Graduation rules and criteria." },
-  { key: "redemptions", label: "Redemptions", description: "Point rewards players can claim." }
+  { key: "redemptions", label: "Rewards & Redemptions", description: "Achievement rewards and point claims." }
 ];
 
 async function readAdminJson<T extends { error?: string }>(response: Response, fallbackMessage: string): Promise<T> {
@@ -98,7 +116,7 @@ function normalizeSublevelOrder(sublevels: GameSublevel[]) {
 
 function createGameLevelDraft(): GameLevelDraft {
   return {
-    levelName: "Rank",
+    levelName: "Levels",
     levelOrder: 1,
     sublevels: []
   };
@@ -127,14 +145,27 @@ function createLevelUpRuleDraft(gameLevels: GameLevel[] = [], scoringRules: Game
 
 function createRewardDraft(): RewardDraft {
   return {
-    name: "",
+    name: "Grade: First Red Disk",
     description: "",
-    rewardType: "custom",
     pointsCost: 0,
     inventoryCountText: "",
-    status: "draft",
+    status: "active",
     imageUrl: "",
-    redemptionUrl: ""
+    redemptionUrl: "",
+    pollVisualType: "coin",
+    pollDigitalProduct: "",
+    pollVisualColor: DEFAULT_BADGE_BACKGROUND_COLOR,
+    pollVisualSize: "10px",
+    pollVisualBorderColor: "",
+    pollVisualBorderWidth: "",
+    levelVisualType: "coin",
+    levelDigitalProduct: "",
+    levelVisualColor: DEFAULT_BADGE_BACKGROUND_COLOR,
+    levelVisualSize: "10px",
+    levelVisualBorderColor: "",
+    levelVisualBorderWidth: "",
+    achievementLevelName: "Grades",
+    achievementSublevelName: "First"
   };
 }
 
@@ -156,9 +187,78 @@ function levelUpRuleToDraft(rule: GameLevelUpRule): LevelUpRuleDraft {
 }
 
 function rewardToDraft(reward: GameReward): RewardDraft {
+  const metadata = reward.metadata;
+  const pollReward =
+    metadata.pollReward && typeof metadata.pollReward === "object" && !Array.isArray(metadata.pollReward)
+      ? (metadata.pollReward as Record<string, unknown>)
+      : metadata;
+  const levelReward =
+    metadata.levelReward && typeof metadata.levelReward === "object" && !Array.isArray(metadata.levelReward)
+      ? (metadata.levelReward as Record<string, unknown>)
+      : metadata;
+
   return {
     ...reward,
-    inventoryCountText: reward.inventoryCount === null ? "" : String(reward.inventoryCount)
+    inventoryCountText: reward.inventoryCount === null ? "" : String(reward.inventoryCount),
+    pollVisualType: String(pollReward.visualType ?? "coin"),
+    pollDigitalProduct: String(pollReward.digitalProduct ?? ""),
+    pollVisualColor: normalizeBuilderHexColor(pollReward.visualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
+    pollVisualSize: String(pollReward.visualSize ?? "10px"),
+    pollVisualBorderColor: String(pollReward.visualBorderColor ?? ""),
+    pollVisualBorderWidth: String(pollReward.visualBorderWidth ?? ""),
+    levelVisualType: String(levelReward.visualType ?? "coin"),
+    levelDigitalProduct: String(levelReward.digitalProduct ?? ""),
+    levelVisualColor: normalizeBuilderHexColor(levelReward.visualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
+    levelVisualSize: String(levelReward.visualSize ?? "10px"),
+    levelVisualBorderColor: String(levelReward.visualBorderColor ?? ""),
+    levelVisualBorderWidth: String(levelReward.visualBorderWidth ?? ""),
+    achievementLevelName: (metadata.achievementLevelName as GameLevelName | undefined) ?? "Grades",
+    achievementSublevelName: String(metadata.achievementSublevelName ?? "First")
+  };
+}
+
+function rewardDraftToMetadata(draft: RewardDraft) {
+  return {
+    ...(draft.metadata ?? {}),
+    pollReward: {
+      visualType: draft.pollVisualType ?? "coin",
+      digitalProduct: draft.pollDigitalProduct ?? "",
+      visualColor: normalizeBuilderHexColor(draft.pollVisualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
+      visualSize: draft.pollVisualSize ?? "10px",
+      visualBorderColor: draft.pollVisualBorderColor ?? "",
+      visualBorderWidth: draft.pollVisualBorderWidth ?? ""
+    },
+    levelReward: {
+      visualType: draft.levelVisualType ?? "coin",
+      digitalProduct: draft.levelDigitalProduct ?? "",
+      visualColor: normalizeBuilderHexColor(draft.levelVisualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
+      visualSize: draft.levelVisualSize ?? "10px",
+      visualBorderColor: draft.levelVisualBorderColor ?? "",
+      visualBorderWidth: draft.levelVisualBorderWidth ?? ""
+    },
+    achievementLevelName: draft.achievementLevelName ?? "Grades",
+    achievementSublevelName: draft.achievementSublevelName ?? ""
+  };
+}
+
+function rewardToPayload(reward: RewardDraft | GameReward, overrides: Partial<RewardDraft | GameReward> = {}) {
+  const source = { ...reward, ...overrides } as RewardDraft;
+
+  return {
+    name: source.name,
+    description: source.description,
+    rewardType: source.rewardType,
+    pointsCost: source.pointsCost,
+    inventoryCount:
+      "inventoryCountText" in source
+        ? source.inventoryCountText
+        : source.inventoryCount === null
+          ? ""
+          : source.inventoryCount,
+    status: source.status,
+    imageUrl: source.imageUrl,
+    redemptionUrl: source.redemptionUrl,
+    metadata: "inventoryCountText" in source ? rewardDraftToMetadata(source) : source.metadata
   };
 }
 
@@ -169,6 +269,7 @@ function scoringRuleToDraft(scoringRule: GameScoringRule): ScoringRuleDraft {
 function rewardTypeLabel(type: GameRewardType) {
   return {
     access: "Access",
+    badge: "Badge",
     custom: "Custom",
     digital: "Digital",
     merch: "Merch",
@@ -209,6 +310,64 @@ function formatLevelUpCriteria(rule: GameLevelUpRule, scoringRules: GameScoringR
     : "No criteria";
 }
 
+function formatRewardAchievement(reward: GameReward) {
+  const levelName = String(reward.metadata.achievementLevelName ?? "").trim();
+  const sublevelName = String(reward.metadata.achievementSublevelName ?? "").trim();
+
+  return [levelName, sublevelName].filter(Boolean).join(": ") || "Unassigned achievement";
+}
+
+function getRewardVisualRecord(reward: GameReward, key: "pollReward" | "levelReward") {
+  const metadata = reward.metadata;
+  const visual = metadata[key] && typeof metadata[key] === "object" && !Array.isArray(metadata[key])
+    ? (metadata[key] as Record<string, unknown>)
+    : metadata;
+
+  return {
+    color: normalizeBuilderHexColor(visual.visualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
+    size: String(visual.visualSize ?? "10px").trim() || "10px",
+    type: String(visual.visualType ?? "coin").trim() || "coin"
+  };
+}
+
+function formatRewardVisualSortValue(reward: GameReward) {
+  const pollReward = getRewardVisualRecord(reward, "pollReward");
+  const levelReward = getRewardVisualRecord(reward, "levelReward");
+  return `${pollReward.type} ${pollReward.color} ${pollReward.size} ${levelReward.type} ${levelReward.color} ${levelReward.size}`;
+}
+
+function RewardVisualSummary({ reward }: { reward: GameReward }) {
+  const pollReward = getRewardVisualRecord(reward, "pollReward");
+  const levelReward = getRewardVisualRecord(reward, "levelReward");
+
+  return (
+    <div className="admin-game-reward-visual-summary">
+      {[
+        ["Poll-Level", pollReward],
+        ["Level-Level", levelReward]
+      ].map(([label, visual]) => {
+        const rewardVisual = visual as ReturnType<typeof getRewardVisualRecord>;
+        const style = {
+          backgroundColor: rewardVisual.color,
+          borderColor: rewardVisual.color,
+          width: rewardVisual.size,
+          height: rewardVisual.size
+        } as CSSProperties;
+
+        return (
+          <div className="admin-game-reward-visual-item" key={label as string}>
+            <span className="admin-game-reward-visual-disk" style={style} />
+            <span>
+              <strong>{label as string}</strong>
+              <span>{rewardVisual.color} / {rewardVisual.size}</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function compareGameLevels(
   left: GameLevel,
   right: GameLevel,
@@ -223,9 +382,6 @@ function compareGameLevels(
       break;
     case "sublevels":
       result = compareText(formatSublevels(left.sublevels), formatSublevels(right.sublevels));
-      break;
-    case "updatedAt":
-      result = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
       break;
     case "levelName":
       result = compareText(left.levelName, right.levelName);
@@ -256,8 +412,8 @@ function compareRewards(
     case "status":
       result = compareText(statusLabel(left.status), statusLabel(right.status));
       break;
-    case "updatedAt":
-      result = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
+    case "rewardVisual":
+      result = compareText(formatRewardVisualSortValue(left), formatRewardVisualSortValue(right));
       break;
     case "name":
       result = compareText(left.name, right.name);
@@ -408,9 +564,9 @@ function GameLevelEditor({
     <div className="builder-product-editor admin-game-editor">
       <div className="builder-product-editor-grid admin-game-editor-grid">
         <label className="field admin-game-inline-field">
-          <span>Level name</span>
+          <span>Progression Track</span>
           <select
-            value={draft.levelName ?? "Rank"}
+            value={draft.levelName ?? "Levels"}
             onChange={(event) => onChange({ ...draft, levelName: event.target.value as GameLevelName })}
           >
             {GAME_LEVEL_NAMES.map((levelName) => (
@@ -419,7 +575,7 @@ function GameLevelEditor({
           </select>
         </label>
         <label className="field admin-game-inline-field">
-          <span>Level order</span>
+          <span>Track Order</span>
           <select
             value={String(draft.levelOrder ?? 1)}
             onChange={(event) => onChange({ ...draft, levelOrder: Number(event.target.value) })}
@@ -528,7 +684,7 @@ function GameLevelEditor({
           Cancel
         </button>
         <button className="submit-button admin-blog-add-button" disabled={isSaving} onClick={onSave} type="button">
-          {isSaving ? "Saving..." : "Save Game Level"}
+          {isSaving ? "Saving..." : "Save Progression Track"}
         </button>
       </div>
     </div>
@@ -714,96 +870,259 @@ function LevelUpRuleEditor({
   );
 }
 
+const BADGE_STYLE_OPTIONS = ["coin", "jewel", "ribbon", "medal", "trophy"];
+const REWARD_BORDER_WIDTH_OPTIONS = Array.from({ length: 10 }, (_, index) => `${index + 1}px`);
+
+type RewardStyleValues = {
+  visualType?: string;
+  digitalProduct?: string;
+  visualColor?: string;
+  visualSize?: string;
+  visualBorderColor?: string;
+  visualBorderWidth?: string;
+};
+
+function RewardStyleColumn({
+  title,
+  rewardType,
+  values,
+  onChange
+}: {
+  title: string;
+  rewardType: GameRewardType;
+  values: RewardStyleValues;
+  onChange: (next: RewardStyleValues) => void;
+}) {
+  return (
+    <div className="admin-game-reward-style-column">
+      <h3>{title}</h3>
+      {rewardType === "badge" ? (
+        <label className="field">
+          <span>Badge</span>
+          <select
+            value={values.visualType ?? "coin"}
+            onChange={(event) => onChange({ ...values, visualType: event.target.value })}
+          >
+            {BADGE_STYLE_OPTIONS.map((badge) => (
+              <option key={badge} value={badge}>{badge}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {rewardType === "digital" ? (
+        <label className="field">
+          <span>Digital product</span>
+          <select
+            value={values.digitalProduct ?? ""}
+            onChange={(event) => onChange({ ...values, digitalProduct: event.target.value })}
+          >
+            <option value="">TBD</option>
+          </select>
+        </label>
+      ) : null}
+      <label className="field">
+        <span>Background Color</span>
+        <input
+          aria-label={`${title} background color`}
+          type="color"
+          value={normalizeBuilderHexColor(values.visualColor, DEFAULT_BADGE_BACKGROUND_COLOR)}
+          onChange={(event) => onChange({ ...values, visualColor: event.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>Size</span>
+        <input
+          type="text"
+          value={values.visualSize ?? "10px"}
+          onChange={(event) => onChange({ ...values, visualSize: event.target.value })}
+          placeholder="10px"
+        />
+      </label>
+      <label className="field">
+        <span>Border Color</span>
+        <input
+          type="text"
+          value={values.visualBorderColor ?? ""}
+          onChange={(event) => onChange({ ...values, visualBorderColor: event.target.value })}
+          placeholder="#991b1b"
+        />
+      </label>
+      <label className="field">
+        <span>Border Width</span>
+        <select
+          value={values.visualBorderWidth ?? ""}
+          onChange={(event) => onChange({ ...values, visualBorderWidth: event.target.value })}
+        >
+          <option value="">None</option>
+          {REWARD_BORDER_WIDTH_OPTIONS.map((width) => (
+            <option key={width} value={width}>{width}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
 function RewardEditor({
   draft,
+  gameLevels,
   isSaving,
   onCancel,
   onChange,
   onSave
 }: {
   draft: RewardDraft;
+  gameLevels: GameLevel[];
   isSaving: boolean;
   onCancel: () => void;
   onChange: (next: RewardDraft) => void;
   onSave: () => void;
 }) {
+  const sublevels = getSublevelsForLevel(gameLevels, draft.achievementLevelName);
+  const selectedRewardType = draft.rewardType ?? "";
+
   return (
     <div className="builder-product-editor admin-game-editor">
-      <div className="builder-product-editor-grid admin-game-editor-grid">
-        <label className="field">
-          <span>Name</span>
-          <input
-            type="text"
-            value={draft.name ?? ""}
-            onChange={(event) => onChange({ ...draft, name: event.target.value })}
-            placeholder="Normie sticker pack"
-          />
-        </label>
-        <label className="field">
-          <span>Type</span>
-          <select
-            value={draft.rewardType ?? "custom"}
-            onChange={(event) => onChange({ ...draft, rewardType: event.target.value as GameRewardType })}
-          >
-            {GAME_REWARD_TYPES.map((type) => (
-              <option key={type} value={type}>{rewardTypeLabel(type)}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Status</span>
-          <select
-            value={draft.status ?? "draft"}
-            onChange={(event) => onChange({ ...draft, status: event.target.value as GameRewardStatus })}
-          >
-            {GAME_REWARD_STATUSES.map((status) => (
-              <option key={status} value={status}>{statusLabel(status)}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Points cost</span>
-          <input
-            min="0"
-            type="number"
-            value={draft.pointsCost ?? 0}
-            onChange={(event) => onChange({ ...draft, pointsCost: Number(event.target.value) })}
-          />
-        </label>
-        <label className="field">
-          <span>Inventory</span>
-          <input
-            min="0"
-            type="number"
-            value={draft.inventoryCountText ?? ""}
-            onChange={(event) => onChange({ ...draft, inventoryCountText: event.target.value })}
-            placeholder="Unlimited"
-          />
-        </label>
-        <label className="field">
-          <span>Image URL</span>
-          <input
-            type="text"
-            value={draft.imageUrl ?? ""}
-            onChange={(event) => onChange({ ...draft, imageUrl: event.target.value })}
-          />
-        </label>
-        <label className="field">
-          <span>Redemption URL</span>
-          <input
-            type="text"
-            value={draft.redemptionUrl ?? ""}
-            onChange={(event) => onChange({ ...draft, redemptionUrl: event.target.value })}
-          />
-        </label>
-        <label className="field admin-game-wide-field">
-          <span>Description</span>
-          <textarea
-            value={draft.description ?? ""}
-            onChange={(event) => onChange({ ...draft, description: event.target.value })}
-            rows={4}
-          />
-        </label>
+      <div className="admin-game-reward-grid">
+        <div className="admin-game-reward-definition-column">
+          <label className="field">
+            <span>Name</span>
+            <input
+              type="text"
+              value={draft.name ?? ""}
+              onChange={(event) => onChange({ ...draft, name: event.target.value })}
+              placeholder="Grade: First Red Disk"
+            />
+          </label>
+          <label className="field">
+            <span>Achievement Track</span>
+            <select
+              value={draft.achievementLevelName ?? "Grades"}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  achievementLevelName: event.target.value as GameLevelName,
+                  achievementSublevelName: ""
+                })
+              }
+            >
+              {GAME_LEVEL_NAMES.map((levelName) => (
+                <option key={levelName} value={levelName}>{levelName}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Achievement Sublevel</span>
+            <select
+              value={draft.achievementSublevelName ?? ""}
+              onChange={(event) => onChange({ ...draft, achievementSublevelName: event.target.value })}
+            >
+              <option value="">Select sublevel</option>
+              {sublevels.map((sublevel) => (
+                <option key={`${sublevel.order}-${sublevel.name}`} value={sublevel.name}>
+                  {sublevel.order}. {sublevel.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Points</span>
+            <input
+              min="0"
+              type="number"
+              value={draft.pointsCost ?? 0}
+              onChange={(event) => onChange({ ...draft, pointsCost: Number(event.target.value) })}
+            />
+          </label>
+          <label className="field">
+            <span>Inventory</span>
+            <input
+              min="0"
+              type="number"
+              value={draft.inventoryCountText ?? ""}
+              onChange={(event) => onChange({ ...draft, inventoryCountText: event.target.value })}
+              placeholder="Unlimited"
+            />
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select
+              value={draft.status ?? "draft"}
+              onChange={(event) => onChange({ ...draft, status: event.target.value as GameRewardStatus })}
+            >
+              {GAME_REWARD_STATUSES.map((status) => (
+                <option key={status} value={status}>{statusLabel(status)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Type</span>
+            <select
+              value={selectedRewardType}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  rewardType: event.target.value ? (event.target.value as GameRewardType) : undefined
+                })
+              }
+            >
+              <option value="">Select Type</option>
+              {GAME_REWARD_TYPES.map((type) => (
+                <option key={type} value={type}>{rewardTypeLabel(type)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {selectedRewardType ? (
+          <>
+            <RewardStyleColumn
+              title="Poll-Level Reward"
+              rewardType={selectedRewardType}
+              values={{
+                visualType: draft.pollVisualType,
+                digitalProduct: draft.pollDigitalProduct,
+                visualColor: draft.pollVisualColor,
+                visualSize: draft.pollVisualSize,
+                visualBorderColor: draft.pollVisualBorderColor,
+                visualBorderWidth: draft.pollVisualBorderWidth
+              }}
+              onChange={(next) =>
+                onChange({
+                  ...draft,
+                  pollVisualType: next.visualType,
+                  pollDigitalProduct: next.digitalProduct,
+                  pollVisualColor: next.visualColor,
+                  pollVisualSize: next.visualSize,
+                  pollVisualBorderColor: next.visualBorderColor,
+                  pollVisualBorderWidth: next.visualBorderWidth
+                })
+              }
+            />
+            <RewardStyleColumn
+              title="Level-Level Reward"
+              rewardType={selectedRewardType}
+              values={{
+                visualType: draft.levelVisualType,
+                digitalProduct: draft.levelDigitalProduct,
+                visualColor: draft.levelVisualColor,
+                visualSize: draft.levelVisualSize,
+                visualBorderColor: draft.levelVisualBorderColor,
+                visualBorderWidth: draft.levelVisualBorderWidth
+              }}
+              onChange={(next) =>
+                onChange({
+                  ...draft,
+                  levelVisualType: next.visualType,
+                  levelDigitalProduct: next.digitalProduct,
+                  levelVisualColor: next.visualColor,
+                  levelVisualSize: next.visualSize,
+                  levelVisualBorderColor: next.visualBorderColor,
+                  levelVisualBorderWidth: next.visualBorderWidth
+                })
+              }
+            />
+          </>
+        ) : null}
       </div>
       <div className="builder-meta-actions">
         <button className="secondary-button" onClick={onCancel} type="button">
@@ -899,9 +1218,10 @@ export function AdminGameWorkspace() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [rewardSaveDiagnostic, setRewardSaveDiagnostic] = useState<string | null>(null);
   const [gameLevelSortKey, setGameLevelSortKey] = useState<GameLevelSortKey>("levelOrder");
   const [gameLevelSortDirection, setGameLevelSortDirection] = useState<SortDirection>("asc");
-  const [rewardSortKey, setRewardSortKey] = useState<RewardSortKey>("updatedAt");
+  const [rewardSortKey, setRewardSortKey] = useState<RewardSortKey>("name");
   const [rewardSortDirection, setRewardSortDirection] = useState<SortDirection>("desc");
   const [scoringRuleSortKey, setScoringRuleSortKey] = useState<ScoringRuleSortKey>("updatedAt");
   const [scoringRuleSortDirection, setScoringRuleSortDirection] = useState<SortDirection>("desc");
@@ -1031,7 +1351,7 @@ export function AdminGameWorkspace() {
     }
 
     setGameLevelSortKey(nextKey);
-    setGameLevelSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
+    setGameLevelSortDirection("asc");
   }
 
   function handleRewardSort(nextKey: RewardSortKey) {
@@ -1041,7 +1361,7 @@ export function AdminGameWorkspace() {
     }
 
     setRewardSortKey(nextKey);
-    setRewardSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
+    setRewardSortDirection("asc");
   }
 
   function handleScoringRuleSort(nextKey: ScoringRuleSortKey) {
@@ -1132,11 +1452,11 @@ export function AdminGameWorkspace() {
       );
       const data = await readAdminJson<{ gameLevel?: GameLevel; error?: string }>(
         response,
-        "Failed to save game level."
+        "Failed to save progression track."
       );
 
       if (!data.gameLevel) {
-        throw new Error(data.error ?? "Failed to save game level.");
+        throw new Error(data.error ?? "Failed to save progression track.");
       }
 
       setGameLevels((current) =>
@@ -1148,7 +1468,7 @@ export function AdminGameWorkspace() {
       setEditingGameLevelId("");
       setGameLevelDraft(createGameLevelDraft());
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save game level.");
+      setError(saveError instanceof Error ? saveError.message : "Failed to save progression track.");
     } finally {
       setIsSaving(false);
     }
@@ -1199,22 +1519,18 @@ export function AdminGameWorkspace() {
   async function saveReward() {
     setIsSaving(true);
     resetMessages();
+    setRewardSaveDiagnostic("Saving reward...");
 
     try {
+      const payload = rewardToPayload(rewardDraft);
       const response = await fetch(rewardDraft.id ? `/api/admin/game/rewards/${rewardDraft.id}` : "/api/admin/game/rewards", {
         method: rewardDraft.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: rewardDraft.name,
-          description: rewardDraft.description,
-          rewardType: rewardDraft.rewardType,
-          pointsCost: rewardDraft.pointsCost,
-          inventoryCount: rewardDraft.inventoryCountText,
-          status: rewardDraft.status,
-          imageUrl: rewardDraft.imageUrl,
-          redemptionUrl: rewardDraft.redemptionUrl
-        })
+        body: JSON.stringify(payload)
       });
+      setRewardSaveDiagnostic(
+        `POST /api/admin/game/rewards returned ${response.status}. Type=${payload.rewardType ?? "(blank)"}, Status=${payload.status ?? "(blank)"}.`
+      );
       const data = await readAdminJson<{ reward?: GameReward; error?: string }>(response, "Failed to save reward.");
 
       if (!data.reward) {
@@ -1225,10 +1541,48 @@ export function AdminGameWorkspace() {
         rewardDraft.id ? current.map((item) => (item.id === data.reward!.id ? data.reward! : item)) : [data.reward!, ...current]
       );
       setMessage(`Saved reward "${data.reward.name}".`);
+      setRewardSaveDiagnostic(`Saved reward "${data.reward.name}" (${data.reward.id}).`);
       setEditingRewardId("");
       setRewardDraft(createRewardDraft());
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save reward.");
+      const saveMessage = saveError instanceof Error ? saveError.message : "Failed to save reward.";
+      setRewardSaveDiagnostic(`Reward save failed: ${saveMessage}`);
+      setError(saveMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function cloneReward(reward: GameReward) {
+    setIsSaving(true);
+    resetMessages();
+    setRewardSaveDiagnostic(`Cloning reward "${reward.name}"...`);
+
+    try {
+      const payload = rewardToPayload(reward, {
+        name: `${reward.name} (copy)`,
+        status: reward.status
+      });
+      const response = await fetch("/api/admin/game/rewards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await readAdminJson<{ reward?: GameReward; error?: string }>(response, "Failed to clone reward.");
+
+      if (!data.reward) {
+        throw new Error(data.error ?? "Failed to clone reward.");
+      }
+
+      setRewards((current) => [data.reward!, ...current]);
+      setMessage(`Cloned reward "${reward.name}".`);
+      setRewardSaveDiagnostic(`Cloned reward as "${data.reward.name}" (${data.reward.id}).`);
+      setEditingRewardId("");
+      setRewardDraft(createRewardDraft());
+    } catch (cloneError) {
+      const cloneMessage = cloneError instanceof Error ? cloneError.message : "Failed to clone reward.";
+      setRewardSaveDiagnostic(`Reward clone failed: ${cloneMessage}`);
+      setError(cloneMessage);
     } finally {
       setIsSaving(false);
     }
@@ -1283,11 +1637,11 @@ export function AdminGameWorkspace() {
 
     try {
       const response = await fetch(`/api/admin/game/levels/${gameLevel.id}`, { method: "DELETE" });
-      await readAdminJson<{ error?: string }>(response, "Failed to delete game level.");
+      await readAdminJson<{ error?: string }>(response, "Failed to delete progression track.");
       setGameLevels((current) => current.filter((item) => item.id !== gameLevel.id));
       setMessage(`Deleted ${gameLevel.levelName}.`);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete game level.");
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete progression track.");
     } finally {
       setIsSaving(false);
     }
@@ -1331,15 +1685,15 @@ export function AdminGameWorkspace() {
       });
       const data = await readAdminJson<{ gameLevels?: GameLevel[]; error?: string }>(
         response,
-        "Failed to reorder game levels."
+        "Failed to reorder progression tracks."
       );
 
       setGameLevels(data.gameLevels ?? orderedLevels);
       setGameLevelSortKey("levelOrder");
       setGameLevelSortDirection("asc");
-      setMessage("Updated game level order.");
+      setMessage("Updated progression track order.");
     } catch (reorderError) {
-      setError(reorderError instanceof Error ? reorderError.message : "Failed to reorder game levels.");
+      setError(reorderError instanceof Error ? reorderError.message : "Failed to reorder progression tracks.");
     } finally {
       setIsSaving(false);
     }
@@ -1461,10 +1815,10 @@ export function AdminGameWorkspace() {
         <div className="admin-toolbar">
           <div>
             <div className="panel-label">Progression</div>
-            <h2>Game Levels</h2>
+            <h2>Progression Tracks</h2>
           </div>
           <button className="submit-button" disabled={isSaving} onClick={startNewGameLevel} type="button">
-            New Game Level
+            New Progression Track
           </button>
         </div>
         {editingGameLevelId === "new" ? (
@@ -1478,7 +1832,7 @@ export function AdminGameWorkspace() {
         ) : null}
         <div className="admin-products-filter-bar admin-game-filter-bar">
           <label className="field">
-            <span>Level name</span>
+            <span>Progression Track</span>
             <select
               value={gameLevelNameFilter}
               onChange={(event) => setGameLevelNameFilter(event.target.value as "" | GameLevelName)}
@@ -1490,7 +1844,7 @@ export function AdminGameWorkspace() {
             </select>
           </label>
           <label className="field">
-            <span>Level order</span>
+            <span>Track Order</span>
             <select
               value={gameLevelOrderFilter}
               onChange={(event) => setGameLevelOrderFilter(event.target.value)}
@@ -1513,7 +1867,7 @@ export function AdminGameWorkspace() {
         </div>
         {hasGameLevelFilters ? (
           <p className="admin-products-filter-summary">
-            Showing {sortedGameLevels.length} of {gameLevels.length} game levels
+            Showing {sortedGameLevels.length} of {gameLevels.length} progression tracks
           </p>
         ) : null}
         <div className="table-shell builder-templates-shell">
@@ -1561,7 +1915,7 @@ export function AdminGameWorkspace() {
                     <div className="admin-game-order-cell">
                       <span>{gameLevel.levelOrder}</span>
                       <button
-                        aria-label="Move game level up"
+                        aria-label="Move progression track up"
                         className="polls-icon-button"
                         disabled={isSaving || orderedIndex <= 0}
                         onClick={() => moveGameLevel(gameLevel.id, -1)}
@@ -1571,7 +1925,7 @@ export function AdminGameWorkspace() {
                         ↑
                       </button>
                       <button
-                        aria-label="Move game level down"
+                        aria-label="Move progression track down"
                         className="polls-icon-button"
                         disabled={isSaving || orderedIndex === gameLevels.length - 1}
                         onClick={() => moveGameLevel(gameLevel.id, 1)}
@@ -1587,11 +1941,10 @@ export function AdminGameWorkspace() {
                       ? formatSublevels(gameLevel.sublevels)
                       : <span className="admin-table-empty">None</span>}
                   </td>
-                  <td>{formatTemplateTimestamp(gameLevel.updatedAt)}</td>
                   <td className="crud-actions-cell">
                     <div className="table-actions">
                       <button
-                        aria-label="Edit game level"
+                        aria-label="Edit progression track"
                         className="polls-icon-button polls-icon-button-edit"
                         disabled={isSaving}
                         onClick={() => {
@@ -1604,7 +1957,7 @@ export function AdminGameWorkspace() {
                         ✎
                       </button>
                       <button
-                        aria-label="Delete game level"
+                        aria-label="Delete progression track"
                         className="polls-icon-button polls-icon-button-danger"
                         disabled={isSaving}
                         onClick={() => void deleteGameLevel(gameLevel)}
@@ -1620,12 +1973,12 @@ export function AdminGameWorkspace() {
               })}
               {sortedGameLevels.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={5}>
+                  <td className="empty-cell" colSpan={4}>
                     {isLoading
-                      ? "Loading game levels..."
+                      ? "Loading progression tracks..."
                       : gameLevels.length === 0
-                        ? "No game levels found."
-                        : "No game levels match the current filters."}
+                        ? "No progression tracks found."
+                        : "No progression tracks match the current filters."}
                   </td>
                 </tr>
               ) : null}
@@ -1642,11 +1995,11 @@ export function AdminGameWorkspace() {
           />
         ) : null}
         <button
-          aria-label="Add game level"
+          aria-label="Add progression track"
           className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
           disabled={isSaving}
           onClick={startNewGameLevel}
-          title="Add game level"
+          title="Add progression track"
           type="button"
         >
           +
@@ -1762,11 +2115,15 @@ export function AdminGameWorkspace() {
       ) : null}
 
       {activeSection === "redemptions" ? (
+      <>
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
-            <div className="panel-label">Rewards</div>
-            <h2>Point Redemptions</h2>
+            <div className="panel-label">Rewards & Redemptions</div>
+            <h2>Rewards</h2>
+            <p className="admin-section-intro">
+              Define the achievement rewards players earn as they graduate through progression tracks and sublevels.
+            </p>
           </div>
           <button className="submit-button" disabled={isSaving} onClick={startNewReward} type="button">
             New Reward
@@ -1775,11 +2132,17 @@ export function AdminGameWorkspace() {
         {editingRewardId === "new" ? (
           <RewardEditor
             draft={rewardDraft}
+            gameLevels={gameLevels}
             isSaving={isSaving}
             onCancel={() => setEditingRewardId("")}
             onChange={setRewardDraft}
             onSave={() => void saveReward()}
           />
+        ) : null}
+        {rewardSaveDiagnostic ? (
+          <div className="notice success player-inline-notice admin-game-save-diagnostic">
+            {rewardSaveDiagnostic}
+          </div>
         ) : null}
         <div className="admin-products-filter-bar admin-game-filter-bar">
           <label className="field">
@@ -1826,7 +2189,7 @@ export function AdminGameWorkspace() {
             <thead>
               <tr>
                 {REWARD_TABLE_COLUMNS.map((column) => (
-                  <th key={column.key}>
+                  <th className={column.key === "rewardVisual" ? "admin-game-reward-visual-cell" : undefined} key={column.key}>
                     <AdminTableSortButton
                       activeSortKey={rewardSortKey}
                       label={column.label}
@@ -1845,12 +2208,15 @@ export function AdminGameWorkspace() {
                   <td>
                     <strong>{reward.name}</strong>
                     {reward.description ? <div className="admin-table-subcopy">{reward.description}</div> : null}
+                    <div className="admin-table-subcopy">{formatRewardAchievement(reward)}</div>
                   </td>
                   <td>{rewardTypeLabel(reward.rewardType)}</td>
                   <td>{statusLabel(reward.status)}</td>
                   <td>{reward.pointsCost}</td>
                   <td>{reward.inventoryCount === null ? "Unlimited" : reward.inventoryCount}</td>
-                  <td>{formatTemplateTimestamp(reward.updatedAt)}</td>
+                  <td className="admin-game-reward-visual-cell">
+                    <RewardVisualSummary reward={reward} />
+                  </td>
                   <td className="crud-actions-cell">
                     <div className="table-actions">
                       <button
@@ -1865,6 +2231,16 @@ export function AdminGameWorkspace() {
                         type="button"
                       >
                         ✎
+                      </button>
+                      <button
+                        aria-label="Clone reward"
+                        className="polls-icon-button polls-icon-button-view"
+                        disabled={isSaving}
+                        onClick={() => void cloneReward(reward)}
+                        title="Clone"
+                        type="button"
+                      >
+                        ⧉
                       </button>
                       <button
                         aria-label="Delete reward"
@@ -1897,6 +2273,7 @@ export function AdminGameWorkspace() {
         {editingRewardId && editingRewardId !== "new" ? (
           <RewardEditor
             draft={rewardDraft}
+            gameLevels={gameLevels}
             isSaving={isSaving}
             onCancel={() => setEditingRewardId("")}
             onChange={setRewardDraft}
@@ -1904,6 +2281,18 @@ export function AdminGameWorkspace() {
           />
         ) : null}
       </section>
+      <section className="admin-section">
+        <div className="admin-toolbar">
+          <div>
+            <div className="panel-label">Point Redemptions</div>
+            <h2>Redemptions</h2>
+            <p className="admin-section-intro">
+              The redemption catalog will sit here under the reward definitions as we wire points-for-reward claiming.
+            </p>
+          </div>
+        </div>
+      </section>
+      </>
       ) : null}
 
       {activeSection === "scoring" ? (

@@ -61,10 +61,10 @@ grant select, insert, update on public.player_profiles to anon, authenticated, s
 -- ---------------------------------------------------------------------------
 -- Link poll responses to authenticated players
 -- ---------------------------------------------------------------------------
-alter table public.responses
+alter table public.poll_response
 add column if not exists user_id uuid;
 
-alter table public.responses
+alter table public.poll_response
 add column if not exists tokens_earned integer not null default 0;
 
 do $$
@@ -72,20 +72,20 @@ begin
   if not exists (
     select 1
     from pg_constraint
-    where conname = 'responses_user_id_fkey'
+    where conname = 'poll_response_user_id_fkey'
   ) then
-    alter table public.responses
-    add constraint responses_user_id_fkey
+    alter table public.poll_response
+    add constraint poll_response_user_id_fkey
     foreign key (user_id) references auth.users(id) on delete set null;
   end if;
 end $$;
 
-create index if not exists responses_user_id_idx on public.responses (user_id);
+create index if not exists poll_response_user_id_idx on public.poll_response (user_id);
 
-create unique index if not exists responses_user_poll_unique_idx
-on public.responses (user_id, poll_id)
+create unique index if not exists poll_response_user_poll_unique_idx
+on public.poll_response (user_id, poll_id)
 where user_id is not null;
 
-grant select, insert, update on public.responses to anon, authenticated, service_role;
+grant select, insert, update on public.poll_response to anon, authenticated, service_role;
 
 notify pgrst, 'reload schema';

@@ -248,9 +248,9 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
           <label className="field">
             <span>Email</span>
             <input
-              autoComplete="email"
+              autoComplete="username"
               disabled={fieldDisabled}
-              name="email"
+              name="username"
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
               type="email"
@@ -283,33 +283,35 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
               />
             </label>
           ) : null}
-          <button
-            className={`submit-button ${mode === "register" ? "player-register-button" : ""}`}
-            disabled={fieldDisabled || isSubmitting}
-            type="submit"
-          >
-            {previewMode
-              ? mode === "login"
-                ? "Sign In"
-                : "Register Player"
-              : isSubmitting
-                ? mode === "login"
-                  ? "Signing In..."
-                  : "Creating Profile..."
-                : mode === "login"
-                  ? "Sign In"
-                  : "Register Player"}
-          </button>
-          {mode === "login" && settings.showForgotPassword ? (
+          <div className="player-auth-action-row">
             <button
-              className="text-button player-forgot-password-button"
-              disabled={fieldDisabled || isSendingReset}
-              onClick={handlePasswordReset}
-              type="button"
+              className={`submit-button ${mode === "register" ? "player-register-button" : ""}`}
+              disabled={fieldDisabled || isSubmitting}
+              type="submit"
             >
-              {isSendingReset ? "Sending reset link..." : "Forgot password?"}
+              {previewMode
+                ? mode === "login"
+                  ? "Sign In"
+                  : "Register Player"
+                : isSubmitting
+                  ? mode === "login"
+                    ? "Signing In..."
+                    : "Creating Profile..."
+                  : mode === "login"
+                    ? "Sign In"
+                    : "Register Player"}
             </button>
-          ) : null}
+            {mode === "login" && settings.showForgotPassword ? (
+              <button
+                className="text-button player-forgot-password-button"
+                disabled={fieldDisabled || isSendingReset}
+                onClick={handlePasswordReset}
+                type="button"
+              >
+                {isSendingReset ? "Sending reset link..." : "Forgot password?"}
+              </button>
+            ) : null}
+          </div>
           {previewMode ? (
             <div className="notice success player-inline-notice">
               Live login and registration run on published pages and in page preview.

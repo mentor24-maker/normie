@@ -2,7 +2,7 @@
 
 create table if not exists public.game_level_up_rules (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
   sublevel_name text not null,
   criteria jsonb not null default '[]'::jsonb,
   is_active boolean not null default true,

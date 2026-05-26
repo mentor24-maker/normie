@@ -9,8 +9,8 @@
 --   2. Run migrations/001_legacy_users_split.sql only if you still have admin rows in public.users.
 --
 -- RLS summary:
---   Public read (anon): published polls, poll_options, responses, poll_settings, pages, blog, builder library (cell modules, saved sections).
---   Public write (anon): responses insert (validated in API + policy).
+--   Public read (anon): published polls, poll_options, poll_response, poll_settings, pages, blog, builder library (cell modules, saved sections).
+--   Public write (anon): poll_response insert (validated in API + policy).
 --   Server-only (service role): users, team_users, builder tables, products,
 --     page_templates, api_rate_limits, blog admin mutations, and other admin writes.
 
@@ -53,15 +53,14 @@ create table if not exists public.poll_options (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.responses (
+create table if not exists public.poll_response (
   id uuid primary key default gen_random_uuid(),
   session_id text not null,
   user_id uuid,
   poll_id uuid not null references public.polls(id) on delete cascade,
   option_id uuid not null references public.poll_options(id) on delete cascade,
   tokens_earned integer not null default 0,
-  created_at timestamptz not null default now(),
-  unique (session_id, poll_id)
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.player_profiles (
@@ -207,7 +206,7 @@ create table if not exists public.game_level_tiers (
 
 create table if not exists public.game_levels (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
   level_order integer not null check (level_order between 1 and 10),
   game_level_levels jsonb not null default '[]'::jsonb,
   metadata jsonb not null default '{}'::jsonb,
@@ -219,7 +218,7 @@ create table if not exists public.game_rewards (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text not null default '',
-  reward_type text not null default 'custom' check (reward_type in ('merch', 'digital', 'access', 'token', 'custom')),
+  reward_type text not null default 'custom' check (reward_type in ('badge', 'digital', 'access', 'merch', 'token', 'custom')),
   points_cost integer not null default 0 check (points_cost >= 0),
   inventory_count integer check (inventory_count is null or inventory_count >= 0),
   status text not null default 'draft' check (status in ('active', 'draft', 'archived')),
@@ -243,7 +242,7 @@ create table if not exists public.game_scoring (
 
 create table if not exists public.game_level_up_rules (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
   sublevel_name text not null,
   criteria jsonb not null default '[]'::jsonb,
   is_active boolean not null default true,
@@ -353,10 +352,10 @@ create table if not exists public.api_rate_limits (
 -- ---------------------------------------------------------------------------
 -- Indexes
 -- ---------------------------------------------------------------------------
-alter table public.responses
+alter table public.poll_response
 add column if not exists user_id uuid;
 
-alter table public.responses
+alter table public.poll_response
 add column if not exists tokens_earned integer not null default 0;
 
 do $$
@@ -364,19 +363,22 @@ begin
   if not exists (
     select 1
     from pg_constraint
-    where conname = 'responses_user_id_fkey'
+    where conname = 'poll_response_user_id_fkey'
   ) then
-    alter table public.responses
-    add constraint responses_user_id_fkey
+    alter table public.poll_response
+    add constraint poll_response_user_id_fkey
     foreign key (user_id) references auth.users(id) on delete set null;
   end if;
 end $$;
 
-create index if not exists responses_poll_id_idx on public.responses (poll_id);
-create index if not exists responses_session_id_idx on public.responses (session_id);
-create index if not exists responses_user_id_idx on public.responses (user_id);
-create unique index if not exists responses_user_poll_unique_idx
-on public.responses (user_id, poll_id)
+create index if not exists poll_response_poll_id_idx on public.poll_response (poll_id);
+create index if not exists poll_response_session_id_idx on public.poll_response (session_id);
+create index if not exists poll_response_user_id_idx on public.poll_response (user_id);
+create unique index if not exists poll_response_anonymous_session_poll_unique_idx
+on public.poll_response (session_id, poll_id)
+where user_id is null;
+create unique index if not exists poll_response_user_poll_unique_idx
+on public.poll_response (user_id, poll_id)
 where user_id is not null;
 create index if not exists poll_options_poll_id_idx on public.poll_options (poll_id);
 create index if not exists page_templates_updated_at_idx on public.page_templates (updated_at desc);
@@ -419,7 +421,7 @@ create index if not exists player_profiles_handle_idx on public.player_profiles 
 -- ---------------------------------------------------------------------------
 alter table public.polls enable row level security;
 alter table public.poll_options enable row level security;
-alter table public.responses enable row level security;
+alter table public.poll_response enable row level security;
 alter table public.player_profiles enable row level security;
 alter table public.poll_settings enable row level security;
 alter table public.page_templates enable row level security;
@@ -474,23 +476,23 @@ using (
   )
 );
 
-drop policy if exists "responses are readable for published polls" on public.responses;
-create policy "responses are readable for published polls"
-on public.responses
+drop policy if exists "poll_response rows are readable for published polls" on public.poll_response;
+create policy "poll_response rows are readable for published polls"
+on public.poll_response
 for select
 to anon, authenticated
 using (
   exists (
     select 1
     from public.polls
-    where public.polls.id = public.responses.poll_id
+    where public.polls.id = public.poll_response.poll_id
       and public.polls.is_published = true
   )
 );
 
-drop policy if exists "anon can insert responses for published polls" on public.responses;
-create policy "anon can insert responses for published polls"
-on public.responses
+drop policy if exists "anon can insert poll_response for published polls" on public.poll_response;
+create policy "anon can insert poll_response for published polls"
+on public.poll_response
 for insert
 to anon, authenticated
 with check (
@@ -523,7 +525,7 @@ to authenticated
 using (auth.uid() = id);
 
 grant select, insert, update on public.player_profiles to anon, authenticated, service_role;
-grant select, insert, update on public.responses to anon, authenticated, service_role;
+grant select, insert, update on public.poll_response to anon, authenticated, service_role;
 
 notify pgrst, 'reload schema';
 
@@ -706,7 +708,7 @@ on conflict (level, tier) do nothing;
 
 insert into public.game_levels (level_name, level_order, game_level_levels)
 values (
-  'Rank',
+  'Levels',
   1,
   '[{"name":"Apprentice","order":1},{"name":"Acolyte","order":2},{"name":"Wizard","order":3}]'::jsonb
 )

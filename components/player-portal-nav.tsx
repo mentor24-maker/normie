@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { isPlayerPortalPlayPollsOpen } from "@/components/player-portal-poll-section";
+import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/portal/dashboard", label: "Dashboard" },
@@ -12,18 +11,12 @@ const navItems = [
   { href: "/portal/preferences", label: "Preferences" }
 ] as const;
 
-function isNavActive(pathname: string, href: string, playPollsOpen: boolean): boolean {
-  if (href === "/portal/dashboard" && playPollsOpen) {
-    return false;
-  }
-
+function isNavActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function PlayerPortalNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const playPollsActive = isPlayerPortalPlayPollsOpen(pathname, searchParams);
 
   return (
     <nav className="player-portal-nav" aria-label="Player navigation">
@@ -32,7 +25,7 @@ export function PlayerPortalNav() {
           <Link
             key={item.href}
             className={`player-portal-nav-link${
-              isNavActive(pathname, item.href, playPollsActive) ? " is-active" : ""
+              isNavActive(pathname, item.href) ? " is-active" : ""
             }`}
             href={item.href}
           >

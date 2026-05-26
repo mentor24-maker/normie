@@ -12,9 +12,14 @@ function safeInteger(value: unknown, fallback = 1) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function safeRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 function normalizeLevelName(value: unknown): GameLevelName {
   const levelName = safeText(value, 80);
-  return GAME_LEVEL_NAMES.includes(levelName as GameLevelName) ? (levelName as GameLevelName) : "Rank";
+  const normalizedLevelName = levelName === "Rank" ? "Levels" : levelName;
+  return GAME_LEVEL_NAMES.includes(normalizedLevelName as GameLevelName) ? (normalizedLevelName as GameLevelName) : "Levels";
 }
 
 function safeSublevels(value: unknown) {
@@ -25,7 +30,17 @@ function safeSublevels(value: unknown) {
           const record = item as Record<string, unknown>;
           const name = safeText(record.name, 120);
           const order = Math.min(1000, Math.max(1, safeInteger(record.order, index + 1)));
-          return name ? { name, order } : null;
+          return name
+            ? {
+                name,
+                order,
+                backgroundColor: safeText(record.backgroundColor, 20),
+                color: safeText(record.color, 20),
+                pollReward: safeRecord(record.pollReward),
+                style: safeRecord(record.style),
+                trackReward: safeRecord(record.trackReward)
+              }
+            : null;
         }
 
         const name = safeText(item, 120);

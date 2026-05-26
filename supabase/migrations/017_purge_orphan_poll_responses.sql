@@ -11,7 +11,7 @@ declare
   deleted_count integer;
 begin
   with deleted as (
-    delete from public.responses r
+    delete from public.poll_response r
     where not exists (
       select 1
       from public.polls p

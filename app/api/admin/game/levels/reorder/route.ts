@@ -51,6 +51,8 @@ export async function POST(request: Request) {
         {
           error: failedUpdate.error.message.includes("game_levels_level_order_key")
             ? "Apply migration 023_game_level_tiers_option.sql before reordering game levels."
+            : failedUpdate.error.message.includes("game_levels_level_name_check")
+              ? "Apply migration 028_game_level_levels_option.sql before reordering progression tracks. The database still has the old Rank constraint."
             : failedUpdate.error.message
         },
         { status: 500 }

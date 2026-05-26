@@ -18,7 +18,7 @@ export async function POST() {
 
   if (error) {
     const message = error.message.includes("purge_orphan_poll_responses")
-      ? "Poll response cleanup is not installed yet. Apply migration 017_purge_orphan_poll_responses.sql."
+      ? "Poll response cleanup is not installed yet. Apply migration 025_rename_responses_to_poll_response.sql."
       : error.message;
 
     return auth.finish(NextResponse.json({ error: message }, { status: 500 }));

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { PlayerPortalLevelUpCelebration } from "@/components/player-portal-level-up-celebration";
 import { PlayerPortalPollSection } from "@/components/player-portal-poll-section";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPortalSnapshot } from "@/lib/player-portal";
@@ -16,8 +17,10 @@ export default async function PlayerDashboardPage() {
 
   return (
     <div className="player-stack">
+      <PlayerPortalLevelUpCelebration rewardTrack={snapshot.rewardTrack} />
       <Suspense fallback={<div className="notice player-portal-polls-loading">Loading polls...</div>}>
         <PlayerPortalPollSection
+          rewardTrack={snapshot.rewardTrack}
           stats={{
             pollsTaken: snapshot.pollsTaken,
             tokensEarned: snapshot.tokensEarned,

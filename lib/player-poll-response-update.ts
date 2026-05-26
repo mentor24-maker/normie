@@ -47,7 +47,7 @@ export async function updatePlayerResponseOption(
 
   const supabase = createAdminClient();
   const { data: response, error: lookupError } = await supabase
-    .from("responses")
+    .from("poll_response")
     .select("id, poll_id, option_id, user_id")
     .eq("id", responseId)
     .maybeSingle();
@@ -90,7 +90,7 @@ export async function updatePlayerResponseOption(
   }
 
   const { error: updateError } = await supabase
-    .from("responses")
+    .from("poll_response")
     .update({ option_id: optionId })
     .eq("id", responseId)
     .eq("user_id", playerId);

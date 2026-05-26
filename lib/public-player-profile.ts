@@ -116,7 +116,7 @@ type LeaderboardAggregateRow = {
 async function loadLeaderboardRank(playerId: string): Promise<number | null> {
   const supabase = createAdminClient();
   const { data: rows, error } = await supabase
-    .from("responses")
+    .from("poll_response")
     .select("user_id, tokens_earned, created_at")
     .not("user_id", "is", null);
 
@@ -205,7 +205,7 @@ async function loadPlayerAnswers(userId: string): Promise<{
 }> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from("responses")
+    .from("poll_response")
     .select(
       "id, poll_id, option_id, tokens_earned, polls(question, category, poll_options(id, label))"
     )

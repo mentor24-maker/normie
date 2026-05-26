@@ -1,10 +1,10 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 
-export type GameRewardType = "merch" | "digital" | "access" | "token" | "custom";
+export type GameRewardType = "merch" | "digital" | "access" | "token" | "custom" | "badge";
 export type GameRewardStatus = "active" | "draft" | "archived";
 export type GameLevelName =
+  | "Levels"
   | "Grades"
-  | "Rank"
   | "Classes"
   | "Stage"
   | "Phase"
@@ -26,6 +26,11 @@ export type GameLevel = {
 export type GameSublevel = {
   name: string;
   order: number;
+  backgroundColor?: string;
+  color?: string;
+  pollReward?: Record<string, unknown>;
+  style?: Record<string, unknown>;
+  trackReward?: Record<string, unknown>;
 };
 
 export type GameLevelTier = {
@@ -142,11 +147,11 @@ type GameLevelUpRuleRow = {
   updated_at: string;
 };
 
-export const GAME_REWARD_TYPES: GameRewardType[] = ["merch", "digital", "access", "token", "custom"];
+export const GAME_REWARD_TYPES: GameRewardType[] = ["badge", "digital", "access", "merch", "token", "custom"];
 export const GAME_REWARD_STATUSES: GameRewardStatus[] = ["active", "draft", "archived"];
 export const GAME_LEVEL_NAMES: GameLevelName[] = [
+  "Levels",
   "Grades",
-  "Rank",
   "Classes",
   "Stage",
   "Phase",
@@ -170,7 +175,7 @@ function toGameSublevels(value: unknown): GameSublevel[] {
   }
 
   return value
-    .map((item, index) => {
+    .map((item, index): GameSublevel | null => {
       if (item && typeof item === "object" && !Array.isArray(item)) {
         const record = item as Record<string, unknown>;
         const name = String(record.name ?? "").trim();
@@ -179,7 +184,15 @@ function toGameSublevels(value: unknown): GameSublevel[] {
         return name
           ? {
               name,
-              order: Number.isFinite(order) ? Math.min(Math.max(order, 1), 1000) : index + 1
+              order: Number.isFinite(order) ? Math.min(Math.max(order, 1), 1000) : index + 1,
+              backgroundColor:
+                typeof record.backgroundColor === "string" && record.backgroundColor.trim()
+                  ? record.backgroundColor.trim()
+                  : undefined,
+              color: typeof record.color === "string" && record.color.trim() ? record.color.trim() : undefined,
+              pollReward: toRecord(record.pollReward),
+              style: toRecord(record.style),
+              trackReward: toRecord(record.trackReward)
             }
           : null;
       }
@@ -234,7 +247,8 @@ function normalizeRewardStatus(value: unknown): GameRewardStatus {
 
 function normalizeLevelName(value: unknown): GameLevelName {
   const levelName = String(value ?? "").trim();
-  return GAME_LEVEL_NAMES.includes(levelName as GameLevelName) ? (levelName as GameLevelName) : "Rank";
+  const normalizedLevelName = levelName === "Rank" ? "Levels" : levelName;
+  return GAME_LEVEL_NAMES.includes(normalizedLevelName as GameLevelName) ? (normalizedLevelName as GameLevelName) : "Levels";
 }
 
 export function gameLevelToClient(row: GameLevelRow): GameLevel {

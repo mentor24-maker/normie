@@ -67,9 +67,9 @@ alter table public.api_rate_limits enable row level security;
 -- ---------------------------------------------------------------------------
 -- RLS: public poll response inserts (anon client in /api/polls/answer)
 -- ---------------------------------------------------------------------------
-drop policy if exists "anon can insert responses for published polls" on public.responses;
-create policy "anon can insert responses for published polls"
-on public.responses
+drop policy if exists "anon can insert poll_response for published polls" on public.poll_response;
+create policy "anon can insert poll_response for published polls"
+on public.poll_response
 for insert
 to anon, authenticated
 with check (

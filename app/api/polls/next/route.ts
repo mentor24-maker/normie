@@ -80,7 +80,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   }
 
   const responsesQuery = supabase
-    .from("responses")
+    .from("poll_response")
     .select("poll_id, created_at")
     .order("created_at", { ascending: false });
   const playerResponsesQuery = player
@@ -197,7 +197,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
 
   if (previousPoll && !isStartPollPendingPreview) {
     const { data: totals, error: totalsError } = await supabase
-      .from("responses")
+      .from("poll_response")
       .select("option_id")
       .eq("poll_id", previousPoll.id);
 

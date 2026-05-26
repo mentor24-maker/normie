@@ -2,7 +2,7 @@
 
 create table if not exists public.game_levels (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Grades', 'Rank', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
   level_order integer not null check (level_order between 1 and 10),
   game_level_levels jsonb not null default '[]'::jsonb,
   metadata jsonb not null default '{}'::jsonb,
@@ -30,7 +30,7 @@ grant insert, update, delete on public.game_levels to service_role;
 
 insert into public.game_levels (level_name, level_order, game_level_levels)
 values (
-  'Rank',
+  'Levels',
   1,
   '[{"name":"Apprentice","order":1},{"name":"Acolyte","order":2},{"name":"Wizard","order":3}]'::jsonb
 )

@@ -14,6 +14,7 @@ const SESSION_WINDOW_SECONDS = 60;
 const IP_RATE_LIMIT = 80;
 const IP_WINDOW_SECONDS = 60;
 const TOKENS_PER_ANSWER = 1;
+const UNIQUE_VIOLATION_CODE = "23505";
 
 export const POST = withObservedRoute("polls.answer", async (request) => {
   const cookieStore = await cookies();
@@ -56,7 +57,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
 
   if (player) {
     const { data: existingForPlayer, error: existingForPlayerError } = await supabase
-      .from("responses")
+      .from("poll_response")
       .select("id")
       .eq("poll_id", validation.pollId)
       .eq("user_id", player.authUser.id)
@@ -76,7 +77,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     }
 
     const { data: anonymousSessionAnswer, error: anonymousSessionError } = await supabase
-      .from("responses")
+      .from("poll_response")
       .select("id")
       .eq("poll_id", validation.pollId)
       .eq("session_id", sessionId)
@@ -94,7 +95,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
 
     if (anonymousSessionAnswer) {
       const { error: claimError } = await supabase
-        .from("responses")
+        .from("poll_response")
         .update({
           user_id: player.authUser.id,
           tokens_earned: TOKENS_PER_ANSWER
@@ -114,10 +115,11 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     }
   } else {
     const { data: existing, error: existingError } = await supabase
-      .from("responses")
+      .from("poll_response")
       .select("id")
       .eq("poll_id", validation.pollId)
       .eq("session_id", sessionId)
+      .is("user_id", null)
       .maybeSingle();
 
     if (existingError) {
@@ -134,7 +136,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     }
   }
 
-  const { error } = await supabase.from("responses").insert({
+  const { error } = await supabase.from("poll_response").insert({
     session_id: sessionId,
     user_id: player?.authUser.id ?? null,
     poll_id: validation.pollId,
@@ -143,6 +145,26 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
   });
 
   if (error) {
+    if (player && error.code === UNIQUE_VIOLATION_CODE) {
+      const { error: claimError } = await supabase
+        .from("poll_response")
+        .update({
+          user_id: player.authUser.id,
+          option_id: validation.optionId,
+          tokens_earned: TOKENS_PER_ANSWER
+        })
+        .eq("poll_id", validation.pollId)
+        .eq("session_id", sessionId);
+
+      if (!claimError) {
+        return NextResponse.json({ ok: true, claimed: true });
+      }
+    }
+
+    if (!player && error.code === UNIQUE_VIOLATION_CODE) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+
     return publicErrorResponse(request, {
       logEvent: "polls.answer.insert_failed",
       error,

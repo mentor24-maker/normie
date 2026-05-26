@@ -31,6 +31,10 @@ function safeInventoryCount(value: unknown) {
   return Math.max(0, safeInteger(text, 0));
 }
 
+function safeMetadata(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 export async function POST(request: Request) {
   const auth = await requireAdminRoute("content:write");
 
@@ -47,6 +51,7 @@ export async function POST(request: Request) {
     status?: unknown;
     imageUrl?: unknown;
     redemptionUrl?: unknown;
+    metadata?: unknown;
   };
   const name = safeText(body.name, 160);
 
@@ -66,6 +71,7 @@ export async function POST(request: Request) {
       status: normalizeRewardStatus(body.status),
       image_url: safeText(body.imageUrl, 500),
       redemption_url: safeText(body.redemptionUrl, 500),
+      metadata: safeMetadata(body.metadata),
       updated_at: new Date().toISOString()
     })
     .select(
@@ -88,4 +94,3 @@ export async function POST(request: Request) {
 
   return auth.finish(NextResponse.json({ reward: gameRewardToClient(data) }, { status: 201 }));
 }
-

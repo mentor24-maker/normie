@@ -27,6 +27,24 @@ export type LeaderboardEntry = {
   tokensEarned: number;
 };
 
+export type PlayerPortalRewardVisual = {
+  visualType: string;
+  visualColor: string;
+  visualSize: string;
+  visualBorderColor: string;
+  visualBorderWidth: string;
+};
+
+export type PlayerPortalRewardTrack = {
+  levelName: string;
+  sublevelName: string;
+  totalSlots: number;
+  earnedSlots: number;
+  isComplete: boolean;
+  pollReward: PlayerPortalRewardVisual;
+  levelReward: PlayerPortalRewardVisual;
+};
+
 export type PlayerPortalSnapshot = {
   player: { id: string; email: string; fullName: string; handle: string };
   answers: PlayerAnswer[];
@@ -34,6 +52,7 @@ export type PlayerPortalSnapshot = {
   pollsTaken: number;
   leaderboard: LeaderboardEntry[];
   playerRank: number | null;
+  rewardTrack: PlayerPortalRewardTrack;
 };
 
 type PollOptionRow = {
@@ -75,6 +94,26 @@ type ProfileRelation = {
   handle: string | null;
 };
 
+type GameRewardRow = {
+  metadata: unknown;
+};
+
+const FIRST_GRADE_REWARD_SLOTS = 10;
+const DEFAULT_POLL_REWARD_VISUAL: PlayerPortalRewardVisual = {
+  visualType: "coin",
+  visualColor: "#d8212d",
+  visualSize: "10px",
+  visualBorderColor: "",
+  visualBorderWidth: ""
+};
+const DEFAULT_LEVEL_REWARD_VISUAL: PlayerPortalRewardVisual = {
+  visualType: "coin",
+  visualColor: "#d8212d",
+  visualSize: "42px",
+  visualBorderColor: "",
+  visualBorderWidth: ""
+};
+
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
@@ -83,21 +122,76 @@ function displayNameForProfile(fullName: string | null | undefined, handle: stri
   return fullName?.trim() || handle?.trim() || "Normie Player";
 }
 
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function textValue(value: unknown, fallback: string) {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function buildRewardVisual(
+  metadata: Record<string, unknown>,
+  key: "pollReward" | "levelReward",
+  fallback: PlayerPortalRewardVisual
+): PlayerPortalRewardVisual {
+  const reward = toRecord(metadata[key]);
+
+  return {
+    visualType: textValue(reward.visualType, fallback.visualType),
+    visualColor: textValue(reward.visualColor, fallback.visualColor),
+    visualSize: textValue(reward.visualSize, fallback.visualSize),
+    visualBorderColor: textValue(reward.visualBorderColor, fallback.visualBorderColor),
+    visualBorderWidth: textValue(reward.visualBorderWidth, fallback.visualBorderWidth)
+  };
+}
+
+function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): PlayerPortalRewardTrack {
+  const gradeFirstReward = rewards.find((reward) => {
+    const metadata = toRecord(reward.metadata);
+    return metadata.achievementLevelName === "Grades" && metadata.achievementSublevelName === "First";
+  });
+  const metadata = toRecord(gradeFirstReward?.metadata);
+
+  return {
+    levelName: "Grades",
+    sublevelName: "First",
+    totalSlots: FIRST_GRADE_REWARD_SLOTS,
+    earnedSlots: Math.min(Math.max(pollsTaken, 0), FIRST_GRADE_REWARD_SLOTS),
+    isComplete: pollsTaken >= FIRST_GRADE_REWARD_SLOTS,
+    pollReward: gradeFirstReward
+      ? buildRewardVisual(metadata, "pollReward", DEFAULT_POLL_REWARD_VISUAL)
+      : DEFAULT_POLL_REWARD_VISUAL,
+    levelReward: gradeFirstReward
+      ? buildRewardVisual(metadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
+      : DEFAULT_LEVEL_REWARD_VISUAL
+  };
+}
+
 export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise<PlayerPortalSnapshot> {
   const supabase = createAdminClient();
-  const [{ data: responseRows, error: responsesError }, { data: leaderboardRows, error: leaderboardError }] =
+  const [
+    { data: responseRows, error: responsesError },
+    { data: leaderboardRows, error: leaderboardError },
+    { data: rewardRows, error: rewardsError }
+  ] =
     await Promise.all([
       supabase
-        .from("responses")
+        .from("poll_response")
         .select(
           "id, poll_id, option_id, user_id, tokens_earned, created_at, polls(question, category, poll_options(id, label, sort_order))"
         )
         .eq("user_id", player.authUser.id)
         .order("created_at", { ascending: false }),
       supabase
-        .from("responses")
+        .from("poll_response")
         .select("user_id, tokens_earned, created_at")
-        .not("user_id", "is", null)
+        .not("user_id", "is", null),
+      supabase
+        .from("game_rewards")
+        .select("metadata")
+        .eq("status", "active")
     ]);
 
   if (responsesError) {
@@ -106,6 +200,10 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
 
   if (leaderboardError) {
     throw new Error(leaderboardError.message);
+  }
+
+  if (rewardsError) {
+    throw new Error(rewardsError.message);
   }
 
   const answers: PlayerAnswer[] = ((responseRows ?? []) as unknown as ResponseRow[]).map((row) => {
@@ -204,6 +302,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
 
   const playerRank = leaderboard.find((entry) => entry.playerId === player.authUser.id)?.rank ?? null;
   const tokensEarned = answers.reduce((total, answer) => total + answer.tokensEarned, 0);
+  const pollsTaken = answers.length;
 
   return {
     player: {
@@ -214,8 +313,9 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     },
     answers,
     tokensEarned,
-    pollsTaken: answers.length,
+    pollsTaken,
     leaderboard,
-    playerRank
+    playerRank,
+    rewardTrack: buildRewardTrack((rewardRows ?? []) as unknown as GameRewardRow[], pollsTaken)
   };
 }

@@ -99,7 +99,7 @@ export async function DELETE(
   const supabase = createAdminClient();
 
   const cleanupResults = await Promise.all([
-    supabase.from("responses").delete().eq("user_id", id),
+    supabase.from("poll_response").delete().eq("user_id", id),
     supabase.from("player_profiles").delete().eq("id", id)
   ]);
   const cleanupError = cleanupResults.find((result) => result.error)?.error;

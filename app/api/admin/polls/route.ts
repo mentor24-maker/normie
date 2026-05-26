@@ -46,7 +46,7 @@ export async function GET() {
   }));
 
   const { count: totalAnswers, error: responsesError } = await supabase
-    .from("responses")
+    .from("poll_response")
     .select("id", { count: "exact", head: true });
 
   if (responsesError) {

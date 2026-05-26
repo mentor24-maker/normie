@@ -17,7 +17,7 @@ create table if not exists public.game_rewards (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text not null default '',
-  reward_type text not null default 'custom' check (reward_type in ('merch', 'digital', 'access', 'token', 'custom')),
+  reward_type text not null default 'custom' check (reward_type in ('badge', 'digital', 'access', 'merch', 'token', 'custom')),
   points_cost integer not null default 0 check (points_cost >= 0),
   inventory_count integer check (inventory_count is null or inventory_count >= 0),
   status text not null default 'draft' check (status in ('active', 'draft', 'archived')),
@@ -70,4 +70,3 @@ values
 on conflict (level, tier) do nothing;
 
 notify pgrst, 'reload schema';
-

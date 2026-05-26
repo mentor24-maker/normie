@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
+
+const SESSION_BRIDGE_TIMEOUT_MS = 10000;
 
 function createPlayerCallbackClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -25,13 +26,14 @@ function createPlayerCallbackClient() {
 }
 
 export function PlayerAuthCallback() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
     async function finishPlayerConfirmation() {
       try {
         const supabase = createPlayerCallbackClient();
+
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const searchParams = new URLSearchParams(window.location.search);
         const authError = hashParams.get("error_description") || hashParams.get("error");
@@ -43,7 +45,22 @@ export function PlayerAuthCallback() {
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
         const tokenHash = searchParams.get("token_hash");
+        const code = searchParams.get("code");
         const type = searchParams.get("type") || hashParams.get("type");
+
+        if (!accessToken && !refreshToken && !tokenHash && !code) {
+          const sessionResponse = await fetch("/api/player/session", {
+            credentials: "same-origin",
+            cache: "no-store"
+          });
+
+          if (sessionResponse.ok) {
+            window.location.replace("/portal/dashboard");
+            return;
+          }
+
+          throw new Error("This confirmation link is missing its sign-in token.");
+        }
 
         if (accessToken && refreshToken) {
           const { error: sessionError } = await supabase.auth.setSession({
@@ -63,6 +80,12 @@ export function PlayerAuthCallback() {
           if (otpError) {
             throw otpError;
           }
+        } else if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            throw exchangeError;
+          }
         } else {
           throw new Error("This confirmation link is missing its sign-in token.");
         }
@@ -80,16 +103,22 @@ export function PlayerAuthCallback() {
           throw new Error("This confirmation link could not create a player session.");
         }
 
-        const response = await fetch("/api/player/session/oauth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          cache: "no-store",
-          body: JSON.stringify({
-            accessToken: session.access_token,
-            refreshToken: session.refresh_token
-          })
-        });
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), SESSION_BRIDGE_TIMEOUT_MS);
+        const response = await fetch(
+          "/api/player/session/oauth",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: controller.signal,
+            body: JSON.stringify({
+              accessToken: session.access_token,
+              refreshToken: session.refresh_token
+            })
+          }
+        ).finally(() => window.clearTimeout(timeout));
         const data = (await response.json()) as { error?: string };
 
         if (!response.ok) {
@@ -97,16 +126,20 @@ export function PlayerAuthCallback() {
         }
 
         await supabase.auth.signOut();
-        window.history.replaceState({}, document.title, window.location.pathname);
-        router.push("/portal/dashboard");
-        router.refresh();
+        window.location.replace("/portal/dashboard");
       } catch (callbackError) {
-        setError(callbackError instanceof Error ? callbackError.message : "Player confirmation failed.");
+        const message = callbackError instanceof Error ? callbackError.message : "Player confirmation failed.";
+        setError(message);
       }
     }
 
+    if (hasStartedRef.current) {
+      return;
+    }
+
+    hasStartedRef.current = true;
     void finishPlayerConfirmation();
-  }, [router]);
+  }, []);
 
   return (
     <section className="player-login-shell">
