@@ -93,10 +93,10 @@ Fill in:
 4. **Invite email design:** copy `supabase/email-templates/invite-user.html` into Supabase → **Authentication** → **Email Templates** → **Invite user** (Message body). Logo image URL: `{{ .SiteURL }}/api/brand/normie-logo` (served from `public/brand/normie-logo.png`). Avoid `/email/*` static paths — they 404 on production Vercel.
 5. **Player signup confirmation (builder email templates):**
    - In **Page Builder → Templates**, create/save an **Email** template with **Function** = `Signup Confirmation`. Use `{{ .ConfirmationURL }}` on the confirm button link.
-   - Set `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, and `SEND_EMAIL_HOOK_SECRET` in Vercel / `.env.local` (see `.env.example`).
-   - Supabase → **Authentication** → **Auth Hooks** → **Send Email** → type **HTTPS** → URL `https://www.normie.one/api/auth/send-email` (and `http://localhost:3000/api/auth/send-email` for local tunnel testing). Generate a hook secret and paste the same value into `SEND_EMAIL_HOOK_SECRET`.
-   - Leave **Custom SMTP** disabled in Supabase; the hook replaces Supabase’s built-in auth email sending and renders the live builder template from `page_templates` on each send.
-   - `supabase/email-templates/confirm-signup.html` remains a fallback reference only when no builder template is saved.
+   - Set `RESEND_API_KEY` and `AUTH_EMAIL_FROM` in Vercel / `.env.local` (see `.env.example`). Player register and resend send through Resend directly from `/api/player/register` and `/api/player/resend-confirmation` — they do **not** depend on the auth hook.
+   - Optional: Supabase → **Authentication** → **Auth Hooks** → **Send Email** → HTTPS → `https://www.normie.one/api/auth/send-email` for admin invites, password reset, and magic links. Set `SEND_EMAIL_HOOK_SECRET` to match the hook secret. After deploy, open `https://www.normie.one/api/health/auth-email` in a browser (or `https://www.normie.one/api/health`) — `playerSignupEmailReady` should be `true`. The hook URL only accepts **POST** from Supabase; a browser visit to `/api/auth/send-email` returns 405 unless the latest deploy is live.
+   - Leave **Custom SMTP** disabled when using the hook. If the hook is enabled but `SEND_EMAIL_HOOK_SECRET` is missing on Vercel, Supabase falls back to the dashboard **Confirm signup** template (the “old” email).
+   - `supabase/email-templates/confirm-signup.html` is reference only when no builder template is saved.
 
 ## 3. CSV format
 

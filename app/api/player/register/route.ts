@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
-import {
-  applyPlayerSessionCookies,
-  buildPlayerSessionSnapshot,
-  isMissingPlayerSchemaError,
-  normalizePlayerHandle,
-  safePlayerText
-} from "@/lib/player-auth";
+import { isMissingPlayerSchemaError, normalizePlayerHandle, safePlayerText } from "@/lib/player-auth";
 import { isPlayerAwaitingEmailVerification } from "@/lib/player-email-confirmation";
-import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
-import { createAdminClient } from "@/lib/supabase-admin";
-import { createPublicClient } from "@/lib/supabase-public";
+import { sendPlayerSignupConfirmationEmail } from "@/lib/player-signup-confirmation-email";
+import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 import { getPlayerAuthCallbackUrl } from "@/lib/site-url";
+import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -24,6 +18,7 @@ export async function POST(request: Request) {
   const password = safePlayerText(body.password, 255);
   const fullName = safePlayerText(body.fullName, 255);
   const handle = normalizePlayerHandle(body.handle, email);
+  const redirectTo = getPlayerAuthCallbackUrl(request);
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
@@ -31,6 +26,16 @@ export async function POST(request: Request) {
 
   if (password.length < 6) {
     return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
+  }
+
+  if (!isAuthEmailDeliveryConfigured()) {
+    return NextResponse.json(
+      {
+        error:
+          "Player confirmation email is not configured on the server. Set RESEND_API_KEY and AUTH_EMAIL_FROM in production."
+      },
+      { status: 503 }
+    );
   }
 
   const adminClient = createAdminClient();
@@ -47,6 +52,20 @@ export async function POST(request: Request) {
 
   if (existingUser) {
     if (isPlayerAwaitingEmailVerification(existingUser)) {
+      try {
+        await sendPlayerSignupConfirmationEmail({
+          email,
+          redirectTo,
+          fullName,
+          handle
+        });
+      } catch (sendError) {
+        return NextResponse.json(
+          { error: sendError instanceof Error ? sendError.message : "Confirmation email could not be sent." },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json({
         user: { id: existingUser.id, email: existingUser.email ?? email, fullName, handle },
         needsEmailConfirmation: true
@@ -80,22 +99,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const publicClient = createPublicClient();
-  const { data, error } = await publicClient.auth.signUp({
+  const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+    type: "signup",
     email,
     password,
     options: {
-      data: { full_name: fullName, handle },
-      emailRedirectTo: getPlayerAuthCallbackUrl(request)
+      redirectTo,
+      data: { full_name: fullName, handle }
     }
   });
 
-  if (error || !data.user) {
-    return NextResponse.json({ error: error?.message ?? "Registration failed." }, { status: 400 });
+  if (linkError || !linkData.user) {
+    return NextResponse.json({ error: linkError?.message ?? "Registration failed." }, { status: 400 });
   }
 
   const profile = {
-    id: data.user.id,
+    id: linkData.user.id,
     full_name: fullName,
     handle,
     status: "active"
@@ -121,24 +140,32 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!data.session) {
+  const needsEmailConfirmation = !linkData.user.email_confirmed_at;
+
+  if (needsEmailConfirmation) {
+    try {
+      await sendPlayerSignupConfirmationEmail({
+        email,
+        redirectTo,
+        fullName,
+        handle,
+        password,
+        actionLink: linkData.properties?.action_link
+      });
+    } catch (sendError) {
+      return NextResponse.json(
+        { error: sendError instanceof Error ? sendError.message : "Confirmation email could not be sent." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
-      user: { id: data.user.id, email: data.user.email ?? "", fullName, handle },
+      user: { id: linkData.user.id, email: linkData.user.email ?? email, fullName, handle },
       needsEmailConfirmation: true
     });
   }
 
-  const response = NextResponse.json({
-    user: { id: data.user.id, email: data.user.email ?? "", fullName, handle }
+  return NextResponse.json({
+    user: { id: linkData.user.id, email: linkData.user.email ?? email, fullName, handle }
   });
-
-  applyPlayerSessionCookies(
-    response,
-    data.session.access_token,
-    data.session.refresh_token,
-    buildPlayerSessionSnapshot(data.user, profileRow)
-  );
-  clearPollSessionCookie(response);
-
-  return response;
 }

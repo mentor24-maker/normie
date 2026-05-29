@@ -3,6 +3,7 @@ import { getDeployMetadata } from "@/lib/observability/deploy-metadata";
 import { checkSupabaseHealth } from "@/lib/observability/health";
 import { logWarn } from "@/lib/observability/logger";
 import { getRequestId } from "@/lib/observability/request-id";
+import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 
 function isAuthorizedDetailedHealth(request: Request) {
   const configured = process.env.HEALTH_CHECK_TOKEN?.trim();
@@ -39,6 +40,12 @@ export async function GET(request: Request) {
       supabase: {
         ok: supabase.ok,
         latencyMs: supabase.latencyMs
+      },
+      authEmail: {
+        playerSignupEmailReady: isAuthEmailDeliveryConfigured(),
+        resendConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
+        authFromConfigured: Boolean(process.env.AUTH_EMAIL_FROM?.trim()),
+        hookSecretConfigured: Boolean(process.env.SEND_EMAIL_HOOK_SECRET?.trim())
       }
     }
   };

@@ -71,10 +71,13 @@ export function PlayerAuthCallback() {
           if (sessionError) {
             throw sessionError;
           }
-        } else if (tokenHash && (type === "signup" || type === "email")) {
+        } else if (
+          tokenHash &&
+          (type === "signup" || type === "email" || type === "magiclink")
+        ) {
           const { error: otpError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
-            type
+            type: type === "magiclink" ? "magiclink" : type
           });
 
           if (otpError) {

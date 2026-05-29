@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "standardwebhooks";
-import { sendAuthEmailViaResend } from "@/lib/auth-email-send";
-import { fetchBuilderEmailTemplate } from "@/lib/builder-email-store";
-import { renderBuilderEmailHtmlWithFallback } from "@/lib/builder-email-render";
 import {
   buildAuthEmailMergeContext,
-  getAuthEmailSubject,
   mapAuthEmailActionToFunction,
   type SupabaseSendEmailPayload
 } from "@/lib/supabase-auth-email";
+import { isAuthEmailDeliveryConfigured, sendBuilderAuthEmail } from "@/lib/send-builder-auth-email";
 
 export const runtime = "nodejs";
 
@@ -21,6 +18,15 @@ function getWebhookVerifier(): Webhook | null {
 
   const base64Secret = secret.startsWith("v1,whsec_") ? secret.replace("v1,whsec_", "") : secret;
   return new Webhook(base64Secret);
+}
+
+export async function GET() {
+  return NextResponse.json({
+    hookSecretConfigured: Boolean(process.env.SEND_EMAIL_HOOK_SECRET?.trim()),
+    resendConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
+    authFromConfigured: Boolean(process.env.AUTH_EMAIL_FROM?.trim()),
+    playerSignupEmailReady: isAuthEmailDeliveryConfigured()
+  });
 }
 
 export async function POST(request: Request) {
@@ -59,16 +65,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Auth email hook payload is missing recipient email." }, { status: 422 });
   }
 
-  try {
-    const template = await fetchBuilderEmailTemplate(emailFunction);
-    const mergeContext = buildAuthEmailMergeContext(verifiedPayload);
-    const html = renderBuilderEmailHtmlWithFallback(template, mergeContext);
-    const subject = getAuthEmailSubject(emailFunction);
+  if (!isAuthEmailDeliveryConfigured()) {
+    return NextResponse.json(
+      { error: "RESEND_API_KEY and AUTH_EMAIL_FROM must be configured on the app server." },
+      { status: 503 }
+    );
+  }
 
-    await sendAuthEmailViaResend({
+  try {
+    const mergeContext = buildAuthEmailMergeContext(verifiedPayload);
+
+    await sendBuilderAuthEmail({
+      emailFunction,
       to: recipient,
-      subject,
-      html
+      mergeContext
     });
 
     return NextResponse.json({});
