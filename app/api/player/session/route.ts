@@ -11,6 +11,7 @@ import {
   resolvePlayerProfileForLogin,
   safePlayerText
 } from "@/lib/player-auth";
+import { claimPollSessionForPlayerFromCookies } from "@/lib/poll-response-claim";
 import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
 import { createPublicClient } from "@/lib/supabase-public";
 
@@ -85,6 +86,22 @@ export async function POST(request: Request) {
     data.session.refresh_token,
     buildPlayerSessionSnapshot(data.user, profile)
   );
+
+  const cookieStore = await cookies();
+  try {
+    await claimPollSessionForPlayerFromCookies(cookieStore, data.user.id);
+  } catch (claimError) {
+    return NextResponse.json(
+      {
+        error:
+          claimError instanceof Error
+            ? claimError.message
+            : "Your account signed in, but earlier poll answers could not be linked."
+      },
+      { status: 500 }
+    );
+  }
+
   clearPollSessionCookie(response);
 
   return response;

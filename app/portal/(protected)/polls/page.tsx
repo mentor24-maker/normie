@@ -16,7 +16,10 @@ export default async function PlayerPollsPage() {
       {snapshot.answers.length ? (
         <PlayerPollsAnswersTable answers={snapshot.answers} />
       ) : (
-        <p className="panel-copy">You have not answered any polls while signed in yet.</p>
+        <p className="panel-copy">
+          You have not answered any polls on this account yet. Polls you took before signing in are
+          added when you log in from the same browser.
+        </p>
       )}
     </section>
   );
