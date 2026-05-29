@@ -3836,7 +3836,8 @@ export function AdminGameWorkspace() {
             <h2>Reminders</h2>
             <p className="admin-section-intro">
               Configure popup or inline notices on the public site and player portal. Use Registered: No and Polls Taken
-              criteria to nudge anonymous visitors toward signing up. Add ?reminderDebug=1 on any page to inspect evaluation.
+              criteria to nudge anonymous visitors toward signing up. Link to <code>/portal?mode=register</code> to open
+              the Register form directly. Add ?reminderDebug=1 on any page to inspect evaluation.
             </p>
           </div>
           <button className="submit-button" disabled={isSaving} onClick={startNewReminder} type="button">

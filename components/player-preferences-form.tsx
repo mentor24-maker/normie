@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { PlayerSettingRow } from "@/components/player-setting-row";
+import { dispatchPlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { POLL_CATEGORY_SEEDS } from "@/lib/poll-categories";
 import type { PlayerPreferencesDetails } from "@/lib/player-preferences-details";
 
@@ -90,6 +91,7 @@ export function PlayerPreferencesForm({ initialPreferences }: PlayerPreferencesF
       }
 
       setNotice("Preferences saved.");
+      dispatchPlayerPreferencesUpdated();
       router.refresh();
     } catch (submitError) {
       setError(

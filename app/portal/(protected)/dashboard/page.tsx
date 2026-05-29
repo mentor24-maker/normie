@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { PlayerLeaderboardName } from "@/components/player-leaderboard-name";
+import { PlayerPortalDashboardTop } from "@/components/player-portal-dashboard-top";
 import { PlayerPortalLevelUpCelebration } from "@/components/player-portal-level-up-celebration";
-import { PlayerPortalPollSection } from "@/components/player-portal-poll-section";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPortalSnapshot } from "@/lib/player-portal";
 
@@ -19,13 +19,8 @@ export default async function PlayerDashboardPage() {
 
   return (
     <div className="player-stack">
-      <PlayerPortalLevelUpCelebration
-        levelEvents={snapshot.levelEvents}
-        pendingLevelUpCount={Number.isFinite(pendingLevelUpCount) ? pendingLevelUpCount : null}
-        rewardTrack={snapshot.rewardTrack}
-      />
-      <Suspense fallback={<div className="notice player-portal-polls-loading">Loading polls...</div>}>
-        <PlayerPortalPollSection
+      <Suspense fallback={<div className="notice player-portal-polls-loading">Loading dashboard...</div>}>
+        <PlayerPortalDashboardTop
           levelEvents={snapshot.levelEvents}
           rewardTrack={snapshot.rewardTrack}
           stats={{
@@ -35,6 +30,11 @@ export default async function PlayerDashboardPage() {
           }}
         />
       </Suspense>
+      <PlayerPortalLevelUpCelebration
+        levelEvents={snapshot.levelEvents}
+        pendingLevelUpCount={Number.isFinite(pendingLevelUpCount) ? pendingLevelUpCount : null}
+        rewardTrack={snapshot.rewardTrack}
+      />
       <section className="player-dashboard-grid">
         <article className="panel player-panel">
           <div className="player-panel-header">

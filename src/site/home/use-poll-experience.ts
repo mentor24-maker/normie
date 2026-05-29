@@ -7,6 +7,7 @@ import {
   getPollCategoryMeta,
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
+import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import type { PollPayload } from "@/src/site/home/types";
 
@@ -34,9 +35,10 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
   const [error, setError] = useState<string | null>(null);
 
   const loadPolls = useCallback(
-    async (options?: { category?: string; startPoll?: string }) => {
+    async (options?: { category?: string; startPoll?: string; reset?: boolean }) => {
       setIsLoading(true);
       setError(null);
+      setPayload((current) => (current?.done || options?.reset ? null : current));
 
       const category = (options?.category ?? categoryParam).trim();
       const startPoll = (options?.startPoll ?? startPollParam).trim();
@@ -65,6 +67,12 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
 
   useEffect(() => {
     void loadPolls();
+  }, [loadPolls]);
+
+  useEffect(() => {
+    return subscribePlayerPreferencesUpdated(() => {
+      void loadPolls({ reset: true });
+    });
   }, [loadPolls]);
 
   async function submitAnswer(optionId: string) {

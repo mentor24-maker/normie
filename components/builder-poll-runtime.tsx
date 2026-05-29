@@ -14,6 +14,7 @@ import { getModuleWidthShellStyle } from "@/components/builder/builder-utils";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
 import type { PollPayload } from "@/src/site/home/types";
 import { SocialShareBar } from "@/components/social-share-module";
@@ -53,11 +54,25 @@ function setRuntimeState(nextState: PollRuntimeState) {
   emit();
 }
 
-async function loadPolls(categoryParam: string, startPollParam: string) {
+async function loadPolls(
+  categoryParam: string,
+  startPollParam: string,
+  options?: { force?: boolean }
+) {
   const categoryKey = categoryParam ?? "";
   const startKey = startPollParam ?? "";
 
-  if (isLoadingPromise && loadedCategoryKey === categoryKey && loadedStartPollKey === startKey) {
+  if (options?.force) {
+    loadedCategoryKey = null;
+    loadedStartPollKey = null;
+    isLoadingPromise = null;
+    setRuntimeState({
+      payload: null,
+      isLoading: true,
+      isSubmitting: false,
+      error: null
+    });
+  } else if (isLoadingPromise && loadedCategoryKey === categoryKey && loadedStartPollKey === startKey) {
     return isLoadingPromise;
   }
 
@@ -68,7 +83,8 @@ async function loadPolls(categoryParam: string, startPollParam: string) {
     setRuntimeState({
       ...runtimeState,
       isLoading: true,
-      error: null
+      error: null,
+      ...(options?.force ? { payload: null } : {})
     });
 
     try {
@@ -172,9 +188,15 @@ function useSharedPollRuntime(categoryParam: string, startPollParam: string) {
     void loadPolls(categoryParam, startPollParam);
   }, [categoryParam, startPollParam]);
 
+  useEffect(() => {
+    return subscribePlayerPreferencesUpdated(() => {
+      void loadPolls(categoryParam, startPollParam, { force: true });
+    });
+  }, [categoryParam, startPollParam]);
+
   return {
     ...state,
-    reload: () => loadPolls(categoryParam, startPollParam),
+    reload: () => loadPolls(categoryParam, startPollParam, { force: true }),
     submitAnswer
   };
 }
@@ -216,7 +238,7 @@ export function BuilderPollModuleRuntime({
     );
   }
 
-  if (isLoading && !payload) {
+  if (isLoading && (!payload || payload.done)) {
     return wrapPollModule(
       <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>

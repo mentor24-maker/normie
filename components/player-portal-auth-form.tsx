@@ -1,6 +1,11 @@
 "use client";
 
 import { formatRichTextContent } from "@/lib/builder-template";
+import {
+  focusPlayerPortalAuthForm,
+  getPlayerPortalAuthModeFromLocation,
+  PLAYER_PORTAL_AUTH_SECTION_ID
+} from "@/lib/player-portal-auth-url";
 import type { PlayerEmailConfirmationStatus } from "@/lib/player-email-confirmation";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -72,6 +77,28 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
 
     setMode(settings.defaultMode);
   }, [settings.defaultMode, settings.showRegister]);
+
+  useEffect(() => {
+    if (previewMode || typeof window === "undefined") {
+      return;
+    }
+
+    const urlMode = getPlayerPortalAuthModeFromLocation(
+      window.location.search,
+      window.location.hash
+    );
+
+    if (!urlMode) {
+      return;
+    }
+
+    if (urlMode === "register" && !settings.showRegister) {
+      return;
+    }
+
+    setMode(urlMode);
+    focusPlayerPortalAuthForm(urlMode);
+  }, [previewMode, settings.showRegister]);
 
   useEffect(() => {
     if (previewMode || mode !== "register") {
@@ -291,6 +318,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
   return (
     <section
       className="player-login-shell"
+      id={PLAYER_PORTAL_AUTH_SECTION_ID}
       onClick={previewMode ? (event) => event.stopPropagation() : undefined}
       onKeyDown={previewMode ? (event) => event.stopPropagation() : undefined}
     >
