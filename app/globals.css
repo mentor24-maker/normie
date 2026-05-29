@@ -2407,6 +2407,12 @@ h2 {
   color: #44627e;
 }
 
+.builder-rich-text-content .ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
 .builder-rich-text-loading {
   min-height: 120px;
   display: grid;
@@ -3430,6 +3436,145 @@ h2 {
   gap: 24px;
 }
 
+.player-game-reminder-inline-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.player-game-reminder-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(11, 143, 196, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(225, 246, 255, 0.96) 100%);
+  color: var(--ink);
+}
+
+.player-game-reminder-inline-body {
+  min-width: 0;
+}
+
+.player-game-reminder-message p:last-child,
+.player-game-reminder-message ul:last-child,
+.player-game-reminder-message ol:last-child {
+  margin-bottom: 0;
+}
+
+.player-game-reminder-message a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.player-game-reminder-dismiss {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(9, 16, 24, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.player-game-reminder-dismiss:hover,
+.player-game-reminder-dismiss:focus-visible {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(9, 16, 24, 0.22);
+}
+
+.player-game-reminder-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(9, 16, 24, 0.42);
+}
+
+.player-game-reminder-modal {
+  width: min(640px, 100%);
+  max-height: min(80vh, calc(100dvh - 48px));
+  overflow: auto;
+  border-radius: 24px;
+  border: 1px solid rgba(11, 143, 196, 0.18);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.99) 0%, rgba(225, 246, 255, 0.97) 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.player-game-reminder-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 0;
+}
+
+.player-game-reminder-modal-title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.player-game-reminder-modal-body {
+  padding: 16px 22px 22px;
+}
+
+.player-game-reminder-diagnostics {
+  margin-top: 8px;
+}
+
+.player-game-reminder-diagnostics-intro {
+  margin-top: 0;
+}
+
+.player-game-reminder-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin: 0 0 18px;
+}
+
+.player-game-reminder-diagnostics-grid div {
+  min-width: 0;
+}
+
+.player-game-reminder-diagnostics-grid dt {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.player-game-reminder-diagnostics-grid dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.player-game-reminder-diagnostics-table-shell {
+  overflow: auto;
+}
+
+.player-game-reminder-diagnostics-table td:last-child,
+.player-game-reminder-diagnostics-table th:last-child,
+.player-game-reminder-diagnostics-table td:nth-child(5),
+.player-game-reminder-diagnostics-table th:nth-child(5) {
+  min-width: 220px;
+}
+
 .player-portal-main > .panel.player-panel,
 .player-portal-main .player-dashboard-grid > .player-panel {
   border: 1px solid rgba(11, 143, 196, 0.12);
@@ -4215,6 +4360,28 @@ h2 {
 .player-answer-list {
   display: grid;
   gap: 12px;
+}
+
+.player-link-previous-polls {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(11, 143, 196, 0.14);
+}
+
+.player-link-previous-polls-button {
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.player-link-previous-polls-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.player-link-previous-polls-notice {
+  margin: 0;
 }
 
 .player-leaderboard-list {
@@ -7830,6 +7997,25 @@ a.polls-icon-button {
 
 .admin-game-editor-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-game-reminder-editor-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-game-reminder-editor .builder-setting-row-full {
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+}
+
+.admin-game-reminder-editor .builder-rich-text-shell {
+  width: 100%;
+}
+
+.admin-game-reminder-active-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .admin-game-reward-grid {

@@ -12,6 +12,7 @@ import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import { getPollGridStyle } from "@/lib/poll-pod-config";
+import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import type { PollPayload } from "@/src/site/home/types";
 
 export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
@@ -43,6 +44,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
           throw new Error(data.error ?? "Failed to load the poll.");
         }
 
+        rememberPollSessionFromPayload(data.pollSessionId);
         setPayload(data);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");

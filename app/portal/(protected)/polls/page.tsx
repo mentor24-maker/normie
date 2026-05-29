@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { PlayerLinkPreviousPolls } from "@/components/player-link-previous-polls";
 import { PlayerPollsAnswersTable } from "@/components/player-polls-answers-table";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPortalSnapshot } from "@/lib/player-portal";
@@ -15,12 +16,11 @@ export default async function PlayerPollsPage() {
       <h2>Polls You Took and Your Answers</h2>
       {snapshot.answers.length ? (
         <PlayerPollsAnswersTable answers={snapshot.answers} />
-      ) : (
-        <p className="panel-copy">
-          You have not answered any polls on this account yet. Polls you took before signing in are
-          added when you log in from the same browser.
-        </p>
-      )}
+      ) : null}
+      <PlayerLinkPreviousPolls
+        hasAnswers={snapshot.answers.length > 0}
+        playerId={player.authUser.id}
+      />
     </section>
   );
 }

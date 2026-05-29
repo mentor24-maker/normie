@@ -13,6 +13,7 @@ import {
   filterResponsesToEligiblePolls
 } from "@/lib/poll-response-eligibility";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
+import { jsonWithPollSession } from "@/lib/poll-session-response";
 import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
 
 function getPollResults(
@@ -65,14 +66,17 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   if (categoryParam) {
     if (!categoryFilter) {
       const settings = await settingsPromise;
-      return NextResponse.json({
-        done: true,
-        doneReason: "invalid_category",
-        activeCategory: null,
-        currentPoll: null,
-        previousPoll: null,
-        settings: pollSettingsToClientPayload(settings)
-      });
+      return jsonWithPollSession(
+        {
+          done: true,
+          doneReason: "invalid_category",
+          activeCategory: null,
+          currentPoll: null,
+          previousPoll: null,
+          settings: pollSettingsToClientPayload(settings)
+        },
+        sessionId
+      );
     }
 
     pollsQuery = pollsQuery.eq("category", categoryFilter);
@@ -162,22 +166,17 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   }
 
   if (!currentPoll) {
-    const doneResponse = NextResponse.json({
-      done: true,
-      doneReason: doneReason ?? "all_answered",
-      activeCategory,
-      currentPoll: null,
-      previousPoll: null,
-      settings: settingsPayload
-    });
-    doneResponse.cookies.set(POLL_SESSION_COOKIE, sessionId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365
-    });
-    return doneResponse;
+    return jsonWithPollSession(
+      {
+        done: true,
+        doneReason: doneReason ?? "all_answered",
+        activeCategory,
+        currentPoll: null,
+        previousPoll: null,
+        settings: settingsPayload
+      },
+      sessionId
+    );
   }
 
   const isStartPollPendingPreview =
@@ -240,29 +239,22 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     };
   }
 
-  const response = NextResponse.json({
-    done: false,
-    activeCategory,
-    currentPoll: {
-      id: currentPoll.id,
-      question: currentPoll.question,
-      imageUrl: currentPoll.image_url ?? "",
-      options: currentPoll.poll_options.map((option) => ({
-        id: option.id,
-        label: option.label
-      }))
+  return jsonWithPollSession(
+    {
+      done: false,
+      activeCategory,
+      currentPoll: {
+        id: currentPoll.id,
+        question: currentPoll.question,
+        imageUrl: currentPoll.image_url ?? "",
+        options: currentPoll.poll_options.map((option) => ({
+          id: option.id,
+          label: option.label
+        }))
+      },
+      previousPoll: previousPollResults,
+      settings: settingsPayload
     },
-    previousPoll: previousPollResults,
-    settings: settingsPayload
-  });
-
-  response.cookies.set(POLL_SESSION_COOKIE, sessionId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365
-  });
-
-  return response;
+    sessionId
+  );
 });

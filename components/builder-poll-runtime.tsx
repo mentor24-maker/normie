@@ -13,6 +13,7 @@ import { getCurrentPollModuleShellStyle } from "@/lib/current-poll-module";
 import { getModuleWidthShellStyle } from "@/components/builder/builder-utils";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import type { PollPayload } from "@/src/site/home/types";
 import { SocialShareBar } from "@/components/social-share-module";
 
@@ -80,6 +81,7 @@ async function loadPolls(categoryParam: string, startPollParam: string) {
         throw new Error(data.error ?? "Failed to load the poll.");
       }
 
+      rememberPollSessionFromPayload(data.pollSessionId);
       setRuntimeState({
         payload: data,
         isLoading: false,

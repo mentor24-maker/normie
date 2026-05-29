@@ -71,7 +71,8 @@ export function BlogRichTextEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3, 4] }
+        heading: { levels: [2, 3, 4] },
+        link: false
       }),
       Underline,
       Link.configure({
@@ -265,7 +266,12 @@ export function BlogRichTextEditor({
         >
           Code
         </button>
-        <button onClick={setLink} type="button">
+        <button
+          className={editor.isActive("link") ? "is-active" : undefined}
+          onClick={setLink}
+          title="Link"
+          type="button"
+        >
           Link
         </button>
         <button onClick={onOpenGallery} type="button">

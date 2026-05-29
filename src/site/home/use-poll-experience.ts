@@ -7,6 +7,7 @@ import {
   getPollCategoryMeta,
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
+import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import type { PollPayload } from "@/src/site/home/types";
 
 type UsePollExperienceOptions = {
@@ -51,6 +52,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
           throw new Error(data.error ?? "Failed to load the poll.");
         }
 
+        rememberPollSessionFromPayload(data.pollSessionId);
         setPayload(data);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");

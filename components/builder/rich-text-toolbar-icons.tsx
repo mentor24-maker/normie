@@ -122,3 +122,24 @@ export function RichTextOutlineIcon(props: RichTextToolbarIconProps) {
     </IconShell>
   );
 }
+
+export function RichTextLinkIcon(props: RichTextToolbarIconProps) {
+  return (
+    <IconShell {...props}>
+      <path
+        d="M6.35 9.65a2.35 2.35 0 0 0 3.32 0l1.48-1.48a2.35 2.35 0 1 0-3.32-3.32L6.9 5.2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.35"
+      />
+      <path
+        d="M9.65 6.35a2.35 2.35 0 0 0-3.32 0L4.85 7.83a2.35 2.35 0 1 0 3.32 3.32l1.03-1.03"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.35"
+      />
+    </IconShell>
+  );
+}

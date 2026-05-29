@@ -53,4 +53,6 @@ export type PollPayload = {
   currentPoll: CurrentPoll | null;
   previousPoll: PreviousPoll | null;
   settings?: PollSettingsSnapshot;
+  /** Browser poll session id (also stored httpOnly); mirrored to localStorage for post-login recovery. */
+  pollSessionId?: string;
 };

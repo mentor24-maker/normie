@@ -1,4 +1,25 @@
 import { createAdminClient } from "@/lib/supabase-admin";
+import { gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
+
+export type {
+  GameReminder,
+  GameReminderCriterionType,
+  GameReminderCriterionValue,
+  GameReminderDisplayType,
+  GameReminderNumericCriterion,
+  GameReminderOperator,
+  GameReminderPollCriterion,
+  GameReminderRegisteredCriterion
+} from "@/lib/game-reminder";
+export {
+  formatReminderCriterionSummary,
+  GAME_REMINDER_CRITERION_TYPES,
+  GAME_REMINDER_DISPLAY_TYPES,
+  GAME_REMINDER_OPERATORS,
+  reminderCriterionTypeLabel,
+  reminderDisplayTypeLabel,
+  reminderOperatorLabel
+} from "@/lib/game-reminder";
 
 export type GameRewardType = "merch" | "digital" | "access" | "feature" | "token" | "custom" | "badge";
 export type GameRewardStatus = "active" | "draft" | "archived";
@@ -220,6 +241,20 @@ type GameEventModuleRow = {
   name: string;
   module_class?: string | null;
   modules: unknown;
+};
+
+type GameReminderRow = {
+  id: string;
+  name: string;
+  display_type: string | null;
+  message_html: string | null;
+  criterion_type: string | null;
+  criterion_value: unknown;
+  is_active: boolean | null;
+  sort_order: number | null;
+  metadata: unknown;
+  created_at: string;
+  updated_at: string;
 };
 
 export const GAME_REWARD_TYPES: GameRewardType[] = ["badge", "digital", "access", "feature", "merch", "token", "custom"];
@@ -495,7 +530,8 @@ export async function getAdminGameSnapshot() {
     levelUpRulesResult,
     progressiveFeaturesResult,
     levelEventsResult,
-    eventModulesResult
+    eventModulesResult,
+    remindersResult
   ] =
     await Promise.all([
     supabase
@@ -533,7 +569,14 @@ export async function getAdminGameSnapshot() {
     supabase
       .from("builder_cell_modules")
       .select("id, name, module_class, modules")
-      .order("name", { ascending: true })
+      .order("name", { ascending: true }),
+    supabase
+      .from("game_reminders")
+      .select(
+        "id, name, display_type, message_html, criterion_type, criterion_value, is_active, sort_order, metadata, created_at, updated_at"
+      )
+      .order("sort_order", { ascending: true })
+      .order("updated_at", { ascending: false })
   ]);
 
   if (gameLevelsResult.error) {
@@ -596,6 +639,14 @@ export async function getAdminGameSnapshot() {
     throw new Error(eventModulesResult.error.message);
   }
 
+  if (remindersResult.error) {
+    throw new Error(
+      remindersResult.error.message.includes("game_reminders")
+        ? "Missing game_reminders table. Apply migration 037_game_reminders.sql."
+        : remindersResult.error.message
+    );
+  }
+
   const eventModules = ((eventModulesResult.data ?? []) as GameEventModuleRow[])
     .map(gameEventModuleToClient)
     .filter((module): module is GameEventModule =>
@@ -637,6 +688,7 @@ export async function getAdminGameSnapshot() {
     levelUpRules: ((levelUpRulesResult.data ?? []) as GameLevelUpRuleRow[]).map(gameLevelUpRuleToClient),
     progressiveFeatures: ((progressiveFeaturesResult.data ?? []) as GameProgressiveFeatureRow[]).map(gameProgressiveFeatureToClient),
     levelEvents,
-    eventModules
+    eventModules,
+    reminders: ((remindersResult.data ?? []) as GameReminderRow[]).map(gameReminderToClient)
   };
 }

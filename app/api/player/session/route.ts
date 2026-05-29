@@ -13,6 +13,7 @@ import {
 } from "@/lib/player-auth";
 import { claimPollSessionForPlayerFromCookies } from "@/lib/poll-response-claim";
 import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
+import { incrementPlayerLoginCount } from "@/lib/player-login-count";
 import { createPublicClient } from "@/lib/supabase-public";
 
 export async function GET() {
@@ -70,6 +71,12 @@ export async function POST(request: Request) {
   }
 
   const profile = profileResult.profile;
+
+  try {
+    await incrementPlayerLoginCount(data.user.id);
+  } catch {
+    // login_count may be unavailable before migration 038 is applied
+  }
 
   const response = NextResponse.json({
     user: {

@@ -2,6 +2,7 @@
 
 import { Extension } from "@tiptap/core";
 import Color from "@tiptap/extension-color";
+import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -17,6 +18,7 @@ import {
   RichTextBulletListIcon,
   RichTextClearIcon,
   RichTextCodeIcon,
+  RichTextLinkIcon,
   RichTextOrderedListIcon,
   RichTextOutlineIcon,
   RichTextShadowIcon
@@ -174,7 +176,12 @@ export function BuilderRichTextEditor({
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3]
-        }
+        },
+        link: false
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" }
       }),
       TextStyle,
       FontSizeStyle,
@@ -352,6 +359,32 @@ export function BuilderRichTextEditor({
       .run();
   }
 
+  function setLink() {
+    if (!editor) {
+      return;
+    }
+
+    const previousUrl = editor.getAttributes("link").href as string | undefined;
+    const url = window.prompt("Link URL", previousUrl || "https://");
+
+    if (url === null) {
+      return;
+    }
+
+    const chain = chainWithSelection();
+
+    if (!chain) {
+      return;
+    }
+
+    if (url === "") {
+      chain.extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    chain.extendMarkRange("link").setLink({ href: url }).run();
+  }
+
   if (!editor) {
     return (
       <div className="builder-rich-text-shell">
@@ -405,6 +438,14 @@ export function BuilderRichTextEditor({
           type="button"
         >
           <span className="builder-rich-text-icon-underline">U</span>
+        </button>
+        <button
+          className={editor.isActive("link") ? "is-active" : undefined}
+          onClick={setLink}
+          title="Link"
+          type="button"
+        >
+          <RichTextLinkIcon />
         </button>
         <button
           className={hasTextShadow ? "is-active" : undefined}
