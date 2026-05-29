@@ -1,6 +1,11 @@
 "use client";
 
 import { formatRichTextContent } from "@/lib/builder-template";
+import {
+  clearPendingConfirmationEmail,
+  readPendingConfirmationEmail,
+  writePendingConfirmationEmail
+} from "@/lib/player-pending-confirmation";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -59,11 +64,37 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
   const [notice, setNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
+  const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false);
   const headingHtml = formatRichTextContent(heading);
+
+  useEffect(() => {
+    if (previewMode) {
+      return;
+    }
+
+    const pendingEmail = readPendingConfirmationEmail();
+
+    if (!pendingEmail) {
+      return;
+    }
+
+    setAwaitingEmailConfirmation(true);
+    setEmail((current) => current || pendingEmail);
+    setNotice("Check your email to confirm your account. Use Resend Confirmation Email if you need another link.");
+
+    if (settings.showRegister) {
+      setMode("register");
+    }
+  }, [previewMode, settings.showRegister]);
 
   useEffect(() => {
     if (!settings.showRegister) {
       setMode("login");
+      return;
+    }
+
+    if (readPendingConfirmationEmail()) {
       return;
     }
 
@@ -110,18 +141,34 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
         mode === "login" ? "/api/player/session" : "/api/player/register",
         mode === "login" ? { email, password } : { email, password, fullName, handle }
       );
-      const data = (await response.json()) as { error?: string; needsEmailConfirmation?: boolean };
+      const data = (await response.json()) as {
+        error?: string;
+        needsEmailConfirmation?: boolean;
+        message?: string;
+      };
 
       if (!response.ok) {
+        if (data.needsEmailConfirmation) {
+          writePendingConfirmationEmail(email);
+          setAwaitingEmailConfirmation(true);
+
+          if (settings.showRegister) {
+            setMode("register");
+          }
+        }
+
         throw new Error(data.error ?? (mode === "login" ? "Login failed." : "Registration failed."));
       }
 
       if (data.needsEmailConfirmation) {
-        setNotice("Check your email to confirm the account, then sign in here.");
-        setMode("login");
+        writePendingConfirmationEmail(email);
+        setAwaitingEmailConfirmation(true);
+        setNotice("Check your email to confirm your account. Use Resend Confirmation Email if you need another link.");
         return;
       }
 
+      clearPendingConfirmationEmail();
+      setAwaitingEmailConfirmation(false);
       router.push(settings.redirectPath);
       router.refresh();
     } catch (submitError) {
@@ -165,6 +212,39 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
       setError(resetError instanceof Error ? resetError.message : "Reset link could not be sent.");
     } finally {
       setIsSendingReset(false);
+    }
+  }
+
+  async function handleResendConfirmation() {
+    if (previewMode) {
+      return;
+    }
+
+    setError(null);
+    setNotice(null);
+
+    if (!email.trim()) {
+      setError("Enter your email above, then resend the confirmation link.");
+      return;
+    }
+
+    setIsResendingConfirmation(true);
+
+    try {
+      const response = await postPlayerAuth("/api/player/resend-confirmation", { email });
+      const data = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Confirmation email could not be sent.");
+      }
+
+      writePendingConfirmationEmail(email);
+      setAwaitingEmailConfirmation(true);
+      setNotice(data.message ?? "If that email is waiting for confirmation, a new confirmation link has been sent.");
+    } catch (resendError) {
+      setError(resendError instanceof Error ? resendError.message : "Confirmation email could not be sent.");
+    } finally {
+      setIsResendingConfirmation(false);
     }
   }
 
@@ -309,6 +389,16 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
                 type="button"
               >
                 {isSendingReset ? "Sending reset link..." : "Forgot password?"}
+              </button>
+            ) : null}
+            {mode === "register" && awaitingEmailConfirmation ? (
+              <button
+                className="text-button player-forgot-password-button"
+                disabled={fieldDisabled || isResendingConfirmation}
+                onClick={handleResendConfirmation}
+                type="button"
+              >
+                {isResendingConfirmation ? "Sending confirmation email..." : "Resend Confirmation Email"}
               </button>
             ) : null}
           </div>

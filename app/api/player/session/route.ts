@@ -45,7 +45,18 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.session || !data.user) {
-    return NextResponse.json({ error: error?.message ?? "Invalid email or password." }, { status: 401 });
+    const message = error?.message ?? "Invalid email or password.";
+    const needsEmailConfirmation = message.toLowerCase().includes("email not confirmed");
+
+    return NextResponse.json(
+      {
+        error: needsEmailConfirmation
+          ? "Confirm your email before signing in. Check your inbox or resend the confirmation link from Register."
+          : message,
+        needsEmailConfirmation
+      },
+      { status: 401 }
+    );
   }
 
   const profileResult = await resolvePlayerProfileForLogin(data.user);
