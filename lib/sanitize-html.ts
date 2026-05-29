@@ -98,13 +98,27 @@ export function escapeHtmlText(value: string) {
 }
 
 export function sanitizeRichTextHtml(html: string) {
-  ensureConfigured();
+  try {
+    ensureConfigured();
 
-  return getDomPurify().sanitize(html, {
-    ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS],
-    ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR],
-    ALLOW_DATA_ATTR: false
-  });
+    return getDomPurify().sanitize(html, {
+      ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS],
+      ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR],
+      ALLOW_DATA_ATTR: false
+    });
+  } catch {
+    return stripDangerousRichTextHtml(html);
+  }
+}
+
+/** Fallback when DOMPurify/jsdom is unavailable (e.g. Vercel ESM/CJS mismatch). */
+export function stripDangerousRichTextHtml(html: string) {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript:/gi, "");
 }
 
 export function sanitizeEmbedHtml(html: string) {

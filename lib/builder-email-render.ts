@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import {
-  formatRichTextContent,
   getBuilderBackgroundStyle,
   getLayoutColumns,
   type BackgroundSettings,
@@ -8,6 +7,7 @@ import {
   type BuilderTemplateRecord,
   type BuilderTemplateSection
 } from "@/lib/builder-template";
+import { formatEmailRichTextContent } from "@/lib/email-rich-text";
 import {
   getButtonModuleStyle,
   getHeadingModuleStyle,
@@ -81,7 +81,7 @@ function renderEmailModule(module: BuilderTemplateModule): string {
   }
 
   if (module.type === "text") {
-    const html = formatRichTextContent(module.text);
+    const html = formatEmailRichTextContent(module.text);
 
     return `<tr><td align="${alignAttr}" style="padding:0 40px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#3d5a73;${marginStyle}">${html}</td></tr>`;
   }
