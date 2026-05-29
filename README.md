@@ -91,7 +91,12 @@ Fill in:
      and the same paths for `http://localhost:3000` when developing locally.
 3. Invite emails use a Supabase verify link first; after the user clicks, they are sent to `/admin/auth/callback` on your domain.
 4. **Invite email design:** copy `supabase/email-templates/invite-user.html` into Supabase → **Authentication** → **Email Templates** → **Invite user** (Message body). Logo image URL: `{{ .SiteURL }}/api/brand/normie-logo` (served from `public/brand/normie-logo.png`). Avoid `/email/*` static paths — they 404 on production Vercel.
-5. **Signup confirmation email:** copy `supabase/email-templates/confirm-signup.html` into Supabase → **Authentication** → **Email Templates** → **Confirm signup** (Message body). Same logo URL as invites.
+5. **Player signup confirmation (builder email templates):**
+   - In **Page Builder → Templates**, create/save an **Email** template with **Function** = `Signup Confirmation`. Use `{{ .ConfirmationURL }}` on the confirm button link.
+   - Set `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, and `SEND_EMAIL_HOOK_SECRET` in Vercel / `.env.local` (see `.env.example`).
+   - Supabase → **Authentication** → **Auth Hooks** → **Send Email** → type **HTTPS** → URL `https://www.normie.one/api/auth/send-email` (and `http://localhost:3000/api/auth/send-email` for local tunnel testing). Generate a hook secret and paste the same value into `SEND_EMAIL_HOOK_SECRET`.
+   - Leave **Custom SMTP** disabled in Supabase; the hook replaces Supabase’s built-in auth email sending and renders the live builder template from `page_templates` on each send.
+   - `supabase/email-templates/confirm-signup.html` remains a fallback reference only when no builder template is saved.
 
 ## 3. CSV format
 
