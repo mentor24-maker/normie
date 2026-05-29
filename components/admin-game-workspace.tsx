@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties, type DragEvent } from "react";
 import type {
   GameLevel,
   GameLevelName,
   GameLevelUpCriterion,
   GameLevelUpRule,
+  GameLevelEvent,
+  GameEventModule,
+  GameProgressiveFeature,
   GameSublevel,
   GameReward,
   GameRewardStatus,
@@ -14,17 +17,23 @@ import type {
 } from "@/lib/game-admin";
 import { GAME_LEVEL_NAMES, GAME_REWARD_STATUSES, GAME_REWARD_TYPES } from "@/lib/game-admin";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
+import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { formatTemplateTimestamp } from "@/components/builder/builder-utils";
 
 type GameSnapshot = {
   gameLevels: GameLevel[];
+  eventModules: GameEventModule[];
   levelUpRules: GameLevelUpRule[];
+  levelEvents: GameLevelEvent[];
+  progressiveFeatures: GameProgressiveFeature[];
   rewards: GameReward[];
   scoringRules: GameScoringRule[];
 };
 
 type GameLevelDraft = Partial<GameLevel>;
 type LevelUpRuleDraft = Partial<GameLevelUpRule>;
+type LevelEventDraft = Partial<GameLevelEvent>;
+type ProgressiveFeatureDraft = Partial<GameProgressiveFeature>;
 type RewardDraft = Partial<GameReward> & {
   inventoryCountText?: string;
   pollVisualType?: string;
@@ -33,23 +42,47 @@ type RewardDraft = Partial<GameReward> & {
   pollVisualSize?: string;
   pollVisualBorderColor?: string;
   pollVisualBorderWidth?: string;
+  pollVisualSymbolUrl?: string;
   levelVisualType?: string;
   levelDigitalProduct?: string;
   levelVisualColor?: string;
   levelVisualSize?: string;
   levelVisualBorderColor?: string;
   levelVisualBorderWidth?: string;
+  levelVisualSymbolUrl?: string;
   achievementLevelName?: GameLevelName;
   achievementSublevelName?: string;
+  featureKey?: string;
+  levelTier?: number;
+  gradeTier?: number;
+  classTier?: number;
 };
 type ScoringRuleDraft = Partial<GameScoringRule>;
 type SortDirection = "asc" | "desc";
 type GameSection = "levels" | "scoring" | "level-up" | "redemptions";
 type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels";
-type RewardSortKey = "name" | "rewardType" | "status" | "pointsCost" | "inventoryCount" | "rewardVisual";
+type RewardSortKey = "name" | "rewardType" | "levelTier" | "gradeTier" | "classTier" | "rewardVisual";
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
+type RewardTierType = "levelTier" | "gradeTier" | "classTier";
 
 const DEFAULT_BADGE_BACKGROUND_COLOR = "#d8212d";
+const GAME_LEVEL_NAME_LABELS: Record<string, string> = {
+  Level: "Level",
+  Grade: "Grade",
+  Class: "Class",
+  Stage: "Stage",
+  Phase: "Phase",
+  Degree: "Degree",
+  Plane: "Plane",
+  Echelon: "Echelon",
+  Tier: "Tier",
+  Levels: "Level",
+  Grades: "Grade",
+  Classes: "Class",
+  Degrees: "Degree",
+  Echelons: "Echelon",
+  Tiers: "Tier"
+};
 
 const GAME_LEVEL_TABLE_COLUMNS: Array<{ key: GameLevelSortKey; label: string }> = [
   { key: "levelName", label: "Progression Track" },
@@ -60,11 +93,12 @@ const GAME_LEVEL_TABLE_COLUMNS: Array<{ key: GameLevelSortKey; label: string }> 
 const REWARD_TABLE_COLUMNS: Array<{ key: RewardSortKey; label: string }> = [
   { key: "name", label: "Reward" },
   { key: "rewardType", label: "Type" },
-  { key: "status", label: "Status" },
-  { key: "pointsCost", label: "Cost" },
-  { key: "inventoryCount", label: "Inventory" },
+  { key: "levelTier", label: "Level" },
+  { key: "gradeTier", label: "Grade" },
+  { key: "classTier", label: "Class" },
   { key: "rewardVisual", label: "Reward Disk" }
 ];
+const REWARD_TABLE_COLUMN_COUNT = REWARD_TABLE_COLUMNS.length + 2;
 
 const SCORING_TABLE_COLUMNS: Array<{ key: ScoringRuleSortKey; label: string }> = [
   { key: "scoreName", label: "Score Name" },
@@ -114,9 +148,17 @@ function normalizeSublevelOrder(sublevels: GameSublevel[]) {
   return sublevels.map((sublevel, index) => ({ ...sublevel, order: index + 1 }));
 }
 
+function formatGameLevelName(levelName: GameLevelName | string | undefined): string {
+  if (!levelName) {
+    return "";
+  }
+
+  return GAME_LEVEL_NAME_LABELS[levelName] ?? levelName;
+}
+
 function createGameLevelDraft(): GameLevelDraft {
   return {
-    levelName: "Levels",
+    levelName: "Level",
     levelOrder: 1,
     sublevels: []
   };
@@ -128,7 +170,7 @@ function createLevelUpRuleDraft(gameLevels: GameLevel[] = [], scoringRules: Game
   const firstScoringRule = scoringRules[0];
 
   return {
-    levelName: firstLevel?.levelName ?? "Grades",
+    levelName: firstLevel?.levelName ?? "Grade",
     sublevelName: firstSublevel?.name ?? "",
     criteria: firstScoringRule
       ? [
@@ -143,10 +185,43 @@ function createLevelUpRuleDraft(gameLevels: GameLevel[] = [], scoringRules: Game
   };
 }
 
+function createProgressiveFeatureDraft(gameLevels: GameLevel[] = []): ProgressiveFeatureDraft {
+  const levelTrack = gameLevels.find((gameLevel) => gameLevel.levelName === "Level") ?? gameLevels[0];
+  const firstSublevel = levelTrack?.sublevels.slice().sort((left, right) => left.order - right.order)[0];
+
+  return {
+    featureKey: "poll_skip",
+    name: "Skip Poll",
+    description: "Allows qualified players to skip the current poll and move to the next one.",
+    unlockLevelName: levelTrack?.levelName ?? "Level",
+    unlockSublevelName: firstSublevel?.name ?? "1",
+    isActive: true,
+    metadata: { uiPlacement: "under_poll_options" }
+  };
+}
+
+function createLevelEventDraft(gameLevels: GameLevel[] = [], eventModules: GameEventModule[] = []): LevelEventDraft {
+  const levelTrack = gameLevels.find((gameLevel) => gameLevel.levelName === "Level") ?? gameLevels[0];
+  const firstSublevel = levelTrack?.sublevels.slice().sort((left, right) => left.order - right.order)[0];
+  const firstGameConfetti = eventModules.find((module) => module.moduleType === "confetti" && module.trigger === "game") ?? eventModules[0];
+
+  return {
+    eventName: "Level 1.1 Confetti",
+    levelName: levelTrack?.levelName ?? "Level",
+    sublevelName: firstSublevel?.name ?? "1",
+    moduleId: firstGameConfetti?.id ?? "",
+    moduleName: firstGameConfetti?.name ?? "",
+    trigger: "game",
+    isActive: true,
+    metadata: { eventType: "confetti" }
+  };
+}
+
 function createRewardDraft(): RewardDraft {
   return {
     name: "Grade: First Red Disk",
     description: "",
+    rewardOrder: 1,
     pointsCost: 0,
     inventoryCountText: "",
     status: "active",
@@ -158,14 +233,20 @@ function createRewardDraft(): RewardDraft {
     pollVisualSize: "10px",
     pollVisualBorderColor: "",
     pollVisualBorderWidth: "",
+    pollVisualSymbolUrl: "",
     levelVisualType: "coin",
     levelDigitalProduct: "",
     levelVisualColor: DEFAULT_BADGE_BACKGROUND_COLOR,
     levelVisualSize: "10px",
     levelVisualBorderColor: "",
     levelVisualBorderWidth: "",
-    achievementLevelName: "Grades",
-    achievementSublevelName: "First"
+    levelVisualSymbolUrl: "",
+    levelTier: 1,
+    gradeTier: 1,
+    classTier: 1,
+    achievementLevelName: "Grade",
+    achievementSublevelName: "First",
+    featureKey: ""
   };
 }
 
@@ -186,6 +267,14 @@ function levelUpRuleToDraft(rule: GameLevelUpRule): LevelUpRuleDraft {
   return { ...rule, criteria: rule.criteria.map((criterion) => ({ ...criterion })) };
 }
 
+function progressiveFeatureToDraft(feature: GameProgressiveFeature): ProgressiveFeatureDraft {
+  return { ...feature, metadata: { ...feature.metadata } };
+}
+
+function levelEventToDraft(event: GameLevelEvent): LevelEventDraft {
+  return { ...event, metadata: { ...event.metadata } };
+}
+
 function rewardToDraft(reward: GameReward): RewardDraft {
   const metadata = reward.metadata;
   const pollReward =
@@ -196,6 +285,9 @@ function rewardToDraft(reward: GameReward): RewardDraft {
     metadata.levelReward && typeof metadata.levelReward === "object" && !Array.isArray(metadata.levelReward)
       ? (metadata.levelReward as Record<string, unknown>)
       : metadata;
+  const levelTierRaw = Number.parseInt(String(metadata.levelTier ?? "1"), 10);
+  const gradeTierRaw = Number.parseInt(String(metadata.gradeTier ?? "1"), 10);
+  const classTierRaw = Number.parseInt(String(metadata.classTier ?? "1"), 10);
 
   return {
     ...reward,
@@ -206,18 +298,28 @@ function rewardToDraft(reward: GameReward): RewardDraft {
     pollVisualSize: String(pollReward.visualSize ?? "10px"),
     pollVisualBorderColor: String(pollReward.visualBorderColor ?? ""),
     pollVisualBorderWidth: String(pollReward.visualBorderWidth ?? ""),
+    pollVisualSymbolUrl: normalizeBuilderAssetUrl(pollReward.visualSymbolUrl),
     levelVisualType: String(levelReward.visualType ?? "coin"),
     levelDigitalProduct: String(levelReward.digitalProduct ?? ""),
     levelVisualColor: normalizeBuilderHexColor(levelReward.visualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
     levelVisualSize: String(levelReward.visualSize ?? "10px"),
     levelVisualBorderColor: String(levelReward.visualBorderColor ?? ""),
     levelVisualBorderWidth: String(levelReward.visualBorderWidth ?? ""),
-    achievementLevelName: (metadata.achievementLevelName as GameLevelName | undefined) ?? "Grades",
-    achievementSublevelName: String(metadata.achievementSublevelName ?? "First")
+    levelVisualSymbolUrl: normalizeBuilderAssetUrl(levelReward.visualSymbolUrl),
+    levelTier: Number.isFinite(levelTierRaw) && levelTierRaw > 0 ? levelTierRaw : 1,
+    gradeTier: Number.isFinite(gradeTierRaw) && gradeTierRaw > 0 ? gradeTierRaw : 1,
+    classTier: Number.isFinite(classTierRaw) && classTierRaw > 0 ? classTierRaw : 1,
+    achievementLevelName: (metadata.achievementLevelName as GameLevelName | undefined) ?? "Grade",
+    achievementSublevelName: String(metadata.achievementSublevelName ?? "First"),
+    featureKey: String(metadata.featureKey ?? "")
   };
 }
 
 function rewardDraftToMetadata(draft: RewardDraft) {
+  const levelTier = Number.isFinite(draft.levelTier) ? Math.max(1, Number(draft.levelTier)) : 1;
+  const gradeTier = Number.isFinite(draft.gradeTier) ? Math.max(1, Number(draft.gradeTier)) : 1;
+  const classTier = Number.isFinite(draft.classTier) ? Math.max(1, Number(draft.classTier)) : 1;
+
   return {
     ...(draft.metadata ?? {}),
     pollReward: {
@@ -226,7 +328,8 @@ function rewardDraftToMetadata(draft: RewardDraft) {
       visualColor: normalizeBuilderHexColor(draft.pollVisualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
       visualSize: draft.pollVisualSize ?? "10px",
       visualBorderColor: draft.pollVisualBorderColor ?? "",
-      visualBorderWidth: draft.pollVisualBorderWidth ?? ""
+      visualBorderWidth: draft.pollVisualBorderWidth ?? "",
+      visualSymbolUrl: normalizeBuilderAssetUrl(draft.pollVisualSymbolUrl)
     },
     levelReward: {
       visualType: draft.levelVisualType ?? "coin",
@@ -234,20 +337,28 @@ function rewardDraftToMetadata(draft: RewardDraft) {
       visualColor: normalizeBuilderHexColor(draft.levelVisualColor, DEFAULT_BADGE_BACKGROUND_COLOR),
       visualSize: draft.levelVisualSize ?? "10px",
       visualBorderColor: draft.levelVisualBorderColor ?? "",
-      visualBorderWidth: draft.levelVisualBorderWidth ?? ""
+      visualBorderWidth: draft.levelVisualBorderWidth ?? "",
+      visualSymbolUrl: normalizeBuilderAssetUrl(draft.levelVisualSymbolUrl)
     },
-    achievementLevelName: draft.achievementLevelName ?? "Grades",
-    achievementSublevelName: draft.achievementSublevelName ?? ""
+    levelTier,
+    gradeTier,
+    classTier,
+    achievementLevelName: draft.achievementLevelName ?? "Grade",
+    achievementSublevelName: draft.achievementSublevelName ?? "",
+    featureKey: draft.featureKey ?? ""
   };
 }
 
 function rewardToPayload(reward: RewardDraft | GameReward, overrides: Partial<RewardDraft | GameReward> = {}) {
   const source = { ...reward, ...overrides } as RewardDraft;
+  const metadata = "inventoryCountText" in source ? rewardDraftToMetadata(source) : (source.metadata ?? {});
+  const levelTier = Number.parseInt(String(metadata.levelTier ?? source.levelTier ?? "1"), 10);
 
   return {
     name: source.name,
     description: source.description,
     rewardType: source.rewardType,
+    rewardOrder: Number.isFinite(levelTier) && levelTier > 0 ? levelTier : 1,
     pointsCost: source.pointsCost,
     inventoryCount:
       "inventoryCountText" in source
@@ -258,8 +369,27 @@ function rewardToPayload(reward: RewardDraft | GameReward, overrides: Partial<Re
     status: source.status,
     imageUrl: source.imageUrl,
     redemptionUrl: source.redemptionUrl,
-    metadata: "inventoryCountText" in source ? rewardDraftToMetadata(source) : source.metadata
+    metadata
   };
+}
+
+function compareRewardsByTier(left: GameReward, right: GameReward) {
+  const levelResult = getRewardTierValue(left, "levelTier") - getRewardTierValue(right, "levelTier");
+  if (levelResult !== 0) {
+    return levelResult;
+  }
+
+  const gradeResult = getRewardTierValue(left, "gradeTier") - getRewardTierValue(right, "gradeTier");
+  if (gradeResult !== 0) {
+    return gradeResult;
+  }
+
+  const classResult = getRewardTierValue(left, "classTier") - getRewardTierValue(right, "classTier");
+  if (classResult !== 0) {
+    return classResult;
+  }
+
+  return compareText(left.name, right.name);
 }
 
 function scoringRuleToDraft(scoringRule: GameScoringRule): ScoringRuleDraft {
@@ -272,6 +402,7 @@ function rewardTypeLabel(type: GameRewardType) {
     badge: "Badge",
     custom: "Custom",
     digital: "Digital",
+    feature: "Feature",
     merch: "Merch",
     token: "Token"
   }[type];
@@ -310,11 +441,28 @@ function formatLevelUpCriteria(rule: GameLevelUpRule, scoringRules: GameScoringR
     : "No criteria";
 }
 
-function formatRewardAchievement(reward: GameReward) {
-  const levelName = String(reward.metadata.achievementLevelName ?? "").trim();
-  const sublevelName = String(reward.metadata.achievementSublevelName ?? "").trim();
+function getRewardTierValue(reward: GameReward, tier: RewardTierType): number {
+  const explicitValue = Number.parseInt(String(reward.metadata[tier] ?? ""), 10);
 
-  return [levelName, sublevelName].filter(Boolean).join(": ") || "Unassigned achievement";
+  if (Number.isFinite(explicitValue) && explicitValue > 0) {
+    return explicitValue;
+  }
+
+  // Backfill legacy rewards so existing rows render sensible tiers.
+  if (tier === "levelTier") {
+    const legacySublevel = String(reward.metadata.achievementSublevelName ?? "").trim();
+    const parsedLegacySublevel = Number.parseInt(legacySublevel, 10);
+
+    if (Number.isFinite(parsedLegacySublevel) && parsedLegacySublevel > 0) {
+      return parsedLegacySublevel;
+    }
+
+    if (Number.isFinite(reward.rewardOrder) && reward.rewardOrder > 0) {
+      return reward.rewardOrder;
+    }
+  }
+
+  return 1;
 }
 
 function getRewardVisualRecord(reward: GameReward, key: "pollReward" | "levelReward") {
@@ -400,17 +548,17 @@ function compareRewards(
   let result = 0;
 
   switch (sortKey) {
-    case "pointsCost":
-      result = left.pointsCost - right.pointsCost;
+    case "levelTier":
+      result = getRewardTierValue(left, "levelTier") - getRewardTierValue(right, "levelTier");
       break;
-    case "inventoryCount":
-      result = (left.inventoryCount ?? Number.POSITIVE_INFINITY) - (right.inventoryCount ?? Number.POSITIVE_INFINITY);
+    case "gradeTier":
+      result = getRewardTierValue(left, "gradeTier") - getRewardTierValue(right, "gradeTier");
+      break;
+    case "classTier":
+      result = getRewardTierValue(left, "classTier") - getRewardTierValue(right, "classTier");
       break;
     case "rewardType":
       result = compareText(rewardTypeLabel(left.rewardType), rewardTypeLabel(right.rewardType));
-      break;
-    case "status":
-      result = compareText(statusLabel(left.status), statusLabel(right.status));
       break;
     case "rewardVisual":
       result = compareText(formatRewardVisualSortValue(left), formatRewardVisualSortValue(right));
@@ -418,6 +566,10 @@ function compareRewards(
     case "name":
       result = compareText(left.name, right.name);
       break;
+  }
+
+  if (result === 0) {
+    result = compareRewardsByTier(left, right);
   }
 
   return sortDirection === "asc" ? result : -result;
@@ -566,11 +718,11 @@ function GameLevelEditor({
         <label className="field admin-game-inline-field">
           <span>Progression Track</span>
           <select
-            value={draft.levelName ?? "Levels"}
+            value={draft.levelName ?? "Level"}
             onChange={(event) => onChange({ ...draft, levelName: event.target.value as GameLevelName })}
           >
             {GAME_LEVEL_NAMES.map((levelName) => (
-              <option key={levelName} value={levelName}>{levelName}</option>
+              <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
             ))}
           </select>
         </label>
@@ -750,7 +902,7 @@ function LevelUpRuleEditor({
         <label className="field admin-game-inline-field">
           <span>Level</span>
           <select
-            value={draft.levelName ?? "Grades"}
+            value={draft.levelName ?? "Grade"}
             onChange={(event) => {
               const levelName = event.target.value as GameLevelName;
               const firstSublevel = getSublevelsForLevel(gameLevels, levelName).slice().sort((left, right) => left.order - right.order)[0];
@@ -758,7 +910,7 @@ function LevelUpRuleEditor({
             }}
           >
             {GAME_LEVEL_NAMES.map((levelName) => (
-              <option key={levelName} value={levelName}>{levelName}</option>
+              <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
             ))}
           </select>
         </label>
@@ -870,6 +1022,211 @@ function LevelUpRuleEditor({
   );
 }
 
+function ProgressiveFeatureEditor({
+  draft,
+  gameLevels,
+  isSaving,
+  onCancel,
+  onChange,
+  onSave
+}: {
+  draft: ProgressiveFeatureDraft;
+  gameLevels: GameLevel[];
+  isSaving: boolean;
+  onCancel: () => void;
+  onChange: (next: ProgressiveFeatureDraft) => void;
+  onSave: () => void;
+}) {
+  const sublevels = getSublevelsForLevel(gameLevels, draft.unlockLevelName);
+
+  return (
+    <div className="builder-product-editor admin-game-editor">
+      <div className="builder-product-editor-grid admin-game-editor-grid">
+        <label className="field admin-game-inline-field">
+          <span>Feature Name</span>
+          <input
+            type="text"
+            value={draft.name ?? ""}
+            onChange={(event) => onChange({ ...draft, name: event.target.value })}
+            placeholder="Skip Poll"
+          />
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Feature Key</span>
+          <input
+            type="text"
+            value={draft.featureKey ?? ""}
+            onChange={(event) => onChange({ ...draft, featureKey: event.target.value })}
+            placeholder="poll_skip"
+          />
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Status</span>
+          <select
+            value={draft.isActive === false ? "draft" : "active"}
+            onChange={(event) => onChange({ ...draft, isActive: event.target.value === "active" })}
+          >
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Unlock Track</span>
+          <select
+            value={draft.unlockLevelName ?? "Level"}
+            onChange={(event) => {
+              const unlockLevelName = event.target.value as GameLevelName;
+              const firstSublevel = getSublevelsForLevel(gameLevels, unlockLevelName).slice().sort((left, right) => left.order - right.order)[0];
+              onChange({ ...draft, unlockLevelName, unlockSublevelName: firstSublevel?.name ?? "" });
+            }}
+          >
+            {GAME_LEVEL_NAMES.map((levelName) => (
+              <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Unlock Sublevel</span>
+          <select
+            value={draft.unlockSublevelName ?? ""}
+            onChange={(event) => onChange({ ...draft, unlockSublevelName: event.target.value })}
+          >
+            <option value="">Select sublevel</option>
+            {sublevels.map((sublevel) => (
+              <option key={`${sublevel.order}-${sublevel.name}`} value={sublevel.name}>
+                {sublevel.order}. {sublevel.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field admin-game-wide-field">
+          <span>Description</span>
+          <textarea
+            value={draft.description ?? ""}
+            onChange={(event) => onChange({ ...draft, description: event.target.value })}
+            placeholder="What this unlock enables for the player."
+          />
+        </label>
+      </div>
+      <div className="builder-meta-actions">
+        <button className="secondary-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button className="submit-button admin-blog-add-button" disabled={isSaving} onClick={onSave} type="button">
+          {isSaving ? "Saving..." : "Save Feature"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LevelEventEditor({
+  draft,
+  eventModules,
+  gameLevels,
+  isSaving,
+  onCancel,
+  onChange,
+  onSave
+}: {
+  draft: LevelEventDraft;
+  eventModules: GameEventModule[];
+  gameLevels: GameLevel[];
+  isSaving: boolean;
+  onCancel: () => void;
+  onChange: (next: LevelEventDraft) => void;
+  onSave: () => void;
+}) {
+  const sublevels = getSublevelsForLevel(gameLevels, draft.levelName);
+  const gameTriggeredModules = eventModules.filter((module) => module.moduleType === "confetti" && module.trigger === "game");
+
+  return (
+    <div className="builder-product-editor admin-game-editor">
+      <div className="builder-product-editor-grid admin-game-editor-grid">
+        <label className="field admin-game-inline-field">
+          <span>Event Name</span>
+          <input
+            type="text"
+            value={draft.eventName ?? ""}
+            onChange={(event) => onChange({ ...draft, eventName: event.target.value })}
+            placeholder="Level 1.1 Confetti"
+          />
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Graduation Track</span>
+          <select
+            value={draft.levelName ?? "Level"}
+            onChange={(event) => {
+              const levelName = event.target.value as GameLevelName;
+              const firstSublevel = getSublevelsForLevel(gameLevels, levelName).slice().sort((left, right) => left.order - right.order)[0];
+              onChange({ ...draft, levelName, sublevelName: firstSublevel?.name ?? "" });
+            }}
+          >
+            {GAME_LEVEL_NAMES.map((levelName) => (
+              <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Graduation Sublevel</span>
+          <select
+            value={draft.sublevelName ?? ""}
+            onChange={(event) => onChange({ ...draft, sublevelName: event.target.value })}
+          >
+            <option value="">Select sublevel</option>
+            {sublevels.map((sublevel) => (
+              <option key={`${sublevel.order}-${sublevel.name}`} value={sublevel.name}>
+                {sublevel.order}. {sublevel.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Module</span>
+          <select
+            value={draft.moduleId ?? ""}
+            onChange={(event) => onChange({ ...draft, moduleId: event.target.value })}
+          >
+            <option value="">Select module</option>
+            {gameTriggeredModules.map((module) => (
+              <option key={module.id} value={module.id}>
+                {module.name}
+              </option>
+            ))}
+          </select>
+          <small className="admin-field-help">
+            Only saved Confetti modules with Trigger set to Game are shown.
+          </small>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Trigger</span>
+          <select value="game" disabled>
+            <option value="game">Game</option>
+          </select>
+        </label>
+        <label className="field admin-game-inline-field">
+          <span>Status</span>
+          <select
+            value={draft.isActive === false ? "draft" : "active"}
+            onChange={(event) => onChange({ ...draft, isActive: event.target.value === "active" })}
+          >
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+          </select>
+        </label>
+      </div>
+      <div className="builder-meta-actions">
+        <button className="secondary-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button className="submit-button admin-blog-add-button" disabled={isSaving} onClick={onSave} type="button">
+          {isSaving ? "Saving..." : "Save Event"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const BADGE_STYLE_OPTIONS = ["coin", "jewel", "ribbon", "medal", "trophy"];
 const REWARD_BORDER_WIDTH_OPTIONS = Array.from({ length: 10 }, (_, index) => `${index + 1}px`);
 
@@ -880,19 +1237,27 @@ type RewardStyleValues = {
   visualSize?: string;
   visualBorderColor?: string;
   visualBorderWidth?: string;
+  visualSymbolUrl?: string;
 };
 
 function RewardStyleColumn({
   title,
   rewardType,
   values,
-  onChange
+  onChange,
+  showSymbol = false,
+  isUploadingSymbol = false,
+  onSymbolFileSelect
 }: {
   title: string;
   rewardType: GameRewardType;
   values: RewardStyleValues;
   onChange: (next: RewardStyleValues) => void;
+  showSymbol?: boolean;
+  isUploadingSymbol?: boolean;
+  onSymbolFileSelect?: (file: File | null) => void;
 }) {
+  const symbolPreviewUrl = normalizeBuilderAssetUrl(values.visualSymbolUrl);
   return (
     <div className="admin-game-reward-style-column">
       <h3>{title}</h3>
@@ -919,6 +1284,37 @@ function RewardStyleColumn({
             <option value="">TBD</option>
           </select>
         </label>
+      ) : null}
+      {showSymbol ? (
+        <div className="admin-game-reward-symbol-field">
+          <label className="field">
+            <span>Symbol</span>
+            <input
+              accept="image/*"
+              disabled={isUploadingSymbol}
+              onChange={(event) => {
+                onSymbolFileSelect?.(event.target.files?.[0] ?? null);
+                event.currentTarget.value = "";
+              }}
+              type="file"
+            />
+          </label>
+          {symbolPreviewUrl ? (
+            <div className="admin-game-reward-symbol-preview-wrap">
+              <img alt="" className="admin-game-reward-symbol-preview" src={symbolPreviewUrl} />
+              <button
+                className="secondary-button"
+                disabled={isUploadingSymbol}
+                onClick={() => onChange({ ...values, visualSymbolUrl: "" })}
+                type="button"
+              >
+                Clear Symbol
+              </button>
+            </div>
+          ) : (
+            <p className="admin-field-help">Upload an image to display inside this disc.</p>
+          )}
+        </div>
       ) : null}
       <label className="field">
         <span>Background Color</span>
@@ -966,6 +1362,7 @@ function RewardStyleColumn({
 function RewardEditor({
   draft,
   gameLevels,
+  progressiveFeatures,
   isSaving,
   onCancel,
   onChange,
@@ -973,6 +1370,7 @@ function RewardEditor({
 }: {
   draft: RewardDraft;
   gameLevels: GameLevel[];
+  progressiveFeatures: GameProgressiveFeature[];
   isSaving: boolean;
   onCancel: () => void;
   onChange: (next: RewardDraft) => void;
@@ -980,6 +1378,60 @@ function RewardEditor({
 }) {
   const sublevels = getSublevelsForLevel(gameLevels, draft.achievementLevelName);
   const selectedRewardType = draft.rewardType ?? "";
+  const [isUploadingPollSymbol, setIsUploadingPollSymbol] = useState(false);
+  const [isUploadingLevelSymbol, setIsUploadingLevelSymbol] = useState(false);
+
+  async function uploadPollSymbol(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingPollSymbol(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
+      const data = await readAdminJson<{ media?: { path?: string }; error?: string }>(
+        response,
+        "Failed to upload symbol."
+      );
+
+      if (!data.media?.path) {
+        throw new Error(data.error ?? "Failed to upload symbol.");
+      }
+
+      onChange({ ...draft, pollVisualSymbolUrl: normalizeBuilderAssetUrl(data.media.path) });
+    } finally {
+      setIsUploadingPollSymbol(false);
+    }
+  }
+
+  async function uploadLevelSymbol(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingLevelSymbol(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
+      const data = await readAdminJson<{ media?: { path?: string }; error?: string }>(
+        response,
+        "Failed to upload symbol."
+      );
+
+      if (!data.media?.path) {
+        throw new Error(data.error ?? "Failed to upload symbol.");
+      }
+
+      onChange({ ...draft, levelVisualSymbolUrl: normalizeBuilderAssetUrl(data.media.path) });
+    } finally {
+      setIsUploadingLevelSymbol(false);
+    }
+  }
 
   return (
     <div className="builder-product-editor admin-game-editor">
@@ -997,7 +1449,7 @@ function RewardEditor({
           <label className="field">
             <span>Achievement Track</span>
             <select
-              value={draft.achievementLevelName ?? "Grades"}
+              value={draft.achievementLevelName ?? "Grade"}
               onChange={(event) =>
                 onChange({
                   ...draft,
@@ -1007,7 +1459,7 @@ function RewardEditor({
               }
             >
               {GAME_LEVEL_NAMES.map((levelName) => (
-                <option key={levelName} value={levelName}>{levelName}</option>
+                <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
               ))}
             </select>
           </label>
@@ -1024,6 +1476,33 @@ function RewardEditor({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="field">
+            <span>Level</span>
+            <input
+              min="1"
+              type="number"
+              value={draft.levelTier ?? 1}
+              onChange={(event) => onChange({ ...draft, levelTier: Math.max(1, Number(event.target.value) || 1) })}
+            />
+          </label>
+          <label className="field">
+            <span>Grade</span>
+            <input
+              min="1"
+              type="number"
+              value={draft.gradeTier ?? 1}
+              onChange={(event) => onChange({ ...draft, gradeTier: Math.max(1, Number(event.target.value) || 1) })}
+            />
+          </label>
+          <label className="field">
+            <span>Class</span>
+            <input
+              min="1"
+              type="number"
+              value={draft.classTier ?? 1}
+              onChange={(event) => onChange({ ...draft, classTier: Math.max(1, Number(event.target.value) || 1) })}
+            />
           </label>
           <label className="field">
             <span>Points</span>
@@ -1075,52 +1554,88 @@ function RewardEditor({
         </div>
         {selectedRewardType ? (
           <>
-            <RewardStyleColumn
-              title="Poll-Level Reward"
-              rewardType={selectedRewardType}
-              values={{
-                visualType: draft.pollVisualType,
-                digitalProduct: draft.pollDigitalProduct,
-                visualColor: draft.pollVisualColor,
-                visualSize: draft.pollVisualSize,
-                visualBorderColor: draft.pollVisualBorderColor,
-                visualBorderWidth: draft.pollVisualBorderWidth
-              }}
-              onChange={(next) =>
-                onChange({
-                  ...draft,
-                  pollVisualType: next.visualType,
-                  pollDigitalProduct: next.digitalProduct,
-                  pollVisualColor: next.visualColor,
-                  pollVisualSize: next.visualSize,
-                  pollVisualBorderColor: next.visualBorderColor,
-                  pollVisualBorderWidth: next.visualBorderWidth
-                })
-              }
-            />
-            <RewardStyleColumn
-              title="Level-Level Reward"
-              rewardType={selectedRewardType}
-              values={{
-                visualType: draft.levelVisualType,
-                digitalProduct: draft.levelDigitalProduct,
-                visualColor: draft.levelVisualColor,
-                visualSize: draft.levelVisualSize,
-                visualBorderColor: draft.levelVisualBorderColor,
-                visualBorderWidth: draft.levelVisualBorderWidth
-              }}
-              onChange={(next) =>
-                onChange({
-                  ...draft,
-                  levelVisualType: next.visualType,
-                  levelDigitalProduct: next.digitalProduct,
-                  levelVisualColor: next.visualColor,
-                  levelVisualSize: next.visualSize,
-                  levelVisualBorderColor: next.visualBorderColor,
-                  levelVisualBorderWidth: next.visualBorderWidth
-                })
-              }
-            />
+            {selectedRewardType === "feature" ? (
+              <div className="admin-game-reward-style-column">
+                <h3>Feature Unlock</h3>
+                <label className="field">
+                  <span>Feature</span>
+                  <select
+                    value={draft.featureKey ?? ""}
+                    onChange={(event) => onChange({ ...draft, featureKey: event.target.value })}
+                  >
+                    <option value="">Select feature</option>
+                    {progressiveFeatures.map((feature) => (
+                      <option key={feature.id} value={feature.featureKey}>
+                        {feature.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="admin-field-help">
+                  Feature rewards unlock portal capabilities instead of displaying badge styling.
+                </p>
+              </div>
+            ) : null}
+            {selectedRewardType !== "feature" ? (
+              <>
+                <RewardStyleColumn
+                  title="Poll-Level Reward"
+                  isUploadingSymbol={isUploadingPollSymbol}
+                  rewardType={selectedRewardType}
+                  showSymbol
+                  values={{
+                    visualType: draft.pollVisualType,
+                    digitalProduct: draft.pollDigitalProduct,
+                    visualColor: draft.pollVisualColor,
+                    visualSize: draft.pollVisualSize,
+                    visualBorderColor: draft.pollVisualBorderColor,
+                    visualBorderWidth: draft.pollVisualBorderWidth,
+                    visualSymbolUrl: draft.pollVisualSymbolUrl
+                  }}
+                  onChange={(next) =>
+                    onChange({
+                      ...draft,
+                      pollVisualType: next.visualType,
+                      pollDigitalProduct: next.digitalProduct,
+                      pollVisualColor: next.visualColor,
+                      pollVisualSize: next.visualSize,
+                      pollVisualBorderColor: next.visualBorderColor,
+                      pollVisualBorderWidth: next.visualBorderWidth,
+                      pollVisualSymbolUrl: next.visualSymbolUrl
+                    })
+                  }
+                  onSymbolFileSelect={(file) => void uploadPollSymbol(file)}
+                />
+                <RewardStyleColumn
+                  title="Level-Level Reward"
+                  isUploadingSymbol={isUploadingLevelSymbol}
+                  rewardType={selectedRewardType}
+                  showSymbol
+                  values={{
+                    visualType: draft.levelVisualType,
+                    digitalProduct: draft.levelDigitalProduct,
+                    visualColor: draft.levelVisualColor,
+                    visualSize: draft.levelVisualSize,
+                    visualBorderColor: draft.levelVisualBorderColor,
+                    visualBorderWidth: draft.levelVisualBorderWidth,
+                    visualSymbolUrl: draft.levelVisualSymbolUrl
+                  }}
+                  onChange={(next) =>
+                    onChange({
+                      ...draft,
+                      levelVisualType: next.visualType,
+                      levelDigitalProduct: next.digitalProduct,
+                      levelVisualColor: next.visualColor,
+                      levelVisualSize: next.visualSize,
+                      levelVisualBorderColor: next.visualBorderColor,
+                      levelVisualBorderWidth: next.visualBorderWidth,
+                      levelVisualSymbolUrl: next.visualSymbolUrl
+                    })
+                  }
+                  onSymbolFileSelect={(file) => void uploadLevelSymbol(file)}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -1202,16 +1717,23 @@ function ScoringRuleEditor({
 
 export function AdminGameWorkspace() {
   const [gameLevels, setGameLevels] = useState<GameLevel[]>([]);
+  const [eventModules, setEventModules] = useState<GameEventModule[]>([]);
   const [levelUpRules, setLevelUpRules] = useState<GameLevelUpRule[]>([]);
+  const [levelEvents, setLevelEvents] = useState<GameLevelEvent[]>([]);
+  const [progressiveFeatures, setProgressiveFeatures] = useState<GameProgressiveFeature[]>([]);
   const [rewards, setRewards] = useState<GameReward[]>([]);
   const [scoringRules, setScoringRules] = useState<GameScoringRule[]>([]);
   const [activeSection, setActiveSection] = useState<GameSection>("levels");
   const [editingGameLevelId, setEditingGameLevelId] = useState("");
   const [editingLevelUpRuleId, setEditingLevelUpRuleId] = useState("");
+  const [editingLevelEventId, setEditingLevelEventId] = useState("");
+  const [editingProgressiveFeatureId, setEditingProgressiveFeatureId] = useState("");
   const [editingRewardId, setEditingRewardId] = useState("");
   const [editingScoringRuleId, setEditingScoringRuleId] = useState("");
   const [gameLevelDraft, setGameLevelDraft] = useState<GameLevelDraft>(createGameLevelDraft());
   const [levelUpRuleDraft, setLevelUpRuleDraft] = useState<LevelUpRuleDraft>(createLevelUpRuleDraft());
+  const [levelEventDraft, setLevelEventDraft] = useState<LevelEventDraft>(createLevelEventDraft());
+  const [progressiveFeatureDraft, setProgressiveFeatureDraft] = useState<ProgressiveFeatureDraft>(createProgressiveFeatureDraft());
   const [rewardDraft, setRewardDraft] = useState<RewardDraft>(createRewardDraft());
   const [scoringRuleDraft, setScoringRuleDraft] = useState<ScoringRuleDraft>(createScoringRuleDraft());
   const [isLoading, setIsLoading] = useState(false);
@@ -1221,8 +1743,8 @@ export function AdminGameWorkspace() {
   const [rewardSaveDiagnostic, setRewardSaveDiagnostic] = useState<string | null>(null);
   const [gameLevelSortKey, setGameLevelSortKey] = useState<GameLevelSortKey>("levelOrder");
   const [gameLevelSortDirection, setGameLevelSortDirection] = useState<SortDirection>("asc");
-  const [rewardSortKey, setRewardSortKey] = useState<RewardSortKey>("name");
-  const [rewardSortDirection, setRewardSortDirection] = useState<SortDirection>("desc");
+  const [rewardSortKey, setRewardSortKey] = useState<RewardSortKey>("levelTier");
+  const [rewardSortDirection, setRewardSortDirection] = useState<SortDirection>("asc");
   const [scoringRuleSortKey, setScoringRuleSortKey] = useState<ScoringRuleSortKey>("updatedAt");
   const [scoringRuleSortDirection, setScoringRuleSortDirection] = useState<SortDirection>("desc");
   const [gameLevelNameFilter, setGameLevelNameFilter] = useState<"" | GameLevelName>("");
@@ -1232,6 +1754,11 @@ export function AdminGameWorkspace() {
   const [rewardQuery, setRewardQuery] = useState("");
   const [rewardTypeFilter, setRewardTypeFilter] = useState<"" | GameRewardType>("");
   const [rewardStatusFilter, setRewardStatusFilter] = useState<"" | GameRewardStatus>("");
+  const [rewardLevelFilter, setRewardLevelFilter] = useState("");
+  const [rewardGradeFilter, setRewardGradeFilter] = useState("");
+  const [rewardClassFilter, setRewardClassFilter] = useState("");
+  const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
+  const [copyTierTarget, setCopyTierTarget] = useState<RewardTierType>("levelTier");
   const [scoringRuleQuery, setScoringRuleQuery] = useState("");
   const [scoringRuleMinPoints, setScoringRuleMinPoints] = useState("");
   const [scoringRuleMaxPoints, setScoringRuleMaxPoints] = useState("");
@@ -1266,6 +1793,12 @@ export function AdminGameWorkspace() {
 
   const filteredRewards = useMemo(() => {
     const query = rewardQuery.trim().toLowerCase();
+    const levelFilterValue = Number.parseInt(rewardLevelFilter, 10);
+    const gradeFilterValue = Number.parseInt(rewardGradeFilter, 10);
+    const classFilterValue = Number.parseInt(rewardClassFilter, 10);
+    const hasLevelFilter = Number.isFinite(levelFilterValue) && levelFilterValue > 0;
+    const hasGradeFilter = Number.isFinite(gradeFilterValue) && gradeFilterValue > 0;
+    const hasClassFilter = Number.isFinite(classFilterValue) && classFilterValue > 0;
 
     return rewards.filter((reward) => {
       if (rewardTypeFilter && reward.rewardType !== rewardTypeFilter) {
@@ -1273,6 +1806,18 @@ export function AdminGameWorkspace() {
       }
 
       if (rewardStatusFilter && reward.status !== rewardStatusFilter) {
+        return false;
+      }
+
+      if (hasLevelFilter && getRewardTierValue(reward, "levelTier") !== levelFilterValue) {
+        return false;
+      }
+
+      if (hasGradeFilter && getRewardTierValue(reward, "gradeTier") !== gradeFilterValue) {
+        return false;
+      }
+
+      if (hasClassFilter && getRewardTierValue(reward, "classTier") !== classFilterValue) {
         return false;
       }
 
@@ -1288,7 +1833,7 @@ export function AdminGameWorkspace() {
 
       return true;
     });
-  }, [rewardQuery, rewardStatusFilter, rewardTypeFilter, rewards]);
+  }, [rewardClassFilter, rewardGradeFilter, rewardLevelFilter, rewardQuery, rewardStatusFilter, rewardTypeFilter, rewards]);
 
   const filteredScoringRules = useMemo(() => {
     const query = scoringRuleQuery.trim().toLowerCase();
@@ -1329,6 +1874,18 @@ export function AdminGameWorkspace() {
     () => [...filteredRewards].sort((left, right) => compareRewards(left, right, rewardSortKey, rewardSortDirection)),
     [filteredRewards, rewardSortDirection, rewardSortKey]
   );
+  const rewardLevelOptions = useMemo(
+    () => Array.from(new Set(rewards.map((reward) => getRewardTierValue(reward, "levelTier")))).sort((a, b) => a - b),
+    [rewards]
+  );
+  const rewardGradeOptions = useMemo(
+    () => Array.from(new Set(rewards.map((reward) => getRewardTierValue(reward, "gradeTier")))).sort((a, b) => a - b),
+    [rewards]
+  );
+  const rewardClassOptions = useMemo(
+    () => Array.from(new Set(rewards.map((reward) => getRewardTierValue(reward, "classTier")))).sort((a, b) => a - b),
+    [rewards]
+  );
 
   const sortedScoringRules = useMemo(
     () =>
@@ -1338,8 +1895,19 @@ export function AdminGameWorkspace() {
     [filteredScoringRules, scoringRuleSortDirection, scoringRuleSortKey]
   );
 
+  useEffect(() => {
+    setSelectedRewardIds((current) => current.filter((id) => rewards.some((reward) => reward.id === id)));
+  }, [rewards]);
+
   const hasGameLevelFilters = Boolean(gameLevelNameFilter || gameLevelOrderFilter.trim() || gameLevelQuery.trim());
-  const hasRewardFilters = Boolean(rewardQuery.trim() || rewardTypeFilter || rewardStatusFilter);
+  const hasRewardFilters = Boolean(
+    rewardQuery.trim() ||
+    rewardTypeFilter ||
+    rewardStatusFilter ||
+    rewardLevelFilter ||
+    rewardGradeFilter ||
+    rewardClassFilter
+  );
   const hasScoringRuleFilters = Boolean(
     scoringRuleQuery.trim() || scoringRuleMinPoints.trim() || scoringRuleMaxPoints.trim()
   );
@@ -1382,13 +1950,19 @@ export function AdminGameWorkspace() {
       const response = await fetch("/api/admin/game", { cache: "no-store" });
       const data = await readAdminJson<GameSnapshot & { error?: string }>(response, "Failed to load game settings.");
       setGameLevels(data.gameLevels ?? []);
+      setEventModules(data.eventModules ?? []);
       setLevelUpRules(data.levelUpRules ?? []);
+      setLevelEvents(data.levelEvents ?? []);
+      setProgressiveFeatures(data.progressiveFeatures ?? []);
       setRewards(data.rewards ?? []);
       setScoringRules(data.scoringRules ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load game settings.");
       setGameLevels([]);
+      setEventModules([]);
       setLevelUpRules([]);
+      setLevelEvents([]);
+      setProgressiveFeatures([]);
       setRewards([]);
       setScoringRules([]);
     } finally {
@@ -1417,6 +1991,26 @@ export function AdminGameWorkspace() {
     setActiveSection("level-up");
     setEditingLevelUpRuleId("new");
     setLevelUpRuleDraft(createLevelUpRuleDraft(gameLevels, scoringRules));
+  }
+
+  function startNewLevelEvent() {
+    resetMessages();
+    if (eventModules.length === 0) {
+      setError("No game-triggered confetti modules found. Save a Confetti module with Trigger set to Game first.");
+      setEditingLevelEventId("");
+      return;
+    }
+
+    setActiveSection("level-up");
+    setEditingLevelEventId("new");
+    setLevelEventDraft(createLevelEventDraft(gameLevels, eventModules));
+  }
+
+  function startNewProgressiveFeature() {
+    resetMessages();
+    setActiveSection("level-up");
+    setEditingProgressiveFeatureId("new");
+    setProgressiveFeatureDraft(createProgressiveFeatureDraft(gameLevels));
   }
 
   function startNewReward() {
@@ -1464,7 +2058,7 @@ export function AdminGameWorkspace() {
           ? current.map((item) => (item.id === data.gameLevel!.id ? data.gameLevel! : item))
           : [...current, data.gameLevel!]
       );
-      setMessage(`Saved ${data.gameLevel.levelName}.`);
+      setMessage(`Saved ${formatGameLevelName(data.gameLevel.levelName)}.`);
       setEditingGameLevelId("");
       setGameLevelDraft(createGameLevelDraft());
     } catch (saveError) {
@@ -1506,11 +2100,103 @@ export function AdminGameWorkspace() {
           ? current.map((item) => (item.id === data.levelUpRule!.id ? data.levelUpRule! : item))
           : [data.levelUpRule!, ...current]
       );
-      setMessage(`Saved level up rule for ${data.levelUpRule.levelName}: ${data.levelUpRule.sublevelName}.`);
+      setMessage(`Saved level up rule for ${formatGameLevelName(data.levelUpRule.levelName)}: ${data.levelUpRule.sublevelName}.`);
       setEditingLevelUpRuleId("");
       setLevelUpRuleDraft(createLevelUpRuleDraft(gameLevels, scoringRules));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save level up rule.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveProgressiveFeature() {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(
+        progressiveFeatureDraft.id
+          ? `/api/admin/game/progressive-features/${progressiveFeatureDraft.id}`
+          : "/api/admin/game/progressive-features",
+        {
+          method: progressiveFeatureDraft.id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            featureKey: progressiveFeatureDraft.featureKey,
+            name: progressiveFeatureDraft.name,
+            description: progressiveFeatureDraft.description,
+            unlockLevelName: progressiveFeatureDraft.unlockLevelName,
+            unlockSublevelName: progressiveFeatureDraft.unlockSublevelName,
+            isActive: progressiveFeatureDraft.isActive !== false,
+            metadata: progressiveFeatureDraft.metadata ?? {}
+          })
+        }
+      );
+      const data = await readAdminJson<{ progressiveFeature?: GameProgressiveFeature; error?: string }>(
+        response,
+        "Failed to save progressive feature."
+      );
+
+      if (!data.progressiveFeature) {
+        throw new Error(data.error ?? "Failed to save progressive feature.");
+      }
+
+      setProgressiveFeatures((current) =>
+        progressiveFeatureDraft.id
+          ? current.map((item) => (item.id === data.progressiveFeature!.id ? data.progressiveFeature! : item))
+          : [data.progressiveFeature!, ...current]
+      );
+      setMessage(`Saved progressive feature "${data.progressiveFeature.name}".`);
+      setEditingProgressiveFeatureId("");
+      setProgressiveFeatureDraft(createProgressiveFeatureDraft(gameLevels));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save progressive feature.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveLevelEvent() {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(
+        levelEventDraft.id ? `/api/admin/game/events/${levelEventDraft.id}` : "/api/admin/game/events",
+        {
+          method: levelEventDraft.id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventName: levelEventDraft.eventName,
+            levelName: levelEventDraft.levelName,
+            sublevelName: levelEventDraft.sublevelName,
+            moduleId: levelEventDraft.moduleId,
+            trigger: "game",
+            isActive: levelEventDraft.isActive !== false,
+            metadata: levelEventDraft.metadata ?? { eventType: "confetti" }
+          })
+        }
+      );
+      const data = await readAdminJson<{ levelEvent?: GameLevelEvent; error?: string }>(
+        response,
+        "Failed to save event."
+      );
+
+      if (!data.levelEvent) {
+        throw new Error(data.error ?? "Failed to save event.");
+      }
+
+      setLevelEvents((current) =>
+        levelEventDraft.id
+          ? current.map((item) => (item.id === data.levelEvent!.id ? data.levelEvent! : item))
+          : [data.levelEvent!, ...current]
+      );
+      setMessage(`Saved event "${data.levelEvent.eventName}".`);
+      setEditingLevelEventId("");
+      setLevelEventDraft(createLevelEventDraft(gameLevels, eventModules));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save event.");
     } finally {
       setIsSaving(false);
     }
@@ -1588,6 +2274,78 @@ export function AdminGameWorkspace() {
     }
   }
 
+  function toggleRewardSelection(rewardId: string, checked: boolean) {
+    setSelectedRewardIds((current) => {
+      if (checked) {
+        return current.includes(rewardId) ? current : [...current, rewardId];
+      }
+
+      return current.filter((id) => id !== rewardId);
+    });
+  }
+
+  function toggleAllVisibleRewards(checked: boolean) {
+    if (!checked) {
+      setSelectedRewardIds((current) => current.filter((id) => !sortedRewards.some((reward) => reward.id === id)));
+      return;
+    }
+
+    const visibleIds = sortedRewards.map((reward) => reward.id);
+    setSelectedRewardIds((current) => Array.from(new Set([...current, ...visibleIds])));
+  }
+
+  async function copySelectedRewardsToNextTier() {
+    const selectedRewards = rewards.filter((reward) => selectedRewardIds.includes(reward.id));
+
+    if (!selectedRewards.length) {
+      setError("Select at least one reward to copy.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    setRewardSaveDiagnostic("Copying selected rewards...");
+
+    try {
+      const createdRewards: GameReward[] = [];
+
+      for (const reward of selectedRewards) {
+        const currentTierValue = getRewardTierValue(reward, copyTierTarget);
+        const payload = rewardToPayload(reward, {
+          metadata: {
+            ...reward.metadata,
+            [copyTierTarget]: currentTierValue + 1
+          }
+        });
+
+        const response = await fetch("/api/admin/game/rewards", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await readAdminJson<{ reward?: GameReward; error?: string }>(response, "Failed to copy rewards.");
+
+        if (!data.reward) {
+          throw new Error(data.error ?? "Failed to copy rewards.");
+        }
+
+        createdRewards.push(data.reward);
+      }
+
+      setRewards((current) => [...createdRewards, ...current]);
+      setSelectedRewardIds([]);
+      setMessage(`Copied ${createdRewards.length} reward${createdRewards.length === 1 ? "" : "s"} to next ${copyTierTarget === "levelTier" ? "level" : copyTierTarget === "gradeTier" ? "grade" : "class"}.`);
+      setRewardSaveDiagnostic(`Copied ${createdRewards.length} reward${createdRewards.length === 1 ? "" : "s"}.`);
+    } catch (copyError) {
+      const copyMessage = copyError instanceof Error ? copyError.message : "Failed to copy rewards.";
+      setError(copyMessage);
+      setRewardSaveDiagnostic(`Reward copy failed: ${copyMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function saveScoringRule() {
     setIsSaving(true);
     resetMessages();
@@ -1631,7 +2389,7 @@ export function AdminGameWorkspace() {
   }
 
   async function deleteGameLevel(gameLevel: GameLevel) {
-    if (!window.confirm(`Delete ${gameLevel.levelName} order ${gameLevel.levelOrder}?`)) return;
+    if (!window.confirm(`Delete ${formatGameLevelName(gameLevel.levelName)} order ${gameLevel.levelOrder}?`)) return;
     setIsSaving(true);
     resetMessages();
 
@@ -1639,7 +2397,7 @@ export function AdminGameWorkspace() {
       const response = await fetch(`/api/admin/game/levels/${gameLevel.id}`, { method: "DELETE" });
       await readAdminJson<{ error?: string }>(response, "Failed to delete progression track.");
       setGameLevels((current) => current.filter((item) => item.id !== gameLevel.id));
-      setMessage(`Deleted ${gameLevel.levelName}.`);
+      setMessage(`Deleted ${formatGameLevelName(gameLevel.levelName)}.`);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete progression track.");
     } finally {
@@ -1648,7 +2406,7 @@ export function AdminGameWorkspace() {
   }
 
   async function deleteLevelUpRule(rule: GameLevelUpRule) {
-    if (!window.confirm(`Delete level up rule for ${rule.levelName}: ${rule.sublevelName}?`)) return;
+    if (!window.confirm(`Delete level up rule for ${formatGameLevelName(rule.levelName)}: ${rule.sublevelName}?`)) return;
     setIsSaving(true);
     resetMessages();
 
@@ -1656,9 +2414,43 @@ export function AdminGameWorkspace() {
       const response = await fetch(`/api/admin/game/level-up/${rule.id}`, { method: "DELETE" });
       await readAdminJson<{ error?: string }>(response, "Failed to delete level up rule.");
       setLevelUpRules((current) => current.filter((item) => item.id !== rule.id));
-      setMessage(`Deleted level up rule for ${rule.levelName}: ${rule.sublevelName}.`);
+      setMessage(`Deleted level up rule for ${formatGameLevelName(rule.levelName)}: ${rule.sublevelName}.`);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete level up rule.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteProgressiveFeature(feature: GameProgressiveFeature) {
+    if (!window.confirm(`Delete progressive feature "${feature.name}"?`)) return;
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(`/api/admin/game/progressive-features/${feature.id}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete progressive feature.");
+      setProgressiveFeatures((current) => current.filter((item) => item.id !== feature.id));
+      setMessage(`Deleted progressive feature "${feature.name}".`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete progressive feature.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteLevelEvent(event: GameLevelEvent) {
+    if (!window.confirm(`Delete event "${event.eventName}"?`)) return;
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(`/api/admin/game/events/${event.id}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete event.");
+      setLevelEvents((current) => current.filter((item) => item.id !== event.id));
+      setMessage(`Deleted event "${event.eventName}".`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete event.");
     } finally {
       setIsSaving(false);
     }
@@ -1839,7 +2631,7 @@ export function AdminGameWorkspace() {
             >
               <option value="">All names</option>
               {GAME_LEVEL_NAMES.map((levelName) => (
-                <option key={levelName} value={levelName}>{levelName}</option>
+                <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
               ))}
             </select>
           </label>
@@ -1908,7 +2700,7 @@ export function AdminGameWorkspace() {
                   <td>
                     <div className="admin-game-level-name-cell">
                       <span className="admin-game-drag-handle" title="Drag to reorder">⋮⋮</span>
-                      <strong>{gameLevel.levelName}</strong>
+                      <strong>{formatGameLevelName(gameLevel.levelName)}</strong>
                     </div>
                   </td>
                   <td>
@@ -2008,6 +2800,7 @@ export function AdminGameWorkspace() {
       ) : null}
 
       {activeSection === "level-up" ? (
+      <>
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
@@ -2044,7 +2837,7 @@ export function AdminGameWorkspace() {
             <tbody>
               {levelUpRules.map((rule) => (
                 <tr key={rule.id}>
-                  <td><strong>{rule.levelName}</strong></td>
+                  <td><strong>{formatGameLevelName(rule.levelName)}</strong></td>
                   <td>{rule.sublevelName}</td>
                   <td>{formatLevelUpCriteria(rule, scoringRules)}</td>
                   <td>{rule.isActive ? "Active" : "Draft"}</td>
@@ -2112,6 +2905,227 @@ export function AdminGameWorkspace() {
           +
         </button>
       </section>
+      <section className="admin-section">
+        <div className="admin-toolbar">
+          <div>
+            <div className="panel-label">Feature Unlocks</div>
+            <h2>Progressive Features</h2>
+            <p className="admin-section-intro">
+              Define player features that become available after a progression milestone.
+            </p>
+          </div>
+          <button className="submit-button" disabled={isSaving || gameLevels.length === 0} onClick={startNewProgressiveFeature} type="button">
+            New Feature
+          </button>
+        </div>
+        {editingProgressiveFeatureId === "new" ? (
+          <ProgressiveFeatureEditor
+            draft={progressiveFeatureDraft}
+            gameLevels={gameLevels}
+            isSaving={isSaving}
+            onCancel={() => setEditingProgressiveFeatureId("")}
+            onChange={setProgressiveFeatureDraft}
+            onSave={() => void saveProgressiveFeature()}
+          />
+        ) : null}
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Key</th>
+                <th>Unlocks At</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th className="crud-actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {progressiveFeatures.map((feature) => (
+                <tr key={feature.id}>
+                  <td>
+                    <strong>{feature.name}</strong>
+                    {feature.description ? <div className="admin-table-subcopy">{feature.description}</div> : null}
+                  </td>
+                  <td><code>{feature.featureKey}</code></td>
+                  <td>{formatGameLevelName(feature.unlockLevelName)}: {feature.unlockSublevelName || "Any"}</td>
+                  <td>{feature.isActive ? "Active" : "Draft"}</td>
+                  <td>{formatTemplateTimestamp(feature.updatedAt)}</td>
+                  <td className="crud-actions-cell">
+                    <div className="table-actions">
+                      <button
+                        aria-label="Edit progressive feature"
+                        className="polls-icon-button polls-icon-button-edit"
+                        disabled={isSaving}
+                        onClick={() => {
+                          setEditingProgressiveFeatureId(feature.id);
+                          setProgressiveFeatureDraft(progressiveFeatureToDraft(feature));
+                        }}
+                        title="Edit"
+                        type="button"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        aria-label="Delete progressive feature"
+                        className="polls-icon-button polls-icon-button-danger"
+                        disabled={isSaving}
+                        onClick={() => void deleteProgressiveFeature(feature)}
+                        title="Delete"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {progressiveFeatures.length === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={6}>
+                    {isLoading ? "Loading progressive features..." : "No progressive features found."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {editingProgressiveFeatureId && editingProgressiveFeatureId !== "new" ? (
+          <ProgressiveFeatureEditor
+            draft={progressiveFeatureDraft}
+            gameLevels={gameLevels}
+            isSaving={isSaving}
+            onCancel={() => setEditingProgressiveFeatureId("")}
+            onChange={setProgressiveFeatureDraft}
+            onSave={() => void saveProgressiveFeature()}
+          />
+        ) : null}
+        <button
+          aria-label="Add progressive feature"
+          className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
+          disabled={isSaving || gameLevels.length === 0}
+          onClick={startNewProgressiveFeature}
+          title="Add progressive feature"
+          type="button"
+        >
+          +
+        </button>
+      </section>
+      <section className="admin-section">
+        <div className="admin-toolbar">
+          <div>
+            <div className="panel-label">Graduation Actions</div>
+            <h2>Events</h2>
+            <p className="admin-section-intro">
+              Define one-time effects that fire when a player graduates to a specific level or sublevel.
+            </p>
+            <p className="admin-field-help">
+              Only saved Confetti modules with Trigger set to Game are shown in the module list.
+            </p>
+          </div>
+          <button className="submit-button" disabled={isSaving || gameLevels.length === 0 || eventModules.length === 0} onClick={startNewLevelEvent} type="button">
+            New Event
+          </button>
+        </div>
+        {editingLevelEventId === "new" ? (
+          <LevelEventEditor
+            draft={levelEventDraft}
+            eventModules={eventModules}
+            gameLevels={gameLevels}
+            isSaving={isSaving}
+            onCancel={() => setEditingLevelEventId("")}
+            onChange={setLevelEventDraft}
+            onSave={() => void saveLevelEvent()}
+          />
+        ) : null}
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Graduation</th>
+                <th>Module</th>
+                <th>Trigger</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th className="crud-actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {levelEvents.map((event) => (
+                <tr key={event.id}>
+                  <td><strong>{event.eventName}</strong></td>
+                  <td>{formatGameLevelName(event.levelName)}: {event.sublevelName || "Any"}</td>
+                  <td>{event.moduleName || "No module selected"}</td>
+                  <td>{event.trigger}</td>
+                  <td>{event.isActive ? "Active" : "Draft"}</td>
+                  <td>{formatTemplateTimestamp(event.updatedAt)}</td>
+                  <td className="crud-actions-cell">
+                    <div className="table-actions">
+                      <button
+                        aria-label="Edit level event"
+                        className="polls-icon-button polls-icon-button-edit"
+                        disabled={isSaving}
+                        onClick={() => {
+                          setEditingLevelEventId(event.id);
+                          setLevelEventDraft(levelEventToDraft(event));
+                        }}
+                        title="Edit"
+                        type="button"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        aria-label="Delete level event"
+                        className="polls-icon-button polls-icon-button-danger"
+                        disabled={isSaving}
+                        onClick={() => void deleteLevelEvent(event)}
+                        title="Delete"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {levelEvents.length === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={7}>
+                    {isLoading
+                      ? "Loading events..."
+                      : eventModules.length === 0
+                        ? "No game-triggered confetti modules found. Save a Confetti module with Trigger set to Game first."
+                        : "No events found."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {editingLevelEventId && editingLevelEventId !== "new" ? (
+          <LevelEventEditor
+            draft={levelEventDraft}
+            eventModules={eventModules}
+            gameLevels={gameLevels}
+            isSaving={isSaving}
+            onCancel={() => setEditingLevelEventId("")}
+            onChange={setLevelEventDraft}
+            onSave={() => void saveLevelEvent()}
+          />
+        ) : null}
+        <button
+          aria-label="Add event"
+          className="polls-icon-button polls-icon-button-success admin-game-add-after-list"
+          disabled={isSaving || gameLevels.length === 0 || eventModules.length === 0}
+          onClick={startNewLevelEvent}
+          title="Add event"
+          type="button"
+        >
+          +
+        </button>
+      </section>
+      </>
       ) : null}
 
       {activeSection === "redemptions" ? (
@@ -2133,6 +3147,7 @@ export function AdminGameWorkspace() {
           <RewardEditor
             draft={rewardDraft}
             gameLevels={gameLevels}
+            progressiveFeatures={progressiveFeatures}
             isSaving={isSaving}
             onCancel={() => setEditingRewardId("")}
             onChange={setRewardDraft}
@@ -2178,6 +3193,42 @@ export function AdminGameWorkspace() {
               ))}
             </select>
           </label>
+          <label className="field">
+            <span>Level</span>
+            <select
+              value={rewardLevelFilter}
+              onChange={(event) => setRewardLevelFilter(event.target.value)}
+            >
+              <option value="">All levels</option>
+              {rewardLevelOptions.map((level) => (
+                <option key={level} value={level}>{level}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Grade</span>
+            <select
+              value={rewardGradeFilter}
+              onChange={(event) => setRewardGradeFilter(event.target.value)}
+            >
+              <option value="">All grades</option>
+              {rewardGradeOptions.map((grade) => (
+                <option key={grade} value={grade}>{grade}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Class</span>
+            <select
+              value={rewardClassFilter}
+              onChange={(event) => setRewardClassFilter(event.target.value)}
+            >
+              <option value="">All classes</option>
+              {rewardClassOptions.map((classValue) => (
+                <option key={classValue} value={classValue}>{classValue}</option>
+              ))}
+            </select>
+          </label>
         </div>
         {hasRewardFilters ? (
           <p className="admin-products-filter-summary">
@@ -2188,6 +3239,18 @@ export function AdminGameWorkspace() {
           <table className="polls-table builder-templates-table">
             <thead>
               <tr>
+                <th>
+                  <label className="admin-game-table-checkbox-label">
+                    <input
+                      aria-label="Check all rewards"
+                      checked={sortedRewards.length > 0 && sortedRewards.every((reward) => selectedRewardIds.includes(reward.id))}
+                      disabled={isSaving || sortedRewards.length === 0}
+                      onChange={(event) => toggleAllVisibleRewards(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>Check All</span>
+                  </label>
+                </th>
                 {REWARD_TABLE_COLUMNS.map((column) => (
                   <th className={column.key === "rewardVisual" ? "admin-game-reward-visual-cell" : undefined} key={column.key}>
                     <AdminTableSortButton
@@ -2199,66 +3262,113 @@ export function AdminGameWorkspace() {
                     />
                   </th>
                 ))}
-                <th className="crud-actions-cell">Actions</th>
+                <th className="crud-actions-cell admin-game-reward-actions-header">
+                  <div className="admin-game-reward-bulk-actions">
+                    <select
+                      aria-label="Copy selected rewards target tier"
+                      disabled={isSaving || selectedRewardIds.length === 0}
+                      value={copyTierTarget}
+                      onChange={(event) => setCopyTierTarget(event.target.value as RewardTierType)}
+                    >
+                      <option value="levelTier">Level</option>
+                      <option value="gradeTier">Grade</option>
+                      <option value="classTier">Class</option>
+                    </select>
+                    <button
+                      className="submit-button admin-blog-add-button admin-game-reward-copy-button"
+                      disabled={isSaving || selectedRewardIds.length === 0}
+                      onClick={() => void copySelectedRewardsToNextTier()}
+                      type="button"
+                    >
+                      Copy to next...
+                    </button>
+                  </div>
+                  <span>Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {sortedRewards.map((reward) => (
-                <tr key={reward.id}>
-                  <td>
-                    <strong>{reward.name}</strong>
-                    {reward.description ? <div className="admin-table-subcopy">{reward.description}</div> : null}
-                    <div className="admin-table-subcopy">{formatRewardAchievement(reward)}</div>
-                  </td>
-                  <td>{rewardTypeLabel(reward.rewardType)}</td>
-                  <td>{statusLabel(reward.status)}</td>
-                  <td>{reward.pointsCost}</td>
-                  <td>{reward.inventoryCount === null ? "Unlimited" : reward.inventoryCount}</td>
-                  <td className="admin-game-reward-visual-cell">
-                    <RewardVisualSummary reward={reward} />
-                  </td>
-                  <td className="crud-actions-cell">
-                    <div className="table-actions">
-                      <button
-                        aria-label="Edit reward"
-                        className="polls-icon-button polls-icon-button-edit"
+                <Fragment key={reward.id}>
+                  <tr className={editingRewardId === reward.id ? "admin-game-inline-editor-source-row" : undefined}>
+                    <td>
+                      <input
+                        aria-label={`Select reward ${reward.name}`}
+                        checked={selectedRewardIds.includes(reward.id)}
                         disabled={isSaving}
-                        onClick={() => {
-                          setEditingRewardId(reward.id);
-                          setRewardDraft(rewardToDraft(reward));
-                        }}
-                        title="Edit"
-                        type="button"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        aria-label="Clone reward"
-                        className="polls-icon-button polls-icon-button-view"
-                        disabled={isSaving}
-                        onClick={() => void cloneReward(reward)}
-                        title="Clone"
-                        type="button"
-                      >
-                        ⧉
-                      </button>
-                      <button
-                        aria-label="Delete reward"
-                        className="polls-icon-button polls-icon-button-danger"
-                        disabled={isSaving}
-                        onClick={() => void deleteReward(reward)}
-                        title="Delete"
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                        onChange={(event) => toggleRewardSelection(reward.id, event.target.checked)}
+                        type="checkbox"
+                      />
+                    </td>
+                    <td>
+                      <strong>{reward.name}</strong>
+                      {reward.description ? <div className="admin-table-subcopy">{reward.description}</div> : null}
+                    </td>
+                    <td>{rewardTypeLabel(reward.rewardType)}</td>
+                    <td>{getRewardTierValue(reward, "levelTier")}</td>
+                    <td>{getRewardTierValue(reward, "gradeTier")}</td>
+                    <td>{getRewardTierValue(reward, "classTier")}</td>
+                    <td className="admin-game-reward-visual-cell">
+                      <RewardVisualSummary reward={reward} />
+                    </td>
+                    <td className="crud-actions-cell">
+                      <div className="table-actions">
+                        <button
+                          aria-label="Edit reward"
+                          className="polls-icon-button polls-icon-button-edit"
+                          disabled={isSaving}
+                          onClick={() => {
+                            setEditingRewardId(reward.id);
+                            setRewardDraft(rewardToDraft(reward));
+                          }}
+                          title="Edit"
+                          type="button"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          aria-label="Clone reward"
+                          className="polls-icon-button polls-icon-button-view"
+                          disabled={isSaving}
+                          onClick={() => void cloneReward(reward)}
+                          title="Clone"
+                          type="button"
+                        >
+                          ⧉
+                        </button>
+                        <button
+                          aria-label="Delete reward"
+                          className="polls-icon-button polls-icon-button-danger"
+                          disabled={isSaving}
+                          onClick={() => void deleteReward(reward)}
+                          title="Delete"
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingRewardId === reward.id ? (
+                    <tr className="admin-game-inline-editor-row">
+                      <td colSpan={REWARD_TABLE_COLUMN_COUNT}>
+                        <RewardEditor
+                          draft={rewardDraft}
+                          gameLevels={gameLevels}
+                          progressiveFeatures={progressiveFeatures}
+                          isSaving={isSaving}
+                          onCancel={() => setEditingRewardId("")}
+                          onChange={setRewardDraft}
+                          onSave={() => void saveReward()}
+                        />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
               {sortedRewards.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={7}>
+                  <td className="empty-cell" colSpan={REWARD_TABLE_COLUMN_COUNT}>
                     {isLoading
                       ? "Loading rewards..."
                       : rewards.length === 0
@@ -2270,16 +3380,6 @@ export function AdminGameWorkspace() {
             </tbody>
           </table>
         </div>
-        {editingRewardId && editingRewardId !== "new" ? (
-          <RewardEditor
-            draft={rewardDraft}
-            gameLevels={gameLevels}
-            isSaving={isSaving}
-            onCancel={() => setEditingRewardId("")}
-            onChange={setRewardDraft}
-            onSave={() => void saveReward()}
-          />
-        ) : null}
       </section>
       <section className="admin-section">
         <div className="admin-toolbar">

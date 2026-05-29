@@ -17,7 +17,7 @@ export async function GET() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("builder_cell_modules")
-    .select("id, name, modules, created_at, updated_at")
+    .select("id, name, module_class, modules, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -47,9 +47,11 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     name?: unknown;
+    moduleClass?: unknown;
     modules?: unknown;
   };
   const name = safeText(body.name, 255);
+  const moduleClass = safeText(body.moduleClass, 255);
   const modules = normalizeBuilderModules(body.modules);
 
   if (!name) {
@@ -65,10 +67,11 @@ export async function POST(request: Request) {
     .from("builder_cell_modules")
     .insert({
       name,
+      module_class: moduleClass,
       modules,
       updated_at: new Date().toISOString()
     })
-    .select("id, name, modules, created_at, updated_at")
+    .select("id, name, module_class, modules, created_at, updated_at")
     .single();
 
   if (error || !data) {

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { PlayerLeaderboardName } from "@/components/player-leaderboard-name";
 import { PlayerPortalLevelUpCelebration } from "@/components/player-portal-level-up-celebration";
 import { PlayerPortalPollSection } from "@/components/player-portal-poll-section";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
@@ -19,11 +20,13 @@ export default async function PlayerDashboardPage() {
   return (
     <div className="player-stack">
       <PlayerPortalLevelUpCelebration
+        levelEvents={snapshot.levelEvents}
         pendingLevelUpCount={Number.isFinite(pendingLevelUpCount) ? pendingLevelUpCount : null}
         rewardTrack={snapshot.rewardTrack}
       />
       <Suspense fallback={<div className="notice player-portal-polls-loading">Loading polls...</div>}>
         <PlayerPortalPollSection
+          levelEvents={snapshot.levelEvents}
           rewardTrack={snapshot.rewardTrack}
           stats={{
             pollsTaken: snapshot.pollsTaken,
@@ -58,7 +61,9 @@ export default async function PlayerDashboardPage() {
             <div className="player-leaderboard-list">
               {snapshot.leaderboard.slice(0, 5).map((entry) => (
                 <div className="player-leaderboard-row" key={entry.playerId}>
-                  <span>#{entry.rank}</span><strong>{entry.displayName}</strong><span>{entry.tokensEarned} points</span>
+                  <span>#{entry.rank}</span>
+                  <PlayerLeaderboardName className="player-leaderboard-row-name" entry={entry} />
+                  <span>{entry.tokensEarned} points</span>
                 </div>
               ))}
             </div>

@@ -6,6 +6,7 @@ import {
   normalizePlayerHandle,
   safePlayerText
 } from "@/lib/player-auth";
+import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
 import { getPlayerAuthCallbackUrl } from "@/lib/site-url";
@@ -129,6 +130,7 @@ export async function POST(request: Request) {
     data.session.refresh_token,
     buildPlayerSessionSnapshot(data.user, profileRow)
   );
+  clearPollSessionCookie(response);
 
   return response;
 }

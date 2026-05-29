@@ -31,6 +31,9 @@ import { BuilderBackgroundControls } from "./builder-background-controls";
 import { MerchModuleEditor } from "./builder-merch-module-editor";
 import { BuilderCodeEmbed } from "./builder-code-embed";
 import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
+import { getConfettiTrigger } from "@/lib/confetti-effect";
+import { BuilderConfettiRuntime } from "@/components/builder-confetti-runtime";
+import { BuilderConfettiModuleSettings } from "./builder-confetti-module-settings";
 import { BuilderCurrentPollModuleSettings } from "./builder-current-poll-module-settings";
 import { BuilderSocialModuleSettings } from "./builder-social-module-settings";
 import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
@@ -79,6 +82,7 @@ type BuilderModuleCardProps = {
   onUploadButtonBackgroundMedia?: (file: File | null) => void;
   onClone: () => void;
   hideHeaderActions?: boolean;
+  isEmailTemplate?: boolean;
   onModuleDragStart?: (event: DragEvent<HTMLDivElement>) => void;
 };
 
@@ -539,6 +543,10 @@ function renderModulePreview(module: BuilderTemplateModule) {
         }}
       />
     );
+  }
+
+  if (module.type === "confetti") {
+    return <BuilderConfettiRuntime preview settings={module.settings} />;
   }
 
   return (
@@ -1646,6 +1654,7 @@ export function BuilderModuleCard({
   onClone,
   products = [],
   hideHeaderActions = false,
+  isEmailTemplate = false,
   onModuleDragStart
 }: BuilderModuleCardProps) {
     const moduleAlignment = getModuleAlignment(module.settings);
@@ -1655,6 +1664,7 @@ export function BuilderModuleCard({
     const isFloatingImage = module.type === "floating-image";
     const isHeadingModule = module.type === "heading";
     const isCurrentPollModule = module.type === "current-poll";
+    const isConfettiModule = module.type === "confetti";
     const isSocialModule = module.type === "social";
     const isPollRuntimeModule = isCurrentPollModule || module.type === "previous-results";
   return (
@@ -1740,41 +1750,14 @@ export function BuilderModuleCard({
 
       {isExpanded ? (
         <div className="builder-module-editor">
-          {module.type !== "social" ? (
-            <div className="builder-module-header">
-              <span className="builder-module-editor-copy">These controls stay available from the module header.</span>
-            </div>
-          ) : null}
-
-          {module.type === "button" || module.type === "heading" ? (
-            <BuilderSettingRow label="Module label" fullWidth>
-              <input
-                type="text"
-                value={module.name}
-                onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Optional internal label"
-              />
-            </BuilderSettingRow>
-          ) : module.type === "social" ? (
-            <BuilderSettingRow label="Label" fullWidth>
-              <input
-                type="text"
-                value={module.name}
-                onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Optional internal label"
-              />
-            </BuilderSettingRow>
-          ) : (
-            <label className="field">
-              <span>Module label</span>
-              <input
-                type="text"
-                value={module.name}
-                onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Optional internal label"
-              />
-            </label>
-          )}
+          <BuilderSettingRow label={module.type === "social" ? "Label" : "Module label"} fullWidth>
+            <input
+              type="text"
+              value={module.name}
+              onChange={(event) => onUpdateModule((current) => ({ ...current, name: event.target.value }))}
+              placeholder="Optional internal label"
+            />
+          </BuilderSettingRow>
 
           {editorDevice === "mobile" ? (
             <div
@@ -1843,6 +1826,8 @@ export function BuilderModuleCard({
                 onUpdateModule={onUpdateModule}
                 onUpdateModuleBackground={onUpdateModuleBackground}
               />
+            ) : isConfettiModule ? (
+              <BuilderConfettiModuleSettings module={module} onUpdateModule={onUpdateModule} />
             ) : isSocialModule ? (
               <BuilderSocialModuleSettings
                 module={module}
@@ -1985,6 +1970,7 @@ export function BuilderModuleCard({
 
           {module.type === "button" ? (
             <BuilderButtonDesignSettings
+              isEmailTemplate={isEmailTemplate}
               module={module}
               onUpdateModule={onUpdateModule}
               onOpenButtonBackgroundGallery={onOpenButtonBackgroundGallery}
@@ -2166,6 +2152,17 @@ export function BuilderModuleCard({
             </div>
           )}
 
+          {module.type === "confetti" ? (
+            <div className="builder-module-runtime-note">
+              <strong>Special effect</strong>
+              <p>
+                {getConfettiTrigger(module.settings) === "game"
+                  ? "Game trigger: no on-page button. Use page preview to test, then wire the game layer to fireConfettiFromModuleSettings with these settings."
+                  : "Use page preview or a live page to test the confetti burst. Adjust particle settings in the fields above."}
+              </p>
+            </div>
+          ) : null}
+
           {module.type !== "image" &&
           module.type !== "floating-image" &&
           module.type !== "contact-form" &&
@@ -2180,6 +2177,7 @@ export function BuilderModuleCard({
           module.type !== "code" &&
           module.type !== "previous-results" &&
           module.type !== "current-poll" &&
+          module.type !== "confetti" &&
           module.type !== "button" &&
           module.type !== "heading" ? (
             <label className="field">

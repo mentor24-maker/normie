@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { normalizeEmailFunction } from "@/lib/builder-email-template";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { rowToBuilderTemplate, safeText, serializeBuilderDocument } from "@/lib/builder-template";
+import {
+  normalizeTemplateKind,
+  rowToBuilderTemplate,
+  safeText,
+  serializeBuilderDocument
+} from "@/lib/builder-template";
 
 export async function PATCH(
   request: Request,
@@ -16,14 +22,22 @@ export async function PATCH(
   const { id } = await context.params;
   const body = (await request.json()) as {
     name?: string;
+    templateKind?: string;
+    emailFunction?: string;
     pageBackground?: unknown;
     layoutSections?: unknown;
   };
 
   const name = safeText(body.name, 255);
+  const templateKind = normalizeTemplateKind(body.templateKind);
+  const emailFunction = normalizeEmailFunction(body.emailFunction);
 
   if (!name) {
     return auth.finish(NextResponse.json({ error: "Template name is required." }, { status: 400 }));
+  }
+
+  if (templateKind === "email" && !emailFunction) {
+    return auth.finish(NextResponse.json({ error: "Select a Function for email templates." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -31,12 +45,13 @@ export async function PATCH(
     .from("page_templates")
     .update({
       name,
-      template_kind: "modular",
+      template_kind: templateKind,
+      email_function: templateKind === "email" ? emailFunction : null,
       layout_sections: serializeBuilderDocument(body),
       updated_at: new Date().toISOString()
     })
     .eq("id", id)
-    .select("id, name, template_kind, layout_sections, created_at, updated_at")
+    .select("id, name, template_kind, email_function, layout_sections, created_at, updated_at")
     .single();
 
   if (error || !data) {

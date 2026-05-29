@@ -14,8 +14,9 @@ export async function PATCH(
   }
 
   const { id } = await context.params;
-  const body = (await request.json()) as { name?: unknown; modules?: unknown };
+  const body = (await request.json()) as { name?: unknown; moduleClass?: unknown; modules?: unknown };
   const name = safeText(body.name, 255);
+  const moduleClass = safeText(body.moduleClass, 255);
   const modules = body.modules === undefined ? undefined : normalizeBuilderModules(body.modules);
 
   if (!name) {
@@ -27,8 +28,9 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient();
-  const updates: { name: string; modules?: ReturnType<typeof normalizeBuilderModules>; updated_at: string } = {
+  const updates: { name: string; module_class: string; modules?: ReturnType<typeof normalizeBuilderModules>; updated_at: string } = {
     name,
+    module_class: moduleClass,
     updated_at: new Date().toISOString()
   };
 
@@ -40,7 +42,7 @@ export async function PATCH(
     .from("builder_cell_modules")
     .update(updates)
     .eq("id", id)
-    .select("id, name, modules, created_at, updated_at")
+    .select("id, name, module_class, modules, created_at, updated_at")
     .single();
 
   if (error || !data) {

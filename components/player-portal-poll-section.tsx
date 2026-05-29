@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, type CSSProperties } from "react";
-import type { PlayerPortalRewardTrack } from "@/lib/player-portal";
+import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import type { PlayerPortalLevelEvent, PlayerPortalRewardTrack } from "@/lib/player-portal";
 import { PlayerPortalPollStage } from "@/src/site/home/partials/player-portal-poll-stage";
 import { type PollAnswerResult, usePollExperience } from "@/src/site/home/use-poll-experience";
 import {
@@ -14,7 +15,8 @@ import {
   scrollPlayerPortalPollsIntoView
 } from "@/lib/player-portal-play-polls";
 import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
-import { firePlayerLevelUpConfetti } from "@/lib/player-portal-confetti";
+import { PLAYER_LEVEL_UP_INTERVAL } from "@/lib/player-level-up-event";
+import { firePlayerLevelUpGameEvents } from "@/lib/player-portal-confetti";
 
 export { PLAYER_PORTAL_PLAY_POLLS_HREF, PLAYER_PORTAL_PLAY_POLLS_PARAM };
 
@@ -25,6 +27,43 @@ type PlayerPortalPollStats = {
 };
 
 const LEVEL_REWARD_DISKS_PER_COLUMN = 5;
+
+function renderLevelRewardColumns(
+  rewards: PlayerPortalRewardTrack["completedLevelRewardsInGrade"],
+  ariaLabelPrefix: string,
+  levelRewardFallback: PlayerPortalRewardTrack["pollReward"]
+) {
+  if (!rewards.length) {
+    return null;
+  }
+
+  return Array.from(
+    { length: Math.ceil(rewards.length / LEVEL_REWARD_DISKS_PER_COLUMN) },
+    (_, columnIndex) => {
+      const columnStart = columnIndex * LEVEL_REWARD_DISKS_PER_COLUMN;
+      const columnCount = Math.min(LEVEL_REWARD_DISKS_PER_COLUMN, rewards.length - columnStart);
+
+      return (
+        <span className="player-portal-level-reward-column" key={columnIndex}>
+          {Array.from({ length: columnCount }, (_, diskIndex) => {
+            const rewardIndex = columnStart + diskIndex;
+
+            return (
+              <RewardDisc
+                ariaLabel={`${ariaLabelPrefix} level ${rewardIndex + 1}`}
+                className="player-portal-level-coin"
+                isEarned
+                visual={rewards[rewardIndex] ?? levelRewardFallback}
+                title={`${ariaLabelPrefix} Level ${rewardIndex + 1}`}
+                key={rewardIndex}
+              />
+            );
+          })}
+        </span>
+      );
+    }
+  );
+}
 
 function rewardVisualStyle(
   visual: PlayerPortalRewardTrack["pollReward"],
@@ -41,12 +80,51 @@ function rewardVisualStyle(
   };
 }
 
+function RewardDisc({
+  visual,
+  isEarned = true,
+  className = "player-portal-reward-disk",
+  ariaLabel,
+  title
+}: {
+  visual: PlayerPortalRewardTrack["pollReward"];
+  isEarned?: boolean;
+  className?: string;
+  ariaLabel?: string;
+  title?: string;
+}) {
+  const symbolUrl = isEarned ? normalizeBuilderAssetUrl(visual.visualSymbolUrl) : "";
+
+  return (
+    <span
+      aria-label={ariaLabel}
+      className="player-portal-reward-disc-shell"
+      title={title}
+    >
+      <span className={className} role="img" style={rewardVisualStyle(visual, isEarned)} />
+      {symbolUrl ? (
+        <img
+          alt=""
+          aria-hidden="true"
+          className="player-portal-reward-disc-symbol"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+          src={symbolUrl}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 function PlayerPortalPollSectionOpen({
   onClose,
+  levelEvents,
   rewardTrack,
   stats
 }: {
   onClose: () => void;
+  levelEvents: PlayerPortalLevelEvent[];
   rewardTrack: PlayerPortalRewardTrack;
   stats: PlayerPortalPollStats;
 }) {
@@ -73,10 +151,13 @@ function PlayerPortalPollSectionOpen({
       });
 
       if (result.levelUp) {
+        const completedLevelRewards = Math.floor(nextPollsTaken / PLAYER_LEVEL_UP_INTERVAL);
         appendPlayerLevelUpDiagnostic("poll-answer.fire-confetti-immediate", {
+          completedLevelRewards,
+          levelEvents: levelEvents.length,
           playerAnswerCount: result.playerAnswerCount ?? null
         });
-        void firePlayerLevelUpConfetti();
+        void firePlayerLevelUpGameEvents(levelEvents, completedLevelRewards);
       } else {
         appendPlayerLevelUpDiagnostic("poll-answer.no-immediate-fire", {
           playerAnswerCount: result.playerAnswerCount ?? null
@@ -95,58 +176,10 @@ function PlayerPortalPollSectionOpen({
     >
       <header className="player-portal-polls-bar">
         <div className="player-portal-polls-bar-copy">
-          <p className="panel-label">Play Polls</p>
-          <h2 className="player-portal-polls-title">Answer the Current Question</h2>
-          <button
-            className="secondary-button player-portal-confetti-trigger"
-            onClick={() => {
-              appendPlayerLevelUpDiagnostic("manual-confetti-button.clicked");
-              void firePlayerLevelUpConfetti();
-            }}
-            type="button"
-          >
-            Confetti
-          </button>
+          <p className="panel-label">Game Board</p>
         </div>
         <div className="player-portal-polls-header-side">
           <div className="player-portal-reward-top-row">
-            <div
-              className="player-portal-level-reward-stack"
-              aria-label={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} completed rewards`}
-            >
-              {Array.from(
-                {
-                  length: Math.ceil(rewardTrack.completedLevelRewards / LEVEL_REWARD_DISKS_PER_COLUMN)
-                },
-                (_, columnIndex) => {
-                  const columnStart = columnIndex * LEVEL_REWARD_DISKS_PER_COLUMN;
-                  const columnCount = Math.min(
-                    LEVEL_REWARD_DISKS_PER_COLUMN,
-                    rewardTrack.completedLevelRewards - columnStart
-                  );
-
-                  return (
-                    <span className="player-portal-level-reward-column" key={columnIndex}>
-                      {Array.from({ length: columnCount }, (_, diskIndex) => {
-                        const rewardIndex = columnStart + diskIndex;
-
-                        return (
-                          <span
-                            aria-label={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} complete ${rewardIndex + 1}`}
-                            className="player-portal-level-coin"
-                            role="img"
-                            style={rewardVisualStyle(rewardTrack.levelReward)}
-                            tabIndex={0}
-                            title={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} Complete ${rewardIndex + 1}`}
-                            key={rewardIndex}
-                          />
-                        );
-                      })}
-                    </span>
-                  );
-                }
-              )}
-            </div>
             <div className="player-portal-polls-mini-stats" aria-label="Player stats">
               <Link
                 aria-label={`Polls taken: ${stats.pollsTaken}. View My Polls`}
@@ -173,19 +206,53 @@ function PlayerPortalPollSectionOpen({
                 <strong>{stats.playerRank ? `#${stats.playerRank}` : "New"}</strong>
               </Link>
             </div>
+            <div
+              className="player-portal-grade-reward-strip"
+              aria-label={`Grade ${rewardTrack.currentGrade} reward progress`}
+            >
+              {rewardTrack.completedGradeCoins.length > 0 ? (
+                <div
+                  className="player-portal-grade-coin-row"
+                  aria-label={`Completed ${rewardTrack.levelName} coins`}
+                >
+                  {rewardTrack.completedGradeCoins.map((gradeCoin, gradeIndex) => (
+                    <RewardDisc
+                      ariaLabel={`${rewardTrack.levelName} ${gradeIndex + 1} graduation coin`}
+                      className="player-portal-level-coin player-portal-grade-coin"
+                      isEarned
+                      key={`grade-coin-${gradeIndex}`}
+                      title={`${rewardTrack.levelName} ${gradeIndex + 1} Coin`}
+                      visual={gradeCoin}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              {rewardTrack.completedLevelRewardsInGrade.length > 0 ? (
+                <div
+                  className="player-portal-level-reward-stack"
+                  aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} completed level coins`}
+                >
+                  {renderLevelRewardColumns(
+                    rewardTrack.completedLevelRewardsInGrade,
+                    `${rewardTrack.levelName} ${rewardTrack.currentGrade}`,
+                    rewardTrack.pollReward
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="player-portal-reward-track-row">
             <div
               className="player-portal-reward-track"
-              aria-label={`${rewardTrack.levelName}: ${rewardTrack.sublevelName} progress rewards`}
+              aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} level ${rewardTrack.currentLevel} poll progress`}
             >
               {Array.from({ length: rewardTrack.totalSlots }, (_, index) => (
-                <span
-                  aria-label={index < rewardTrack.earnedSlots ? "Earned reward" : "Unearned reward"}
+                <RewardDisc
+                  ariaLabel={index < rewardTrack.earnedSlots ? "Earned reward" : "Unearned reward"}
                   className={`player-portal-reward-disk${index < rewardTrack.earnedSlots ? " is-earned" : ""}`}
+                  isEarned={index < rewardTrack.earnedSlots}
                   key={index}
-                  role="img"
-                  style={rewardVisualStyle(rewardTrack.pollReward, index < rewardTrack.earnedSlots)}
+                  visual={rewardTrack.pollReward}
                 />
               ))}
             </div>
@@ -214,9 +281,11 @@ function PlayerPortalPollSectionOpen({
 }
 
 export function PlayerPortalPollSection({
+  levelEvents,
   rewardTrack,
   stats
 }: {
+  levelEvents: PlayerPortalLevelEvent[];
   rewardTrack: PlayerPortalRewardTrack;
   stats: PlayerPortalPollStats;
 }) {
@@ -245,7 +314,7 @@ export function PlayerPortalPollSection({
     router.replace(`/portal/dashboard?${PLAYER_PORTAL_PLAY_POLLS_PARAM}=0`, { scroll: false });
   }
 
-  return <PlayerPortalPollSectionOpen onClose={closePolls} rewardTrack={rewardTrack} stats={stats} />;
+  return <PlayerPortalPollSectionOpen levelEvents={levelEvents} onClose={closePolls} rewardTrack={rewardTrack} stats={stats} />;
 }
 
 export { isPlayerPortalPlayPollsOpen } from "@/lib/player-portal-play-polls";

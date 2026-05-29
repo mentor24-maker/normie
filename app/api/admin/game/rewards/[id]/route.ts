@@ -53,6 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     name?: unknown;
     description?: unknown;
     rewardType?: unknown;
+    rewardOrder?: unknown;
     pointsCost?: unknown;
     inventoryCount?: unknown;
     status?: unknown;
@@ -73,6 +74,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       name,
       description: safeText(body.description, 1200),
       reward_type: normalizeRewardType(body.rewardType),
+      reward_order: Math.max(1, safeInteger(body.rewardOrder, 1)),
       points_cost: Math.max(0, safeInteger(body.pointsCost, 0)),
       inventory_count: safeInventoryCount(body.inventoryCount),
       status: normalizeRewardStatus(body.status),
@@ -83,7 +85,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
     .eq("id", id)
     .select(
-      "id, name, description, reward_type, points_cost, inventory_count, status, image_url, redemption_url, metadata, created_at, updated_at"
+      "id, name, description, reward_type, reward_order, points_cost, inventory_count, status, image_url, redemption_url, metadata, created_at, updated_at"
     )
     .single();
 

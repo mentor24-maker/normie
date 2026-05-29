@@ -2,11 +2,13 @@ import type {
   BackgroundSettings,
   BuilderPageRecord,
   BuilderTemplateLayout,
+  BuilderTemplateKind,
   BuilderTemplateModuleType,
   BuilderTemplateRecord
 } from "@/lib/builder-template";
+import type { BuilderEmailFunction } from "@/lib/builder-email-template";
 
-export type ModulePaletteGroup = BuilderTemplateModuleType;
+export type ModulePaletteGroup = BuilderTemplateModuleType | "special-effects";
 
 export type GalleryTarget =
   | { kind: "module"; sectionId: string; moduleId: string }
@@ -29,6 +31,8 @@ export type ModulePaletteItem = {
 export type BuilderDraft = {
   id: string;
   name: string;
+  templateKind: BuilderTemplateKind;
+  emailFunction: BuilderEmailFunction | "";
   pageBackground: BackgroundSettings;
   layoutSections: import("@/lib/builder-template").BuilderTemplateSection[];
 };
@@ -67,7 +71,13 @@ export const modulePaletteGroups: Array<{
   { value: "social-share", label: "Social Share", icon: "↗", description: "Share buttons with dynamic post text from the current poll." },
   { value: "social", label: "Social", icon: "@", description: "Linked rows of social icons and profile badges." },
   { value: "table", label: "Tables", icon: "⊞", description: "Data tables with configurable columns and rows." },
-  { value: "slider", label: "Sliders", icon: "⇆", description: "Horizontally scrollable bars of managed cards." }
+  { value: "slider", label: "Sliders", icon: "⇆", description: "Horizontally scrollable bars of managed cards." },
+  {
+    value: "special-effects",
+    label: "Special Effects",
+    icon: "🪄",
+    description: "Celebration bursts and other scripted visual effects."
+  }
 ];
 
 export const modulePaletteItems: ModulePaletteItem[] = [
@@ -410,5 +420,16 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "",
     text: "",
     settings: { variant: "standard" }
+  },
+  {
+    id: "special-effects-confetti",
+    type: "confetti",
+    group: "special-effects",
+    label: "Confetti",
+    icon: "🪄",
+    description: "Canvas confetti burst with adjustable particle settings.",
+    name: "Confetti",
+    text: "",
+    settings: {}
   }
 ];

@@ -14,6 +14,7 @@ import {
 } from "@/lib/builder-template";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
+import { BuilderConfettiRuntime } from "@/components/builder-confetti-runtime";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
@@ -46,12 +47,14 @@ import {
 import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
 import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
 import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
+import { resolveEmailMergeTokensForPreview } from "@/lib/builder-email-template";
 import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/player-portal-auth-form";
 
 type BuilderTemplatePreviewProps = {
   layoutSections: BuilderTemplateSection[];
   pageBackground: import("@/lib/builder-template").BackgroundSettings;
   showShell?: boolean;
+  emailPreview?: boolean;
 };
 
 type ContactFormField = {
@@ -194,20 +197,27 @@ function MerchProductCard({ settings }: { settings: Record<string, string> }) {
 export function BuilderTemplatePreview({
   layoutSections,
   pageBackground,
-  showShell = true
+  showShell = true,
+  emailPreview = false
 }: BuilderTemplatePreviewProps) {
   const pageStyle = getBuilderBackgroundStyle(pageBackground);
 
   return (
     <div className={showShell ? "builder-preview-shell" : undefined} style={pageStyle}>
       {layoutSections.map((section) => (
-        <BuilderSectionPreview key={section.id} section={section} />
+        <BuilderSectionPreview emailPreview={emailPreview} key={section.id} section={section} />
       ))}
     </div>
   );
 }
 
-function BuilderSectionPreview({ section }: { section: BuilderTemplateSection }) {
+function BuilderSectionPreview({
+  section,
+  emailPreview = false
+}: {
+  section: BuilderTemplateSection;
+  emailPreview?: boolean;
+}) {
   const sectionStyle = getBuilderBackgroundStyle(section.background);
   const columnKeys = getLayoutColumns(section.layout);
   const isNavigationSection = section.modules.length > 0 && section.modules.every((module) => module.type === "navigation");
@@ -304,7 +314,7 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
                       : undefined
                   } as CSSProperties}
                 >
-                  <BuilderModulePreview module={module} />
+                  <BuilderModulePreview emailPreview={emailPreview} module={module} />
                 </div>
               );
             })}
@@ -315,7 +325,13 @@ function BuilderSectionPreview({ section }: { section: BuilderTemplateSection })
   );
 }
 
-function BuilderModulePreview({ module }: { module: import("@/lib/builder-template").BuilderTemplateModule }) {
+function BuilderModulePreview({
+  module,
+  emailPreview = false
+}: {
+  module: import("@/lib/builder-template").BuilderTemplateModule;
+  emailPreview?: boolean;
+}) {
   const variant = module.settings.variant ?? "";
 
   if (module.type === "navigation") {
@@ -373,10 +389,14 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
   if (module.type === "button") {
     const s = module.settings;
     const btnStyle = getButtonModuleStyle(s);
+    const href = emailPreview
+      ? resolveEmailMergeTokensForPreview(module.settings.href || "#")
+      : module.settings.href || "#";
+
     return (
       <Link
         className={`builder-preview-button builder-preview-button-styled builder-preview-button-${variant || "default"} builder-preview-button-${s.buttonSize ?? "medium"}`}
-        href={module.settings.href || "#"}
+        href={href}
         style={btnStyle}
       >
         {module.text || ""}
@@ -462,6 +482,10 @@ function BuilderModulePreview({ module }: { module: import("@/lib/builder-templa
 
   if (module.type === "social-share") {
     return <BuilderSocialShareRuntime settings={module.settings} />;
+  }
+
+  if (module.type === "confetti") {
+    return <BuilderConfettiRuntime preview settings={module.settings} />;
   }
 
   return null;

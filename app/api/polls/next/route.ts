@@ -12,9 +12,8 @@ import {
   buildAnsweredPollIdSet,
   filterResponsesToEligiblePolls
 } from "@/lib/poll-response-eligibility";
+import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
 import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
-
-const SESSION_COOKIE = "poll_session_id";
 
 function getPollResults(
   options: Array<{ id: string; label: string }>,
@@ -37,7 +36,7 @@ function getPollResults(
 
 export const GET = withObservedRoute("polls.next", async (request) => {
   const cookieStore = await cookies();
-  let sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  let sessionId = cookieStore.get(POLL_SESSION_COOKIE)?.value;
   const player = await getAuthorizedPlayerFromCookieStore(cookieStore);
 
   if (!sessionId) {
@@ -171,7 +170,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       previousPoll: null,
       settings: settingsPayload
     });
-    doneResponse.cookies.set(SESSION_COOKIE, sessionId, {
+    doneResponse.cookies.set(POLL_SESSION_COOKIE, sessionId, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -257,7 +256,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     settings: settingsPayload
   });
 
-  response.cookies.set(SESSION_COOKIE, sessionId, {
+  response.cookies.set(POLL_SESSION_COOKIE, sessionId, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

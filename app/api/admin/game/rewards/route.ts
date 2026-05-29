@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     name?: unknown;
     description?: unknown;
     rewardType?: unknown;
+    rewardOrder?: unknown;
     pointsCost?: unknown;
     inventoryCount?: unknown;
     status?: unknown;
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       name,
       description: safeText(body.description, 1200),
       reward_type: normalizeRewardType(body.rewardType),
+      reward_order: Math.max(1, safeInteger(body.rewardOrder, 1)),
       points_cost: Math.max(0, safeInteger(body.pointsCost, 0)),
       inventory_count: safeInventoryCount(body.inventoryCount),
       status: normalizeRewardStatus(body.status),
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString()
     })
     .select(
-      "id, name, description, reward_type, points_cost, inventory_count, status, image_url, redemption_url, metadata, created_at, updated_at"
+      "id, name, description, reward_type, reward_order, points_cost, inventory_count, status, image_url, redemption_url, metadata, created_at, updated_at"
     )
     .single();
 

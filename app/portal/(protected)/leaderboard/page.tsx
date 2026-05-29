@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { PlayerLeaderboardName } from "@/components/player-leaderboard-name";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPortalSnapshot } from "@/lib/player-portal";
 
@@ -19,7 +20,13 @@ export default async function PlayerLeaderboardPage() {
             <tbody>
               {snapshot.leaderboard.map((entry) => (
                 <tr className={entry.playerId === snapshot.player.id ? "player-table-highlight" : undefined} key={entry.playerId}>
-                  <td>#{entry.rank}</td><td>{entry.displayName}</td><td>@{entry.handle}</td><td>{entry.answersCount}</td><td>{entry.tokensEarned}</td>
+                  <td>#{entry.rank}</td>
+                  <td>
+                    <PlayerLeaderboardName entry={entry} />
+                  </td>
+                  <td>@{entry.handle}</td>
+                  <td>{entry.answersCount}</td>
+                  <td>{entry.tokensEarned}</td>
                 </tr>
               ))}
             </tbody>

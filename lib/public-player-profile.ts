@@ -172,6 +172,7 @@ function buildPublicProfile(
   profile: PlayerProfileRow,
   viewerId: string | null | undefined,
   answers: PublicPlayerAnswer[],
+  pollsTaken: number,
   pointsEarned: number,
   leaderboardRank: number | null
 ): PublicPlayerProfile {
@@ -188,7 +189,7 @@ function buildPublicProfile(
     avatarUrl: normalizeAvatarUrl(profile.avatar_url),
     bio: safePlayerText(profile.bio, 500),
     socialLinks: parsePlayerSocialLinks(profile.social_links),
-    pollsTaken: answers.length,
+    pollsTaken,
     pointsEarned,
     leaderboardRank,
     shareProfile,
@@ -199,10 +200,23 @@ function buildPublicProfile(
   };
 }
 
-async function loadPlayerAnswers(userId: string): Promise<{
-  answers: PublicPlayerAnswer[];
-  pointsEarned: number;
-}> {
+async function loadPlayerAnswerTotals(userId: string): Promise<{ pollsTaken: number; pointsEarned: number }> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("poll_response").select("tokens_earned").eq("user_id", userId);
+
+  if (error) {
+    return { pollsTaken: 0, pointsEarned: 0 };
+  }
+
+  const rows = data ?? [];
+
+  return {
+    pollsTaken: rows.length,
+    pointsEarned: rows.reduce((sum, row) => sum + (row.tokens_earned ?? 0), 0)
+  };
+}
+
+async function loadRecentPlayerAnswers(userId: string, limit = 50): Promise<PublicPlayerAnswer[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("poll_response")
@@ -211,17 +225,13 @@ async function loadPlayerAnswers(userId: string): Promise<{
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(limit);
 
   if (error) {
-    return { answers: [], pointsEarned: 0 };
+    return [];
   }
 
-  const rows = (data ?? []) as unknown as ResponseRow[];
-  const answers = mapResponseRows(rows);
-  const pointsEarned = rows.reduce((sum, row) => sum + (row.tokens_earned ?? 0), 0);
-
-  return { answers, pointsEarned };
+  return mapResponseRows((data ?? []) as unknown as ResponseRow[]);
 }
 
 export async function getPublicPlayerProfileByHandle(
@@ -263,13 +273,21 @@ export async function getPublicPlayerProfileByHandle(
     return { status: "private" };
   }
 
-  const [{ answers, pointsEarned }, leaderboardRank] = await Promise.all([
-    loadPlayerAnswers(profile.id),
+  const [totals, answers, leaderboardRank] = await Promise.all([
+    loadPlayerAnswerTotals(profile.id),
+    loadRecentPlayerAnswers(profile.id),
     loadLeaderboardRank(profile.id)
   ]);
 
   return {
     status: "ok",
-    profile: buildPublicProfile(profile, viewerId, answers, pointsEarned, leaderboardRank)
+    profile: buildPublicProfile(
+      profile,
+      viewerId,
+      answers,
+      totals.pollsTaken,
+      totals.pointsEarned,
+      leaderboardRank
+    )
   };
 }

@@ -1,4 +1,10 @@
-import type { BackgroundSettings, BuilderTemplateRecord } from "@/lib/builder-template";
+import type { BackgroundSettings, BuilderTemplateKind, BuilderTemplateRecord } from "@/lib/builder-template";
+import {
+  BUILDER_EMAIL_FUNCTIONS,
+  BUILDER_EMAIL_MERGE_TOKENS,
+  getEmailFunctionLabel,
+  type BuilderEmailFunction
+} from "@/lib/builder-email-template";
 import { useEffect, useRef, useState } from "react";
 import { BuilderBackgroundControls } from "./builder-background-controls";
 import { formatTemplateTimestamp } from "./builder-utils";
@@ -7,6 +13,8 @@ type BuilderTemplateListProps = {
   templates: BuilderTemplateRecord[];
   selectedTemplateId: string;
   draftName: string;
+  templateKind: BuilderTemplateKind;
+  emailFunction: BuilderEmailFunction | "";
   pageBackground: BackgroundSettings;
   previewDevice: "desktop" | "mobile";
   isSaving: boolean;
@@ -14,6 +22,8 @@ type BuilderTemplateListProps = {
   onPreviewTemplate: (template: BuilderTemplateRecord) => void;
   onDeleteTemplate: (templateId: string, templateName: string) => void;
   onSetDraftName: (name: string) => void;
+  onSetTemplateKind: (kind: BuilderTemplateKind) => void;
+  onSetEmailFunction: (value: BuilderEmailFunction | "") => void;
   onUpdatePageBackground: (updater: (background: BackgroundSettings) => BackgroundSettings) => void;
   onSetPreviewDevice: (device: "desktop" | "mobile") => void;
   onPreviewDraft: () => void;
@@ -25,6 +35,8 @@ export function BuilderTemplateList({
   templates,
   selectedTemplateId,
   draftName,
+  templateKind,
+  emailFunction,
   pageBackground,
   previewDevice,
   isSaving,
@@ -32,12 +44,15 @@ export function BuilderTemplateList({
   onPreviewTemplate,
   onDeleteTemplate,
   onSetDraftName,
+  onSetTemplateKind,
+  onSetEmailFunction,
   onUpdatePageBackground,
   onSetPreviewDevice,
   onPreviewDraft,
   onNewTemplate,
   onSaveTemplate
 }: BuilderTemplateListProps) {
+  const isEmailTemplate = templateKind === "email";
   const [collapsedPanels, setCollapsedPanels] = useState({
     templates: true,
     details: true
@@ -62,6 +77,14 @@ export function BuilderTemplateList({
   function handleNewTemplate() {
     onNewTemplate();
     openDetailsAndFocus();
+  }
+
+  function handleTemplateKindChange(kind: BuilderTemplateKind) {
+    onSetTemplateKind(kind);
+
+    if (kind === "email" && !emailFunction) {
+      onSetEmailFunction("signup_confirmation");
+    }
   }
 
   useEffect(() => {
@@ -107,7 +130,8 @@ export function BuilderTemplateList({
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>ID</th>
+                  <th>Format</th>
+                  <th>Function</th>
                   <th>Updated</th>
                   <th className="crud-actions-cell">Actions</th>
                 </tr>
@@ -121,9 +145,8 @@ export function BuilderTemplateList({
                       <td>
                         <strong>{template.name || "Untitled template"}</strong>
                       </td>
-                      <td className="template-id-cell">
-                        <code>{template.id}</code>
-                      </td>
+                      <td>{template.templateKind === "email" ? "Email" : "Page"}</td>
+                      <td>{getEmailFunctionLabel(template.emailFunction)}</td>
                       <td>{formatTemplateTimestamp(template.updatedAt)}</td>
                       <td className="crud-actions-cell">
                         <div className="builder-template-actions">
@@ -151,7 +174,7 @@ export function BuilderTemplateList({
                             type="button"
                             disabled={isSaving}
                             aria-label="Delete template"
-                            title="Delete template"
+                            title="Delete"
                           >
                             🗑
                           </button>
@@ -162,7 +185,7 @@ export function BuilderTemplateList({
                 })}
                 {templates.length === 0 ? (
                   <tr>
-                    <td className="empty-cell" colSpan={4}>No templates found.</td>
+                    <td className="empty-cell" colSpan={5}>No templates found.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -196,7 +219,7 @@ export function BuilderTemplateList({
           </span>
         </div>
         {!collapsedPanels.details ? (
-          <div className="builder-meta-grid">
+          <div className="builder-meta-grid builder-meta-grid-templates">
             <label className="field">
               <span>Template name</span>
               <input
@@ -204,38 +227,118 @@ export function BuilderTemplateList({
                 type="text"
                 value={draftName}
                 onChange={(event) => onSetDraftName(event.target.value)}
-                placeholder="Homepage Variant A"
+                placeholder="Untitled template"
               />
             </label>
+
+            {isEmailTemplate ? (
+              <div className="builder-email-merge-tokens-panel">
+                <p className="builder-email-merge-tokens-title">Email merge tokens</p>
+                <p className="builder-email-merge-tokens-copy">
+                  Paste these into button links or rich text. Supabase replaces them when the email sends — you never insert the raw token yourself.
+                </p>
+                <ul className="builder-email-merge-tokens-list">
+                  {BUILDER_EMAIL_MERGE_TOKENS.map((entry) => (
+                    <li key={entry.token}>
+                      <code>{entry.token}</code>
+                      <span>{entry.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="builder-template-format-row">
+              <fieldset className="builder-preview-radio-group builder-template-format-group" aria-label="Template format">
+                <legend className="builder-template-format-legend">Template format</legend>
+                <div className="builder-template-format-options">
+                  <label>
+                    <input
+                      checked={templateKind === "modular"}
+                      name="template-format"
+                      onChange={() => handleTemplateKindChange("modular")}
+                      type="radio"
+                    />
+                    <span>Page</span>
+                  </label>
+                  <label>
+                    <input
+                      checked={templateKind === "email"}
+                      name="template-format"
+                      onChange={() => handleTemplateKindChange("email")}
+                      type="radio"
+                    />
+                    <span>Email</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+
+            {isEmailTemplate ? (
+              <label className="field builder-template-function-field">
+                <span>Function</span>
+                <select
+                  value={emailFunction}
+                  onChange={(event) => onSetEmailFunction(event.target.value as BuilderEmailFunction | "")}
+                >
+                  <option disabled value="">
+                    Select a function
+                  </option>
+                  {BUILDER_EMAIL_FUNCTIONS.map((entry) => (
+                    <option key={entry.value} value={entry.value}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <div className="builder-meta-actions">
               <div className="builder-template-preview-controls">
-                <fieldset className="builder-preview-radio-group" aria-label="Preview device">
-                  <label>
-                    <input
-                      checked={previewDevice === "desktop"}
-                      name="template-preview-device"
-                      onChange={() => onSetPreviewDevice("desktop")}
-                      type="radio"
-                    />
-                    <span>Desktop</span>
-                  </label>
-                  <label>
-                    <input
-                      checked={previewDevice === "mobile"}
-                      name="template-preview-device"
-                      onChange={() => onSetPreviewDevice("mobile")}
-                      type="radio"
-                    />
-                    <span>Mobile</span>
-                  </label>
-                </fieldset>
-                <button className="submit-button" onClick={onPreviewDraft} type="button">
-                  Preview
-                </button>
+                {isEmailTemplate ? (
+                  <>
+                    <p className="builder-email-preview-note">
+                      Email templates render in a fixed 600px pod below. Desktop and Mobile preview modes apply to page templates only.
+                    </p>
+                    <button className="submit-button" onClick={onPreviewDraft} type="button">
+                      Preview Email
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <fieldset className="builder-preview-radio-group" aria-label="Preview device">
+                      <legend className="builder-template-format-legend">Preview device</legend>
+                      <div className="builder-template-format-options">
+                        <label>
+                          <input
+                            checked={previewDevice === "desktop"}
+                            name="template-preview-device"
+                            onChange={() => onSetPreviewDevice("desktop")}
+                            type="radio"
+                          />
+                          <span>Desktop</span>
+                        </label>
+                        <label>
+                          <input
+                            checked={previewDevice === "mobile"}
+                            name="template-preview-device"
+                            onChange={() => onSetPreviewDevice("mobile")}
+                            type="radio"
+                          />
+                          <span>Mobile</span>
+                        </label>
+                      </div>
+                    </fieldset>
+                    <button className="submit-button" onClick={onPreviewDraft} type="button">
+                      Preview
+                    </button>
+                  </>
+                )}
               </div>
             </div>
+
             <BuilderBackgroundControls
-              label="Page Background"
+              label={isEmailTemplate ? "Email Background" : "Page Background"}
               background={pageBackground}
               compact
               onChange={onUpdatePageBackground}

@@ -16,7 +16,27 @@ import { BuilderModuleCard } from "./builder-module-card";
 import { BuilderModulePaletteModal } from "./builder-module-palette-modal";
 import { BuilderSectionCard } from "./builder-section-card";
 import { formatTemplateTimestamp } from "./builder-utils";
+import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
+
+const builderModuleClassOptions = [
+  ...modulePaletteGroups.map((group) => group.label),
+  "Layout",
+  "Content",
+  "Media",
+  "Game",
+  "Custom"
+].filter((value, index, values) => values.indexOf(value) === index);
+
+function getModuleClassOptions(currentValue: string) {
+  const trimmedValue = currentValue.trim();
+
+  if (!trimmedValue || builderModuleClassOptions.includes(trimmedValue)) {
+    return builderModuleClassOptions;
+  }
+
+  return [trimmedValue, ...builderModuleClassOptions];
+}
 
 type BuilderModuleRepositoryListProps = {
   cellModules: BuilderCellModuleRecord[];
@@ -29,8 +49,8 @@ type BuilderModuleRepositoryListProps = {
   isSaving: boolean;
   onSaveCreatedModule: (source: CreatedModuleSource, module: BuilderTemplateModule) => void;
   onDeleteCreatedModule: (source: CreatedModuleSource, moduleName: string) => void;
-  onSaveSavedModule: (cellModuleId: string, name: string, modules: BuilderTemplateModule[]) => void;
-  onCreateSavedModule: (name: string, modules: BuilderTemplateModule[]) => void;
+  onSaveSavedModule: (cellModuleId: string, name: string, moduleClass: string, modules: BuilderTemplateModule[]) => void;
+  onCreateSavedModule: (name: string, moduleClass: string, modules: BuilderTemplateModule[]) => void;
   onDeleteSavedModule: (cellModuleId: string, currentName: string) => void;
   onSaveSavedSection: (sectionId: string, name: string, section: BuilderTemplateSection) => void;
   onDeleteSavedSection: (sectionId: string, currentName: string) => void;
@@ -57,6 +77,22 @@ function getModuleSummary(cellModule: BuilderCellModuleRecord) {
   }
 
   return `${cellModule.modules.length} modules`;
+}
+
+function getInferredModuleClass(modules: BuilderTemplateModule[]) {
+  if (modules.length !== 1) {
+    return "Layout";
+  }
+
+  const moduleType = modules[0]?.type;
+  const paletteItem = modulePaletteItems.find((item) => item.type === moduleType);
+  const paletteGroup = modulePaletteGroups.find((group) => group.value === (paletteItem?.group ?? moduleType));
+
+  return paletteGroup?.label ?? moduleType;
+}
+
+function getDisplayModuleClass(cellModule: BuilderCellModuleRecord) {
+  return cellModule.moduleClass || getInferredModuleClass(cellModule.modules) || "Unclassified";
 }
 
 function getModuleLabel(module: BuilderTemplateModule) {
@@ -277,6 +313,7 @@ function RepositoryTable({
   isCollapsed,
   editingId,
   editingName,
+  editingModuleClass,
   editingExpandedModuleIds,
   editingModules,
   onToggle,
@@ -284,6 +321,7 @@ function RepositoryTable({
   onStartEditing,
   onCancelEditing,
   onSetEditingName,
+  onSetEditingModuleClass,
   onUpdateEditingModule,
   onUpdateEditingModuleBackground,
   onOpenEditingModuleGallery,
@@ -299,6 +337,7 @@ function RepositoryTable({
   isCollapsed: boolean;
   editingId: string;
   editingName: string;
+  editingModuleClass: string;
   editingExpandedModuleIds: string[];
   editingModules: BuilderTemplateModule[];
   onToggle: () => void;
@@ -306,6 +345,7 @@ function RepositoryTable({
   onStartEditing: (item: BuilderCellModuleRecord) => void;
   onCancelEditing: () => void;
   onSetEditingName: (name: string) => void;
+  onSetEditingModuleClass: (moduleClass: string) => void;
   onUpdateEditingModule: (moduleId: string, updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
   onUpdateEditingModuleBackground: (moduleId: string, updater: (background: BackgroundSettings) => BackgroundSettings) => void;
   onOpenEditingModuleGallery: (moduleId: string) => void;
@@ -330,6 +370,7 @@ function RepositoryTable({
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Class</th>
                 <th>Contents</th>
                 <th>ID</th>
                 <th>Updated</th>
@@ -343,6 +384,7 @@ function RepositoryTable({
                     <td>
                       <strong>{item.name || "Untitled saved module"}</strong>
                     </td>
+                    <td>{getDisplayModuleClass(item)}</td>
                     <td>{getModuleSummary(item)}</td>
                     <td className="template-id-cell">
                       <code>{item.id}</code>
@@ -375,7 +417,7 @@ function RepositoryTable({
                   </tr>
                   {editingId === item.id ? (
                     <tr key={`${item.id}-editor`}>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <div className="builder-saved-module-editor">
                           <div className="builder-meta-grid">
                             <label className="field">
@@ -386,6 +428,19 @@ function RepositoryTable({
                                 onChange={(event) => onSetEditingName(event.target.value)}
                               />
                             </label>
+                            <label className="field">
+                              <span>Module class</span>
+                              <select
+                                value={editingModuleClass}
+                                onChange={(event) => onSetEditingModuleClass(event.target.value)}
+                              >
+                                {getModuleClassOptions(editingModuleClass).map((moduleClass) => (
+                                  <option key={moduleClass} value={moduleClass}>
+                                    {moduleClass}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                             <div className="builder-meta-actions">
                               <button className="secondary-button" onClick={onCancelEditing} type="button">
                                 Cancel
@@ -393,7 +448,7 @@ function RepositoryTable({
                               <button
                                 className="submit-button admin-blog-add-button"
                                 disabled={isSaving}
-                                onClick={() => onSaveSavedModule(item.id, editingName, editingModules)}
+                                onClick={() => onSaveSavedModule(item.id, editingName, editingModuleClass, editingModules)}
                                 type="button"
                               >
                                 {isSaving ? "Saving..." : "Save Module"}
@@ -432,7 +487,7 @@ function RepositoryTable({
               ))}
               {items.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={5}>{emptyLabel}</td>
+                  <td className="empty-cell" colSpan={6}>{emptyLabel}</td>
                 </tr>
               ) : null}
             </tbody>
@@ -471,6 +526,7 @@ export function BuilderModuleRepositoryList({
   const [editingCreatedExpanded, setEditingCreatedExpanded] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [editingName, setEditingName] = useState("");
+  const [editingModuleClass, setEditingModuleClass] = useState("");
   const [editingModules, setEditingModules] = useState<BuilderTemplateModule[]>([]);
   const [editingExpandedModuleIds, setEditingExpandedModuleIds] = useState<string[]>([]);
   const [editingSectionId, setEditingSectionId] = useState("");
@@ -533,6 +589,7 @@ export function BuilderModuleRepositoryList({
   function startEditing(item: BuilderCellModuleRecord) {
     setEditingId(item.id);
     setEditingName(item.name);
+    setEditingModuleClass(getDisplayModuleClass(item));
     setEditingModules(item.modules.map((module) => ({ ...module, settings: { ...module.settings } })));
     setEditingExpandedModuleIds([]);
   }
@@ -552,6 +609,7 @@ export function BuilderModuleRepositoryList({
   function cancelEditing() {
     setEditingId("");
     setEditingName("");
+    setEditingModuleClass("");
     setEditingModules([]);
     setEditingExpandedModuleIds([]);
   }
@@ -829,7 +887,10 @@ export function BuilderModuleRepositoryList({
     const name = window.prompt("Name this saved cell module set", fallbackName)?.trim();
     if (!name) return;
 
-    onCreateSavedModule(name, modules);
+    const moduleClass = window.prompt("Module class (Navigation, Headings, etc.)", "Layout")?.trim();
+    if (moduleClass === undefined) return;
+
+    onCreateSavedModule(name, moduleClass, modules);
   }
 
   function saveEditingSectionModule(moduleId: string) {
@@ -842,7 +903,10 @@ export function BuilderModuleRepositoryList({
     const name = window.prompt("Name this saved module", fallbackName)?.trim();
     if (!name) return;
 
-    onCreateSavedModule(name, [builderModule]);
+    const moduleClass = window.prompt("Module class (Navigation, Headings, etc.)", getInferredModuleClass([builderModule]))?.trim();
+    if (moduleClass === undefined) return;
+
+    onCreateSavedModule(name, moduleClass, [builderModule]);
   }
 
   function moveEditingSectionModule(moduleId: string, direction: -1 | 1) {
@@ -954,6 +1018,11 @@ export function BuilderModuleRepositoryList({
 
   return (
     <>
+      <datalist id="builder-module-class-options">
+        {builderModuleClassOptions.map((moduleClass) => (
+          <option key={moduleClass} value={moduleClass} />
+        ))}
+      </datalist>
       <CreatedModulesTable
         emptyLabel="No created modules found in templates or pages."
         editingCreatedExpanded={editingCreatedExpanded}
@@ -982,12 +1051,14 @@ export function BuilderModuleRepositoryList({
         products={products}
         editingId={editingId}
         editingName={editingName}
+        editingModuleClass={editingModuleClass}
         editingExpandedModuleIds={editingExpandedModuleIds}
         editingModules={editingModules}
         onDeleteSavedModule={onDeleteSavedModule}
         onCancelEditing={cancelEditing}
         onSaveSavedModule={onSaveSavedModule}
         onSetEditingName={setEditingName}
+        onSetEditingModuleClass={setEditingModuleClass}
         onStartEditing={startEditing}
         onToggle={() => togglePanel("modules")}
         onToggleEditingModuleExpanded={toggleEditingModuleExpanded}
@@ -1007,12 +1078,14 @@ export function BuilderModuleRepositoryList({
         products={products}
         editingId={editingId}
         editingName={editingName}
+        editingModuleClass={editingModuleClass}
         editingExpandedModuleIds={editingExpandedModuleIds}
         editingModules={editingModules}
         onDeleteSavedModule={onDeleteSavedModule}
         onCancelEditing={cancelEditing}
         onSaveSavedModule={onSaveSavedModule}
         onSetEditingName={setEditingName}
+        onSetEditingModuleClass={setEditingModuleClass}
         onStartEditing={startEditing}
         onToggle={() => togglePanel("cells")}
         onToggleEditingModuleExpanded={toggleEditingModuleExpanded}

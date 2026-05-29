@@ -7,9 +7,8 @@ import { validatePollAnswerSubmission } from "@/lib/poll-answer-validation";
 import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
 import { createAdminClient } from "@/lib/supabase-admin";
-
-const SESSION_COOKIE = "poll_session_id";
 const SESSION_RATE_LIMIT = 40;
 const SESSION_WINDOW_SECONDS = 60;
 const IP_RATE_LIMIT = 80;
@@ -63,7 +62,7 @@ async function playerAnswerResponse(
 
 export const POST = withObservedRoute("polls.answer", async (request) => {
   const cookieStore = await cookies();
-  const sessionId = safePublicText(cookieStore.get(SESSION_COOKIE)?.value, 120);
+  const sessionId = safePublicText(cookieStore.get(POLL_SESSION_COOKIE)?.value, 120);
   const player = await getAuthorizedPlayerFromCookieStore(cookieStore);
 
   if (!sessionId || !isUuid(sessionId)) {

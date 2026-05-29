@@ -5,6 +5,7 @@ import {
   resolvePlayerProfileForLogin,
   safePlayerText
 } from "@/lib/player-auth";
+import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
 import { createPublicClient } from "@/lib/supabase-public";
 
 export async function POST(request: Request) {
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
     data.session.refresh_token,
     buildPlayerSessionSnapshot(data.user, profile)
   );
+  clearPollSessionCookie(response);
 
   return response;
 }

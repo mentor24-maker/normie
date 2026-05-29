@@ -11,6 +11,7 @@ import {
   resolvePlayerProfileForLogin,
   safePlayerText
 } from "@/lib/player-auth";
+import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
 import { createPublicClient } from "@/lib/supabase-public";
 
 export async function GET() {
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
     data.session.refresh_token,
     buildPlayerSessionSnapshot(data.user, profile)
   );
+  clearPollSessionCookie(response);
 
   return response;
 }
@@ -84,6 +86,7 @@ export async function DELETE() {
   response.cookies.set(PLAYER_ACCESS_COOKIE, "", options);
   response.cookies.set(PLAYER_REFRESH_COOKIE, "", options);
   response.cookies.set(PLAYER_PROFILE_COOKIE, "", options);
+  clearPollSessionCookie(response);
 
   return response;
 }

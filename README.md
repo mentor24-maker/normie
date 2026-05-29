@@ -91,6 +91,7 @@ Fill in:
      and the same paths for `http://localhost:3000` when developing locally.
 3. Invite emails use a Supabase verify link first; after the user clicks, they are sent to `/admin/auth/callback` on your domain.
 4. **Invite email design:** copy `supabase/email-templates/invite-user.html` into Supabase → **Authentication** → **Email Templates** → **Invite user** (Message body). Logo image URL: `{{ .SiteURL }}/api/brand/normie-logo` (served from `public/brand/normie-logo.png`). Avoid `/email/*` static paths — they 404 on production Vercel.
+5. **Signup confirmation email:** copy `supabase/email-templates/confirm-signup.html` into Supabase → **Authentication** → **Email Templates** → **Confirm signup** (Message body). Same logo URL as invites.
 
 ## 3. CSV format
 

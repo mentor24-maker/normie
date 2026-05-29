@@ -18,8 +18,18 @@ function safeRecord(value: unknown) {
 
 function normalizeLevelName(value: unknown): GameLevelName {
   const levelName = safeText(value, 80);
-  const normalizedLevelName = levelName === "Rank" ? "Levels" : levelName;
-  return GAME_LEVEL_NAMES.includes(normalizedLevelName as GameLevelName) ? (normalizedLevelName as GameLevelName) : "Levels";
+  const normalizedLevelName = (
+    {
+      Rank: "Level",
+      Levels: "Level",
+      Grades: "Grade",
+      Classes: "Class",
+      Degrees: "Degree",
+      Echelons: "Echelon",
+      Tiers: "Tier"
+    } as const
+  )[levelName as "Rank" | "Levels" | "Grades" | "Classes" | "Degrees" | "Echelons" | "Tiers"] ?? levelName;
+  return GAME_LEVEL_NAMES.includes(normalizedLevelName as GameLevelName) ? (normalizedLevelName as GameLevelName) : "Level";
 }
 
 function safeSublevels(value: unknown) {

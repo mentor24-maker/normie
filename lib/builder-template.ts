@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import { normalizeEmailFunction, type BuilderEmailFunction } from "@/lib/builder-email-template";
+import { CONFETTI_EFFECT_DEFAULTS, normalizeConfettiModuleSettings } from "@/lib/confetti-effect";
 import { normalizeCurrentPollModuleWidth } from "@/lib/current-poll-module";
 import { sanitizeCellBackgroundForDrillDown } from "@/lib/builder-drill-down-surface";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
@@ -39,7 +41,8 @@ export type BuilderTemplateModuleType =
   | "social"
   | "social-share"
   | "previous-results"
-  | "current-poll";
+  | "current-poll"
+  | "confetti";
 
 export type BuilderTemplateModule = {
   id: string;
@@ -85,10 +88,13 @@ export type BuilderTemplateSection = {
   modules: BuilderTemplateModule[];
 };
 
+export type BuilderTemplateKind = "modular" | "email";
+
 export type BuilderTemplateRecord = {
   id: string;
   name: string;
-  templateKind: "modular";
+  templateKind: BuilderTemplateKind;
+  emailFunction: BuilderEmailFunction | "";
   pageBackground: BackgroundSettings;
   layoutSections: BuilderTemplateSection[];
   createdAt: string;
@@ -110,6 +116,7 @@ export type BuilderPageRecord = {
 export type BuilderCellModuleRecord = {
   id: string;
   name: string;
+  moduleClass: string;
   modules: BuilderTemplateModule[];
   createdAt: string;
   updatedAt: string;
@@ -171,6 +178,14 @@ export function normalizeBuilderAssetUrl(value: unknown): string {
 
   if (!text) {
     return "";
+  }
+
+  if (text.startsWith("gallery/")) {
+    return `/${text}`;
+  }
+
+  if (text.startsWith("api/admin/media-file/gallery/")) {
+    return `/${text.replace("api/admin/media-file/gallery/", "gallery/")}`;
   }
 
   if (text.startsWith("/api/admin/media-file/gallery/")) {
@@ -505,7 +520,8 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "social" ||
     type === "social-share" ||
     type === "previous-results" ||
-    type === "current-poll"
+    type === "current-poll" ||
+    type === "confetti"
   ) {
     return type;
   }
@@ -553,6 +569,16 @@ export function resolveBuilderModuleType(
 ): BuilderTemplateModuleType {
   const type = normalizeModuleType(rawType);
 
+  if (
+    type === "text" &&
+    (settings.particleCount !== undefined ||
+      settings.spread !== undefined ||
+      settings.originX !== undefined ||
+      settings.popVolume !== undefined)
+  ) {
+    return "confetti";
+  }
+
   if (type === "image" && settings.positionMode === "overlay" && settings.variant !== "video") {
     return "floating-image";
   }
@@ -591,6 +617,10 @@ function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: 
 
   if (type === "current-poll") {
     settings.size = normalizeCurrentPollModuleWidth(settings.size);
+  }
+
+  if (type === "confetti") {
+    return normalizeConfettiModuleSettings(settings);
   }
 
   if (type === "headline-rotator") {
@@ -657,6 +687,7 @@ export function rowToBuilderCellModule(row: Record<string, unknown>): BuilderCel
   return {
     id: safeText(row.id, 120),
     name: safeText(row.name, 255),
+    moduleClass: safeText(row.module_class ?? row.moduleClass, 255),
     modules: normalizeBuilderModules(row.modules),
     createdAt: safeText(row.created_at ?? row.createdAt, 120),
     updatedAt: safeText(row.updated_at ?? row.updatedAt, 120)
@@ -968,7 +999,9 @@ export function createEmptyModule(
                         shareGlyphSize: "20",
                         shareIconGap: "12"
                       }
-                    : type === "headline-rotator"
+                    : type === "confetti"
+                      ? { ...CONFETTI_EFFECT_DEFAULTS }
+                      : type === "headline-rotator"
                     ? {
                         fontSize: HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
                         color: "#18324a",
@@ -997,13 +1030,24 @@ export function createEmptyModule(
   };
 }
 
+export function normalizeTemplateKind(value: unknown): BuilderTemplateKind {
+  const kind = safeText(value, 40).toLowerCase();
+
+  if (kind === "email") {
+    return "email";
+  }
+
+  return "modular";
+}
+
 export function rowToBuilderTemplate(row: Record<string, unknown>): BuilderTemplateRecord {
   const document = normalizeBuilderDocument(row.layout_sections ?? row.layoutSections);
 
   return {
     id: safeText(row.id, 120),
     name: safeText(row.name, 255),
-    templateKind: "modular",
+    templateKind: normalizeTemplateKind(row.template_kind ?? row.templateKind),
+    emailFunction: normalizeEmailFunction(row.email_function ?? row.emailFunction),
     pageBackground: document.pageBackground,
     layoutSections: document.layoutSections,
     createdAt: safeText(row.created_at ?? row.createdAt, 120),

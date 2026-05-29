@@ -24,9 +24,14 @@ import {
   getButtonBackgroundSettings,
   getModuleAlignment
 } from "./builder-utils";
+import {
+  BUILDER_EMAIL_CONFIRMATION_URL_TOKEN,
+  BUILDER_EMAIL_MERGE_TOKENS
+} from "@/lib/builder-email-template";
 
 type BuilderButtonDesignSettingsProps = {
   module: BuilderTemplateModule;
+  isEmailTemplate?: boolean;
   onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
   onOpenButtonBackgroundGallery?: () => void;
   onUploadButtonBackgroundMedia?: (file: File | null) => void;
@@ -55,6 +60,7 @@ function ButtonDesignSection({
 
 export function BuilderButtonDesignSettings({
   module,
+  isEmailTemplate = false,
   onUpdateModule,
   onOpenButtonBackgroundGallery,
   onUploadButtonBackgroundMedia
@@ -131,9 +137,35 @@ export function BuilderButtonDesignSettings({
             type="text"
             value={settings.href ?? ""}
             onChange={(event) => updateSetting("href", event.target.value)}
-            placeholder="/path-or-url"
+            placeholder={isEmailTemplate ? "{{ .ConfirmationURL }}" : "/path-or-url"}
           />
         </BuilderSettingRow>
+        {isEmailTemplate ? (
+          <div className="builder-email-merge-token-row">
+            <p className="builder-email-merge-token-copy">
+              Use Supabase merge tokens in the link — do not hand-build verify URLs or paste raw tokens.
+            </p>
+            <div className="builder-email-merge-token-actions">
+              <button
+                className="secondary-button"
+                onClick={() => updateSetting("href", BUILDER_EMAIL_CONFIRMATION_URL_TOKEN)}
+                type="button"
+              >
+                Use Confirmation URL
+              </button>
+              {BUILDER_EMAIL_MERGE_TOKENS.filter((entry) => entry.token !== BUILDER_EMAIL_CONFIRMATION_URL_TOKEN).map((entry) => (
+                <button
+                  className="secondary-button"
+                  key={entry.token}
+                  onClick={() => updateSetting("href", entry.token)}
+                  type="button"
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="builder-button-setting-columns">
           <div className="builder-button-setting-column">
             <BuilderSettingRow label="Background">

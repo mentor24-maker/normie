@@ -1,5 +1,7 @@
+import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
+import type { BuilderTemplateModule } from "./builder-template";
 
 export type PlayerPollOption = {
   id: string;
@@ -23,6 +25,7 @@ export type LeaderboardEntry = {
   playerId: string;
   displayName: string;
   handle: string;
+  shareProfile: boolean;
   answersCount: number;
   tokensEarned: number;
 };
@@ -33,17 +36,39 @@ export type PlayerPortalRewardVisual = {
   visualSize: string;
   visualBorderColor: string;
   visualBorderWidth: string;
+  visualSymbolUrl: string;
 };
 
 export type PlayerPortalRewardTrack = {
   levelName: string;
   sublevelName: string;
+  currentGrade: number;
+  currentLevel: number;
+  pollsPerLevel: number;
+  levelsPerGrade: number;
+  completedGrades: number;
   totalSlots: number;
   earnedSlots: number;
   isComplete: boolean;
   completedLevelRewards: number;
+  completedGradeCoins: PlayerPortalRewardVisual[];
+  completedLevelRewardsInGrade: PlayerPortalRewardVisual[];
+  /** @deprecated Use completedLevelRewardsInGrade */
+  completedRewards: PlayerPortalRewardVisual[];
   pollReward: PlayerPortalRewardVisual;
   levelReward: PlayerPortalRewardVisual;
+};
+
+export type PlayerPortalLevelEvent = {
+  eventName: string;
+  levelName: string;
+  sublevelName: string;
+  moduleId: string;
+  moduleName: string;
+  moduleType: string;
+  moduleSettings: Record<string, string>;
+  trigger: string;
+  metadata: Record<string, unknown>;
 };
 
 export type PlayerPortalSnapshot = {
@@ -54,6 +79,7 @@ export type PlayerPortalSnapshot = {
   leaderboard: LeaderboardEntry[];
   playerRank: number | null;
   rewardTrack: PlayerPortalRewardTrack;
+  levelEvents: PlayerPortalLevelEvent[];
 };
 
 type PollOptionRow = {
@@ -93,26 +119,57 @@ type ProfileRelation = {
   id: string;
   full_name: string | null;
   handle: string | null;
+  share_profile: boolean | null;
 };
 
 type GameRewardRow = {
+  name: string | null;
+  reward_order: number | null;
+  points_cost: number | null;
   metadata: unknown;
+  updated_at: string | null;
 };
 
-const FIRST_GRADE_REWARD_SLOTS = 10;
+type GameLevelEventRow = {
+  event_name: string | null;
+  level_name: string | null;
+  sublevel_name: string | null;
+  module_id: string | null;
+  trigger: string | null;
+  metadata: unknown;
+  builder_cell_modules?:
+    | {
+        id: string | null;
+        name: string | null;
+        modules: unknown;
+      }
+    | Array<{
+        id: string | null;
+        name: string | null;
+        modules: unknown;
+      }>
+    | null;
+};
+
+export const PLAYER_POLLS_PER_LEVEL = 10;
+/** 10 levels per grade × 10 polls per level = 100 polls to graduate a grade. */
+export const PLAYER_LEVELS_PER_GRADE = 10;
+export const PLAYER_POLLS_PER_GRADE = PLAYER_POLLS_PER_LEVEL * PLAYER_LEVELS_PER_GRADE;
 const DEFAULT_POLL_REWARD_VISUAL: PlayerPortalRewardVisual = {
   visualType: "coin",
   visualColor: "#d8212d",
   visualSize: "10px",
   visualBorderColor: "",
-  visualBorderWidth: ""
+  visualBorderWidth: "",
+  visualSymbolUrl: ""
 };
 const DEFAULT_LEVEL_REWARD_VISUAL: PlayerPortalRewardVisual = {
   visualType: "coin",
   visualColor: "#d8212d",
   visualSize: "42px",
   visualBorderColor: "",
-  visualBorderWidth: ""
+  visualBorderWidth: "",
+  visualSymbolUrl: ""
 };
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
@@ -127,9 +184,37 @@ function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function toStringRecord(value: unknown): Record<string, string> {
+  const record = toRecord(value);
+
+  return Object.fromEntries(
+    Object.entries(record).map(([key, recordValue]) => [key, String(recordValue ?? "")])
+  );
+}
+
 function textValue(value: unknown, fallback: string) {
   const text = String(value ?? "").trim();
   return text || fallback;
+}
+
+function getRewardVisualSource(metadata: Record<string, unknown>, key: "pollReward" | "levelReward") {
+  const nested = toRecord(metadata[key]);
+  const hasNestedVisual =
+    Boolean(textValue(nested.visualColor, "")) ||
+    Boolean(textValue(nested.visualSize, "")) ||
+    Boolean(textValue(nested.visualType, ""));
+
+  if (hasNestedVisual) {
+    return nested;
+  }
+
+  return key === "levelReward" ? metadata : nested;
+}
+
+function parseVisualSizePx(value: string) {
+  const parsed = Number.parseFloat(String(value).replace(/px$/i, "").trim());
+
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function buildRewardVisual(
@@ -137,41 +222,187 @@ function buildRewardVisual(
   key: "pollReward" | "levelReward",
   fallback: PlayerPortalRewardVisual
 ): PlayerPortalRewardVisual {
-  const reward = toRecord(metadata[key]);
+  const reward = getRewardVisualSource(metadata, key);
 
   return {
     visualType: textValue(reward.visualType, fallback.visualType),
-    visualColor: textValue(reward.visualColor, fallback.visualColor),
+    visualColor: normalizeBuilderHexColor(textValue(reward.visualColor, fallback.visualColor), fallback.visualColor),
     visualSize: textValue(reward.visualSize, fallback.visualSize),
-    visualBorderColor: textValue(reward.visualBorderColor, fallback.visualBorderColor),
-    visualBorderWidth: textValue(reward.visualBorderWidth, fallback.visualBorderWidth)
+    visualBorderColor: normalizeBuilderHexColor(
+      textValue(reward.visualBorderColor, fallback.visualBorderColor),
+      fallback.visualBorderColor
+    ),
+    visualBorderWidth: textValue(reward.visualBorderWidth, fallback.visualBorderWidth),
+    visualSymbolUrl: textValue(reward.visualSymbolUrl, fallback.visualSymbolUrl)
   };
 }
 
-function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): PlayerPortalRewardTrack {
-  const gradeFirstReward = rewards.find((reward) => {
-    const metadata = toRecord(reward.metadata);
-    return metadata.achievementLevelName === "Grades" && metadata.achievementSublevelName === "First";
-  });
-  const metadata = toRecord(gradeFirstReward?.metadata);
+function buildGradeCoinVisual(
+  sourceGradeRewards: GameRewardRow[],
+  levelTier: number,
+  fallbackReward: GameRewardRow | null
+): PlayerPortalRewardVisual {
+  const sourceReward = rewardAtLevelTier(sourceGradeRewards, levelTier) ?? fallbackReward;
+  const sourceMetadata = sourceReward ? toRecord(sourceReward.metadata) : {};
+  return buildRewardVisual(sourceMetadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL);
+}
+
+function rewardProgressionOrder(reward: GameRewardRow, index: number) {
+  if (typeof reward.reward_order === "number" && Number.isFinite(reward.reward_order)) {
+    return reward.reward_order;
+  }
+
+  const metadata = toRecord(reward.metadata);
+  const explicitOrder = Number.parseInt(
+    String(
+      metadata.levelOrder ??
+        metadata.rewardOrder ??
+        metadata.progressionOrder ??
+        metadata.achievementOrder ??
+        ""
+    ),
+    10
+  );
+
+  if (Number.isFinite(explicitOrder)) {
+    return explicitOrder;
+  }
+
+  const nameMatch = String(reward.name ?? "").match(/\blevel\s*(\d+)\b/i);
+
+  if (nameMatch) {
+    return Number.parseInt(nameMatch[1], 10);
+  }
+
+  return index + 1;
+}
+
+function getRewardTierValue(metadata: Record<string, unknown>, key: "levelTier" | "gradeTier" | "classTier") {
+  const parsed = Number.parseInt(String(metadata[key] ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function getRewardsForGrade(rewards: GameRewardRow[], gradeTier: number) {
+  return rewards
+    .filter((reward) => {
+      const metadata = toRecord(reward.metadata);
+      return getRewardTierValue(metadata, "gradeTier") === gradeTier && getRewardTierValue(metadata, "classTier") === 1;
+    })
+    .map((reward, index) => {
+      const metadata = toRecord(reward.metadata);
+      const levelTier = getRewardTierValue(metadata, "levelTier");
+      return { reward, order: levelTier || rewardProgressionOrder(reward, index) };
+    })
+    .sort((left, right) => left.order - right.order || String(left.reward.name ?? "").localeCompare(String(right.reward.name ?? "")))
+    .map((item) => item.reward);
+}
+
+function rewardAtLevelTier(rewards: GameRewardRow[], levelTier: number) {
+  if (!rewards.length) {
+    return null;
+  }
+
+  const exactMatch = rewards.find((reward) => getRewardTierValue(toRecord(reward.metadata), "levelTier") === levelTier);
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  return rewards[Math.min(Math.max(levelTier, 1), rewards.length) - 1] ?? rewards[rewards.length - 1] ?? null;
+}
+
+function gradeGraduationReward(gradeRewards: GameRewardRow[]) {
+  return (
+    rewardAtLevelTier(gradeRewards, PLAYER_LEVELS_PER_GRADE) ??
+    gradeRewards[gradeRewards.length - 1] ??
+    null
+  );
+}
+
+export function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): PlayerPortalRewardTrack {
   const normalizedPollsTaken = Math.max(pollsTaken, 0);
-  const completedLevelRewards = Math.floor(normalizedPollsTaken / FIRST_GRADE_REWARD_SLOTS);
-  const earnedSlots = normalizedPollsTaken % FIRST_GRADE_REWARD_SLOTS;
+  const completedGrades = Math.floor(normalizedPollsTaken / PLAYER_POLLS_PER_GRADE);
+  const pollsInCurrentGrade = normalizedPollsTaken % PLAYER_POLLS_PER_GRADE;
+  const completedLevelsInCurrentGrade = Math.min(
+    PLAYER_LEVELS_PER_GRADE,
+    Math.floor(pollsInCurrentGrade / PLAYER_POLLS_PER_LEVEL)
+  );
+  const earnedSlots = pollsInCurrentGrade % PLAYER_POLLS_PER_LEVEL;
+  const currentGrade = completedGrades + 1;
+  const currentLevel = Math.min(PLAYER_LEVELS_PER_GRADE, completedLevelsInCurrentGrade + 1);
+  const completedLevelRewards = Math.floor(normalizedPollsTaken / PLAYER_POLLS_PER_LEVEL);
+  const currentGradeRewards = getRewardsForGrade(rewards, currentGrade);
+  const previousGradeRewards = getRewardsForGrade(rewards, Math.max(1, currentGrade - 1));
+  const previousGradeGraduationReward = gradeGraduationReward(previousGradeRewards);
+  const activeProgressionReward = rewardAtLevelTier(currentGradeRewards, currentLevel);
+  const activeMetadata = toRecord(activeProgressionReward?.metadata);
+
+  const completedGradeCoins = Array.from({ length: completedGrades }, (_, index) => {
+    const levelTier = index + 1;
+    return buildGradeCoinVisual(previousGradeRewards, levelTier, previousGradeGraduationReward);
+  });
+
+  const completedLevelRewardsInGrade = Array.from({ length: completedLevelsInCurrentGrade }, (_, index) => {
+    const levelTier = index + 1;
+    const completedReward = rewardAtLevelTier(currentGradeRewards, levelTier);
+
+    return completedReward
+      ? buildRewardVisual(toRecord(completedReward.metadata), "pollReward", DEFAULT_POLL_REWARD_VISUAL)
+      : DEFAULT_POLL_REWARD_VISUAL;
+  });
 
   return {
-    levelName: "Grades",
-    sublevelName: "First",
-    totalSlots: FIRST_GRADE_REWARD_SLOTS,
+    levelName: "Grade",
+    sublevelName: String(currentGrade),
+    currentGrade,
+    currentLevel,
+    pollsPerLevel: PLAYER_POLLS_PER_LEVEL,
+    levelsPerGrade: PLAYER_LEVELS_PER_GRADE,
+    completedGrades,
+    totalSlots: PLAYER_POLLS_PER_LEVEL,
     earnedSlots,
     isComplete: normalizedPollsTaken > 0 && earnedSlots === 0,
     completedLevelRewards,
-    pollReward: gradeFirstReward
-      ? buildRewardVisual(metadata, "pollReward", DEFAULT_POLL_REWARD_VISUAL)
+    completedGradeCoins,
+    completedLevelRewardsInGrade,
+    completedRewards: completedLevelRewardsInGrade,
+    pollReward: activeProgressionReward
+      ? buildRewardVisual(activeMetadata, "pollReward", DEFAULT_POLL_REWARD_VISUAL)
       : DEFAULT_POLL_REWARD_VISUAL,
-    levelReward: gradeFirstReward
-      ? buildRewardVisual(metadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
+    levelReward: activeProgressionReward
+      ? buildRewardVisual(activeMetadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
       : DEFAULT_LEVEL_REWARD_VISUAL
   };
+}
+
+function buildLevelEvents(rows: GameLevelEventRow[]): PlayerPortalLevelEvent[] {
+  return rows.flatMap((row) => {
+    const savedModule = firstRelation(row.builder_cell_modules);
+    const modules = Array.isArray(savedModule?.modules) ? (savedModule.modules as BuilderTemplateModule[]) : [];
+    const savedModuleDefinition = modules.length === 1 ? modules[0] : null;
+    const moduleSettings = toStringRecord(savedModuleDefinition?.settings);
+    const isConfettiModule =
+      savedModuleDefinition?.type === "confetti" ||
+      moduleSettings.particleCount !== undefined ||
+      moduleSettings.spread !== undefined ||
+      moduleSettings.popVolume !== undefined;
+
+    if (!savedModuleDefinition || !isConfettiModule || moduleSettings.trigger !== "game") {
+      return [];
+    }
+
+    return [{
+      eventName: row.event_name ?? "Level Up Event",
+      levelName: row.level_name ?? "",
+      sublevelName: row.sublevel_name ?? "",
+      moduleId: row.module_id ?? savedModule?.id ?? "",
+      moduleName: savedModule?.name ?? savedModuleDefinition.name ?? "Confetti",
+      moduleType: "confetti",
+      moduleSettings,
+      trigger: row.trigger ?? "game",
+      metadata: toRecord(row.metadata)
+    }];
+  });
 }
 
 export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise<PlayerPortalSnapshot> {
@@ -179,7 +410,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
   const [
     { data: responseRows, error: responsesError },
     { data: leaderboardRows, error: leaderboardError },
-    { data: rewardRows, error: rewardsError }
+    { data: rewardRows, error: rewardsError },
+    { data: levelEventRows, error: levelEventsError }
   ] =
     await Promise.all([
       supabase
@@ -195,8 +427,12 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
         .not("user_id", "is", null),
       supabase
         .from("game_rewards")
-        .select("metadata")
-        .eq("status", "active")
+        .select("name, reward_order, points_cost, metadata, updated_at")
+        .eq("status", "active"),
+      supabase
+        .from("game_level_events")
+        .select("event_name, level_name, sublevel_name, module_id, trigger, metadata, builder_cell_modules(id, name, modules)")
+        .eq("is_active", true)
     ]);
 
   if (responsesError) {
@@ -209,6 +445,14 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
 
   if (rewardsError) {
     throw new Error(rewardsError.message);
+  }
+
+  if (
+    levelEventsError &&
+    !levelEventsError.message.includes("game_level_events") &&
+    !levelEventsError.message.includes("schema cache")
+  ) {
+    throw new Error(levelEventsError.message);
   }
 
   const answers: PlayerAnswer[] = ((responseRows ?? []) as unknown as ResponseRow[]).map((row) => {
@@ -281,7 +525,10 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
 
   const leaderboardPlayerIds = leaderboardTotals.map((row) => row.playerId);
   const { data: profileRows, error: profilesError } = leaderboardPlayerIds.length
-    ? await supabase.from("player_profiles").select("id, full_name, handle").in("id", leaderboardPlayerIds)
+    ? await supabase
+        .from("player_profiles")
+        .select("id, full_name, handle, share_profile")
+        .in("id", leaderboardPlayerIds)
     : { data: [], error: null };
 
   if (profilesError) {
@@ -300,6 +547,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
       playerId: row.playerId,
       displayName: displayNameForProfile(profile?.full_name, profile?.handle),
       handle: profile?.handle ?? "player",
+      shareProfile: Boolean(profile?.share_profile),
       answersCount: row.answersCount,
       tokensEarned: row.tokensEarned
     };
@@ -321,6 +569,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     pollsTaken,
     leaderboard,
     playerRank,
-    rewardTrack: buildRewardTrack((rewardRows ?? []) as unknown as GameRewardRow[], pollsTaken)
+    rewardTrack: buildRewardTrack((rewardRows ?? []) as unknown as GameRewardRow[], pollsTaken),
+    levelEvents: levelEventsError ? [] : buildLevelEvents((levelEventRows ?? []) as unknown as GameLevelEventRow[])
   };
 }

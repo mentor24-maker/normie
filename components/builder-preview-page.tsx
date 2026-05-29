@@ -18,14 +18,15 @@ type PreviewDraft = {
 
 export function BuilderPreviewPage() {
   const [draft, setDraft] = useState<PreviewDraft | null>(null);
-  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile" | "email">("desktop");
+  const isEmailPreview = previewDevice === "email";
 
   useEffect(() => {
     try {
       const rawValue = window.localStorage.getItem(BUILDER_PREVIEW_STORAGE_KEY);
       const storedDevice = window.localStorage.getItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY);
 
-      if (storedDevice === "mobile" || storedDevice === "desktop") {
+      if (storedDevice === "mobile" || storedDevice === "desktop" || storedDevice === "email") {
         setPreviewDevice(storedDevice);
       }
 
@@ -61,32 +62,38 @@ export function BuilderPreviewPage() {
             <div className="page-eyebrow">Builder Preview</div>
             <h1 className="admin-title">{draft?.name || "Unsaved Template Preview"}</h1>
             <p className="page-copy admin-copy">
-              This is the fully rendered page preview for the current Builder draft.
+              {isEmailPreview
+                ? "This is the 600px email pod preview for the current Builder draft."
+                : "This is the fully rendered page preview for the current Builder draft."}
             </p>
           </div>
           <div className="admin-actions">
-            <div className="builder-device-toggle" role="group" aria-label="Preview device">
-              <button
-                className={previewDevice === "desktop" ? "submit-button" : "secondary-button"}
-                onClick={() => {
-                  setPreviewDevice("desktop");
-                  window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, "desktop");
-                }}
-                type="button"
-              >
-                Browser
-              </button>
-              <button
-                className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}
-                onClick={() => {
-                  setPreviewDevice("mobile");
-                  window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, "mobile");
-                }}
-                type="button"
-              >
-                Mobile
-              </button>
-            </div>
+            {isEmailPreview ? (
+              <span className="builder-email-preview-badge">Email · 600px</span>
+            ) : (
+              <div className="builder-device-toggle" role="group" aria-label="Preview device">
+                <button
+                  className={previewDevice === "desktop" ? "submit-button" : "secondary-button"}
+                  onClick={() => {
+                    setPreviewDevice("desktop");
+                    window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, "desktop");
+                  }}
+                  type="button"
+                >
+                  Browser
+                </button>
+                <button
+                  className={previewDevice === "mobile" ? "submit-button" : "secondary-button"}
+                  onClick={() => {
+                    setPreviewDevice("mobile");
+                    window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, "mobile");
+                  }}
+                  type="button"
+                >
+                  Mobile
+                </button>
+              </div>
+            )}
             <Link className="secondary-button" href="/admin/builder">
               Back to Builder
             </Link>
@@ -95,11 +102,22 @@ export function BuilderPreviewPage() {
 
         {draft && draft.layoutSections.length > 0 ? (
           <div className={`builder-preview-device-frame builder-preview-device-${previewDevice}`}>
-            <BuilderTemplatePreview
-              layoutSections={draft.layoutSections}
-              pageBackground={draft.pageBackground}
-              showShell={false}
-            />
+            {isEmailPreview ? (
+              <div className="builder-email-workspace-pod builder-email-preview-pod">
+                <BuilderTemplatePreview
+                  emailPreview
+                  layoutSections={draft.layoutSections}
+                  pageBackground={draft.pageBackground}
+                  showShell={false}
+                />
+              </div>
+            ) : (
+              <BuilderTemplatePreview
+                layoutSections={draft.layoutSections}
+                pageBackground={draft.pageBackground}
+                showShell={false}
+              />
+            )}
           </div>
         ) : (
           <section className="admin-section">

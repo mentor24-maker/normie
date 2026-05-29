@@ -19,6 +19,9 @@ create table if not exists public.builder_cell_modules (
   updated_at timestamptz not null default now()
 );
 
+alter table public.builder_cell_modules
+add column if not exists module_class text not null default '';
+
 create table if not exists public.builder_saved_sections (
   id uuid primary key default gen_random_uuid(),
   name text not null,

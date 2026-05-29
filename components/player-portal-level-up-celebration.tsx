@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import type { PlayerPortalRewardTrack } from "@/lib/player-portal";
+import type { PlayerPortalLevelEvent, PlayerPortalRewardTrack } from "@/lib/player-portal";
 import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
 import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
-import { firePlayerLevelUpConfetti } from "@/lib/player-portal-confetti";
+import { firePlayerLevelUpGameEvents } from "@/lib/player-portal-confetti";
 
 const LEVEL_UP_CHECK_STORAGE_KEY = "normie-player-level-up-check";
 
@@ -18,6 +18,7 @@ export function markPlayerLevelUpCheckPending(completedLevelRewards: number): vo
 }
 
 type PlayerPortalLevelUpCelebrationProps = {
+  levelEvents: PlayerPortalLevelEvent[];
   pendingLevelUpCount?: number | null;
   rewardTrack: PlayerPortalRewardTrack;
 };
@@ -31,6 +32,7 @@ function clearPendingLevelUpCookie() {
 }
 
 export function PlayerPortalLevelUpCelebration({
+  levelEvents,
   pendingLevelUpCount,
   rewardTrack
 }: PlayerPortalLevelUpCelebrationProps) {
@@ -48,17 +50,19 @@ export function PlayerPortalLevelUpCelebration({
     const completedCount = rewardTrack.completedLevelRewards * PLAYER_LEVEL_UP_INTERVAL;
     if (pendingLevelUpCount <= completedCount) {
       appendPlayerLevelUpDiagnostic("pending-cookie.fire-confetti", {
+        levelEvents: levelEvents.length,
         pendingLevelUpCount,
-        completedCount
+        completedCount,
+        completedLevelRewards: rewardTrack.completedLevelRewards
       });
-      void firePlayerLevelUpConfetti();
+      void firePlayerLevelUpGameEvents(levelEvents, rewardTrack.completedLevelRewards);
     } else {
       appendPlayerLevelUpDiagnostic("pending-cookie.waiting-for-dashboard-count", {
         pendingLevelUpCount,
         completedCount
       });
     }
-  }, [pendingLevelUpCount, rewardTrack.completedLevelRewards]);
+  }, [levelEvents, pendingLevelUpCount, rewardTrack.completedLevelRewards]);
 
   useEffect(() => {
     const pendingValue = sessionStorage.getItem(LEVEL_UP_CHECK_STORAGE_KEY);
@@ -76,17 +80,18 @@ export function PlayerPortalLevelUpCelebration({
 
     if (rewardTrack.completedLevelRewards > previousCompletedRewards) {
       appendPlayerLevelUpDiagnostic("session-check.fire-confetti", {
+        levelEvents: levelEvents.length,
         previousCompletedRewards,
         completedLevelRewards: rewardTrack.completedLevelRewards
       });
-      void firePlayerLevelUpConfetti();
+      void firePlayerLevelUpGameEvents(levelEvents, rewardTrack.completedLevelRewards);
     } else {
       appendPlayerLevelUpDiagnostic("session-check.no-fire", {
         previousCompletedRewards,
         completedLevelRewards: rewardTrack.completedLevelRewards
       });
     }
-  }, [rewardTrack.completedLevelRewards, rewardTrack.levelName, rewardTrack.sublevelName]);
+  }, [levelEvents, rewardTrack.completedLevelRewards, rewardTrack.levelName, rewardTrack.sublevelName]);
 
   return null;
 }

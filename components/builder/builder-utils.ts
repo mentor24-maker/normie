@@ -2,10 +2,12 @@ import type { CSSProperties } from "react";
 import type {
   BackgroundSettings,
   BuilderPageRecord,
+  BuilderTemplateKind,
   BuilderTemplateModule,
   BuilderTemplateRecord,
   BuilderTemplateSection
 } from "@/lib/builder-template";
+import type { BuilderEmailFunction } from "@/lib/builder-email-template";
 import {
   createDefaultBackgroundSettings,
   getBuilderBackgroundStyle,
@@ -20,6 +22,8 @@ export function createDraftFromTemplate(template?: BuilderTemplateRecord | null)
     return {
       id: "",
       name: "",
+      templateKind: "modular",
+      emailFunction: "",
       pageBackground: createDefaultBackgroundSettings(),
       layoutSections: []
     };
@@ -28,6 +32,8 @@ export function createDraftFromTemplate(template?: BuilderTemplateRecord | null)
   return {
     id: template.id,
     name: template.name,
+    templateKind: template.templateKind,
+    emailFunction: template.emailFunction,
     pageBackground: template.pageBackground,
     layoutSections: template.layoutSections
   };
@@ -38,6 +44,8 @@ export function createDraftFromPage(page?: BuilderPageRecord | null): BuilderDra
     return {
       id: "",
       name: "",
+      templateKind: "modular",
+      emailFunction: "",
       pageBackground: createDefaultBackgroundSettings(),
       layoutSections: []
     };
@@ -46,6 +54,8 @@ export function createDraftFromPage(page?: BuilderPageRecord | null): BuilderDra
   return {
     id: page.id,
     name: page.name,
+    templateKind: "modular",
+    emailFunction: "",
     pageBackground: page.pageBackground,
     layoutSections: page.layoutSections
   };

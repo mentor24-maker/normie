@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { normalizeEmailFunction } from "@/lib/builder-email-template";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { rowToBuilderTemplate, safeText, serializeBuilderDocument } from "@/lib/builder-template";
+import {
+  normalizeTemplateKind,
+  rowToBuilderTemplate,
+  safeText,
+  serializeBuilderDocument
+} from "@/lib/builder-template";
 
 export async function GET() {
   const auth = await requireAdminRoute();
@@ -13,7 +19,7 @@ export async function GET() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("page_templates")
-    .select("id, name, template_kind, layout_sections, created_at, updated_at")
+    .select("id, name, template_kind, email_function, layout_sections, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -44,14 +50,22 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     name?: string;
+    templateKind?: string;
+    emailFunction?: string;
     pageBackground?: unknown;
     layoutSections?: unknown;
   };
 
   const name = safeText(body.name, 255);
+  const templateKind = normalizeTemplateKind(body.templateKind);
+  const emailFunction = normalizeEmailFunction(body.emailFunction);
 
   if (!name) {
     return auth.finish(NextResponse.json({ error: "Template name is required." }, { status: 400 }));
+  }
+
+  if (templateKind === "email" && !emailFunction) {
+    return auth.finish(NextResponse.json({ error: "Select a Function for email templates." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -59,10 +73,11 @@ export async function POST(request: Request) {
     .from("page_templates")
     .insert({
       name,
-      template_kind: "modular",
+      template_kind: templateKind,
+      email_function: templateKind === "email" ? emailFunction : null,
       layout_sections: serializeBuilderDocument(body)
     })
-    .select("id, name, template_kind, layout_sections, created_at, updated_at")
+    .select("id, name, template_kind, email_function, layout_sections, created_at, updated_at")
     .single();
 
   if (error || !data) {

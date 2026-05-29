@@ -100,6 +100,16 @@ describe("normalizeBuilderAssetUrl", () => {
       "/gallery/social-x.svg"
     );
   });
+
+  it("normalizes gallery paths missing a leading slash", () => {
+    expect(normalizeBuilderAssetUrl("gallery/social-x.svg")).toBe("/gallery/social-x.svg");
+  });
+
+  it("normalizes legacy admin gallery paths missing a leading slash", () => {
+    expect(normalizeBuilderAssetUrl("api/admin/media-file/gallery/social-x.svg")).toBe(
+      "/gallery/social-x.svg"
+    );
+  });
 });
 
 describe("floating-image module migration", () => {

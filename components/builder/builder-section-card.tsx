@@ -14,6 +14,7 @@ import { BuilderCellStyleSettings } from "./builder-cell-style-settings";
 import { cancelBuilderDragIfFormField } from "./builder-drag-utils";
 import { BuilderModuleCard } from "./builder-module-card";
 import { BuilderSectionControls } from "./builder-section-controls";
+import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import {
   getAlignmentClass,
   getSectionMarginStyle,
@@ -24,6 +25,7 @@ type BuilderSectionCardProps = {
   section: BuilderTemplateSection;
   sectionIndex: number;
   editorDevice: "browser" | "mobile";
+  isEmailTemplate?: boolean;
   isCollapsed: boolean;
   expandedModuleIds: string[];
   onToggleCollapsed: () => void;
@@ -71,6 +73,7 @@ export function BuilderSectionCard({
   section,
   sectionIndex,
   editorDevice,
+  isEmailTemplate = false,
   isCollapsed,
   expandedModuleIds,
   onToggleCollapsed,
@@ -110,6 +113,14 @@ export function BuilderSectionCard({
   const columns = getLayoutColumns(section.layout);
   const savedCells = cellModules.filter((cellModule) => cellModule.modules.length !== 1);
   const savedModules = cellModules.filter((cellModule) => cellModule.modules.length === 1);
+  const getSavedModuleOptionLabel = (cellModule: BuilderCellModuleRecord) => {
+    const moduleType = cellModule.modules.length === 1 ? cellModule.modules[0]?.type : "";
+    const paletteItem = modulePaletteItems.find((item) => item.type === moduleType);
+    const paletteGroup = modulePaletteGroups.find((group) => group.value === (paletteItem?.group ?? moduleType));
+    const moduleClass = cellModule.moduleClass || paletteGroup?.label || (cellModule.modules.length !== 1 ? "Layout" : "");
+
+    return moduleClass ? `${moduleClass} - ${cellModule.name}` : cellModule.name;
+  };
   const [collapsedCellPanels, setCollapsedCellPanels] = useState<Record<string, { styles: boolean; content: boolean }>>({});
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -364,7 +375,7 @@ export function BuilderSectionCard({
                               </option>
                               {savedCells.map((cellModule) => (
                                 <option key={cellModule.id} value={cellModule.id}>
-                                  {cellModule.name}
+                                  {getSavedModuleOptionLabel(cellModule)}
                                 </option>
                               ))}
                             </select>
@@ -384,7 +395,7 @@ export function BuilderSectionCard({
                               </option>
                               {savedModules.map((cellModule) => (
                                 <option key={cellModule.id} value={cellModule.id}>
-                                  {cellModule.name}
+                                  {getSavedModuleOptionLabel(cellModule)}
                                 </option>
                               ))}
                             </select>
@@ -408,6 +419,7 @@ export function BuilderSectionCard({
                                 onDrop={(event) => handleModuleDrop(event, column, module.id)}
                               >
                                 <BuilderModuleCard
+                                  isEmailTemplate={isEmailTemplate}
                                   module={module}
                                   products={products}
                                   sectionId={section.id}

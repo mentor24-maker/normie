@@ -1330,7 +1330,7 @@ h2 {
 .admin-poll-clone-bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: flex-end;
   gap: 12px;
 }
 
@@ -3057,6 +3057,24 @@ h2 {
   display: none;
 }
 
+.player-public-page .site-header-social-icon {
+  width: 56px;
+  height: 56px;
+}
+
+.player-public-page .site-header-social-icon img {
+  padding: 8px;
+}
+
+.player-public-page .site-header-social-icon-x img {
+  padding: 10px;
+}
+
+.player-public-page .site-standard-builder-header .builder-preview-social-entry {
+  transform: scale(1.28);
+  transform-origin: top center;
+}
+
 .player-public-profile-breadcrumb {
   display: flex;
   flex-wrap: wrap;
@@ -3245,44 +3263,56 @@ h2 {
   margin: 0 0 12px;
 }
 
-.player-public-profile-social-list {
+.player-public-profile-social-icons {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.player-public-profile-social-list li {
-  display: grid;
-  grid-template-columns: minmax(108px, 0.32fr) minmax(0, 1fr);
-  gap: 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(11, 143, 196, 0.1);
-  background: rgba(255, 255, 255, 0.72);
+  gap: 14px;
 }
 
-.player-public-profile-social-label {
-  font-weight: 700;
-  color: var(--ink);
+.player-public-profile-social-icons li {
+  margin: 0;
+  padding: 0;
 }
 
-.player-public-profile-social-link {
-  color: #0a8fc4;
-  font-weight: 700;
+.player-public-profile-social-icon-link {
+  display: inline-flex;
   text-decoration: none;
-  word-break: break-word;
+  transition: transform 140ms ease;
 }
 
-.player-public-profile-social-link:hover {
-  text-decoration: underline;
+.player-public-profile-social-icon-link:hover,
+.player-public-profile-social-icon-link:focus-visible {
+  transform: translateY(-2px);
 }
 
-.player-public-profile-social-value {
-  color: var(--muted);
-  font-weight: 600;
+.player-public-profile-social-icon-shell {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 3px solid #000000;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(10, 73, 112, 0.12);
+  overflow: hidden;
+}
+
+.player-public-profile-social-icon-shell img {
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.player-public-profile-social-icon-fallback {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #214c71;
 }
 
 .player-public-profile-footnote {
@@ -3431,73 +3461,103 @@ h2 {
   gap: 20px;
   padding: 0;
   scroll-margin-top: 24px;
-  border-radius: 32px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.player-portal-polls-bar {
+  --player-game-board-stats-width: minmax(360px, 520px);
+  display: grid;
+  grid-template-columns: var(--player-game-board-stats-width) minmax(42px, 1fr);
+  align-items: flex-start;
+  justify-content: stretch;
+  column-gap: 18px;
+  row-gap: 28px;
+  padding: 34px 56px 18px 20px;
+  position: relative;
   border: 1px solid rgba(11, 143, 196, 0.14);
+  border-radius: 32px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(23, 183, 238, 0.14), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 249, 230, 0.9) 100%);
+    radial-gradient(circle at 100% 0%, rgba(255, 214, 10, 0.32), transparent 46%),
+    linear-gradient(135deg, rgba(121, 220, 255, 0.55) 0%, rgba(23, 183, 238, 0.22) 42%, rgba(255, 255, 255, 0.94) 100%);
   box-shadow:
     var(--shadow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.85);
   overflow: hidden;
 }
 
-.player-portal-polls-bar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px;
-  border-bottom: 1px solid rgba(11, 143, 196, 0.12);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(255, 214, 10, 0.32), transparent 46%),
-    linear-gradient(135deg, rgba(121, 220, 255, 0.55) 0%, rgba(23, 183, 238, 0.22) 42%, rgba(255, 255, 255, 0.94) 100%);
-}
-
 .player-portal-polls-bar-copy {
   display: grid;
   gap: 6px;
+  grid-column: 1;
   min-width: 0;
 }
 
 .player-portal-polls-header-side {
   display: grid;
+  grid-template-columns: var(--player-game-board-stats-width) minmax(42px, 1fr);
+  grid-template-rows: auto auto;
   align-items: start;
   align-self: flex-start;
-  justify-items: center;
-  gap: 12px;
+  justify-items: stretch;
+  column-gap: 18px;
+  row-gap: 12px;
+  grid-column: 1 / -1;
   min-width: 0;
-  flex: 0 1 50%;
-  position: relative;
-  padding-right: 52px;
 }
 
 .player-portal-polls-mini-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(129px, 1fr));
+  grid-column: 1;
+  grid-row: 1;
   gap: 14px;
   width: 100%;
   min-width: 0;
 }
 
 .player-portal-reward-top-row {
-  display: grid;
-  grid-template-columns: minmax(42px, auto) minmax(0, 1fr);
-  align-items: end;
-  gap: 14px;
-  width: min(100%, 570px);
+  display: contents;
+}
+
+.player-portal-grade-reward-strip {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-start;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: end;
+  justify-self: start;
+  gap: 10px;
+  min-height: 20px;
+  min-width: 42px;
+  padding-bottom: 0;
+}
+
+.player-portal-grade-coin-row {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.player-portal-grade-coin {
+  flex-shrink: 0;
 }
 
 .player-portal-level-reward-stack {
   display: flex;
-  flex-direction: row-reverse;
+  flex-direction: row;
   align-items: flex-end;
   justify-content: center;
-  align-self: end;
   gap: 6px;
   min-height: 20px;
-  min-width: 42px;
-  padding-bottom: 0;
+  min-width: 20px;
 }
 
 .player-portal-level-reward-column {
@@ -3519,7 +3579,8 @@ h2 {
 
 .player-portal-reward-track {
   display: flex;
-  grid-column: 2;
+  grid-column: 1;
+  grid-row: 2;
   justify-content: center;
   flex-wrap: wrap;
   gap: 8px;
@@ -3528,11 +3589,32 @@ h2 {
 }
 
 .player-portal-reward-track-row {
-  display: grid;
-  grid-template-columns: minmax(42px, auto) minmax(0, 1fr);
-  align-items: end;
-  gap: 14px;
-  width: min(100%, 570px);
+  display: contents;
+}
+
+.player-portal-reward-disc-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.player-portal-reward-disc-shell .player-portal-reward-disk,
+.player-portal-reward-disc-shell .player-portal-level-coin {
+  display: block;
+}
+
+.player-portal-reward-disc-symbol {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
 .player-portal-reward-disk {
@@ -3547,6 +3629,27 @@ h2 {
 
 .player-portal-reward-disk.is-earned {
   border-style: solid;
+}
+
+.admin-game-reward-symbol-field {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-game-reward-symbol-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-game-reward-symbol-preview {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(9, 16, 24, 0.12);
 }
 
 .player-portal-level-coin-tooltip {
@@ -3654,25 +3757,43 @@ h2 {
   transform: translateY(-1px);
 }
 
-.player-portal-polls-title {
+.builder-confetti-module {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.builder-confetti-module-copy {
   margin: 0;
-  font-size: clamp(1.2rem, 2.2vw, 1.65rem);
-  line-height: 1.08;
-  font-weight: 800;
-  color: var(--ink);
+}
+
+.builder-confetti-module-button {
+  width: fit-content;
   white-space: nowrap;
 }
 
-.player-portal-confetti-trigger {
-  margin-top: 8px;
-  width: fit-content;
+.builder-confetti-module-settings {
+  display: grid;
+  gap: 12px;
+}
+
+.builder-confetti-game-trigger-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.builder-confetti-module-game-stub {
+  min-height: 0;
 }
 
 .player-portal-polls-close {
   flex: 0 0 auto;
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 24px;
+  right: 20px;
   width: 36px;
   height: 36px;
   border: 1px solid rgba(9, 16, 24, 0.12);
@@ -3700,11 +3821,11 @@ h2 {
 }
 
 .player-portal-polls.is-open > :not(.player-portal-polls-bar) {
-  padding-inline: 20px;
+  padding-inline: 0;
 }
 
 .player-portal-polls.is-open > :last-child {
-  padding-bottom: 22px;
+  padding-bottom: 0;
 }
 
 .player-portal-polls.is-open > .notice {
@@ -3718,7 +3839,7 @@ h2 {
   column-gap: var(--poll-grid-gutter, 100px);
   row-gap: 0;
   width: 100%;
-  margin: 18px 0 0;
+  margin: 0;
   position: relative;
 }
 
@@ -4152,9 +4273,28 @@ h2 {
   grid-template-columns: 48px minmax(0, 1fr) auto;
 }
 
-.player-leaderboard-row strong {
+.player-leaderboard-row strong,
+.player-leaderboard-row-name {
   font-size: 0.98rem;
   line-height: 1.2;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.player-leaderboard-name-link {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.player-leaderboard-name-link:hover,
+.player-leaderboard-name-link:focus-visible {
+  color: #0b7390;
+  text-decoration: underline;
+}
+
+.polls-table .player-leaderboard-name-link {
+  font-weight: 700;
 }
 
 .player-leaderboard-row span:last-child {
@@ -5828,6 +5968,155 @@ a.polls-icon-button {
   width: 16px;
   height: 16px;
   accent-color: var(--accent);
+}
+
+.builder-meta-grid-templates {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.builder-template-format-row {
+  grid-column: 1 / -1;
+}
+
+.builder-template-format-group {
+  display: grid;
+  gap: 8px;
+}
+
+.builder-template-format-legend {
+  padding: 0;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.builder-template-format-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+}
+
+.builder-template-function-field {
+  max-width: 320px;
+}
+
+.builder-email-preview-note {
+  margin: 0;
+  max-width: 420px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.builder-email-workspace {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 32px;
+}
+
+.builder-email-workspace-pod {
+  width: 100%;
+  max-width: 600px;
+  background: #ffffff;
+  border: 1px solid #d9e4ef;
+  border-radius: 50px;
+  box-shadow: 0 18px 48px rgba(24, 50, 74, 0.12);
+  overflow: hidden;
+}
+
+.builder-email-preview-pod {
+  margin: 0 auto;
+}
+
+.builder-email-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: #f7fbff;
+  border: 1px solid #d9e4ef;
+  color: #18324a;
+  font-size: 0.86rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.builder-email-merge-tokens-panel {
+  grid-column: 1 / -1;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid #d9e4ef;
+  background: #f7fbff;
+}
+
+.builder-email-merge-tokens-title {
+  margin: 0 0 6px;
+  color: #18324a;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.builder-email-merge-tokens-copy {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.builder-email-merge-tokens-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.builder-email-merge-tokens-list li {
+  display: grid;
+  gap: 4px;
+}
+
+.builder-email-merge-tokens-list code {
+  color: #0f4f8f;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.builder-email-merge-tokens-list span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.builder-email-merge-token-row {
+  display: grid;
+  gap: 10px;
+}
+
+.builder-email-merge-token-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.builder-email-merge-token-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.builder-email-merge-token-actions .secondary-button {
+  white-space: nowrap;
+}
+
+.builder-preview-device-email {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 40px;
 }
 
 .builder-section-background-controls {
@@ -7515,6 +7804,20 @@ a.polls-icon-button {
   margin: 18px 0;
 }
 
+.admin-game-inline-editor-row td {
+  padding: 0 12px 18px;
+  border-bottom: 1px solid rgba(9, 16, 24, 0.1);
+  background: rgba(244, 250, 255, 0.55);
+}
+
+.admin-game-inline-editor-row .admin-game-editor {
+  margin-top: 0;
+}
+
+.admin-game-inline-editor-source-row td {
+  border-bottom-color: transparent;
+}
+
 .admin-game-editor-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -7600,6 +7903,21 @@ a.polls-icon-button {
 
 .admin-game-save-diagnostic {
   margin: 12px 0 0;
+}
+
+.admin-game-reward-bulk-actions {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+  width: min(100%, 11rem);
+}
+
+.admin-game-reward-actions-header .admin-game-reward-bulk-actions select {
+  width: 100%;
+}
+
+.admin-game-reward-copy-button.submit-button {
+  width: 100%;
 }
 
 .admin-game-reward-visual-summary {
@@ -8519,35 +8837,42 @@ code {
   }
 
   .player-portal-polls {
-    border-radius: 24px;
+    border-radius: 0;
   }
 
   .player-portal-polls-bar {
-    flex-wrap: wrap;
-    padding: 14px 16px;
+    --player-game-board-stats-width: minmax(0, 1fr);
+    grid-template-columns: 1fr;
+    padding: 28px 56px 14px 16px;
+    border-radius: 24px;
   }
 
   .player-portal-polls-header-side {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
     width: 100%;
-    justify-content: center;
-    flex-basis: 100%;
-    padding-right: 48px;
+    justify-content: stretch;
   }
 
   .player-portal-polls-mini-stats {
     flex: 1 1 auto;
+    grid-column: 1;
+    grid-row: 1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
     min-width: 0;
   }
 
-  .player-portal-reward-top-row {
-    width: 100%;
+  .player-portal-grade-reward-strip {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    flex-wrap: wrap;
   }
 
-  .player-portal-reward-track-row {
-    grid-template-columns: minmax(36px, auto) minmax(0, 1fr);
-    width: 100%;
+  .player-portal-reward-track {
+    grid-column: 1;
+    grid-row: 3;
   }
 
   .player-portal-polls.is-open > :not(.player-portal-polls-bar) {
@@ -8990,6 +9315,19 @@ code {
 
   .site-header-social-icon-x img {
     padding: 12px;
+  }
+
+  .player-public-page .site-header-social-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .player-public-page .site-header-social-icon img {
+    padding: 7px;
+  }
+
+  .player-public-page .site-header-social-icon-x img {
+    padding: 9px;
   }
 
   .site-shell-logo {
@@ -10147,7 +10485,7 @@ a.blog-chip:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  align-items: end;
+  align-items: flex-end;
 }
 
 .admin-blog-paint-header {

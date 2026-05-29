@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getPublicSocialLinkEntries, type PublicPlayerProfile } from "@/lib/public-player-profile";
+import { PLAYER_SOCIAL_ICON_PATHS, type PlayerSocialFieldKey } from "@/lib/player-social-handles";
 
 type PublicPlayerProfileViewProps = {
   profile: PublicPlayerProfile;
@@ -62,19 +64,42 @@ export function PublicPlayerProfileView({ profile }: PublicPlayerProfileViewProp
         <section className="panel player-panel player-public-profile-section">
           <div className="panel-label">Social Profiles</div>
           <h2>Connect</h2>
-          <ul className="player-public-profile-social-list">
-            {socialEntries.map((entry) => (
-              <li key={entry.key}>
-                <span className="player-public-profile-social-label">{entry.label}</span>
-                {entry.href ? (
-                  <a className="player-public-profile-social-link" href={entry.href} rel="noreferrer" target="_blank">
-                    {entry.value}
-                  </a>
-                ) : (
-                  <span className="player-public-profile-social-value">{entry.value}</span>
-                )}
-              </li>
-            ))}
+          <ul className="player-public-profile-social-icons" aria-label="Social profile links">
+            {socialEntries.map((entry) => {
+              const iconPath = PLAYER_SOCIAL_ICON_PATHS[entry.key as PlayerSocialFieldKey] ?? "";
+              const linkBody = (
+                <span className="player-public-profile-social-icon-shell">
+                  {iconPath ? (
+                    <Image alt="" aria-hidden height={34} src={iconPath} unoptimized width={34} />
+                  ) : (
+                    <span aria-hidden className="player-public-profile-social-icon-fallback">
+                      {entry.label.slice(0, 1)}
+                    </span>
+                  )}
+                </span>
+              );
+
+              return (
+                <li key={entry.key}>
+                  {entry.href ? (
+                    <a
+                      aria-label={entry.label}
+                      className="player-public-profile-social-icon-link"
+                      href={entry.href}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                      title={entry.label}
+                    >
+                      {linkBody}
+                    </a>
+                  ) : (
+                    <span aria-label={entry.label} className="player-public-profile-social-icon-link" title={entry.label}>
+                      {linkBody}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

@@ -119,6 +119,7 @@ create table if not exists public.page_templates (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   template_kind text not null default 'modular',
+  email_function text,
   layout_sections jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -168,6 +169,7 @@ create table if not exists public.team_users (
 create table if not exists public.builder_cell_modules (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  module_class text not null default '',
   modules jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -206,7 +208,7 @@ create table if not exists public.game_level_tiers (
 
 create table if not exists public.game_levels (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_name text not null check (level_name in ('Level', 'Grade', 'Class', 'Stage', 'Phase', 'Degree', 'Plane', 'Echelon', 'Tier')),
   level_order integer not null check (level_order between 1 and 10),
   game_level_levels jsonb not null default '[]'::jsonb,
   metadata jsonb not null default '{}'::jsonb,
@@ -218,7 +220,8 @@ create table if not exists public.game_rewards (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text not null default '',
-  reward_type text not null default 'custom' check (reward_type in ('badge', 'digital', 'access', 'merch', 'token', 'custom')),
+  reward_type text not null default 'custom' check (reward_type in ('badge', 'digital', 'access', 'feature', 'merch', 'token', 'custom')),
+  reward_order integer not null default 1 check (reward_order >= 1),
   points_cost integer not null default 0 check (points_cost >= 0),
   inventory_count integer check (inventory_count is null or inventory_count >= 0),
   status text not null default 'draft' check (status in ('active', 'draft', 'archived')),
@@ -242,9 +245,35 @@ create table if not exists public.game_scoring (
 
 create table if not exists public.game_level_up_rules (
   id uuid primary key default gen_random_uuid(),
-  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_name text not null check (level_name in ('Level', 'Grade', 'Class', 'Stage', 'Phase', 'Degree', 'Plane', 'Echelon', 'Tier')),
   sublevel_name text not null,
   criteria jsonb not null default '[]'::jsonb,
+  is_active boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.game_progressive_features (
+  id uuid primary key default gen_random_uuid(),
+  feature_key text not null unique,
+  name text not null,
+  description text not null default '',
+  unlock_level_name text not null check (unlock_level_name in ('Level', 'Grade', 'Class', 'Stage', 'Phase', 'Degree', 'Plane', 'Echelon', 'Tier')),
+  unlock_sublevel_name text not null default '',
+  is_active boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.game_level_events (
+  id uuid primary key default gen_random_uuid(),
+  event_name text not null,
+  level_name text not null check (level_name in ('Level', 'Grade', 'Class', 'Stage', 'Phase', 'Degree', 'Plane', 'Echelon', 'Tier')),
+  sublevel_name text not null default '',
+  module_id uuid references public.builder_cell_modules(id) on delete set null,
+  trigger text not null default 'game' check (trigger in ('game')),
   is_active boolean not null default true,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -382,6 +411,9 @@ on public.poll_response (user_id, poll_id)
 where user_id is not null;
 create index if not exists poll_options_poll_id_idx on public.poll_options (poll_id);
 create index if not exists page_templates_updated_at_idx on public.page_templates (updated_at desc);
+create index if not exists page_templates_email_function_idx
+  on public.page_templates (email_function)
+  where template_kind = 'email';
 create index if not exists pages_updated_at_idx on public.pages (updated_at desc);
 create index if not exists pages_slug_idx on public.pages (slug);
 create unique index if not exists users_email_unique_idx on public.users (email);
@@ -397,11 +429,17 @@ create index if not exists game_levels_updated_at_idx on public.game_levels (upd
 create index if not exists game_level_tiers_level_sort_idx on public.game_level_tiers (level, sort_order);
 create index if not exists game_level_tiers_points_required_idx on public.game_level_tiers (points_required);
 create index if not exists game_rewards_status_points_idx on public.game_rewards (status, points_cost);
+create index if not exists game_rewards_order_idx on public.game_rewards (reward_order, name);
 create index if not exists game_rewards_updated_at_idx on public.game_rewards (updated_at desc);
 create index if not exists game_scoring_points_idx on public.game_scoring (points);
 create index if not exists game_scoring_updated_at_idx on public.game_scoring (updated_at desc);
 create index if not exists game_level_up_rules_target_idx on public.game_level_up_rules (level_name, sublevel_name);
 create index if not exists game_level_up_rules_updated_at_idx on public.game_level_up_rules (updated_at desc);
+create index if not exists game_progressive_features_unlock_idx on public.game_progressive_features (unlock_level_name, unlock_sublevel_name);
+create index if not exists game_progressive_features_updated_at_idx on public.game_progressive_features (updated_at desc);
+create index if not exists game_level_events_target_idx on public.game_level_events (level_name, sublevel_name);
+create index if not exists game_level_events_module_idx on public.game_level_events (module_id);
+create index if not exists game_level_events_updated_at_idx on public.game_level_events (updated_at desc);
 create unique index if not exists blog_topics_slug_unique_idx on public.blog_topics (slug);
 create unique index if not exists blog_tags_slug_unique_idx on public.blog_tags (slug);
 create unique index if not exists blog_categories_slug_unique_idx on public.blog_categories (slug);
@@ -436,6 +474,8 @@ alter table public.game_level_tiers enable row level security;
 alter table public.game_rewards enable row level security;
 alter table public.game_scoring enable row level security;
 alter table public.game_level_up_rules enable row level security;
+alter table public.game_progressive_features enable row level security;
+alter table public.game_level_events enable row level security;
 alter table public.blog_settings enable row level security;
 alter table public.blog_topics enable row level security;
 alter table public.blog_tags enable row level security;
@@ -585,6 +625,20 @@ for select
 to anon, authenticated
 using (true);
 
+drop policy if exists "game progressive features are readable" on public.game_progressive_features;
+create policy "game progressive features are readable"
+on public.game_progressive_features
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "game level events are readable" on public.game_level_events;
+create policy "game level events are readable"
+on public.game_level_events
+for select
+to anon, authenticated
+using (true);
+
 drop policy if exists "blog settings are readable" on public.blog_settings;
 create policy "blog settings are readable"
 on public.blog_settings
@@ -693,11 +747,15 @@ grant select on public.game_levels to anon, authenticated, service_role;
 grant select on public.game_rewards to anon, authenticated, service_role;
 grant select on public.game_scoring to anon, authenticated, service_role;
 grant select on public.game_level_up_rules to anon, authenticated, service_role;
+grant select on public.game_progressive_features to anon, authenticated, service_role;
+grant select on public.game_level_events to anon, authenticated, service_role;
 grant insert, update, delete on public.game_level_tiers to service_role;
 grant insert, update, delete on public.game_levels to service_role;
 grant insert, update, delete on public.game_rewards to service_role;
 grant insert, update, delete on public.game_scoring to service_role;
 grant insert, update, delete on public.game_level_up_rules to service_role;
+grant insert, update, delete on public.game_progressive_features to service_role;
+grant insert, update, delete on public.game_level_events to service_role;
 
 insert into public.game_level_tiers (level, tier, name, points_required, sort_order, perks)
 values
@@ -708,7 +766,7 @@ on conflict (level, tier) do nothing;
 
 insert into public.game_levels (level_name, level_order, game_level_levels)
 values (
-  'Levels',
+  'Level',
   1,
   '[{"name":"Apprentice","order":1},{"name":"Acolyte","order":2},{"name":"Wizard","order":3}]'::jsonb
 )
@@ -718,3 +776,41 @@ insert into public.game_scoring (score_name, description, specific_criteria, poi
 values
   ('Poll answer', 'Awarded when a signed-in player answers a poll.', 'Player must submit one valid answer to a published poll they have not already answered.', 1)
 on conflict do nothing;
+
+insert into public.game_progressive_features (feature_key, name, description, unlock_level_name, unlock_sublevel_name, is_active, metadata)
+values
+  (
+    'poll_skip',
+    'Skip Poll',
+    'Allows qualified players to skip the current poll and move to the next one.',
+    'Level',
+    '1',
+    true,
+    '{"uiPlacement":"under_poll_options"}'::jsonb
+  )
+on conflict (feature_key) do nothing;
+
+insert into public.game_level_events (event_name, level_name, sublevel_name, module_id, trigger, is_active, metadata)
+select
+  'Level 1.1 Confetti',
+  'Level',
+  '1',
+  candidate.id,
+  'game',
+  true,
+  '{"eventType":"confetti"}'::jsonb
+from (
+  select builder_cell_modules.id
+  from public.builder_cell_modules
+  where exists (
+    select 1
+    from jsonb_array_elements(builder_cell_modules.modules) as module
+    where module->>'type' = 'confetti'
+      and coalesce(module->'settings'->>'trigger', '') = 'game'
+  )
+  order by builder_cell_modules.updated_at desc
+  limit 1
+) as candidate
+where not exists (
+  select 1 from public.game_level_events where event_name = 'Level 1.1 Confetti'
+);

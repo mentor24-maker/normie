@@ -28,6 +28,13 @@ export type PlayerSocialFieldConfig = {
   handleOnly?: boolean;
 };
 
+/** Gallery icons for public profile / connect UI (keys without an icon use a letter fallback). */
+export const PLAYER_SOCIAL_ICON_PATHS: Partial<Record<PlayerSocialFieldKey, string>> = {
+  x: "/gallery/social-x.svg",
+  youtube: "/gallery/social-youtube.svg",
+  tiktok: "/gallery/social-tiktok.svg"
+};
+
 export const PLAYER_SOCIAL_FIELD_CONFIG: PlayerSocialFieldConfig[] = [
   { key: "website", label: "Website", prefix: "https://", placeholder: "yoursite.com" },
   { key: "x", label: "X", prefix: "x.com/", placeholder: "handle" },

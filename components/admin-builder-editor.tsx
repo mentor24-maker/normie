@@ -18,11 +18,14 @@ import {
   type BuilderPageRecord,
   type BuilderProductRecord,
   type BuilderSavedSectionRecord,
+  type BuilderTemplateKind,
   type BuilderTemplateLayout,
   type BuilderTemplateModule,
   type BuilderTemplateRecord,
   type BuilderTemplateSection
 } from "@/lib/builder-template";
+import type { BuilderEmailFunction } from "@/lib/builder-email-template";
+import { getDefaultEmailTemplateName } from "@/lib/builder-email-template";
 
 import type { GalleryTarget, ModulePaletteGroup, ModulePaletteItem } from "./builder/builder-types";
 import { layoutOptions } from "./builder/builder-types";
@@ -102,6 +105,11 @@ export function AdminBuilderEditor() {
     () => pages.find((p) => p.id === selectedPageId) ?? null,
     [pages, selectedPageId]
   );
+  const pageLayoutTemplates = useMemo(
+    () => pageTemplates.filter((template) => template.templateKind !== "email"),
+    [pageTemplates]
+  );
+  const isEmailTemplateDraft = builderMode === "templates" && draft.templateKind === "email";
 
   // --- Data loading ---
 
@@ -113,7 +121,7 @@ export function AdminBuilderEditor() {
       const data = await readAdminJson<{ pageTemplates?: BuilderTemplateRecord[]; error?: string }>(response, "Failed to load page templates.");
       const templates = data.pageTemplates ?? [];
       setPageTemplates(templates);
-      if (!templates.some((t) => t.id === selectedTemplateId)) {
+      if (selectedTemplateId && !templates.some((t) => t.id === selectedTemplateId)) {
         setSelectedTemplateId(templates[0]?.id ?? "");
       }
     } catch (e) {
@@ -195,11 +203,17 @@ export function AdminBuilderEditor() {
   }, []);
 
   useEffect(() => {
-    if (builderMode === "templates") {
-      setDraft(createDraftFromTemplate(selectedTemplate));
-      setCollapsedSectionIds(selectedTemplate?.layoutSections.map((s) => s.id) ?? []);
+    if (builderMode !== "templates") {
+      return;
     }
-  }, [builderMode, selectedTemplate]);
+
+    if (!selectedTemplateId) {
+      return;
+    }
+
+    setDraft(createDraftFromTemplate(selectedTemplate));
+    setCollapsedSectionIds(selectedTemplate?.layoutSections.map((s) => s.id) ?? []);
+  }, [builderMode, selectedTemplate, selectedTemplateId]);
 
   useEffect(() => {
     if (builderMode === "pages") {
@@ -225,6 +239,34 @@ export function AdminBuilderEditor() {
 
   function setDraftName(name: string) {
     setDraft((c) => ({ ...c, name }));
+  }
+
+  function setTemplateKind(templateKind: BuilderTemplateKind) {
+    setDraft((c) => {
+      const emailFunction = templateKind === "email" ? c.emailFunction || "signup_confirmation" : "";
+      const nextName =
+        templateKind === "email" && !c.name.trim()
+          ? getDefaultEmailTemplateName(emailFunction)
+          : c.name;
+
+      return {
+        ...c,
+        templateKind,
+        emailFunction,
+        name: nextName
+      };
+    });
+  }
+
+  function setEmailFunction(emailFunction: BuilderEmailFunction | "") {
+    setDraft((c) => ({
+      ...c,
+      emailFunction,
+      name:
+        c.templateKind === "email" && !c.name.trim()
+          ? getDefaultEmailTemplateName(emailFunction)
+          : c.name
+    }));
   }
 
   function toggleBuilderPanel(panel: keyof typeof collapsedBuilderPanels) {
@@ -429,6 +471,11 @@ export function AdminBuilderEditor() {
     }));
   }
 
+  function promptForModuleClass(fallbackClass = "") {
+    const moduleClass = window.prompt("Module class (Navigation, Headings, etc.)", fallbackClass)?.trim();
+    return moduleClass ?? null;
+  }
+
   async function saveCellModules(sectionId: string, column: string) {
     const section = draft.layoutSections.find((candidate) => candidate.id === sectionId);
     const modules = section?.modules.filter((module) => module.column === column) ?? [];
@@ -445,6 +492,11 @@ export function AdminBuilderEditor() {
       return;
     }
 
+    const moduleClass = promptForModuleClass("Layout");
+    if (moduleClass === null) {
+      return;
+    }
+
     try {
       const response = await fetch("/api/admin/cell-modules", {
         method: "POST",
@@ -453,6 +505,7 @@ export function AdminBuilderEditor() {
         },
         body: JSON.stringify({
           name,
+          moduleClass,
           modules
         })
       });
@@ -607,11 +660,14 @@ export function AdminBuilderEditor() {
     const name = window.prompt("Name this saved module", fallbackName)?.trim();
     if (!name) return;
 
+    const moduleClass = promptForModuleClass(builderModule.type);
+    if (moduleClass === null) return;
+
     try {
       const response = await fetch("/api/admin/cell-modules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, modules: [builderModule] })
+        body: JSON.stringify({ name, moduleClass, modules: [builderModule] })
       });
       const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save module.");
       if (!data.cellModule) throw new Error(data.error ?? "Failed to save module.");
@@ -628,7 +684,7 @@ export function AdminBuilderEditor() {
     updateSection(sectionId, (s) => ({ ...s, modules: s.modules.filter((m) => m.id !== moduleId) }));
   }
 
-  async function saveSavedModule(cellModuleId: string, name: string, modules: BuilderTemplateModule[]) {
+  async function saveSavedModule(cellModuleId: string, name: string, moduleClass: string, modules: BuilderTemplateModule[]) {
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -637,7 +693,7 @@ export function AdminBuilderEditor() {
       const response = await fetch(`/api/admin/cell-modules/${cellModuleId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, modules })
+        body: JSON.stringify({ name, moduleClass, modules })
       });
       const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save saved module.");
 
@@ -656,7 +712,7 @@ export function AdminBuilderEditor() {
     }
   }
 
-  async function createSavedModule(name: string, modules: BuilderTemplateModule[]) {
+  async function createSavedModule(name: string, moduleClass: string, modules: BuilderTemplateModule[]) {
     const trimmedName = name.trim();
 
     if (!trimmedName || modules.length === 0) {
@@ -671,7 +727,7 @@ export function AdminBuilderEditor() {
       const response = await fetch("/api/admin/cell-modules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmedName, modules })
+        body: JSON.stringify({ name: trimmedName, moduleClass: moduleClass.trim(), modules })
       });
       const data = await readAdminJson<{ cellModule?: BuilderCellModuleRecord; error?: string }>(response, "Failed to save module.");
 
@@ -1006,9 +1062,9 @@ export function AdminBuilderEditor() {
 
   function applyTemplateToPage(templateId: string) {
     setPageTemplateId(templateId);
-    const template = pageTemplates.find((t) => t.id === templateId) ?? null;
+    const template = pageLayoutTemplates.find((t) => t.id === templateId) ?? null;
     if (!template) { setDraft(createDraftFromPage(null)); return; }
-    setDraft((c) => ({ id: selectedPageId, name: c.name || template.name, pageBackground: template.pageBackground, layoutSections: template.layoutSections }));
+    setDraft((c) => ({ id: selectedPageId, name: c.name || template.name, templateKind: "modular", emailFunction: "", pageBackground: template.pageBackground, layoutSections: template.layoutSections }));
   }
 
   async function makeTemplateFromPage() {
@@ -1178,21 +1234,47 @@ export function AdminBuilderEditor() {
   // --- CRUD ---
 
   async function saveTemplate() {
-    if (!draft.name.trim()) { setError("Template name is required."); return; }
-    setIsSaving(true); setError(null); setMessage(null);
+    const resolvedName =
+      draft.name.trim() ||
+      (draft.templateKind === "email" ? getDefaultEmailTemplateName(draft.emailFunction) : "");
+
+    if (!resolvedName) {
+      setError("Template name is required.");
+      return;
+    }
+
+    if (draft.templateKind === "email" && !draft.emailFunction) {
+      setError("Select a Function for email templates.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
     try {
       const response = await fetch(draft.id ? `/api/admin/page-templates/${draft.id}` : "/api/admin/page-templates", {
         method: draft.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: draft.name, pageBackground: draft.pageBackground, layoutSections: draft.layoutSections })
+        body: JSON.stringify({
+          name: resolvedName,
+          templateKind: draft.templateKind,
+          emailFunction: draft.emailFunction,
+          pageBackground: draft.pageBackground,
+          layoutSections: draft.layoutSections
+        })
       });
       const data = await readAdminJson<{ pageTemplate?: BuilderTemplateRecord; error?: string }>(response, "Failed to save template.");
       setMessage(draft.id ? "Page template updated." : "Page template created.");
+      if (data.pageTemplate?.id) {
+        setSelectedTemplateId(data.pageTemplate.id);
+      }
       await loadPageTemplates();
-      if (data.pageTemplate?.id) setSelectedTemplateId(data.pageTemplate.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save template.");
-    } finally { setIsSaving(false); }
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function savePage() {
@@ -1245,13 +1327,19 @@ export function AdminBuilderEditor() {
 
   function openPreviewPage() {
     window.localStorage.setItem(BUILDER_PREVIEW_STORAGE_KEY, JSON.stringify({ name: draft.name, pageBackground: draft.pageBackground, layoutSections: draft.layoutSections }));
-    window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, previewDevice);
+    window.localStorage.setItem(
+      BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
+      isEmailTemplateDraft ? "email" : previewDevice
+    );
     window.open(`${window.location.origin}/preview`, "_blank");
   }
 
   function openTemplatePreview(template: BuilderTemplateRecord) {
     window.localStorage.setItem(BUILDER_PREVIEW_STORAGE_KEY, JSON.stringify({ name: template.name, pageBackground: template.pageBackground, layoutSections: template.layoutSections }));
-    window.localStorage.setItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY, previewDevice);
+    window.localStorage.setItem(
+      BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
+      template.templateKind === "email" ? "email" : previewDevice
+    );
     window.open(`${window.location.origin}/preview`, "_blank");
   }
 
@@ -1307,6 +1395,8 @@ export function AdminBuilderEditor() {
           templates={pageTemplates}
           selectedTemplateId={selectedTemplateId}
           draftName={draft.name}
+          templateKind={draft.templateKind}
+          emailFunction={draft.emailFunction}
           pageBackground={draft.pageBackground}
           previewDevice={previewDevice}
           isSaving={isSaving}
@@ -1314,6 +1404,8 @@ export function AdminBuilderEditor() {
           onPreviewTemplate={openTemplatePreview}
           onDeleteTemplate={(id, name) => void deleteTemplateById(id, name)}
           onSetDraftName={setDraftName}
+          onSetTemplateKind={setTemplateKind}
+          onSetEmailFunction={setEmailFunction}
           onUpdatePageBackground={updatePageBackground}
           onSetPreviewDevice={setPreviewDevice}
           onPreviewDraft={openPreviewPage}
@@ -1333,15 +1425,15 @@ export function AdminBuilderEditor() {
           onDeleteCreatedModule={(source, name) => void deleteCreatedModule(source, name)}
           onDeleteSavedModule={(id, name) => void deleteSavedModule(id, name)}
           onDeleteSavedSection={(id, name) => void deleteSavedSection(id, name)}
-          onCreateSavedModule={(name, modules) => void createSavedModule(name, modules)}
+          onCreateSavedModule={(name, moduleClass, modules) => void createSavedModule(name, moduleClass, modules)}
           onSaveCreatedModule={(source, module) => void saveCreatedModule(source, module)}
-          onSaveSavedModule={(id, name, modules) => void saveSavedModule(id, name, modules)}
+          onSaveSavedModule={(id, name, moduleClass, modules) => void saveSavedModule(id, name, moduleClass, modules)}
           onSaveSavedSection={(id, name, section) => void saveSavedSection(id, name, section)}
         />
       ) : (
         <BuilderPageList
           pages={pages}
-          templates={pageTemplates}
+          templates={pageLayoutTemplates}
           selectedPageId={selectedPageId}
           draftName={draft.name}
           pageBackground={draft.pageBackground}
@@ -1410,13 +1502,71 @@ export function AdminBuilderEditor() {
             </button>
             {!collapsedBuilderPanels.workspace ? (
               <div
-                className={`builder-main builder-workspace ${dragOverWorkspace ? "is-drag-over" : ""}`}
+                className={`builder-main builder-workspace ${isEmailTemplateDraft ? "builder-email-workspace" : ""} ${dragOverWorkspace ? "is-drag-over" : ""}`}
                 style={getBuilderBackgroundStyle(draft.pageBackground)}
                 onDragOver={(event) => { event.preventDefault(); setDragOverWorkspace(true); }}
                 onDragLeave={() => setDragOverWorkspace(false)}
                 onDrop={handleWorkspaceDrop}
               >
-                {draft.layoutSections.length === 0 ? (
+                {isEmailTemplateDraft ? (
+                  <div className="builder-email-workspace-pod">
+                    {draft.layoutSections.length === 0 ? (
+                      <div className="builder-workspace-empty">
+                        <div className="builder-workspace-empty-title">Drop a row onto the email pod</div>
+                        <div className="builder-workspace-empty-copy">Email templates render inside a 600px-wide pod. Add rows and modules the same way as page templates.</div>
+                      </div>
+                    ) : (
+                      <div className="builder-sections">
+                        {draft.layoutSections.map((section, sectionIndex) => (
+                          <BuilderSectionCard
+                            isEmailTemplate
+                            key={section.id}
+                            section={section}
+                            sectionIndex={sectionIndex}
+                            editorDevice="browser"
+                            isCollapsed={collapsedSectionIds.includes(section.id)}
+                            expandedModuleIds={expandedModuleIds}
+                            onToggleCollapsed={() => toggleSectionCollapsed(section.id)}
+                            onMoveUp={() => moveSection(section.id, -1)}
+                            onMoveDown={() => moveSection(section.id, 1)}
+                            onRemove={() => removeSection(section.id)}
+                            onUpdateSection={(updater) => updateSection(section.id, updater)}
+                            onCloneSection={() => cloneSection(section.id)}
+                            onSaveSection={() => void saveSection(section.id)}
+                            onUpdateCellBackground={(col, updater) => updateCellBackground(section.id, col, updater)}
+                            onUpdateCellPadding={(col, value) => updateCellPadding(section.id, col, value)}
+                            onUpdateCellBorderWidth={(col, value) => updateCellBorderWidth(section.id, col, value)}
+                            onUpdateCellBorderColor={(col, value) => updateCellBorderColor(section.id, col, value)}
+                            onUpdateCellBorderRadius={(col, value) => updateCellBorderRadius(section.id, col, value)}
+                            onToggleModuleExpanded={toggleModuleExpanded}
+                            onUpdateModule={(moduleId, updater) => updateModule(section.id, moduleId, updater)}
+                            onUpdateModuleBackground={(moduleId, updater) => updateModuleBackground(section.id, moduleId, updater)}
+                            onMoveModule={(moduleId, dir) => moveModule(section.id, moduleId, dir)}
+                            onDropModule={dropModule}
+                            onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
+                            onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
+                            onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
+                            cellModules={cellModules}
+                            products={products}
+                            onSaveCellModules={(col) => void saveCellModules(section.id, col)}
+                            onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
+                            onInsertSavedModule={(col, cellModuleId) => insertSavedModule(section.id, col, cellModuleId)}
+                            onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
+                            onOpenButtonBackgroundGallery={(moduleId) => openButtonBackgroundGallery(section.id, moduleId)}
+                            onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
+                            onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
+                            onUploadButtonBackgroundMedia={(moduleId, file) =>
+                              uploadButtonBackgroundMedia(section.id, moduleId, file)
+                            }
+                            onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
+                            onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}
+                            onOpenModulePalette={(col) => openModulePalette(section.id, col)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : draft.layoutSections.length === 0 ? (
                   <div className="builder-workspace-empty">
                     <div className="builder-workspace-empty-title">Drop a row onto the workspace</div>
                     <div className="builder-workspace-empty-copy">Drag a row layout from the toolbar above, or click one to add it instantly.</div>
@@ -1425,6 +1575,7 @@ export function AdminBuilderEditor() {
                   <div className="builder-sections">
                     {draft.layoutSections.map((section, sectionIndex) => (
                       <BuilderSectionCard
+                        isEmailTemplate={isEmailTemplateDraft}
                         key={section.id}
                         section={section}
                         sectionIndex={sectionIndex}
