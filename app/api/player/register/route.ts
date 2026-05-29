@@ -6,6 +6,7 @@ import {
   normalizePlayerHandle,
   safePlayerText
 } from "@/lib/player-auth";
+import { isPlayerAwaitingEmailVerification } from "@/lib/player-email-confirmation";
 import { clearPollSessionCookie } from "@/lib/poll-session-cookie";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
@@ -45,6 +46,13 @@ export async function POST(request: Request) {
   const existingUser = existingUsers.users.find((user) => user.email?.toLowerCase() === email);
 
   if (existingUser) {
+    if (isPlayerAwaitingEmailVerification(existingUser)) {
+      return NextResponse.json({
+        user: { id: existingUser.id, email: existingUser.email ?? email, fullName, handle },
+        needsEmailConfirmation: true
+      });
+    }
+
     const { error: profileError } = await adminClient.from("player_profiles").upsert(
       {
         id: existingUser.id,

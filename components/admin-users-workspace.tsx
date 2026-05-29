@@ -9,6 +9,7 @@ import {
   type UserStatus
 } from "@/lib/admin-users";
 import { PUBLIC_USER_STATUSES, type PublicUserRecord, type PublicUserStatus } from "@/lib/public-users";
+import { formatPlayerLastSignIn } from "@/lib/player-email-confirmation";
 
 type DirectoryRecord = AdminUserRecord | PublicUserRecord;
 
@@ -404,7 +405,8 @@ export function AdminUsersWorkspace({
                 <th>User</th>
                 {directoryKind === "team" ? <th>Role</th> : null}
                 <th>Status</th>
-                {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Handle</th>}
+                {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Last Sign-In</th>}
+                {directoryKind === "users" ? <th>Handle</th> : null}
                 {directoryKind === "users" ? <th>Polls</th> : null}
                 {directoryKind === "users" ? <th>Points</th> : null}
                 <th>Created</th>
@@ -423,10 +425,13 @@ export function AdminUsersWorkspace({
                   <td>
                     {directoryKind === "team" && "lastSignInAt" in user
                       ? formatTimestamp(user.lastSignInAt)
-                      : "handle" in user
-                        ? `@${user.handle}`
+                      : isPublicUserRecord(user)
+                        ? formatPlayerLastSignIn(user.lastSignInAt, user.emailConfirmedAt)
                         : ""}
                   </td>
+                  {directoryKind === "users" && isPublicUserRecord(user) ? (
+                    <td>@{user.handle}</td>
+                  ) : null}
                   {directoryKind === "users" && "pollsTaken" in user ? <td>{user.pollsTaken}</td> : null}
                   {directoryKind === "users" && "pointsEarned" in user ? <td>{user.pointsEarned}</td> : null}
                   <td>{formatTimestamp(user.createdAt)}</td>
@@ -469,7 +474,7 @@ export function AdminUsersWorkspace({
               ))}
               {users.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={directoryKind === "users" ? 7 : 6}>
+                  <td className="empty-cell" colSpan={directoryKind === "users" ? 8 : 6}>
                     {emptyMessage}
                   </td>
                 </tr>

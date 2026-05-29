@@ -1,11 +1,7 @@
 "use client";
 
 import { formatRichTextContent } from "@/lib/builder-template";
-import {
-  clearPendingConfirmationEmail,
-  readPendingConfirmationEmail,
-  writePendingConfirmationEmail
-} from "@/lib/player-pending-confirmation";
+import type { PlayerEmailConfirmationStatus } from "@/lib/player-email-confirmation";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -65,28 +61,8 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
-  const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false);
+  const [confirmationStatus, setConfirmationStatus] = useState<PlayerEmailConfirmationStatus>("unknown");
   const headingHtml = formatRichTextContent(heading);
-
-  useEffect(() => {
-    if (previewMode) {
-      return;
-    }
-
-    const pendingEmail = readPendingConfirmationEmail();
-
-    if (!pendingEmail) {
-      return;
-    }
-
-    setAwaitingEmailConfirmation(true);
-    setEmail((current) => current || pendingEmail);
-    setNotice("Check your email to confirm your account. Use Resend Confirmation Email if you need another link.");
-
-    if (settings.showRegister) {
-      setMode("register");
-    }
-  }, [previewMode, settings.showRegister]);
 
   useEffect(() => {
     if (!settings.showRegister) {
@@ -94,12 +70,56 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
       return;
     }
 
-    if (readPendingConfirmationEmail()) {
+    setMode(settings.defaultMode);
+  }, [settings.defaultMode, settings.showRegister]);
+
+  useEffect(() => {
+    if (previewMode || mode !== "register") {
       return;
     }
 
-    setMode(settings.defaultMode);
-  }, [settings.defaultMode, settings.showRegister]);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      setConfirmationStatus("unknown");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch("/api/player/confirmation-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: controller.signal,
+            body: JSON.stringify({ email: normalizedEmail })
+          });
+          const data = (await response.json()) as {
+            error?: string;
+            status?: PlayerEmailConfirmationStatus;
+          };
+
+          if (!response.ok) {
+            throw new Error(data.error ?? "Could not check confirmation status.");
+          }
+
+          setConfirmationStatus(data.status ?? "unknown");
+        } catch (statusError) {
+          if (statusError instanceof Error && statusError.name === "AbortError") {
+            return;
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [email, mode, previewMode]);
 
   async function postPlayerAuth(path: string, payload: Record<string, string>) {
     try {
@@ -119,6 +139,27 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
             : "The browser could not reach the Player Portal API."
       );
     }
+  }
+
+  async function refreshConfirmationStatus(nextEmail: string) {
+    const normalizedEmail = nextEmail.trim().toLowerCase();
+
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      setConfirmationStatus("unknown");
+      return;
+    }
+
+    const response = await postPlayerAuth("/api/player/confirmation-status", { email: normalizedEmail });
+    const data = (await response.json()) as {
+      error?: string;
+      status?: PlayerEmailConfirmationStatus;
+    };
+
+    if (!response.ok) {
+      throw new Error(data.error ?? "Could not check confirmation status.");
+    }
+
+    setConfirmationStatus(data.status ?? "unknown");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -149,9 +190,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
 
       if (!response.ok) {
         if (data.needsEmailConfirmation) {
-          writePendingConfirmationEmail(email);
-          setAwaitingEmailConfirmation(true);
-
+          setConfirmationStatus("waiting_for_verification");
           if (settings.showRegister) {
             setMode("register");
           }
@@ -161,14 +200,12 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
       }
 
       if (data.needsEmailConfirmation) {
-        writePendingConfirmationEmail(email);
-        setAwaitingEmailConfirmation(true);
-        setNotice("Check your email to confirm your account. Use Resend Confirmation Email if you need another link.");
+        setConfirmationStatus("waiting_for_verification");
+        setNotice("Check your email to confirm your account.");
         return;
       }
 
-      clearPendingConfirmationEmail();
-      setAwaitingEmailConfirmation(false);
+      setConfirmationStatus("confirmed");
       router.push(settings.redirectPath);
       router.refresh();
     } catch (submitError) {
@@ -238,8 +275,7 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
         throw new Error(data.error ?? "Confirmation email could not be sent.");
       }
 
-      writePendingConfirmationEmail(email);
-      setAwaitingEmailConfirmation(true);
+      await refreshConfirmationStatus(email);
       setNotice(data.message ?? "If that email is waiting for confirmation, a new confirmation link has been sent.");
     } catch (resendError) {
       setError(resendError instanceof Error ? resendError.message : "Confirmation email could not be sent.");
@@ -249,6 +285,8 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
   }
 
   const fieldDisabled = previewMode;
+  const showResendConfirmationLink =
+    mode === "register" && !previewMode && confirmationStatus === "waiting_for_verification";
 
   return (
     <section
@@ -276,7 +314,6 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
               onClick={() => {
                 setMode("login");
                 setError(null);
-                setNotice(null);
               }}
               type="button"
             >
@@ -288,7 +325,6 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
               onClick={() => {
                 setMode("register");
                 setError(null);
-                setNotice(null);
               }}
               type="button"
             >
@@ -391,9 +427,9 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
                 {isSendingReset ? "Sending reset link..." : "Forgot password?"}
               </button>
             ) : null}
-            {mode === "register" && awaitingEmailConfirmation ? (
+            {showResendConfirmationLink ? (
               <button
-                className="text-button player-forgot-password-button"
+                className="text-button player-forgot-password-button player-resend-confirmation-button"
                 disabled={fieldDisabled || isResendingConfirmation}
                 onClick={handleResendConfirmation}
                 type="button"

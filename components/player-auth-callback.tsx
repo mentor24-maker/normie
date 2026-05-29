@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
-import { clearPendingConfirmationEmail } from "@/lib/player-pending-confirmation";
 
 const SESSION_BRIDGE_TIMEOUT_MS = 10000;
 
@@ -127,7 +126,6 @@ export function PlayerAuthCallback() {
         }
 
         await supabase.auth.signOut();
-        clearPendingConfirmationEmail();
         window.location.replace("/portal/dashboard");
       } catch (callbackError) {
         const message = callbackError instanceof Error ? callbackError.message : "Player confirmation failed.";

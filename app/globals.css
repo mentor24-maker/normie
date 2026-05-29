@@ -4058,6 +4058,16 @@ h2 {
   text-decoration: underline;
 }
 
+.player-resend-confirmation-button {
+  color: #0f4f8f;
+  font-size: 0.92rem;
+}
+
+.player-resend-confirmation-button:hover,
+.player-resend-confirmation-button:focus-visible {
+  color: #18324a;
+}
+
 .player-stack {
   display: grid;
   gap: 24px;

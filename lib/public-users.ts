@@ -24,6 +24,7 @@ export type PublicUserRecord = {
   pollsTaken: number;
   pointsEarned: number;
   lastSignInAt: string;
+  emailConfirmedAt: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -57,6 +58,7 @@ export function mergePublicUserRecord(
     pollsTaken: stats.pollsTaken ?? 0,
     pointsEarned: stats.pointsEarned ?? 0,
     lastSignInAt: safeUserText(authUser.last_sign_in_at, 120),
+    emailConfirmedAt: safeUserText(authUser.email_confirmed_at, 120),
     notes: "",
     createdAt: safeUserText(profile.created_at ?? authUser.created_at, 120),
     updatedAt: safeUserText(profile.updated_at ?? authUser.updated_at, 120)
