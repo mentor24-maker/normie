@@ -1,7 +1,11 @@
 import { evaluatePlayerReminders, explainReminderMatch, type PlayerMatchedReminder, type PlayerReminderContext } from "@/lib/game-reminder-eval";
 import { formatReminderCriterionSummary, gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
 import type { AuthorizedPlayer } from "@/lib/player-auth";
+import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
+import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
+import { isUuid } from "@/lib/public-request";
 import { createAdminClient } from "@/lib/supabase-admin";
+import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
 
 type GameReminderRow = {
   id: string;
@@ -35,7 +39,9 @@ export type PlayerGameReminderDiagnosticReminder = {
 
 export type PlayerGameReminderDiagnostics = {
   loadedAt: string;
-  playerId: string;
+  playerId: string | null;
+  evaluationSource: "authenticated" | "anonymous_session" | "empty";
+  sessionId: string | null;
   loadError: string | null;
   activeReminderCount: number;
   context: {
@@ -108,11 +114,79 @@ export async function buildPlayerReminderContext(player: AuthorizedPlayer): Prom
   };
 }
 
-export async function getPlayerGameReminderState(player: AuthorizedPlayer): Promise<PlayerGameReminderState> {
-  const [{ reminders, loadError }, context] = await Promise.all([
-    loadActiveGameReminders(),
-    buildPlayerReminderContext(player)
-  ]);
+async function buildAnonymousSessionReminderContext(sessionId: string): Promise<PlayerReminderContext> {
+  const supabase = createAdminClient();
+  const { data: responseRows, error: responsesError } = await supabase
+    .from("poll_response")
+    .select("poll_id")
+    .eq("session_id", sessionId);
+
+  if (responsesError) {
+    throw new Error(responsesError.message);
+  }
+
+  const rows = (responseRows ?? []) as Array<{ poll_id: string }>;
+  const answeredPollIds = new Set(rows.map((row) => row.poll_id).filter(Boolean));
+
+  return {
+    pollsTaken: rows.length,
+    loginCount: 0,
+    answeredPollIds,
+    isRegistered: false
+  };
+}
+
+export async function buildPlayerReminderContextFromCookies(cookieStore: ReadonlyRequestCookies): Promise<{
+  context: PlayerReminderContext;
+  playerId: string | null;
+  evaluationSource: PlayerGameReminderDiagnostics["evaluationSource"];
+  sessionId: string | null;
+}> {
+  const player = await getAuthorizedPlayerFromCookieStore(cookieStore);
+
+  if (player) {
+    return {
+      context: await buildPlayerReminderContext(player),
+      playerId: player.authUser.id,
+      evaluationSource: "authenticated",
+      sessionId: null
+    };
+  }
+
+  const sessionId = cookieStore.get(POLL_SESSION_COOKIE)?.value?.trim() ?? "";
+
+  if (sessionId && isUuid(sessionId)) {
+    return {
+      context: await buildAnonymousSessionReminderContext(sessionId),
+      playerId: null,
+      evaluationSource: "anonymous_session",
+      sessionId
+    };
+  }
+
+  return {
+    context: {
+      pollsTaken: 0,
+      loginCount: 0,
+      answeredPollIds: new Set(),
+      isRegistered: false
+    },
+    playerId: null,
+    evaluationSource: "empty",
+    sessionId: null
+  };
+}
+
+function buildPlayerGameReminderState(
+  context: PlayerReminderContext,
+  meta: {
+    playerId: string | null;
+    evaluationSource: PlayerGameReminderDiagnostics["evaluationSource"];
+    sessionId: string | null;
+  },
+  reminders: GameReminder[],
+  loadError: string | null
+): PlayerGameReminderState {
   const matched = evaluatePlayerReminders(reminders, context);
   const bundle = {
     popupReminders: matched.filter((reminder) => reminder.displayType === "popup"),
@@ -124,7 +198,9 @@ export async function getPlayerGameReminderState(player: AuthorizedPlayer): Prom
     bundle,
     diagnostics: {
       loadedAt: new Date().toISOString(),
-      playerId: player.authUser.id,
+      playerId: meta.playerId,
+      evaluationSource: meta.evaluationSource,
+      sessionId: meta.sessionId,
       loadError,
       activeReminderCount: reminders.length,
       context: {
@@ -154,6 +230,39 @@ export async function getPlayerGameReminderState(player: AuthorizedPlayer): Prom
       visibleInlineCount: bundle.inlineReminders.length
     }
   };
+}
+
+export async function getPlayerGameReminderStateFromCookies(
+  cookieStore: ReadonlyRequestCookies
+): Promise<PlayerGameReminderState> {
+  const [{ reminders, loadError }, meta] = await Promise.all([
+    loadActiveGameReminders(),
+    buildPlayerReminderContextFromCookies(cookieStore)
+  ]);
+
+  return buildPlayerGameReminderState(
+    meta.context,
+    {
+      playerId: meta.playerId,
+      evaluationSource: meta.evaluationSource,
+      sessionId: meta.sessionId
+    },
+    reminders,
+    loadError
+  );
+}
+
+export async function getPlayerGameReminderState(player: AuthorizedPlayer): Promise<PlayerGameReminderState> {
+  const [{ reminders, loadError }, context] = await Promise.all([
+    loadActiveGameReminders(),
+    buildPlayerReminderContext(player)
+  ]);
+
+  return buildPlayerGameReminderState(context, {
+    playerId: player.authUser.id,
+    evaluationSource: "authenticated",
+    sessionId: null
+  }, reminders, loadError);
 }
 
 export async function getMatchedPlayerGameReminders(player: AuthorizedPlayer): Promise<PlayerGameReminderBundle> {

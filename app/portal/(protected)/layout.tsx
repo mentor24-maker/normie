@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PlayerLogoutButton } from "@/components/player-logout-button";
-import { PlayerGameRemindersInline, PlayerGameRemindersPopup, PlayerGameReminderDiagnosticsPanel } from "@/components/player-game-reminders";
+import { PlayerGameRemindersInline, PlayerGameRemindersPopup } from "@/components/player-game-reminders";
+import { PlayerGameReminderDiagnosticsGate } from "@/components/player-game-reminder-diagnostics-gate";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { PlayerPortalPlayCta } from "@/components/player-portal-play-cta";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
@@ -84,7 +85,7 @@ export default async function ProtectedPortalLayout({
         <div className="player-portal-main">
           <PlayerGameRemindersInline reminders={reminderState.bundle.inlineReminders} />
           {children}
-          <PlayerGameReminderDiagnosticsPanel diagnostics={reminderState.diagnostics} />
+          <PlayerGameReminderDiagnosticsGate diagnostics={reminderState.diagnostics} />
         </div>
         <PlayerGameRemindersPopup reminders={reminderState.bundle.popupReminders} />
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatRichTextContent } from "@/lib/builder-template";
 import type { PlayerMatchedReminder } from "@/lib/game-reminder-eval";
 import type { PlayerGameReminderDiagnostics } from "@/lib/player-game-reminders";
@@ -71,6 +72,11 @@ export function PlayerGameRemindersInline({ reminders }: { reminders: PlayerMatc
 
 export function PlayerGameRemindersPopup({ reminders }: { reminders: PlayerMatchedReminder[] }) {
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     setDismissedIds(readDismissedReminderIds());
@@ -90,11 +96,11 @@ export function PlayerGameRemindersPopup({ reminders }: { reminders: PlayerMatch
     });
   }
 
-  if (!activeReminder) {
+  if (!activeReminder || !isMounted) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="player-game-reminder-overlay" role="presentation">
       <div
         aria-labelledby={`player-game-reminder-title-${activeReminder.id}`}
@@ -115,11 +121,21 @@ export function PlayerGameRemindersPopup({ reminders }: { reminders: PlayerMatch
             ×
           </button>
         </div>
-        <div className="player-game-reminder-modal-body">
+        <div
+          className="player-game-reminder-modal-body"
+          onClick={(event) => {
+            const link = event.target instanceof Element ? event.target.closest("a") : null;
+
+            if (link) {
+              dismissReminder(activeReminder.id);
+            }
+          }}
+        >
           <ReminderMessage messageHtml={activeReminder.messageHtml} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -133,9 +149,11 @@ export function PlayerGameReminders({ popupReminders, inlineReminders }: PlayerG
 }
 
 export function PlayerGameReminderDiagnosticsPanel({
-  diagnostics
+  diagnostics,
+  isLoading = false
 }: {
   diagnostics: PlayerGameReminderDiagnostics;
+  isLoading?: boolean;
 }) {
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
@@ -165,13 +183,23 @@ export function PlayerGameReminderDiagnosticsPanel({
         </button>
       </div>
       <p className="panel-copy player-game-reminder-diagnostics-intro">
-        Server evaluation snapshot from {new Date(diagnostics.loadedAt).toLocaleString()}.
+        {isLoading
+          ? "Loading reminder evaluation..."
+          : `Server evaluation snapshot from ${new Date(diagnostics.loadedAt).toLocaleString()}.`}
       </p>
       {diagnostics.loadError ? <div className="notice error">{diagnostics.loadError}</div> : null}
       <dl className="player-game-reminder-diagnostics-grid">
         <div>
           <dt>Player ID</dt>
-          <dd>{diagnostics.playerId}</dd>
+          <dd>{diagnostics.playerId ?? "Not signed in"}</dd>
+        </div>
+        <div>
+          <dt>Evaluation Source</dt>
+          <dd>{diagnostics.evaluationSource}</dd>
+        </div>
+        <div>
+          <dt>Poll Session ID</dt>
+          <dd>{diagnostics.sessionId ?? "None"}</dd>
         </div>
         <div>
           <dt>Polls Taken</dt>

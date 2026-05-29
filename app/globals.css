@@ -3492,7 +3492,7 @@ h2 {
 .player-game-reminder-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -3573,6 +3573,11 @@ h2 {
 .player-game-reminder-diagnostics-table td:nth-child(5),
 .player-game-reminder-diagnostics-table th:nth-child(5) {
   min-width: 220px;
+}
+
+.site-shell .player-game-reminder-inline-stack {
+  width: min(100%, var(--site-shell-max-width, 1120px));
+  margin: 0 auto 18px;
 }
 
 .player-portal-main > .panel.player-panel,

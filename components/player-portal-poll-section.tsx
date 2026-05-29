@@ -15,6 +15,7 @@ import {
   scrollPlayerPortalPollsIntoView
 } from "@/lib/player-portal-play-polls";
 import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
+import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
 import { PLAYER_LEVEL_UP_INTERVAL } from "@/lib/player-level-up-event";
 import { firePlayerLevelUpGameEvents } from "@/lib/player-portal-confetti";
 
@@ -165,6 +166,9 @@ function PlayerPortalPollSectionOpen({
       }
 
       router.refresh();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
+      }
     }
   });
 

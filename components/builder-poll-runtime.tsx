@@ -14,6 +14,7 @@ import { getModuleWidthShellStyle } from "@/components/builder/builder-utils";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
 import type { PollPayload } from "@/src/site/home/types";
 import { SocialShareBar } from "@/components/social-share-module";
 
@@ -88,6 +89,9 @@ async function loadPolls(categoryParam: string, startPollParam: string) {
         isSubmitting: false,
         error: null
       });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
+      }
     } catch (loadError) {
       setRuntimeState({
         ...runtimeState,
@@ -139,6 +143,9 @@ async function submitAnswer(optionId: string) {
 
     stripStartPollFromBrowserUrl();
     await loadPolls(loadedCategoryKey ?? "", "");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
+    }
   } catch (submitError) {
     setRuntimeState({
       ...runtimeState,

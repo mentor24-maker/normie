@@ -2774,6 +2774,40 @@ export function AdminGameWorkspace() {
     }
   }
 
+  async function cloneReminder(reminder: GameReminder) {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const payload = buildReminderPayload({
+        ...reminderToDraft(reminder),
+        name: `${reminder.name} (copy)`
+      });
+      const response = await fetch("/api/admin/game/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await readAdminJson<{ reminder?: GameReminder; error?: string }>(
+        response,
+        "Failed to clone reminder."
+      );
+
+      if (!data.reminder) {
+        throw new Error(data.error ?? "Failed to clone reminder.");
+      }
+
+      setReminders((current) => [data.reminder!, ...current]);
+      setMessage(`Cloned reminder "${reminder.name}".`);
+      setEditingReminderId("");
+      setReminderDraft(createReminderDraft());
+    } catch (cloneError) {
+      setError(cloneError instanceof Error ? cloneError.message : "Failed to clone reminder.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function deleteGameLevel(gameLevel: GameLevel) {
     if (!window.confirm(`Delete ${formatGameLevelName(gameLevel.levelName)} order ${gameLevel.levelOrder}?`)) return;
     setIsSaving(true);
@@ -3801,7 +3835,8 @@ export function AdminGameWorkspace() {
             <div className="panel-label">Reminders</div>
             <h2>Reminders</h2>
             <p className="admin-section-intro">
-              Configure popup or inline callout notices that fire when a player matches the selected criteria.
+              Configure popup or inline notices on the public site and player portal. Use Registered: No and Polls Taken
+              criteria to nudge anonymous visitors toward signing up. Add ?reminderDebug=1 on any page to inspect evaluation.
             </p>
           </div>
           <button className="submit-button" disabled={isSaving} onClick={startNewReminder} type="button">
@@ -3877,6 +3912,16 @@ export function AdminGameWorkspace() {
                           type="button"
                         >
                           ✎
+                        </button>
+                        <button
+                          aria-label="Clone reminder"
+                          className="polls-icon-button polls-icon-button-view"
+                          disabled={isSaving}
+                          onClick={() => void cloneReminder(reminder)}
+                          title="Clone"
+                          type="button"
+                        >
+                          ⧉
                         </button>
                         <button
                           aria-label="Delete reminder"
