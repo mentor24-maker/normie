@@ -1,12 +1,16 @@
 import type {
   GameReminder,
+  GameReminderCriterion,
   GameReminderCriterionValue,
   GameReminderNumericCriterion,
-  GameReminderOperator,
-  GameReminderPollCriterion,
-  GameReminderRegisteredCriterion
+  GameReminderOperator
 } from "@/lib/game-reminder";
-import { formatReminderCriterionSummary, reminderOperatorLabel } from "@/lib/game-reminder";
+import {
+  formatReminderCriteriaSummary,
+  formatReminderCriterionSummary,
+  reminderCriteriaLogicLabel,
+  reminderOperatorLabel
+} from "@/lib/game-reminder";
 
 export type PlayerReminderContext = {
   pollsTaken: number;
@@ -59,20 +63,47 @@ function asNumericCriterion(value: GameReminderCriterionValue): GameReminderNume
   return { operator: "gte", count: 1 };
 }
 
-function asPollCriterion(value: GameReminderCriterionValue): GameReminderPollCriterion {
-  if ("pollId" in value) {
-    return value;
+export function explainCriterionMatch(
+  criterion: GameReminderCriterion,
+  context: PlayerReminderContext
+): ReminderMatchExplanation {
+  switch (criterion.type) {
+    case "polls_taken": {
+      const numeric = asNumericCriterion(criterion.value);
+      return describeNumericComparison("Polls taken", context.pollsTaken, numeric.operator, numeric.count);
+    }
+    case "logins": {
+      const numeric = asNumericCriterion(criterion.value);
+      return describeNumericComparison("Logins", context.loginCount, numeric.operator, numeric.count);
+    }
+    case "specific_poll": {
+      const pollId = "pollId" in criterion.value ? criterion.value.pollId : "";
+
+      if (!pollId) {
+        return { matched: false, reason: "Reminder is missing a poll selection." };
+      }
+
+      const matched = context.answeredPollIds.has(pollId);
+      return {
+        matched,
+        reason: matched
+          ? `Player answered poll ${pollId}.`
+          : `Player has not answered poll ${pollId}.`
+      };
+    }
+    case "registered": {
+      const registered = "registered" in criterion.value ? criterion.value.registered : false;
+      const matched = context.isRegistered === registered;
+      return {
+        matched,
+        reason: matched
+          ? `Registered status is ${context.isRegistered ? "yes" : "no"} as required.`
+          : `Registered status is ${context.isRegistered ? "yes" : "no"}; reminder requires ${registered ? "yes" : "no"}.`
+      };
+    }
+    default:
+      return { matched: false, reason: "Unknown reminder criterion type." };
   }
-
-  return { pollId: "" };
-}
-
-function asRegisteredCriterion(value: GameReminderCriterionValue): GameReminderRegisteredCriterion {
-  if ("registered" in value) {
-    return value;
-  }
-
-  return { registered: false };
 }
 
 export function explainReminderMatch(reminder: GameReminder, context: PlayerReminderContext): ReminderMatchExplanation {
@@ -80,43 +111,31 @@ export function explainReminderMatch(reminder: GameReminder, context: PlayerRemi
     return { matched: false, reason: "Reminder is inactive." };
   }
 
-  switch (reminder.criterionType) {
-    case "polls_taken": {
-      const criterion = asNumericCriterion(reminder.criterionValue);
-      return describeNumericComparison("Polls taken", context.pollsTaken, criterion.operator, criterion.count);
-    }
-    case "logins": {
-      const criterion = asNumericCriterion(reminder.criterionValue);
-      return describeNumericComparison("Logins", context.loginCount, criterion.operator, criterion.count);
-    }
-    case "specific_poll": {
-      const criterion = asPollCriterion(reminder.criterionValue);
-
-      if (!criterion.pollId) {
-        return { matched: false, reason: "Reminder is missing a poll selection." };
-      }
-
-      const matched = context.answeredPollIds.has(criterion.pollId);
-      return {
-        matched,
-        reason: matched
-          ? `Player answered poll ${criterion.pollId}.`
-          : `Player has not answered poll ${criterion.pollId}.`
-      };
-    }
-    case "registered": {
-      const criterion = asRegisteredCriterion(reminder.criterionValue);
-      const matched = context.isRegistered === criterion.registered;
-      return {
-        matched,
-        reason: matched
-          ? `Registered status is ${context.isRegistered ? "yes" : "no"} as required.`
-          : `Registered status is ${context.isRegistered ? "yes" : "no"}; reminder requires ${criterion.registered ? "yes" : "no"}.`
-      };
-    }
-    default:
-      return { matched: false, reason: "Unknown reminder criterion type." };
+  if (!reminder.criteria.length) {
+    return { matched: false, reason: "Reminder has no criteria." };
   }
+
+  const explanations = reminder.criteria.map((criterion) => explainCriterionMatch(criterion, context));
+  const matched =
+    reminder.criteriaLogic === "or"
+      ? explanations.some((explanation) => explanation.matched)
+      : explanations.every((explanation) => explanation.matched);
+
+  const logicLabel = reminderCriteriaLogicLabel(reminder.criteriaLogic);
+  const summary = formatReminderCriteriaSummary(reminder);
+  const detail = explanations
+    .map((explanation, index) => {
+      const label = formatReminderCriterionSummary(reminder.criteria[index] ?? { type: "polls_taken", value: { operator: "gte", count: 1 } });
+      return `${label} — ${explanation.reason}`;
+    })
+    .join(" ");
+
+  return {
+    matched,
+    reason: matched
+      ? `${logicLabel} satisfied (${summary}). ${detail}`
+      : `${logicLabel} not satisfied (${summary}). ${detail}`
+  };
 }
 
 export function reminderMatchesContext(reminder: GameReminder, context: PlayerReminderContext): boolean {

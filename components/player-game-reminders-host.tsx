@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PlayerGameReminderDiagnosticsGate } from "@/components/player-game-reminder-diagnostics-gate";
 import { PlayerGameRemindersInline, PlayerGameRemindersPopup } from "@/components/player-game-reminders";
 import type { PlayerGameReminderState } from "@/lib/player-game-reminders";
+import { syncDismissedReminderIds } from "@/lib/player-game-reminder-dismissals";
 
 export const PLAYER_GAME_REMINDERS_REFRESH_EVENT = "normie-reminders-refresh";
 
@@ -47,6 +48,7 @@ export function PlayerGameRemindersHost() {
         throw new Error(data.error ?? "Failed to load reminders.");
       }
 
+      syncDismissedReminderIds(data.diagnostics.reminders);
       setState(data);
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : "Failed to load reminders.");

@@ -3,13 +3,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { PlayerGameRemindersHost } from "@/components/player-game-reminders-host";
 import { PlayerLogoutButton } from "@/components/player-logout-button";
-import { PlayerGameRemindersInline, PlayerGameRemindersPopup } from "@/components/player-game-reminders";
-import { PlayerGameReminderDiagnosticsGate } from "@/components/player-game-reminder-diagnostics-gate";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { PlayerPortalPlayCta } from "@/components/player-portal-play-cta";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
-import { getPlayerGameReminderState } from "@/lib/player-game-reminders";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
 
 export default async function ProtectedPortalLayout({
@@ -26,7 +24,6 @@ export default async function ProtectedPortalLayout({
 
   const displayName = player.profile.full_name || player.profile.handle || "Normie Player";
   const handle = player.profile.handle?.trim();
-  const reminderState = await getPlayerGameReminderState(player);
 
   return (
     <main className="player-portal-page">
@@ -83,11 +80,9 @@ export default async function ProtectedPortalLayout({
         </Suspense>
 
         <div className="player-portal-main">
-          <PlayerGameRemindersInline reminders={reminderState.bundle.inlineReminders} />
+          <PlayerGameRemindersHost />
           {children}
-          <PlayerGameReminderDiagnosticsGate diagnostics={reminderState.diagnostics} />
         </div>
-        <PlayerGameRemindersPopup reminders={reminderState.bundle.popupReminders} />
       </div>
     </main>
   );

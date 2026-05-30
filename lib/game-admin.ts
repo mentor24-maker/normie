@@ -3,6 +3,8 @@ import { gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
 
 export type {
   GameReminder,
+  GameReminderCriteriaLogic,
+  GameReminderCriterion,
   GameReminderCriterionType,
   GameReminderCriterionValue,
   GameReminderDisplayType,
@@ -12,10 +14,14 @@ export type {
   GameReminderRegisteredCriterion
 } from "@/lib/game-reminder";
 export {
+  createDefaultReminderCriterion,
+  formatReminderCriteriaSummary,
   formatReminderCriterionSummary,
+  GAME_REMINDER_CRITERIA_LOGIC_OPTIONS,
   GAME_REMINDER_CRITERION_TYPES,
   GAME_REMINDER_DISPLAY_TYPES,
   GAME_REMINDER_OPERATORS,
+  reminderCriteriaLogicLabel,
   reminderCriterionTypeLabel,
   reminderDisplayTypeLabel,
   reminderOperatorLabel

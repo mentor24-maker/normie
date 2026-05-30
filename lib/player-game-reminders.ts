@@ -1,5 +1,5 @@
 import { evaluatePlayerReminders, explainReminderMatch, type PlayerMatchedReminder, type PlayerReminderContext } from "@/lib/game-reminder-eval";
-import { formatReminderCriterionSummary, gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
+import { formatReminderCriteriaSummary, gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
 import type { AuthorizedPlayer } from "@/lib/player-auth";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
@@ -217,7 +217,7 @@ function buildPlayerGameReminderState(
           id: reminder.id,
           name: reminder.name,
           displayType: reminder.displayType,
-          criterionSummary: formatReminderCriterionSummary(reminder),
+          criterionSummary: formatReminderCriteriaSummary(reminder),
           matched: explanation.matched,
           matchReason: explanation.reason,
           queuedForDisplay,

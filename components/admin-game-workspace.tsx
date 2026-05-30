@@ -22,18 +22,23 @@ import type {
   GameRewardType,
   GameScoringRule,
   GameReminder,
+  GameReminderCriteriaLogic,
+  GameReminderCriterion,
   GameReminderCriterionType,
   GameReminderDisplayType,
   GameReminderOperator
 } from "@/lib/game-admin";
 import {
-  formatReminderCriterionSummary,
+  createDefaultReminderCriterion,
+  formatReminderCriteriaSummary,
+  GAME_REMINDER_CRITERIA_LOGIC_OPTIONS,
   GAME_REMINDER_CRITERION_TYPES,
   GAME_REMINDER_DISPLAY_TYPES,
   GAME_REMINDER_OPERATORS,
   GAME_LEVEL_NAMES,
   GAME_REWARD_STATUSES,
   GAME_REWARD_TYPES,
+  reminderCriteriaLogicLabel,
   reminderCriterionTypeLabel,
   reminderDisplayTypeLabel,
   reminderOperatorLabel
@@ -94,10 +99,8 @@ type RewardDraft = Partial<GameReward> & {
 };
 type ScoringRuleDraft = Partial<GameScoringRule>;
 type ReminderDraft = Partial<GameReminder> & {
-  operator?: GameReminderOperator;
-  count?: number;
-  pollId?: string;
-  registered?: boolean;
+  criteriaLogic?: GameReminderCriteriaLogic;
+  criteria?: GameReminderCriterion[];
 };
 type SortDirection = "asc" | "desc";
 type GameSection = "levels" | "scoring" | "level-up" | "redemptions";
@@ -314,50 +317,40 @@ function createReminderDraft(): ReminderDraft {
     name: "",
     displayType: "popup",
     messageHtml: "",
-    criterionType: "polls_taken",
-    operator: "gte",
-    count: 1,
-    pollId: "",
-    registered: true,
+    criteriaLogic: "and",
+    criteria: [createDefaultReminderCriterion()],
     isActive: true,
     sortOrder: 0
   };
 }
 
 function reminderToDraft(reminder: GameReminder): ReminderDraft {
-  const draft: ReminderDraft = { ...reminder };
-
-  if (reminder.criterionType === "specific_poll" && "pollId" in reminder.criterionValue) {
-    draft.pollId = reminder.criterionValue.pollId;
-  } else if (reminder.criterionType === "registered" && "registered" in reminder.criterionValue) {
-    draft.registered = reminder.criterionValue.registered;
-  } else if ("operator" in reminder.criterionValue && "count" in reminder.criterionValue) {
-    draft.operator = reminder.criterionValue.operator;
-    draft.count = reminder.criterionValue.count;
-  }
-
-  return draft;
+  return {
+    ...reminder,
+    criteriaLogic: reminder.criteriaLogic,
+    criteria: reminder.criteria.map((criterion) => ({
+      ...criterion,
+      value: { ...criterion.value }
+    }))
+  };
 }
 
 function buildReminderPayload(draft: ReminderDraft) {
-  const criterionType = draft.criterionType ?? "polls_taken";
+  const criteria = (draft.criteria ?? [createDefaultReminderCriterion()]).map((criterion) => ({
+    id: criterion.id,
+    type: criterion.type,
+    value: criterion.value
+  }));
 
   return {
     name: String(draft.name ?? "").trim(),
     displayType: draft.displayType ?? "popup",
     messageHtml: draft.messageHtml ?? "",
-    criterionType,
-    criterionValue:
-      criterionType === "specific_poll"
-        ? { pollId: String(draft.pollId ?? "").trim() }
-        : criterionType === "registered"
-          ? { registered: draft.registered === true }
-          : {
-              operator: draft.operator ?? "gte",
-              count: Math.max(0, Number(draft.count ?? 1))
-            },
+    criteriaLogic: draft.criteriaLogic ?? "and",
+    criteria,
     isActive: draft.isActive !== false,
-    sortOrder: draft.sortOrder ?? 0
+    sortOrder: draft.sortOrder ?? 0,
+    metadata: draft.metadata ?? {}
   };
 }
 
@@ -740,8 +733,8 @@ function compareReminders(
       break;
     case "criterion":
       result = compareText(
-        formatReminderCriterionSummary(left, pollLabelById),
-        formatReminderCriterionSummary(right, pollLabelById)
+        formatReminderCriteriaSummary(left, pollLabelById),
+        formatReminderCriteriaSummary(right, pollLabelById)
       );
       break;
     case "isActive":
@@ -1921,6 +1914,109 @@ function ScoringRuleEditor({
   );
 }
 
+function getDefaultCriterionValue(type: GameReminderCriterionType) {
+  if (type === "specific_poll") {
+    return { pollId: "" };
+  }
+
+  if (type === "registered") {
+    return { registered: false };
+  }
+
+  return { operator: "gte" as GameReminderOperator, count: 1 };
+}
+
+function ReminderCriterionFields({
+  criterion,
+  pollOptions,
+  onChange
+}: {
+  criterion: GameReminderCriterion;
+  pollOptions: AdminPollOption[];
+  onChange: (next: GameReminderCriterion) => void;
+}) {
+  if (criterion.type === "polls_taken" || criterion.type === "logins") {
+    const numeric =
+      "operator" in criterion.value && "count" in criterion.value
+        ? criterion.value
+        : { operator: "gte" as GameReminderOperator, count: 1 };
+
+    return (
+      <>
+        <BuilderSettingRow fullWidth label="Threshold">
+          <select
+            className="admin-game-reward-field-select"
+            value={numeric.operator}
+            onChange={(event) =>
+              onChange({
+                ...criterion,
+                value: { ...numeric, operator: event.target.value as GameReminderOperator }
+              })
+            }
+          >
+            {GAME_REMINDER_OPERATORS.map((operator) => (
+              <option key={operator} value={operator}>
+                {reminderOperatorLabel(operator)}
+              </option>
+            ))}
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Count">
+          <input
+            className="admin-game-reward-field-number"
+            min="0"
+            type="number"
+            value={numeric.count}
+            onChange={(event) =>
+              onChange({
+                ...criterion,
+                value: { ...numeric, count: Math.max(0, Number(event.target.value) || 0) }
+              })
+            }
+          />
+        </BuilderSettingRow>
+      </>
+    );
+  }
+
+  if (criterion.type === "specific_poll") {
+    const pollId = "pollId" in criterion.value ? criterion.value.pollId : "";
+
+    return (
+      <BuilderSettingRow fullWidth label="Poll">
+        <select
+          className="admin-game-reward-field-wide"
+          value={pollId}
+          onChange={(event) => onChange({ ...criterion, value: { pollId: event.target.value } })}
+        >
+          <option value="">Select a poll</option>
+          {pollOptions.map((poll) => (
+            <option key={poll.id} value={poll.id}>
+              {poll.question}
+              {poll.isPublished ? "" : " (Draft)"}
+            </option>
+          ))}
+        </select>
+      </BuilderSettingRow>
+    );
+  }
+
+  const registered = "registered" in criterion.value ? criterion.value.registered : false;
+
+  return (
+    <BuilderSettingRow fullWidth label="Registered">
+      <select
+        className="admin-game-reward-field-select"
+        value={registered ? "yes" : "no"}
+        onChange={(event) => onChange({ ...criterion, value: { registered: event.target.value === "yes" } })}
+      >
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </BuilderSettingRow>
+  );
+}
+
 function ReminderEditor({
   draft,
   isSaving,
@@ -1936,7 +2032,27 @@ function ReminderEditor({
   onChange: (next: ReminderDraft) => void;
   onSave: () => void;
 }) {
-  const criterionType = draft.criterionType ?? "polls_taken";
+  const criteria = draft.criteria ?? [createDefaultReminderCriterion()];
+
+  function updateCriteria(nextCriteria: GameReminderCriterion[]) {
+    onChange({ ...draft, criteria: nextCriteria });
+  }
+
+  function updateCriterion(index: number, nextCriterion: GameReminderCriterion) {
+    updateCriteria(criteria.map((criterion, currentIndex) => (currentIndex === index ? nextCriterion : criterion)));
+  }
+
+  function addCriterion() {
+    updateCriteria([...criteria, createDefaultReminderCriterion()]);
+  }
+
+  function removeCriterion(index: number) {
+    if (criteria.length <= 1) {
+      return;
+    }
+
+    updateCriteria(criteria.filter((_, currentIndex) => currentIndex !== index));
+  }
 
   return (
     <div className="builder-product-editor admin-game-editor admin-game-reminder-editor">
@@ -1961,76 +2077,77 @@ function ReminderEditor({
             ))}
           </select>
         </BuilderSettingRow>
-        <BuilderSettingRow fullWidth label="Criteria Type">
+        <BuilderSettingRow fullWidth label="Match Logic">
           <select
-            value={criterionType}
+            value={draft.criteriaLogic ?? "and"}
             onChange={(event) =>
-              onChange({
-                ...draft,
-                criterionType: event.target.value as GameReminderCriterionType
-              })
+              onChange({ ...draft, criteriaLogic: event.target.value as GameReminderCriteriaLogic })
             }
           >
-            {GAME_REMINDER_CRITERION_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {reminderCriterionTypeLabel(type)}
+            {GAME_REMINDER_CRITERIA_LOGIC_OPTIONS.map((logic) => (
+              <option key={logic} value={logic}>
+                {reminderCriteriaLogicLabel(logic)}
               </option>
             ))}
           </select>
         </BuilderSettingRow>
-        {criterionType === "polls_taken" || criterionType === "logins" ? (
-          <>
-            <BuilderSettingRow fullWidth label="Threshold">
-              <select
-                value={draft.operator ?? "gte"}
-                onChange={(event) =>
-                  onChange({ ...draft, operator: event.target.value as GameReminderOperator })
-                }
-              >
-                {GAME_REMINDER_OPERATORS.map((operator) => (
-                  <option key={operator} value={operator}>
-                    {reminderOperatorLabel(operator)}
-                  </option>
-                ))}
-              </select>
-            </BuilderSettingRow>
-            <BuilderSettingRow fullWidth label="Count">
-              <input
-                min="0"
-                type="number"
-                value={draft.count ?? 1}
-                onChange={(event) => onChange({ ...draft, count: Number(event.target.value) })}
-              />
-            </BuilderSettingRow>
-          </>
-        ) : null}
-        {criterionType === "specific_poll" ? (
-          <BuilderSettingRow fullWidth label="Poll">
-            <select
-              value={draft.pollId ?? ""}
-              onChange={(event) => onChange({ ...draft, pollId: event.target.value })}
-            >
-              <option value="">Select a poll</option>
-              {pollOptions.map((poll) => (
-                <option key={poll.id} value={poll.id}>
-                  {poll.question}
-                  {poll.isPublished ? "" : " (Draft)"}
-                </option>
-              ))}
-            </select>
-          </BuilderSettingRow>
-        ) : null}
-        {criterionType === "registered" ? (
-          <BuilderSettingRow fullWidth label="Registered">
-            <select
-              value={draft.registered === false ? "no" : "yes"}
-              onChange={(event) => onChange({ ...draft, registered: event.target.value === "yes" })}
-            >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </BuilderSettingRow>
-        ) : null}
+        <div className="admin-game-reminder-criteria-panel">
+          <div className="admin-game-reminder-criteria-header">
+            <span className="builder-setting-label">Criteria</span>
+            <button className="secondary-button" disabled={isSaving} onClick={addCriterion} type="button">
+              Add Criterion
+            </button>
+          </div>
+          <div className="admin-game-reminder-criteria-list">
+            {criteria.map((criterion, index) => (
+              <div className="admin-game-reminder-criterion-card" key={criterion.id}>
+                <div className="admin-game-reminder-criterion-card-header">
+                  <span>Criterion {index + 1}</span>
+                  {index > 0 ? (
+                    <span className="admin-game-reminder-criterion-joiner">
+                      {draft.criteriaLogic === "or" ? "OR" : "AND"}
+                    </span>
+                  ) : null}
+                  <button
+                    aria-label={`Remove criterion ${index + 1}`}
+                    className="polls-icon-button polls-icon-button-danger admin-game-sublevel-remove"
+                    disabled={isSaving || criteria.length <= 1}
+                    onClick={() => removeCriterion(index)}
+                    title="Remove"
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </div>
+                <BuilderSettingRow fullWidth label="Type">
+                  <select
+                    className="admin-game-reward-field-select"
+                    value={criterion.type}
+                    onChange={(event) => {
+                      const nextType = event.target.value as GameReminderCriterionType;
+                      updateCriterion(index, {
+                        ...criterion,
+                        type: nextType,
+                        value: getDefaultCriterionValue(nextType)
+                      });
+                    }}
+                  >
+                    {GAME_REMINDER_CRITERION_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {reminderCriterionTypeLabel(type)}
+                      </option>
+                    ))}
+                  </select>
+                </BuilderSettingRow>
+                <ReminderCriterionFields
+                  criterion={criterion}
+                  onChange={(nextCriterion) => updateCriterion(index, nextCriterion)}
+                  pollOptions={pollOptions}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
         <BuilderSettingRow fullWidth label="Active">
           <label className="admin-game-reminder-active-toggle">
             <input
@@ -2264,7 +2381,7 @@ export function AdminGameWorkspace() {
       const haystack = [
         reminder.name,
         reminderDisplayTypeLabel(reminder.displayType),
-        formatReminderCriterionSummary(reminder, pollLabelById),
+        formatReminderCriteriaSummary(reminder, pollLabelById),
         reminder.messageHtml.replace(/<[^>]+>/g, " ")
       ]
         .join(" ")
@@ -3999,7 +4116,7 @@ export function AdminGameWorkspace() {
                       <strong>{reminder.name}</strong>
                     </td>
                     <td>{reminderDisplayTypeLabel(reminder.displayType)}</td>
-                    <td>{formatReminderCriterionSummary(reminder, pollLabelById)}</td>
+                    <td>{formatReminderCriteriaSummary(reminder, pollLabelById)}</td>
                     <td>{reminder.isActive ? "Yes" : "No"}</td>
                     <td>{formatTemplateTimestamp(reminder.updatedAt)}</td>
                     <td className="crud-actions-cell">

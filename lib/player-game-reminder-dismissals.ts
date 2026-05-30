@@ -26,3 +26,17 @@ export function persistDismissedReminderIds(ids: string[]) {
 export function clearDismissedReminderIds() {
   window.localStorage.removeItem(DISMISSED_REMINDERS_STORAGE_KEY);
 }
+
+export function syncDismissedReminderIds(reminders: Array<{ id: string; matched: boolean }>): string[] {
+  const dismissed = readDismissedReminderIds();
+  const next = dismissed.filter((id) => {
+    const reminder = reminders.find((entry) => entry.id === id);
+    return Boolean(reminder?.matched);
+  });
+
+  if (next.length !== dismissed.length) {
+    persistDismissedReminderIds(next);
+  }
+
+  return next;
+}

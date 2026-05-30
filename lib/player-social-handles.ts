@@ -30,7 +30,9 @@ export type PlayerSocialFieldConfig = {
 
 /** Gallery icons for public profile / connect UI (keys without an icon use a letter fallback). */
 export const PLAYER_SOCIAL_ICON_PATHS: Partial<Record<PlayerSocialFieldKey, string>> = {
+  website: "/gallery/social-globe.svg",
   x: "/gallery/social-x.svg",
+  instagram: "/gallery/social-instagram.svg",
   youtube: "/gallery/social-youtube.svg",
   tiktok: "/gallery/social-tiktok.svg"
 };

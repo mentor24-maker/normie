@@ -30,7 +30,7 @@ export function PlayerGameRemindersInline({ reminders }: { reminders: PlayerMatc
 
   useEffect(() => {
     setDismissedIds(readDismissedReminderIds());
-  }, []);
+  }, [reminders]);
 
   const visibleReminders = useMemo(
     () => reminders.filter((reminder) => !dismissedIds.includes(reminder.id)),
@@ -80,7 +80,7 @@ export function PlayerGameRemindersPopup({ reminders }: { reminders: PlayerMatch
 
   useEffect(() => {
     setDismissedIds(readDismissedReminderIds());
-  }, []);
+  }, [reminders]);
 
   const visibleReminders = useMemo(
     () => reminders.filter((reminder) => !dismissedIds.includes(reminder.id)),

@@ -15,7 +15,7 @@ export function SiteHeaderSocial() {
           title={item.label}
         >
           <span className={`site-header-social-icon site-header-social-icon-${item.id}`}>
-            <Image alt={item.label} fill sizes="44px" src={item.iconPath} unoptimized />
+            <Image alt={item.label} fill sizes="56px" src={item.iconPath} unoptimized />
           </span>
         </a>
       ))}

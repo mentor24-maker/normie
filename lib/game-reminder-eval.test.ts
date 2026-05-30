@@ -3,13 +3,27 @@ import { evaluatePlayerReminders, explainReminderMatch, reminderMatchesContext, 
 import type { GameReminder } from "@/lib/game-reminder";
 
 function buildReminder(overrides: Partial<GameReminder> = {}): GameReminder {
+  const criterionType = overrides.criterionType ?? "polls_taken";
+  const criterionValue = overrides.criterionValue ?? { operator: "gte" as const, count: 5 };
+  const criteria =
+    overrides.criteria ??
+    [
+      {
+        id: "criterion-1",
+        type: criterionType,
+        value: criterionValue
+      }
+    ];
+
   return {
     id: "reminder-1",
     name: "Test reminder",
     displayType: "popup",
     messageHtml: "<p>Hello</p>",
-    criterionType: "polls_taken",
-    criterionValue: { operator: "gte", count: 5 },
+    criteriaLogic: overrides.criteriaLogic ?? "and",
+    criteria,
+    criterionType,
+    criterionValue,
     isActive: true,
     sortOrder: 0,
     metadata: {},
@@ -94,6 +108,62 @@ describe("reminderMatchesContext", () => {
         { ...baseContext, isRegistered: false }
       )
     ).toBe(true);
+  });
+
+  it("matches when all AND criteria pass", () => {
+    expect(
+      reminderMatchesContext(
+        buildReminder({
+          criteriaLogic: "and",
+          criteria: [
+            { id: "a", type: "polls_taken", value: { operator: "gte", count: 5 } },
+            { id: "b", type: "logins", value: { operator: "eq", count: 0 } }
+          ]
+        }),
+        { ...baseContext, pollsTaken: 5, loginCount: 0 }
+      )
+    ).toBe(true);
+
+    expect(
+      reminderMatchesContext(
+        buildReminder({
+          criteriaLogic: "and",
+          criteria: [
+            { id: "a", type: "polls_taken", value: { operator: "gte", count: 5 } },
+            { id: "b", type: "logins", value: { operator: "eq", count: 0 } }
+          ]
+        }),
+        { ...baseContext, pollsTaken: 5, loginCount: 1 }
+      )
+    ).toBe(false);
+  });
+
+  it("matches when any OR criterion passes", () => {
+    expect(
+      reminderMatchesContext(
+        buildReminder({
+          criteriaLogic: "or",
+          criteria: [
+            { id: "a", type: "polls_taken", value: { operator: "eq", count: 10 } },
+            { id: "b", type: "logins", value: { operator: "eq", count: 2 } }
+          ]
+        }),
+        baseContext
+      )
+    ).toBe(true);
+
+    expect(
+      reminderMatchesContext(
+        buildReminder({
+          criteriaLogic: "or",
+          criteria: [
+            { id: "a", type: "polls_taken", value: { operator: "eq", count: 10 } },
+            { id: "b", type: "logins", value: { operator: "eq", count: 0 } }
+          ]
+        }),
+        baseContext
+      )
+    ).toBe(false);
   });
 });
 

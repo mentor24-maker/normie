@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import {
-  GAME_REMINDER_CRITERION_TYPES,
+  buildReminderSaveFields,
   GAME_REMINDER_DISPLAY_TYPES,
   gameReminderToClient,
-  parseReminderCriterionValueInput,
-  type GameReminderCriterionType,
   type GameReminderDisplayType
 } from "@/lib/game-reminder";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
@@ -27,13 +25,6 @@ function normalizeDisplayType(value: unknown): GameReminderDisplayType {
     : "popup";
 }
 
-function normalizeCriterionType(value: unknown): GameReminderCriterionType {
-  const criterionType = safeText(value, 64);
-  return GAME_REMINDER_CRITERION_TYPES.includes(criterionType as GameReminderCriterionType)
-    ? (criterionType as GameReminderCriterionType)
-    : "polls_taken";
-}
-
 export async function POST(request: Request) {
   const auth = await requireAdminRoute("content:write");
 
@@ -45,6 +36,8 @@ export async function POST(request: Request) {
     name?: unknown;
     displayType?: unknown;
     messageHtml?: unknown;
+    criteriaLogic?: unknown;
+    criteria?: unknown;
     criterionType?: unknown;
     criterionValue?: unknown;
     isActive?: unknown;
@@ -56,11 +49,10 @@ export async function POST(request: Request) {
     return auth.finish(NextResponse.json({ error: "Reminder name is required." }, { status: 400 }));
   }
 
-  const criterionType = normalizeCriterionType(body.criterionType);
-  const criterionValue = parseReminderCriterionValueInput(criterionType, body.criterionValue);
+  const saveFields = buildReminderSaveFields(body);
 
-  if (criterionType === "specific_poll" && !("pollId" in criterionValue && criterionValue.pollId)) {
-    return auth.finish(NextResponse.json({ error: "Select a poll for this reminder." }, { status: 400 }));
+  if (saveFields.error) {
+    return auth.finish(NextResponse.json({ error: saveFields.error }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
@@ -70,8 +62,9 @@ export async function POST(request: Request) {
       name,
       display_type: normalizeDisplayType(body.displayType),
       message_html: sanitizeRichTextHtml(String(body.messageHtml ?? "")),
-      criterion_type: criterionType,
-      criterion_value: criterionValue,
+      criterion_type: saveFields.criterionType,
+      criterion_value: saveFields.criterionValue,
+      metadata: saveFields.metadata,
       is_active: body.isActive !== false,
       sort_order: Math.max(0, safeInteger(body.sortOrder, 0)),
       updated_at: new Date().toISOString()
