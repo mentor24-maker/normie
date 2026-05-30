@@ -1,6 +1,24 @@
-function randomUnansweredIndex(length: number) {
+function randomIndex(length: number) {
+  if (length <= 0) {
+    return 0;
+  }
+
   const randomValue = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
   return Math.floor((randomValue / 2 ** 32) * length);
+}
+
+/** Fisher–Yates shuffle using crypto randomness. Returns a new array. */
+export function shuffleForDisplay<T>(items: readonly T[]): T[] {
+  const copy = [...items];
+
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    const current = copy[index];
+    copy[index] = copy[swapIndex] as T;
+    copy[swapIndex] = current as T;
+  }
+
+  return copy;
 }
 
 /** Pick one unanswered poll at random from the eligible list. */
@@ -14,7 +32,7 @@ export function pickRandomUnansweredPoll<T extends { id: string }>(
     return null;
   }
 
-  const index = randomUnansweredIndex(unanswered.length);
+  const index = randomIndex(unanswered.length);
   return unanswered[index] ?? null;
 }
 

@@ -1,4 +1,24 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+
+export function getNumericSelectDigitCount(max: number, min = 0): number {
+  const largest = Math.max(Math.abs(min), Math.abs(max));
+  return Math.max(1, String(largest).length);
+}
+
+export function getNumericSelectDigitCountFromOptions(options: Array<string | number>): number {
+  let maxDigits = 1;
+
+  for (const option of options) {
+    const digits = String(option).match(/\d/g)?.length ?? 0;
+    maxDigits = Math.max(maxDigits, digits);
+  }
+
+  return maxDigits;
+}
+
+export function buildNumericSelectWidthStyle(digitCount: number): CSSProperties {
+  return { "--numeric-select-digit-count": String(Math.max(1, digitCount)) } as CSSProperties;
+}
 
 export function buildNumberSelectOptions(min: number, max: number, step = 1) {
   const options: string[] = [];
@@ -60,11 +80,13 @@ export function BuilderNumberSelectControl({
 }: BuilderNumberSelectControlProps) {
   const options = buildNumberSelectOptions(min, max, step);
   const normalized = normalizeNumberSelectValue(value, fallback, min, max, step);
+  const digitCount = getNumericSelectDigitCount(max, min);
 
   return (
     <select
       className="builder-number-select-control"
       disabled={disabled}
+      style={buildNumericSelectWidthStyle(digitCount)}
       value={normalized}
       onChange={(event) => onChange(event.target.value)}
     >

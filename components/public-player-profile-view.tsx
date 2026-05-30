@@ -12,6 +12,49 @@ export function PublicPlayerProfileView({ profile }: PublicPlayerProfileViewProp
   const avatarUrl = profile.avatarUrl.trim();
   const initials = (profile.fullName || profile.handle || "?").slice(0, 1).toUpperCase();
 
+  const socialIcons = socialEntries.length ? (
+    <div className="player-public-profile-connect">
+      <h2 className="player-public-profile-connect-heading">Connect</h2>
+      <ul className="player-public-profile-social-icons" aria-label="Social profile links">
+        {socialEntries.map((entry) => {
+          const iconPath = PLAYER_SOCIAL_ICON_PATHS[entry.key as PlayerSocialFieldKey] ?? "";
+          const linkBody = (
+            <span className="player-public-profile-social-icon-shell">
+              {iconPath ? (
+                <Image alt="" aria-hidden height={34} src={iconPath} unoptimized width={34} />
+              ) : (
+                <span aria-hidden className="player-public-profile-social-icon-fallback">
+                  {entry.label.slice(0, 1)}
+                </span>
+              )}
+            </span>
+          );
+
+          return (
+            <li key={entry.key}>
+              {entry.href ? (
+                <a
+                  aria-label={entry.label}
+                  className="player-public-profile-social-icon-link"
+                  href={entry.href}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  title={entry.label}
+                >
+                  {linkBody}
+                </a>
+              ) : (
+                <span aria-label={entry.label} className="player-public-profile-social-icon-link" title={entry.label}>
+                  {linkBody}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  ) : null;
+
   return (
     <div className="player-public-profile">
       {profile.isOwnerView && !profile.shareProfile ? (
@@ -26,17 +69,20 @@ export function PublicPlayerProfileView({ profile }: PublicPlayerProfileViewProp
           <div className="player-public-profile-identity">
             <p className="panel-label">Normie Player</p>
             <div className="player-public-profile-identity-body">
-              <div className="player-public-profile-avatar" aria-hidden={!avatarUrl}>
-                {avatarUrl ? (
-                  <img alt="" className="player-public-profile-avatar-image" src={avatarUrl} />
-                ) : (
-                  <span className="player-public-profile-avatar-placeholder">{initials}</span>
-                )}
+              <div className="player-public-profile-avatar-column">
+                <div className="player-public-profile-avatar" aria-hidden={!avatarUrl}>
+                  {avatarUrl ? (
+                    <img alt="" className="player-public-profile-avatar-image" src={avatarUrl} />
+                  ) : (
+                    <span className="player-public-profile-avatar-placeholder">{initials}</span>
+                  )}
+                </div>
               </div>
               <div className="player-public-profile-copy">
                 <h1 className="player-public-profile-name">{profile.fullName}</h1>
                 <p className="player-public-profile-handle">@{profile.handle}</p>
                 {profile.bio ? <p className="player-public-profile-bio">{profile.bio}</p> : null}
+                {socialIcons}
               </div>
             </div>
           </div>
@@ -59,50 +105,6 @@ export function PublicPlayerProfileView({ profile }: PublicPlayerProfileViewProp
           </div>
         </div>
       </section>
-
-      {socialEntries.length ? (
-        <section className="panel player-panel player-public-profile-section">
-          <div className="panel-label">Social Profiles</div>
-          <h2>Connect</h2>
-          <ul className="player-public-profile-social-icons" aria-label="Social profile links">
-            {socialEntries.map((entry) => {
-              const iconPath = PLAYER_SOCIAL_ICON_PATHS[entry.key as PlayerSocialFieldKey] ?? "";
-              const linkBody = (
-                <span className="player-public-profile-social-icon-shell">
-                  {iconPath ? (
-                    <Image alt="" aria-hidden height={34} src={iconPath} unoptimized width={34} />
-                  ) : (
-                    <span aria-hidden className="player-public-profile-social-icon-fallback">
-                      {entry.label.slice(0, 1)}
-                    </span>
-                  )}
-                </span>
-              );
-
-              return (
-                <li key={entry.key}>
-                  {entry.href ? (
-                    <a
-                      aria-label={entry.label}
-                      className="player-public-profile-social-icon-link"
-                      href={entry.href}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                      title={entry.label}
-                    >
-                      {linkBody}
-                    </a>
-                  ) : (
-                    <span aria-label={entry.label} className="player-public-profile-social-icon-link" title={entry.label}>
-                      {linkBody}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
 
       {profile.showPollResponses ? (
         <section className="panel player-panel player-public-profile-section">

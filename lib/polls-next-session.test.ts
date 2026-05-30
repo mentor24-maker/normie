@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
+import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll, shuffleForDisplay } from "@/lib/polls-next-session";
 
 function ids(...labels: string[]) {
   return labels.map((id) => ({ id }));
@@ -24,6 +24,30 @@ describe("pickRandomUnansweredPoll", () => {
       expect(picked).not.toBeNull();
       expect(["b", "d"]).toContain(picked?.id);
     }
+  });
+});
+
+describe("shuffleForDisplay", () => {
+  it("returns a permutation of the input", () => {
+    const source = ["a", "b", "c", "d"];
+    const shuffled = shuffleForDisplay(source);
+
+    expect(shuffled).toHaveLength(source.length);
+    expect(shuffled.sort()).toEqual(source.sort());
+    expect(shuffled).not.toBe(source);
+  });
+
+  it("can change order for multi-item lists", () => {
+    const source = ["a", "b", "c", "d", "e", "f"];
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const shuffled = shuffleForDisplay(source);
+      if (shuffled.some((value, index) => value !== source[index])) {
+        return;
+      }
+    }
+
+    throw new Error("Expected shuffleForDisplay to change order at least once.");
   });
 });
 

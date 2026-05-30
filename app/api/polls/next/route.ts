@@ -14,7 +14,7 @@ import {
 } from "@/lib/poll-response-eligibility";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
 import { jsonWithPollSession } from "@/lib/poll-session-response";
-import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll } from "@/lib/polls-next-session";
+import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll, shuffleForDisplay } from "@/lib/polls-next-session";
 
 function getPollResults(
   options: Array<{ id: string; label: string }>,
@@ -247,7 +247,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
         id: currentPoll.id,
         question: currentPoll.question,
         imageUrl: currentPoll.image_url ?? "",
-        options: currentPoll.poll_options.map((option) => ({
+        options: shuffleForDisplay(currentPoll.poll_options).map((option) => ({
           id: option.id,
           label: option.label
         }))

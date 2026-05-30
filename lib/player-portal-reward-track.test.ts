@@ -118,7 +118,7 @@ describe("buildRewardTrack", () => {
     expect(track.earnedSlots).toBe(5);
   });
 
-  it("at 110 polls shows one grade coin and one 20px stacked level coin from pollReward", () => {
+  it("at 110 polls shows one grade coin and one stacked level coin from levelReward", () => {
     const track = buildRewardTrack(rewards, 110);
 
     expect(track.currentGrade).toBe(2);
@@ -127,10 +127,10 @@ describe("buildRewardTrack", () => {
     expect(track.completedLevelRewardsInGrade).toHaveLength(1);
     expect(track.earnedSlots).toBe(0);
     expect(track.completedGradeCoins[0]?.visualSize).toBe("42px");
-    expect(track.completedLevelRewardsInGrade[0]?.visualSize).toBe("20px");
+    expect(track.completedLevelRewardsInGrade[0]?.visualSize).toBe("30px");
   });
 
-  it("at 120 polls stacks each completed level using that level pollReward color", () => {
+  it("at 120 polls stacks each completed level using that level levelReward color", () => {
     const gradeTwoRewards = buildFixtureRewards(2).map((reward) => {
       const levelTier = Number(reward.metadata.levelTier);
       const gradeTier = Number(reward.metadata.gradeTier);
@@ -139,15 +139,15 @@ describe("buildRewardTrack", () => {
         return reward;
       }
 
-      const pollColor = levelTier === 1 ? "#d8212d" : levelTier === 2 ? "#f97316" : "#d8212d";
+      const levelColor = levelTier === 1 ? "#b83a00" : levelTier === 2 ? "#7a2800" : "#d8212d";
 
       return {
         ...reward,
         metadata: {
           ...reward.metadata,
-          pollReward: {
+          levelReward: {
             visualType: "coin",
-            visualColor: pollColor,
+            visualColor: levelColor,
             visualSize: "20px"
           }
         }
@@ -156,8 +156,8 @@ describe("buildRewardTrack", () => {
     const track = buildRewardTrack(gradeTwoRewards, 120);
 
     expect(track.completedLevelRewardsInGrade).toHaveLength(2);
-    expect(track.completedLevelRewardsInGrade[0]?.visualColor).toBe("#d8212d");
-    expect(track.completedLevelRewardsInGrade[1]?.visualColor).toBe("#f97316");
+    expect(track.completedLevelRewardsInGrade[0]?.visualColor).toBe("#b83a00");
+    expect(track.completedLevelRewardsInGrade[1]?.visualColor).toBe("#7a2800");
     expect(track.completedLevelRewardsInGrade.every((visual) => visual.visualSize === "20px")).toBe(true);
   });
 
@@ -226,8 +226,8 @@ describe("buildRewardTrack", () => {
     const track = buildRewardTrack(symbolRewards, 120);
 
     expect(track.completedGradeCoins[0]?.visualSymbolUrl).toBe("https://cdn.example.com/grade-1-coin.png");
-    expect(track.completedLevelRewardsInGrade[0]?.visualSymbolUrl).toBe("https://cdn.example.com/grade-2-level-1.png");
-    expect(track.completedLevelRewardsInGrade[1]?.visualSymbolUrl).toBe("https://cdn.example.com/grade-2-level-2.png");
+    expect(track.completedLevelRewardsInGrade[0]?.visualSymbolUrl).toBe("https://cdn.example.com/grade-2-coin.png");
+    expect(track.completedLevelRewardsInGrade[1]?.visualSymbolUrl).toBe("https://cdn.example.com/grade-2-coin.png");
   });
 
   it("adds a second grade coin after completing grade 2", () => {

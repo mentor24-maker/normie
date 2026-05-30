@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
+import path from "node:path";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { getMediaKind } from "@/lib/admin-media";
-import { createClient } from "@supabase/supabase-js";
-import path from "node:path";
+import {
+  createGalleryMediaRecord,
+  listGalleryMediaLibrary,
+  setGalleryMediaBadge
+} from "@/lib/gallery-media";
+import { createAdminClient } from "@/lib/supabase-admin";
 
 function sanitizeFilename(filename: string) {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase environment variables are not configured.");
-  return createClient(url, key);
+function parseBadgeFlag(value: FormDataEntryValue | null | undefined) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
 export async function GET() {
@@ -23,37 +30,44 @@ export async function GET() {
   }
 
   try {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase.storage.from("gallery").list("", {
-      limit: 200,
-      sortBy: { column: "created_at", order: "desc" }
-    });
-
-    if (error) throw error;
-
-    const media = (data ?? [])
-      .filter((item) => item.name !== ".emptyFolderPlaceholder")
-      .map((item) => {
-        const extension = path.extname(item.name).toLowerCase();
-        const kind = getMediaKind(extension) ?? "image";
-        const { data: urlData } = supabase.storage
-          .from("gallery")
-          .getPublicUrl(item.name);
-        return {
-          name: item.name,
-          path: urlData.publicUrl,
-          directory: "gallery",
-          kind,
-          extension
-        };
-      });
-
+    const media = await listGalleryMediaLibrary();
     return auth.finish(NextResponse.json({ media }));
   } catch (error) {
-    return auth.finish(NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load media library." },
-      { status: 500 }
-    ));
+    return auth.finish(
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed to load media library." },
+        { status: 500 }
+      )
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  const auth = await requireAdminRoute("content:write");
+
+  if ("response" in auth) {
+    return auth.response;
+  }
+
+  try {
+    const body = (await request.json()) as { storageName?: unknown; badge?: unknown };
+    const storageName = String(body.storageName ?? "").trim();
+    const badge = body.badge === true;
+
+    if (!storageName) {
+      return auth.finish(NextResponse.json({ error: "A gallery file name is required." }, { status: 400 }));
+    }
+
+    const record = await setGalleryMediaBadge(storageName, badge);
+
+    return auth.finish(NextResponse.json({ record }));
+  } catch (error) {
+    return auth.finish(
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed to update gallery media." },
+        { status: 500 }
+      )
+    );
   }
 }
 
@@ -76,30 +90,30 @@ export async function POST(request: Request) {
     const kind = getMediaKind(extension);
 
     if (!kind) {
-      return auth.finish(NextResponse.json(
-        { error: "Only image and video uploads are supported." },
-        { status: 400 }
-      ));
+      return auth.finish(
+        NextResponse.json({ error: "Only image and video uploads are supported." }, { status: 400 })
+      );
     }
 
     const baseName = sanitizeFilename(path.basename(file.name, extension)) || "upload";
     const finalName = `${Date.now()}-${baseName}${extension}`;
+    const badge = parseBadgeFlag(formData.get("badge"));
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const supabase = getSupabaseAdmin();
+    const supabase = createAdminClient();
 
-    const { error: uploadError } = await supabase.storage
-      .from("gallery")
-      .upload(finalName, buffer, {
-        contentType: file.type,
-        upsert: false
-      });
+    const { error: uploadError } = await supabase.storage.from("gallery").upload(finalName, buffer, {
+      contentType: file.type,
+      upsert: false
+    });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      throw uploadError;
+    }
 
-    const { data: urlData } = supabase.storage
-      .from("gallery")
-      .getPublicUrl(finalName);
+    await createGalleryMediaRecord(finalName, badge);
+
+    const { data: urlData } = supabase.storage.from("gallery").getPublicUrl(finalName);
 
     return auth.finish(
       NextResponse.json({
@@ -108,14 +122,18 @@ export async function POST(request: Request) {
           path: urlData.publicUrl,
           directory: "gallery",
           kind,
-          extension
+          extension,
+          storageName: finalName,
+          badge
         }
       })
     );
   } catch (error) {
-    return auth.finish(NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to upload media." },
-      { status: 500 }
-    ));
+    return auth.finish(
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed to upload media." },
+        { status: 500 }
+      )
+    );
   }
 }

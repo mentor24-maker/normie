@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties } from "react";
-import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import { RewardDiscPreview } from "@/components/reward-disc-preview";
 import type { PlayerPortalRewardTrack } from "@/lib/player-portal";
 
 export type PlayerPortalGameBoardStats = {
@@ -34,7 +33,7 @@ function renderLevelRewardColumns(
             const rewardIndex = columnStart + diskIndex;
 
             return (
-              <RewardDisc
+              <RewardDiscPreview
                 ariaLabel={`${ariaLabelPrefix} level ${rewardIndex + 1}`}
                 className="player-portal-level-coin"
                 isEarned
@@ -47,54 +46,6 @@ function renderLevelRewardColumns(
         </span>
       );
     }
-  );
-}
-
-function rewardVisualStyle(
-  visual: PlayerPortalRewardTrack["pollReward"],
-  isEarned = true
-): CSSProperties {
-  const borderWidth = visual.visualBorderWidth || "0";
-
-  return {
-    width: visual.visualSize,
-    height: visual.visualSize,
-    background: isEarned ? visual.visualColor : "transparent",
-    borderColor: isEarned ? visual.visualBorderColor || visual.visualColor : "#cbd5e1",
-    borderWidth: isEarned ? borderWidth : "1px"
-  };
-}
-
-function RewardDisc({
-  visual,
-  isEarned = true,
-  className = "player-portal-reward-disk",
-  ariaLabel,
-  title
-}: {
-  visual: PlayerPortalRewardTrack["pollReward"];
-  isEarned?: boolean;
-  className?: string;
-  ariaLabel?: string;
-  title?: string;
-}) {
-  const symbolUrl = isEarned ? normalizeBuilderAssetUrl(visual.visualSymbolUrl) : "";
-
-  return (
-    <span aria-label={ariaLabel} className="player-portal-reward-disc-shell" title={title}>
-      <span className={className} role="img" style={rewardVisualStyle(visual, isEarned)} />
-      {symbolUrl ? (
-        <img
-          alt=""
-          aria-hidden="true"
-          className="player-portal-reward-disc-symbol"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-          src={symbolUrl}
-        />
-      ) : null}
-    </span>
   );
 }
 
@@ -151,7 +102,7 @@ export function PlayerPortalGameBoard({
                   aria-label={`Completed ${rewardTrack.levelName} coins`}
                 >
                   {rewardTrack.completedGradeCoins.map((gradeCoin, gradeIndex) => (
-                    <RewardDisc
+                    <RewardDiscPreview
                       ariaLabel={`${rewardTrack.levelName} ${gradeIndex + 1} graduation coin`}
                       className="player-portal-level-coin player-portal-grade-coin"
                       isEarned
@@ -170,7 +121,7 @@ export function PlayerPortalGameBoard({
                   {renderLevelRewardColumns(
                     rewardTrack.completedLevelRewardsInGrade,
                     `${rewardTrack.levelName} ${rewardTrack.currentGrade}`,
-                    rewardTrack.pollReward
+                    rewardTrack.levelReward
                   )}
                 </div>
               ) : null}
@@ -182,9 +133,9 @@ export function PlayerPortalGameBoard({
               aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} level ${rewardTrack.currentLevel} poll progress`}
             >
               {Array.from({ length: rewardTrack.totalSlots }, (_, index) => (
-                <RewardDisc
+                <RewardDiscPreview
                   ariaLabel={index < rewardTrack.earnedSlots ? "Earned reward" : "Unearned reward"}
-                  className={`player-portal-reward-disk${index < rewardTrack.earnedSlots ? " is-earned" : ""}`}
+                  className="player-portal-reward-disk"
                   isEarned={index < rewardTrack.earnedSlots}
                   key={index}
                   visual={rewardTrack.pollReward}

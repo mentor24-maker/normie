@@ -9,6 +9,8 @@ export type AdminMediaItem = {
   directory: "images" | "gallery";
   kind: AdminMediaKind;
   extension: string;
+  storageName?: string;
+  badge?: boolean;
 };
 
 const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"]);

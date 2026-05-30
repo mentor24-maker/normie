@@ -10,6 +10,7 @@ export function AdminGalleryWorkspace() {
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [savingBadgeFor, setSavingBadgeFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadMedia() {
@@ -62,7 +63,7 @@ export function AdminGalleryWorkspace() {
         throw new Error(data.error ?? "Failed to upload media.");
       }
 
-      setMessage(`Uploaded ${data.media?.name ?? file.name} to /images/gallery.`);
+      setMessage(`Uploaded ${data.media?.name ?? file.name} to the gallery.`);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -74,19 +75,51 @@ export function AdminGalleryWorkspace() {
     }
   }
 
+  async function updateBadgeFlag(item: AdminMediaItem, badge: boolean) {
+    const storageName = item.storageName ?? item.name;
+
+    setSavingBadgeFor(storageName);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/media", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storageName, badge })
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to update badge setting.");
+      }
+
+      setMedia((current) =>
+        current.map((entry) =>
+          (entry.storageName ?? entry.name) === storageName ? { ...entry, badge } : entry
+        )
+      );
+      setMessage(badge ? `Marked ${item.name} as a badge symbol.` : `Removed ${item.name} from badge symbols.`);
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Failed to update badge setting.");
+    } finally {
+      setSavingBadgeFor(null);
+    }
+  }
+
   return (
     <section className="admin-stack">
       <section className="admin-section">
         <div className="panel-label">Gallery</div>
-        <h2>Local media library</h2>
+        <h2>Gallery Media Library</h2>
         <p className="page-copy admin-copy">
-          Browse media from `/images` and upload new files directly into `/images/gallery` for the
-          builder to use.
+          Files live in the Supabase Storage <code>gallery</code> bucket. Use the Badge Symbol toggle on an image to
+          include it in reward badge symbol pickers.
         </p>
         <div className="gallery-controls">
           <div className="gallery-upload-card">
             <div className="gallery-upload-copy">
-              <strong>Upload to `/images/gallery`</strong>
+              <strong>Upload to Gallery</strong>
               <span>Supports images and videos.</span>
             </div>
             <input
@@ -115,7 +148,7 @@ export function AdminGalleryWorkspace() {
         <div className="admin-toolbar">
           <div>
             <div className="panel-label">Library</div>
-            <h2>Available media</h2>
+            <h2>Available Media</h2>
             <p className="page-copy admin-copy">
               {isLoading
                 ? "Loading media..."
@@ -130,21 +163,37 @@ export function AdminGalleryWorkspace() {
         </div>
 
         <div className="builder-gallery-grid">
-          {media.map((item) => (
-            <article className="builder-gallery-card builder-gallery-card-static" key={item.path}>
-              <div className="builder-gallery-thumb">
+          {media.map((item) => {
+            const storageName = item.storageName ?? item.name;
+            const isSavingBadge = savingBadgeFor === storageName;
+
+            return (
+              <article className="builder-gallery-card builder-gallery-card-static" key={item.path}>
+                <div className="builder-gallery-thumb">
+                  {item.kind === "image" ? (
+                    <Image alt={item.name} fill sizes="180px" src={item.path} />
+                  ) : (
+                    <video className="builder-gallery-video" controls preload="metadata" src={item.path} />
+                  )}
+                </div>
+                <strong>{item.name}</strong>
+                <span className="gallery-meta">
+                  {item.directory} · {item.kind}
+                </span>
                 {item.kind === "image" ? (
-                  <Image alt={item.name} fill sizes="180px" src={item.path} />
-                ) : (
-                  <video className="builder-gallery-video" controls preload="metadata" src={item.path} />
-                )}
-              </div>
-              <strong>{item.name}</strong>
-              <span className="gallery-meta">
-                {item.directory} · {item.kind}
-              </span>
-            </article>
-          ))}
+                  <label className="admin-gallery-badge-toggle">
+                    <input
+                      checked={Boolean(item.badge)}
+                      disabled={isSavingBadge}
+                      onChange={(event) => void updateBadgeFlag(item, event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>Badge Symbol</span>
+                  </label>
+                ) : null}
+              </article>
+            );
+          })}
           {media.length === 0 ? (
             <div className="builder-gallery-empty">No media found yet.</div>
           ) : null}

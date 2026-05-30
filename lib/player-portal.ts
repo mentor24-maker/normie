@@ -347,8 +347,8 @@ export function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): 
     const completedReward = rewardAtLevelTier(currentGradeRewards, levelTier);
 
     return completedReward
-      ? buildRewardVisual(toRecord(completedReward.metadata), "pollReward", DEFAULT_POLL_REWARD_VISUAL)
-      : DEFAULT_POLL_REWARD_VISUAL;
+      ? buildRewardVisual(toRecord(completedReward.metadata), "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
+      : DEFAULT_LEVEL_REWARD_VISUAL;
   });
 
   return {
