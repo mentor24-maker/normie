@@ -11,6 +11,8 @@ type PlayerPortalPollStageProps = {
   isSubmitting: boolean;
   payload: PollPayload | null;
   onSubmit: (optionId: string) => void | Promise<void>;
+  onSkip?: () => void | Promise<void>;
+  showSkipPoll?: boolean;
 };
 
 export function PlayerPortalPollStage({
@@ -18,7 +20,9 @@ export function PlayerPortalPollStage({
   isLoading,
   isSubmitting,
   payload,
-  onSubmit
+  onSubmit,
+  onSkip,
+  showSkipPoll = false
 }: PlayerPortalPollStageProps) {
   if (isLoading && (!payload || payload.done)) {
     return <div className="notice">Loading polls...</div>;
@@ -49,8 +53,10 @@ export function PlayerPortalPollStage({
           <CurrentPollPanel
             currentPoll={payload.currentPoll}
             isSubmitting={isSubmitting}
+            onSkip={onSkip}
             onSubmit={onSubmit}
             settings={payload.settings}
+            showSkipPoll={showSkipPoll}
           />
         </div>
         <div className="player-portal-poll-previous">

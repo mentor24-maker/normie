@@ -9,6 +9,7 @@ import {
 } from "@/lib/poll-categories";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { POLL_SKIP_FEATURE_KEY } from "@/lib/player-unlocked-features";
 import type { PollPayload } from "@/src/site/home/types";
 
 type UsePollExperienceOptions = {
@@ -114,6 +115,41 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
     }
   }
 
+  async function skipCurrentPoll() {
+    if (!payload?.currentPoll) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/skip", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          pollId: payload.currentPoll.id
+        })
+      });
+
+      const data = (await response.json()) as PollAnswerResult & { skipped?: boolean };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to skip this poll.");
+      }
+
+      stripStartPollFromBrowserUrl();
+      options?.onAnswered?.(data);
+      await loadPolls({ startPoll: "" });
+    } catch (skipError) {
+      setError(skipError instanceof Error ? skipError.message : "Failed to skip this poll.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   const categoryFromUrl = getPollCategoryMeta(categoryParam);
 
   return {
@@ -122,6 +158,8 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
     isLoading,
     isSubmitting,
     payload,
+    showSkipPoll: Boolean(payload?.unlockedFeatures?.includes(POLL_SKIP_FEATURE_KEY)),
+    skipCurrentPoll,
     submitAnswer
   };
 }

@@ -1,7 +1,7 @@
 import { evaluatePlayerReminders, explainReminderMatch, type PlayerMatchedReminder, type PlayerReminderContext } from "@/lib/game-reminder-eval";
 import { formatReminderCriteriaSummary, gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
-import type { AuthorizedPlayer } from "@/lib/player-auth";
-import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
+import { countProgressPolls } from "@/lib/player-poll-stats";
+import { getAuthorizedPlayerFromCookieStore, type AuthorizedPlayer } from "@/lib/player-auth";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
 import { isUuid } from "@/lib/public-request";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -91,7 +91,7 @@ export async function buildPlayerReminderContext(player: AuthorizedPlayer): Prom
   const supabase = createAdminClient();
   const [{ data: responseRows, error: responsesError }, { data: profileRow, error: profileError }] =
     await Promise.all([
-      supabase.from("poll_response").select("poll_id").eq("user_id", player.authUser.id),
+      supabase.from("poll_response").select("poll_id, is_skipped").eq("user_id", player.authUser.id),
       supabase.from("player_profiles").select("login_count").eq("id", player.authUser.id).maybeSingle()
     ]);
 
@@ -103,11 +103,11 @@ export async function buildPlayerReminderContext(player: AuthorizedPlayer): Prom
     throw new Error(profileError.message);
   }
 
-  const rows = (responseRows ?? []) as Array<{ poll_id: string }>;
+  const rows = (responseRows ?? []) as Array<{ poll_id: string; is_skipped?: boolean | null }>;
   const answeredPollIds = new Set(rows.map((row) => row.poll_id).filter(Boolean));
 
   return {
-    pollsTaken: rows.length,
+    pollsTaken: countProgressPolls(rows),
     loginCount: Math.max(0, Number(profileRow?.login_count ?? 0)),
     answeredPollIds,
     isRegistered: true

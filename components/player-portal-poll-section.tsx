@@ -31,7 +31,7 @@ export function PlayerPortalPollSectionOpen({
     optimisticPollsTakenRef.current = stats.pollsTaken;
   }, [stats.pollsTaken]);
 
-  const { activeCategory, error, isLoading, isSubmitting, payload, submitAnswer } = usePollExperience({
+  const { activeCategory, error, isLoading, isSubmitting, payload, showSkipPoll, skipCurrentPoll, submitAnswer } = usePollExperience({
     onAnswered: (result: PollAnswerResult) => {
       const previousPollsTaken = optimisticPollsTakenRef.current;
       const nextPollsTaken = result.playerAnswerCount ?? previousPollsTaken + 1;
@@ -79,7 +79,9 @@ export function PlayerPortalPollSectionOpen({
         isLoading={isLoading}
         isSubmitting={isSubmitting}
         payload={payload}
+        onSkip={() => void skipCurrentPoll()}
         onSubmit={submitAnswer}
+        showSkipPoll={showSkipPoll}
       />
     </section>
   );

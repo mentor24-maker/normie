@@ -7,6 +7,9 @@ import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPreferences } from "@/lib/player-preferences";
+import { getUnlockedFeatureKeys } from "@/lib/player-unlocked-features";
+import { countProgressPolls } from "@/lib/player-poll-stats";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
 import {
   buildAnsweredPollIdSet,
@@ -84,7 +87,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
 
   const responsesQuery = supabase
     .from("poll_response")
-    .select("poll_id, created_at")
+    .select("poll_id, created_at, is_skipped")
     .order("created_at", { ascending: false });
   const playerResponsesQuery = player
     ? responsesQuery.eq("user_id", player.authUser.id)
@@ -126,6 +129,20 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   const eligiblePollIds = new Set(orderedPolls.map((poll) => poll.id));
   const eligibleResponses = filterResponsesToEligiblePolls(responses ?? [], eligiblePollIds);
   const answeredPollIds = buildAnsweredPollIdSet(eligibleResponses, eligiblePollIds);
+
+  let unlockedFeatures: string[] = [];
+
+  if (player) {
+    const supabaseAdmin = createAdminClient();
+    const [{ data: rewards, error: rewardsError }, { data: features, error: featuresError }] = await Promise.all([
+      supabaseAdmin.from("game_rewards").select("reward_type, status, metadata").eq("status", "active"),
+      supabaseAdmin.from("game_progressive_features").select("feature_key, is_active").eq("is_active", true)
+    ]);
+
+    if (!rewardsError && !featuresError) {
+      unlockedFeatures = getUnlockedFeatureKeys(countProgressPolls(responses ?? []), rewards ?? [], features ?? []);
+    }
+  }
 
   let currentPoll = pickRandomUnansweredPoll(orderedPolls, answeredPollIds);
 
@@ -173,7 +190,8 @@ export const GET = withObservedRoute("polls.next", async (request) => {
         activeCategory,
         currentPoll: null,
         previousPoll: null,
-        settings: settingsPayload
+        settings: settingsPayload,
+        unlockedFeatures
       },
       sessionId
     );
@@ -197,7 +215,8 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     const { data: totals, error: totalsError } = await supabase
       .from("poll_response")
       .select("option_id")
-      .eq("poll_id", previousPoll.id);
+      .eq("poll_id", previousPoll.id)
+      .eq("is_skipped", false);
 
     if (totalsError) {
       return publicErrorResponse(request, {
@@ -253,7 +272,8 @@ export const GET = withObservedRoute("polls.next", async (request) => {
         }))
       },
       previousPoll: previousPollResults,
-      settings: settingsPayload
+      settings: settingsPayload,
+      unlockedFeatures
     },
     sessionId
   );

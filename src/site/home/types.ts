@@ -55,4 +55,6 @@ export type PollPayload = {
   settings?: PollSettingsSnapshot;
   /** Browser poll session id (also stored httpOnly); mirrored to localStorage for post-login recovery. */
   pollSessionId?: string;
+  /** Progressive feature keys unlocked for the signed-in player on this poll load. */
+  unlockedFeatures?: string[];
 };

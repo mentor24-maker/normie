@@ -8,11 +8,13 @@ import {
   type PublicUserRow
 } from "@/lib/public-users";
 import { normalizePlayerHandle } from "@/lib/player-auth";
+import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ResponseStatsRow = {
   user_id: string | null;
   tokens_earned: number | null;
+  is_skipped: boolean | null;
 };
 
 function buildStatsByUserId(rows: ResponseStatsRow[]) {
@@ -22,7 +24,9 @@ function buildStatsByUserId(rows: ResponseStatsRow[]) {
     if (!row.user_id) continue;
 
     const current = stats.get(row.user_id) ?? { pollsTaken: 0, pointsEarned: 0 };
-    current.pollsTaken += 1;
+    if (isProgressPollResponse(row)) {
+      current.pollsTaken += 1;
+    }
     current.pointsEarned += row.tokens_earned ?? 0;
     stats.set(row.user_id, current);
   }
@@ -44,7 +48,7 @@ export async function GET() {
         .from("player_profiles")
         .select("id, full_name, handle, status, created_at, updated_at")
         .order("created_at", { ascending: false }),
-      supabase.from("poll_response").select("user_id, tokens_earned").not("user_id", "is", null)
+      supabase.from("poll_response").select("user_id, tokens_earned, is_skipped").not("user_id", "is", null)
     ]);
 
   if (authError) {

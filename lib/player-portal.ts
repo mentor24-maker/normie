@@ -1,4 +1,5 @@
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
+import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
 import type { BuilderTemplateModule } from "./builder-template";
@@ -94,6 +95,7 @@ type ResponseRow = {
   option_id: string;
   user_id: string | null;
   tokens_earned: number | null;
+  is_skipped: boolean | null;
   created_at: string;
   polls:
     | {
@@ -112,6 +114,7 @@ type ResponseRow = {
 type LeaderboardResponseRow = {
   user_id: string | null;
   tokens_earned: number | null;
+  is_skipped: boolean | null;
   created_at: string | null;
 };
 
@@ -417,13 +420,13 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
       supabase
         .from("poll_response")
         .select(
-          "id, poll_id, option_id, user_id, tokens_earned, created_at, polls(question, category, poll_options(id, label, sort_order))"
+          "id, poll_id, option_id, user_id, tokens_earned, is_skipped, created_at, polls(question, category, poll_options(id, label, sort_order))"
         )
         .eq("user_id", player.authUser.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("poll_response")
-        .select("user_id, tokens_earned, created_at")
+        .select("user_id, tokens_earned, is_skipped, created_at")
         .not("user_id", "is", null),
       supabase
         .from("game_rewards")
@@ -455,7 +458,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     throw new Error(levelEventsError.message);
   }
 
-  const answers: PlayerAnswer[] = ((responseRows ?? []) as unknown as ResponseRow[]).map((row) => {
+  const responseRowsTyped = (responseRows ?? []) as unknown as ResponseRow[];
+  const answers: PlayerAnswer[] = responseRowsTyped.map((row) => {
     const poll = firstRelation(row.polls);
     const rawOptions = poll?.poll_options;
     const optionRows = Array.isArray(rawOptions) ? rawOptions : rawOptions ? [rawOptions] : [];
@@ -495,7 +499,9 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     const existing = leaderboardGroups.get(row.user_id);
 
     if (existing) {
-      existing.answersCount += 1;
+      if (isProgressPollResponse(row)) {
+        existing.answersCount += 1;
+      }
       existing.tokensEarned += row.tokens_earned ?? 0;
       existing.firstAnsweredAt =
         createdAt && (!existing.firstAnsweredAt || createdAt < existing.firstAnsweredAt)
@@ -504,7 +510,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     } else {
       leaderboardGroups.set(row.user_id, {
         playerId: row.user_id,
-        answersCount: 1,
+        answersCount: isProgressPollResponse(row) ? 1 : 0,
         tokensEarned: row.tokens_earned ?? 0,
         firstAnsweredAt: createdAt
       });
@@ -554,8 +560,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
   });
 
   const playerRank = leaderboard.find((entry) => entry.playerId === player.authUser.id)?.rank ?? null;
-  const tokensEarned = answers.reduce((total, answer) => total + answer.tokensEarned, 0);
-  const pollsTaken = answers.length;
+  const tokensEarned = sumPointsEarned(responseRowsTyped);
+  const pollsTaken = countProgressPolls(responseRowsTyped);
 
   return {
     player: {

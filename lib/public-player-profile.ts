@@ -8,6 +8,7 @@ import {
 export { getPublicPlayerProfilePath } from "@/lib/public-player-profile-path";
 import { normalizeAvatarUrl, parsePlayerSocialLinks, type PlayerSocialLinks } from "@/lib/player-profile";
 import { PLAYER_SOCIAL_FIELD_CONFIG, type PlayerSocialFieldKey } from "@/lib/player-social-handles";
+import { countProgressPolls, sumPointsEarned } from "@/lib/player-poll-stats";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export type PublicPlayerAnswer = {
@@ -202,7 +203,7 @@ function buildPublicProfile(
 
 async function loadPlayerAnswerTotals(userId: string): Promise<{ pollsTaken: number; pointsEarned: number }> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("poll_response").select("tokens_earned").eq("user_id", userId);
+  const { data, error } = await supabase.from("poll_response").select("tokens_earned, is_skipped").eq("user_id", userId);
 
   if (error) {
     return { pollsTaken: 0, pointsEarned: 0 };
@@ -211,8 +212,8 @@ async function loadPlayerAnswerTotals(userId: string): Promise<{ pollsTaken: num
   const rows = data ?? [];
 
   return {
-    pollsTaken: rows.length,
-    pointsEarned: rows.reduce((sum, row) => sum + (row.tokens_earned ?? 0), 0)
+    pollsTaken: countProgressPolls(rows),
+    pointsEarned: sumPointsEarned(rows)
   };
 }
 

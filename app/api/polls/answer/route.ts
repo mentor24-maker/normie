@@ -8,6 +8,7 @@ import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
+import { countPlayerProgressPollsFromDb } from "@/lib/player-poll-stats";
 import { createAdminClient } from "@/lib/supabase-admin";
 const SESSION_RATE_LIMIT = 40;
 const SESSION_WINDOW_SECONDS = 60;
@@ -16,25 +17,12 @@ const IP_WINDOW_SECONDS = 60;
 const TOKENS_PER_ANSWER = 1;
 const UNIQUE_VIOLATION_CODE = "23505";
 
-async function getPlayerAnswerCount(supabase: ReturnType<typeof createAdminClient>, playerId: string) {
-  const { count, error } = await supabase
-    .from("poll_response")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", playerId);
-
-  if (error) {
-    throw error;
-  }
-
-  return count ?? 0;
-}
-
 async function playerAnswerResponse(
   supabase: ReturnType<typeof createAdminClient>,
   playerId: string,
   flags: Record<string, boolean> = {}
 ) {
-  const answerCount = await getPlayerAnswerCount(supabase, playerId);
+  const answerCount = await countPlayerProgressPollsFromDb(supabase, playerId);
   const levelUp = answerCount > 0 && answerCount % PLAYER_LEVEL_UP_INTERVAL === 0 && !flags.duplicate;
   console.info("[player-level-up] answer response", {
     playerId,

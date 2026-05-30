@@ -2736,6 +2736,7 @@ h2 {
   min-width: 0;
   flex: 1 1 auto;
   padding-top: 2px;
+  container-type: inline-size;
 }
 
 .player-portal-eyebrow {
@@ -2753,6 +2754,14 @@ h2 {
   line-height: 1.05;
   font-weight: 800;
   color: var(--ink);
+}
+
+.player-portal-brand-greeting .player-portal-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(2em, calc(100cqw / 38), 2.35rem);
 }
 
 .player-portal-tagline {
@@ -4061,6 +4070,23 @@ h2 {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+}
+
+.player-poll-skip-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.player-poll-skip-button.secondary-button {
+  white-space: nowrap;
+  width: fit-content;
+  padding: 5px 14px;
+  min-height: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .player-portal-polls .poll-module-panel.action-panel {
@@ -8285,19 +8311,96 @@ select.builder-number-select-control,
   margin: 12px 0 0;
 }
 
+.admin-game-reward-status {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+}
+
+.admin-game-reward-status-processing {
+  color: #7a5c00;
+  background: #fff9e6;
+  border: 2px solid #c9a227;
+}
+
+.admin-game-reward-status-success {
+  color: var(--success-notice-text, #1f7a4b);
+  background: var(--success-notice-bg, #e4f7ec);
+  border: 2px solid var(--success-notice-border, #1f7a4b);
+}
+
+.admin-game-reward-status-error {
+  color: var(--error-notice-text, #9f2d2d);
+  background: var(--error-notice-bg, #ffe4ea);
+  border: 2px solid var(--error-notice-border, #9f2d2d);
+}
+
+.admin-game-reward-bulk-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(51, 102, 153, 0.35);
+  border-radius: 16px;
+  background: rgba(204, 238, 255, 0.35);
+}
+
+.admin-game-reward-bulk-selection {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: right;
+}
+
 .admin-game-reward-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.admin-game-reward-bulk-actions select {
+  min-width: 9rem;
+  padding: 5px 8px;
+  font-size: 0.875rem;
+}
+
+.admin-game-reward-bulk-size-row,
+.admin-game-reward-bulk-color-row {
   display: grid;
-  gap: 6px;
-  margin-bottom: 8px;
-  width: min(100%, 11rem);
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
 }
 
-.admin-game-reward-actions-header .admin-game-reward-bulk-actions select {
-  width: 100%;
+.admin-game-reward-bulk-size-row .builder-setting-label,
+.admin-game-reward-bulk-color-row .builder-setting-label {
+  padding: 0;
+  font-size: 0.8125rem;
+  white-space: nowrap;
 }
 
-.admin-game-reward-copy-button.submit-button {
-  width: 100%;
+.admin-game-reward-bulk-size-input {
+  width: 5.5rem;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 0.875rem;
+}
+
+.admin-game-reward-bulk-color-input {
+  width: 3rem;
+  height: 2rem;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.admin-game-reward-bulk-button.submit-button {
+  width: auto;
+  white-space: nowrap;
 }
 
 .admin-game-reward-visual-summary {

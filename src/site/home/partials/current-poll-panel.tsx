@@ -6,7 +6,9 @@ type CurrentPollPanelProps = {
   isSubmitting: boolean;
   moduleSettings?: Record<string, string>;
   onSubmit: (optionId: string) => void | Promise<void>;
+  onSkip?: () => void | Promise<void>;
   settings?: PollSettingsSnapshot | null;
+  showSkipPoll?: boolean;
 };
 
 export function CurrentPollPanel({
@@ -14,7 +16,9 @@ export function CurrentPollPanel({
   isSubmitting,
   moduleSettings = {},
   onSubmit,
-  settings
+  onSkip,
+  settings,
+  showSkipPoll = false
 }: CurrentPollPanelProps) {
   return (
     <article
@@ -37,6 +41,18 @@ export function CurrentPollPanel({
             </button>
           ))}
         </div>
+        {showSkipPoll && onSkip ? (
+          <div className="player-poll-skip-row">
+            <button
+              className="secondary-button player-poll-skip-button"
+              disabled={isSubmitting}
+              onClick={() => void onSkip()}
+              type="button"
+            >
+              Skip Question
+            </button>
+          </div>
+        ) : null}
       </div>
       {isSubmitting ? <p className="panel-copy">Saving your answer...</p> : null}
     </article>

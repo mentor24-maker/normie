@@ -109,6 +109,64 @@ type RewardSortKey = "name" | "rewardType" | "levelTier" | "gradeTier" | "classT
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
 type ReminderSortKey = "name" | "displayType" | "criterion" | "isActive" | "updatedAt";
 type RewardTierType = "levelTier" | "gradeTier" | "classTier";
+type RewardBulkAction = RewardTierType | "pollSize" | "levelSize" | "color";
+
+function isRewardTierBulkAction(action: RewardBulkAction): action is RewardTierType {
+  return action === "levelTier" || action === "gradeTier" || action === "classTier";
+}
+
+function buildBulkRewardColorMetadata(reward: GameReward, color: string): Record<string, unknown> {
+  const metadata = { ...reward.metadata };
+
+  for (const key of ["pollReward", "levelReward"] as const) {
+    const existing =
+      metadata[key] && typeof metadata[key] === "object" && !Array.isArray(metadata[key])
+        ? { ...(metadata[key] as Record<string, unknown>) }
+        : {};
+
+    existing.visualColor = normalizeBuilderHexColor(color, DEFAULT_BADGE_BACKGROUND_COLOR);
+    metadata[key] = existing;
+  }
+
+  return metadata;
+}
+
+function buildBulkRewardSingleSizeMetadata(
+  reward: GameReward,
+  target: "pollReward" | "levelReward",
+  size: string
+): Record<string, unknown> {
+  const metadata = { ...reward.metadata };
+  const fallback = target === "pollReward" ? "20px" : "42px";
+  const existing =
+    metadata[target] && typeof metadata[target] === "object" && !Array.isArray(metadata[target])
+      ? { ...(metadata[target] as Record<string, unknown>) }
+      : {};
+
+  existing.visualSize = size.trim() || fallback;
+  metadata[target] = existing;
+
+  return metadata;
+}
+
+function getRewardSaveDiagnosticTone(
+  diagnostic: string | null,
+  isSaving: boolean
+): "processing" | "success" | "error" | null {
+  if (!diagnostic) {
+    return null;
+  }
+
+  if (/failed/i.test(diagnostic)) {
+    return "error";
+  }
+
+  if (isSaving || diagnostic.endsWith("...")) {
+    return "processing";
+  }
+
+  return "success";
+}
 
 const DEFAULT_BADGE_BACKGROUND_COLOR = "#d8212d";
 const GAME_LEVEL_NAME_LABELS: Record<string, string> = {
@@ -2225,7 +2283,10 @@ export function AdminGameWorkspace() {
   const [rewardGradeFilter, setRewardGradeFilter] = useState("");
   const [rewardClassFilter, setRewardClassFilter] = useState("");
   const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
-  const [copyTierTarget, setCopyTierTarget] = useState<RewardTierType>("levelTier");
+  const [rewardBulkAction, setRewardBulkAction] = useState<RewardBulkAction>("levelTier");
+  const [bulkPollVisualSize, setBulkPollVisualSize] = useState("20px");
+  const [bulkLevelVisualSize, setBulkLevelVisualSize] = useState("42px");
+  const [bulkRewardVisualColor, setBulkRewardVisualColor] = useState(DEFAULT_BADGE_BACKGROUND_COLOR);
   const [scoringRuleQuery, setScoringRuleQuery] = useState("");
   const [scoringRuleMinPoints, setScoringRuleMinPoints] = useState("");
   const [scoringRuleMaxPoints, setScoringRuleMaxPoints] = useState("");
@@ -2857,6 +2918,11 @@ export function AdminGameWorkspace() {
   }
 
   async function copySelectedRewardsToNextTier() {
+    if (!isRewardTierBulkAction(rewardBulkAction)) {
+      return;
+    }
+
+    const tierTarget = rewardBulkAction;
     const selectedRewards = rewards.filter((reward) => selectedRewardIds.includes(reward.id));
 
     if (!selectedRewards.length) {
@@ -2873,11 +2939,11 @@ export function AdminGameWorkspace() {
       const createdRewards: GameReward[] = [];
 
       for (const reward of selectedRewards) {
-        const currentTierValue = getRewardTierValue(reward, copyTierTarget);
+        const currentTierValue = getRewardTierValue(reward, tierTarget);
         const payload = rewardToPayload(reward, {
           metadata: {
             ...reward.metadata,
-            [copyTierTarget]: currentTierValue + 1
+            [tierTarget]: currentTierValue + 1
           }
         });
 
@@ -2897,12 +2963,120 @@ export function AdminGameWorkspace() {
 
       setRewards((current) => [...createdRewards, ...current]);
       setSelectedRewardIds([]);
-      setMessage(`Copied ${createdRewards.length} reward${createdRewards.length === 1 ? "" : "s"} to next ${copyTierTarget === "levelTier" ? "level" : copyTierTarget === "gradeTier" ? "grade" : "class"}.`);
+      setMessage(`Copied ${createdRewards.length} reward${createdRewards.length === 1 ? "" : "s"} to next ${tierTarget === "levelTier" ? "level" : tierTarget === "gradeTier" ? "grade" : "class"}.`);
       setRewardSaveDiagnostic(`Copied ${createdRewards.length} reward${createdRewards.length === 1 ? "" : "s"}.`);
     } catch (copyError) {
       const copyMessage = copyError instanceof Error ? copyError.message : "Failed to copy rewards.";
       setError(copyMessage);
       setRewardSaveDiagnostic(`Reward copy failed: ${copyMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function applyBulkRewardSizeUpdate(target: "pollReward" | "levelReward") {
+    const selectedRewards = rewards.filter((reward) => selectedRewardIds.includes(reward.id));
+
+    if (!selectedRewards.length) {
+      setError("Select at least one reward to update.");
+      return;
+    }
+
+    const size = (target === "pollReward" ? bulkPollVisualSize : bulkLevelVisualSize).trim();
+    const targetLabel = target === "pollReward" ? "Poll-Level" : "Level-Level";
+
+    if (!size) {
+      setError(`Enter a ${targetLabel.toLowerCase()} disk size.`);
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    setRewardSaveDiagnostic(`Updating ${targetLabel} size on selected rewards...`);
+
+    try {
+      const updatedRewards: GameReward[] = [];
+
+      for (const reward of selectedRewards) {
+        const payload = rewardToPayload(reward, {
+          metadata: buildBulkRewardSingleSizeMetadata(reward, target, size)
+        });
+
+        const response = await fetch(`/api/admin/game/rewards/${reward.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await readAdminJson<{ reward?: GameReward; error?: string }>(response, "Failed to update rewards.");
+
+        if (!data.reward) {
+          throw new Error(data.error ?? "Failed to update rewards.");
+        }
+
+        updatedRewards.push(data.reward);
+      }
+
+      const updatedById = new Map(updatedRewards.map((reward) => [reward.id, reward]));
+      setRewards((current) => current.map((reward) => updatedById.get(reward.id) ?? reward));
+      setMessage(
+        `Updated ${targetLabel} disk size to ${size} on ${updatedRewards.length} reward${updatedRewards.length === 1 ? "" : "s"}.`
+      );
+      setRewardSaveDiagnostic(`Updated ${updatedRewards.length} reward${updatedRewards.length === 1 ? "" : "s"}.`);
+    } catch (updateError) {
+      const updateMessage = updateError instanceof Error ? updateError.message : "Failed to update rewards.";
+      setError(updateMessage);
+      setRewardSaveDiagnostic(`Reward bulk update failed: ${updateMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function applyBulkRewardColorUpdate() {
+    const selectedRewards = rewards.filter((reward) => selectedRewardIds.includes(reward.id));
+
+    if (!selectedRewards.length) {
+      setError("Select at least one reward to update.");
+      return;
+    }
+
+    const nextColor = bulkRewardVisualColor;
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    setRewardSaveDiagnostic("Updating disk color on selected rewards...");
+
+    try {
+      const updatedRewards: GameReward[] = [];
+
+      for (const reward of selectedRewards) {
+        const payload = rewardToPayload(reward, {
+          metadata: buildBulkRewardColorMetadata(reward, nextColor)
+        });
+
+        const response = await fetch(`/api/admin/game/rewards/${reward.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await readAdminJson<{ reward?: GameReward; error?: string }>(response, "Failed to update rewards.");
+
+        if (!data.reward) {
+          throw new Error(data.error ?? "Failed to update rewards.");
+        }
+
+        updatedRewards.push(data.reward);
+      }
+
+      const updatedById = new Map(updatedRewards.map((reward) => [reward.id, reward]));
+      setRewards((current) => current.map((reward) => updatedById.get(reward.id) ?? reward));
+      setMessage(`Updated disk color on ${updatedRewards.length} reward${updatedRewards.length === 1 ? "" : "s"}.`);
+      setRewardSaveDiagnostic(`Updated ${updatedRewards.length} reward${updatedRewards.length === 1 ? "" : "s"}.`);
+    } catch (updateError) {
+      const updateMessage = updateError instanceof Error ? updateError.message : "Failed to update rewards.";
+      setError(updateMessage);
+      setRewardSaveDiagnostic(`Reward bulk update failed: ${updateMessage}`);
     } finally {
       setIsSaving(false);
     }
@@ -3808,11 +3982,6 @@ export function AdminGameWorkspace() {
             onGalleryRefresh={loadGalleryMedia}
           />
         ) : null}
-        {rewardSaveDiagnostic ? (
-          <div className="notice success player-inline-notice admin-game-save-diagnostic">
-            {rewardSaveDiagnostic}
-          </div>
-        ) : null}
         <div className="admin-products-filter-bar admin-game-filter-bar">
           <label className="field">
             <span>Reward</span>
@@ -3889,6 +4058,108 @@ export function AdminGameWorkspace() {
             Showing {sortedRewards.length} of {rewards.length} rewards
           </p>
         ) : null}
+        <div className="admin-game-reward-bulk-bar">
+          <p className="admin-game-reward-bulk-selection">
+            {selectedRewardIds.length
+              ? `${selectedRewardIds.length} reward${selectedRewardIds.length === 1 ? "" : "s"} selected`
+              : "Select one or more rewards to bulk edit"}
+          </p>
+          <div className="admin-game-reward-bulk-actions">
+            <select
+              aria-label="Bulk edit selected rewards"
+              disabled={isSaving}
+              value={rewardBulkAction}
+              onChange={(event) => setRewardBulkAction(event.target.value as RewardBulkAction)}
+            >
+              <option value="levelTier">Level</option>
+              <option value="gradeTier">Grade</option>
+              <option value="classTier">Class</option>
+              <option value="pollSize">Poll-Level</option>
+              <option value="levelSize">Level-Level</option>
+              <option value="color">Color</option>
+            </select>
+            {isRewardTierBulkAction(rewardBulkAction) ? (
+              <button
+                className="submit-button admin-blog-add-button admin-game-reward-bulk-button"
+                disabled={isSaving || selectedRewardIds.length === 0}
+                onClick={() => void copySelectedRewardsToNextTier()}
+                type="button"
+              >
+                Copy to Next...
+              </button>
+            ) : null}
+            {rewardBulkAction === "pollSize" ? (
+              <>
+                <input
+                  aria-label="Bulk poll-level disk size"
+                  className="admin-game-reward-bulk-size-input"
+                  disabled={isSaving || selectedRewardIds.length === 0}
+                  onChange={(event) => setBulkPollVisualSize(event.target.value)}
+                  placeholder="20px"
+                  type="text"
+                  value={bulkPollVisualSize}
+                />
+                <button
+                  className="submit-button admin-blog-add-button admin-game-reward-bulk-button"
+                  disabled={isSaving || selectedRewardIds.length === 0 || !bulkPollVisualSize.trim()}
+                  onClick={() => void applyBulkRewardSizeUpdate("pollReward")}
+                  type="button"
+                >
+                  Apply Poll-Level Size
+                </button>
+              </>
+            ) : null}
+            {rewardBulkAction === "levelSize" ? (
+              <>
+                <input
+                  aria-label="Bulk level-level disk size"
+                  className="admin-game-reward-bulk-size-input"
+                  disabled={isSaving || selectedRewardIds.length === 0}
+                  onChange={(event) => setBulkLevelVisualSize(event.target.value)}
+                  placeholder="42px"
+                  type="text"
+                  value={bulkLevelVisualSize}
+                />
+                <button
+                  className="submit-button admin-blog-add-button admin-game-reward-bulk-button"
+                  disabled={isSaving || selectedRewardIds.length === 0 || !bulkLevelVisualSize.trim()}
+                  onClick={() => void applyBulkRewardSizeUpdate("levelReward")}
+                  type="button"
+                >
+                  Apply Level-Level Size
+                </button>
+              </>
+            ) : null}
+            {rewardBulkAction === "color" ? (
+              <>
+                <input
+                  aria-label="Bulk disk color"
+                  className="admin-game-reward-bulk-color-input"
+                  disabled={isSaving || selectedRewardIds.length === 0}
+                  onChange={(event) => setBulkRewardVisualColor(event.target.value)}
+                  type="color"
+                  value={normalizeBuilderHexColor(bulkRewardVisualColor, DEFAULT_BADGE_BACKGROUND_COLOR)}
+                />
+                <button
+                  className="submit-button admin-blog-add-button admin-game-reward-bulk-button"
+                  disabled={isSaving || selectedRewardIds.length === 0}
+                  onClick={() => void applyBulkRewardColorUpdate()}
+                  type="button"
+                >
+                  Apply Color
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+        {rewardSaveDiagnostic ? (
+          <div
+            className={`notice admin-game-reward-status admin-game-reward-status-${getRewardSaveDiagnosticTone(rewardSaveDiagnostic, isSaving) ?? "success"}`}
+            role="status"
+          >
+            {rewardSaveDiagnostic}
+          </div>
+        ) : null}
         <div className="table-shell builder-templates-shell">
           <table className="polls-table builder-templates-table">
             <thead>
@@ -3916,29 +4187,7 @@ export function AdminGameWorkspace() {
                     />
                   </th>
                 ))}
-                <th className="crud-actions-cell admin-game-reward-actions-header">
-                  <div className="admin-game-reward-bulk-actions">
-                    <select
-                      aria-label="Copy selected rewards target tier"
-                      disabled={isSaving || selectedRewardIds.length === 0}
-                      value={copyTierTarget}
-                      onChange={(event) => setCopyTierTarget(event.target.value as RewardTierType)}
-                    >
-                      <option value="levelTier">Level</option>
-                      <option value="gradeTier">Grade</option>
-                      <option value="classTier">Class</option>
-                    </select>
-                    <button
-                      className="submit-button admin-blog-add-button admin-game-reward-copy-button"
-                      disabled={isSaving || selectedRewardIds.length === 0}
-                      onClick={() => void copySelectedRewardsToNextTier()}
-                      type="button"
-                    >
-                      Copy to next...
-                    </button>
-                  </div>
-                  <span>Actions</span>
-                </th>
+                <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
