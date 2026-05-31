@@ -8,6 +8,7 @@ import {
   formatRichTextContent
 } from "@/lib/builder-template";
 import { resolveBuilderDrillDownSurfaceBackground } from "@/lib/builder-drill-down-surface";
+import { BuilderCollapseIcon } from "./builder-collapse-icon";
 import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import {
@@ -82,7 +83,6 @@ type BuilderModuleCardProps = {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
-  onSaveModule: () => void;
   onOpenGallery: () => void;
   onOpenButtonBackgroundGallery?: () => void;
   onOpenSocialIconGallery: (itemId: string) => void;
@@ -859,7 +859,7 @@ function TableCellModules({
               onClick={() => setEditingId(editingId === mod.id ? null : mod.id)}
             >
               <span className="builder-table-cell-module-label">{mod.name || mod.type}</span>
-              <span className="builder-collapse-chevron">{editingId === mod.id ? "▾" : "▸"}</span>
+              <span className="builder-collapse-chevron"><BuilderCollapseIcon expanded={editingId === mod.id} /></span>
             </button>
             <button type="button" className="builder-icon-button" onClick={() => moveModule(mod.id, -1)} title="Move up">↑</button>
             <button type="button" className="builder-icon-button" onClick={() => moveModule(mod.id, 1)} title="Move down">↓</button>
@@ -1663,7 +1663,6 @@ export function BuilderModuleCard({
   onOpenSocialIconGallery,
   onUploadMedia,
   onUploadButtonBackgroundMedia,
-  onSaveModule,
   onClone,
   products = [],
   hideHeaderActions = false,
@@ -1718,11 +1717,11 @@ export function BuilderModuleCard({
         </div>
         {hideHeaderActions ? (
           <div className="builder-section-actions">
-            <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
+            <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button"><BuilderCollapseIcon expanded={isExpanded} /></button>
           </div>
         ) : (
           <div className="builder-section-actions">
-            <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button">{isExpanded ? "▾" : "▸"}</button>
+            <button aria-label={isExpanded ? "Collapse module" : "Expand module"} className="builder-icon-button" onClick={onToggleExpanded} title={isExpanded ? "Collapse module" : "Expand module"} type="button"><BuilderCollapseIcon expanded={isExpanded} /></button>
             <button aria-label="Move module up" className="builder-icon-button" onClick={onMoveUp} title="Move module up" type="button">↑</button>
             <button aria-label="Move module down" className="builder-icon-button" onClick={onMoveDown} title="Move module down" type="button">↓</button>
             <button
@@ -1733,15 +1732,6 @@ export function BuilderModuleCard({
               type="button"
             >
               ⧉
-            </button>
-            <button
-              aria-label="Save module"
-              className="builder-icon-button"
-              onClick={onSaveModule}
-              title="Save module"
-              type="button"
-            >
-              💾
             </button>
             <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
           </div>
@@ -2208,8 +2198,10 @@ export function BuilderModuleCard({
               <strong>Speech bubble</strong>
               <p>
                 {getModuleTrigger(module.settings) === "game"
-                  ? "Game trigger: the bubble is shown by the game layer when the player reaches your configured milestone."
-                  : "Use page preview or a live page to test how this bubble reads beside Normie."}
+                  ? "Game trigger: overlay on the live site at page load and when portal game events fire (logged-in milestones)."
+                  : getModuleTrigger(module.settings) === "on-load"
+                    ? "Page load trigger: overlay when this page loads on the live site."
+                    : "Use page preview or a live page to test this speech bubble overlay."}
               </p>
             </div>
           ) : null}

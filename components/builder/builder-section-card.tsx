@@ -9,6 +9,7 @@ import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent } from "react";
 import { getLayoutColumns, getLayoutGridTemplate } from "@/lib/builder-template";
 import { resolveBuilderDrillDownSurfaceBackground } from "@/lib/builder-drill-down-surface";
+import { BuilderCollapseIcon } from "./builder-collapse-icon";
 import { BuilderCellPanelHeader } from "./builder-cell-panel-header";
 import { BuilderCellStyleSettings } from "./builder-cell-style-settings";
 import { cancelBuilderDragIfFormField } from "./builder-drag-utils";
@@ -53,7 +54,6 @@ type BuilderSectionCardProps = {
   ) => void;
   onRemoveModule: (moduleId: string) => void;
   onCloneModule: (sectionId: string, moduleId: string) => void;
-  onSaveModule: (moduleId: string) => void;
   cellModules: BuilderCellModuleRecord[];
   products: BuilderProductRecord[];
   onSaveCellModules: (column: string) => void;
@@ -104,7 +104,6 @@ export function BuilderSectionCard({
   onDropModule,
   onRemoveModule,
   onCloneModule,
-  onSaveModule,
   cellModules,
   products,
   onSaveCellModules,
@@ -189,7 +188,7 @@ export function BuilderSectionCard({
     };
 
     return {
-      ...resolveBuilderDrillDownSurfaceBackground(section.cellBackgrounds[column], "cell"),
+      ...resolveBuilderDrillDownSurfaceBackground(section.cellBackgrounds[column], "column"),
       ...getVerticalMarginStyle(section.cellVerticalMargin?.[column] ?? "0"),
       padding: `${section.cellPadding[column] ?? "18"}px`,
       borderStyle: borderStyle === "none" ? "none" : borderStyle,
@@ -205,7 +204,6 @@ export function BuilderSectionCard({
 
   function getSectionStyle(): CSSProperties {
     return {
-      ...resolveBuilderDrillDownSurfaceBackground(section.background, "section"),
       ...getSectionMarginStyle(section)
     };
   }
@@ -284,7 +282,7 @@ export function BuilderSectionCard({
           )}
         </div>
         <div className="builder-section-actions">
-          <button aria-label={isCollapsed ? "Expand section" : "Collapse section"} className="builder-icon-button" onClick={onToggleCollapsed} title={isCollapsed ? "Expand section" : "Collapse section"} type="button">{isCollapsed ? "▸" : "▾"}</button>
+          <button aria-label={isCollapsed ? "Expand section" : "Collapse section"} className="builder-icon-button" onClick={onToggleCollapsed} title={isCollapsed ? "Expand section" : "Collapse section"} type="button"><BuilderCollapseIcon expanded={!isCollapsed} /></button>
           <button aria-label="Move section up" className="builder-icon-button" onClick={onMoveUp} title="Move section up" type="button">↑</button>
           <button aria-label="Move section down" className="builder-icon-button" onClick={onMoveDown} title="Move section down" type="button">↓</button>
           <button aria-label="Clone section" className="builder-icon-button" onClick={onCloneSection} title="Clone section" type="button">⧉</button>
@@ -445,7 +443,6 @@ export function BuilderSectionCard({
                                   onMoveDown={() => onMoveModule(module.id, 1)}
                                   onRemove={() => onRemoveModule(module.id)}
                                   onClone={() => onCloneModule(section.id, module.id)}
-                                  onSaveModule={() => onSaveModule(module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
                                   onOpenButtonBackgroundGallery={() => onOpenButtonBackgroundGallery(module.id)}
                                   onOpenSocialIconGallery={(itemId) => onOpenSocialIconGallery(module.id, itemId)}

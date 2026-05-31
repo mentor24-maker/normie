@@ -274,6 +274,7 @@ export const modulePaletteItems: ModulePaletteItem[] = [
       textColor: "#18324a",
       borderRadius: "40",
       trigger: "game",
+      gameAudience: "both",
       offsetX: "0",
       offsetY: "0",
       zIndex: "10"

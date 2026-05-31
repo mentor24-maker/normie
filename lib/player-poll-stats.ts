@@ -37,3 +37,22 @@ export async function countPlayerProgressPollsFromDb(
 
   return count ?? 0;
 }
+
+/** Progress polls for an anonymous browser session (non-skipped answers only). */
+export async function countSessionProgressPollsFromDb(
+  supabase: AdminSupabaseClient,
+  sessionId: string
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("poll_response")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId)
+    .is("user_id", null)
+    .eq("is_skipped", false);
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}

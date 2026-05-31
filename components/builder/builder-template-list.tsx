@@ -7,6 +7,7 @@ import {
 } from "@/lib/builder-email-template";
 import { useEffect, useRef, useState } from "react";
 import { BuilderBackgroundControls } from "./builder-background-controls";
+import { BuilderCollapseIcon } from "./builder-collapse-icon";
 import { formatTemplateTimestamp } from "./builder-utils";
 
 type BuilderTemplateListProps = {
@@ -28,7 +29,7 @@ type BuilderTemplateListProps = {
   onSetPreviewDevice: (device: "desktop" | "mobile") => void;
   onPreviewDraft: () => void;
   onNewTemplate: () => void;
-  onSaveTemplate: () => void;
+  onTemplateEditorFocus: (focused: boolean) => void;
 };
 
 export function BuilderTemplateList({
@@ -50,7 +51,7 @@ export function BuilderTemplateList({
   onSetPreviewDevice,
   onPreviewDraft,
   onNewTemplate,
-  onSaveTemplate
+  onTemplateEditorFocus
 }: BuilderTemplateListProps) {
   const isEmailTemplate = templateKind === "email";
   const [collapsedPanels, setCollapsedPanels] = useState({
@@ -61,7 +62,15 @@ export function BuilderTemplateList({
   const shouldFocusDetailsRef = useRef(false);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
-    setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
+    setCollapsedPanels((current) => {
+      const nextCollapsed = !current[panel];
+
+      if (panel === "details") {
+        onTemplateEditorFocus(!nextCollapsed);
+      }
+
+      return { ...current, [panel]: nextCollapsed };
+    });
   }
 
   function openDetailsAndFocus() {
@@ -71,11 +80,13 @@ export function BuilderTemplateList({
 
   function handleEditTemplate(templateId: string) {
     onSelectTemplate(templateId);
+    onTemplateEditorFocus(true);
     openDetailsAndFocus();
   }
 
   function handleNewTemplate() {
     onNewTemplate();
+    onTemplateEditorFocus(true);
     openDetailsAndFocus();
   }
 
@@ -112,7 +123,7 @@ export function BuilderTemplateList({
             type="button"
           >
             <span className="panel-label">Templates</span>
-            <span className="builder-panel-toggle-icon">{collapsedPanels.templates ? "▸" : "▾"}</span>
+            <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.templates} /></span>
           </button>
           <span className="builder-panel-heading-actions">
             <button
@@ -195,29 +206,17 @@ export function BuilderTemplateList({
       </div>
 
       <div className="builder-toolbar-shell">
-        <div className="builder-panel-toggle-row">
-          <button
-            aria-expanded={!collapsedPanels.details}
-            aria-label={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
-            className="builder-panel-toggle"
-            onClick={() => togglePanel("details")}
-            title={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
-            type="button"
-          >
-            <span className="panel-label">Template Details</span>
-            <span className="builder-panel-toggle-icon">{collapsedPanels.details ? "▸" : "▾"}</span>
-          </button>
-          <span className="builder-panel-heading-actions">
-            <button
-              className="submit-button admin-blog-add-button builder-panel-heading-button"
-              disabled={isSaving}
-              onClick={onSaveTemplate}
-              type="button"
-            >
-              {isSaving ? "Saving..." : "Save Template"}
-            </button>
-          </span>
-        </div>
+        <button
+          aria-expanded={!collapsedPanels.details}
+          aria-label={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
+          className="builder-panel-toggle"
+          onClick={() => togglePanel("details")}
+          title={collapsedPanels.details ? "Expand Template Details" : "Collapse Template Details"}
+          type="button"
+        >
+          <span className="panel-label">Template Details</span>
+          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.details} /></span>
+        </button>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid builder-meta-grid-templates">
             <label className="field">

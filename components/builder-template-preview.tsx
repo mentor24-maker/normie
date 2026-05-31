@@ -46,6 +46,7 @@ import {
 } from "@/components/builder/builder-utils";
 import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
 import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
+import { BuilderSpeechBubbleRuntime } from "@/components/builder-speech-bubble-runtime";
 import { SpeechBubblePreview } from "@/components/builder/speech-bubble-preview";
 import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
 import { resolveEmailMergeTokensForPreview } from "@/lib/builder-email-template";
@@ -56,6 +57,8 @@ type BuilderTemplatePreviewProps = {
   pageBackground: import("@/lib/builder-template").BackgroundSettings;
   showShell?: boolean;
   emailPreview?: boolean;
+  /** When true (Builder /preview), speech bubbles with game/on-load triggers do not auto-fire. */
+  previewMode?: boolean;
 };
 
 type ContactFormField = {
@@ -199,14 +202,20 @@ export function BuilderTemplatePreview({
   layoutSections,
   pageBackground,
   showShell = true,
-  emailPreview = false
+  emailPreview = false,
+  previewMode = false
 }: BuilderTemplatePreviewProps) {
   const pageStyle = getBuilderBackgroundStyle(pageBackground);
 
   return (
     <div className={showShell ? "builder-preview-shell" : undefined} style={pageStyle}>
       {layoutSections.map((section) => (
-        <BuilderSectionPreview emailPreview={emailPreview} key={section.id} section={section} />
+        <BuilderSectionPreview
+          emailPreview={emailPreview}
+          key={section.id}
+          previewMode={previewMode}
+          section={section}
+        />
       ))}
     </div>
   );
@@ -214,10 +223,12 @@ export function BuilderTemplatePreview({
 
 function BuilderSectionPreview({
   section,
-  emailPreview = false
+  emailPreview = false,
+  previewMode = false
 }: {
   section: BuilderTemplateSection;
   emailPreview?: boolean;
+  previewMode?: boolean;
 }) {
   const sectionStyle = getBuilderBackgroundStyle(section.background);
   const columnKeys = getLayoutColumns(section.layout);
@@ -315,7 +326,7 @@ function BuilderSectionPreview({
                       : undefined
                   } as CSSProperties}
                 >
-                  <BuilderModulePreview emailPreview={emailPreview} module={module} />
+                  <BuilderModulePreview emailPreview={emailPreview} module={module} previewMode={previewMode} />
                 </div>
               );
             })}
@@ -328,10 +339,12 @@ function BuilderSectionPreview({
 
 function BuilderModulePreview({
   module,
-  emailPreview = false
+  emailPreview = false,
+  previewMode = false
 }: {
   module: import("@/lib/builder-template").BuilderTemplateModule;
   emailPreview?: boolean;
+  previewMode?: boolean;
 }) {
   const variant = module.settings.variant ?? "";
 
@@ -388,7 +401,13 @@ function BuilderModulePreview({
   }
 
   if (module.type === "speech-bubble") {
-    return <SpeechBubblePreview module={module} />;
+    if (emailPreview) {
+      return <SpeechBubblePreview module={module} />;
+    }
+
+    return (
+      <BuilderSpeechBubbleRuntime gamePlayContext="public" module={module} previewMode={previewMode} />
+    );
   }
 
   if (module.type === "button") {

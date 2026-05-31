@@ -121,6 +121,7 @@ type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels";
 type RewardSortKey = "name" | "rewardType" | "levelTier" | "gradeTier" | "classTier" | "rewardVisual";
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
 type ReminderSortKey = "name" | "displayType" | "criterion" | "isActive" | "updatedAt";
+type LevelEventSortKey = "eventName" | "milestone" | "moduleName" | "trigger" | "status" | "updatedAt";
 type RewardTierType = "levelTier" | "gradeTier" | "classTier";
 type RewardBulkAction = RewardTierType | "pollSize" | "levelSize" | "color";
 
@@ -229,6 +230,15 @@ const REMINDER_TABLE_COLUMNS: Array<{ key: ReminderSortKey; label: string }> = [
   { key: "displayType", label: "Display" },
   { key: "criterion", label: "Criteria" },
   { key: "isActive", label: "Active" },
+  { key: "updatedAt", label: "Updated" }
+];
+
+const LEVEL_EVENT_TABLE_COLUMNS: Array<{ key: LevelEventSortKey; label: string }> = [
+  { key: "eventName", label: "Event" },
+  { key: "milestone", label: "Milestone" },
+  { key: "moduleName", label: "Module" },
+  { key: "trigger", label: "Trigger" },
+  { key: "status", label: "Status" },
   { key: "updatedAt", label: "Updated" }
 ];
 
@@ -354,6 +364,67 @@ function applyProgressionToLevelEventDraft(draft: LevelEventDraft): LevelEventDr
 
 function getLevelEventProgression(event: GameLevelEvent | LevelEventDraft): ReturnType<typeof readEventProgressionFromMetadata> {
   return readEventProgressionFromMetadata(event.metadata, event.sublevelName);
+}
+
+function formatLevelEventMilestoneLabel(event: GameLevelEvent | LevelEventDraft) {
+  const progression = getLevelEventProgression(event);
+
+  return formatProgressionMilestone(
+    progression.gradeTier,
+    progression.levelTier,
+    progression.pollTier,
+    progression.pollsPerLevel
+  );
+}
+
+function levelEventProgressPolls(event: GameLevelEvent | LevelEventDraft) {
+  const progression = getLevelEventProgression(event);
+
+  return progressPollsAtEvent(
+    progression.gradeTier,
+    progression.levelTier,
+    progression.pollTier,
+    progression.pollsPerLevel
+  );
+}
+
+function compareLevelEvents(
+  left: GameLevelEvent,
+  right: GameLevelEvent,
+  sortKey: LevelEventSortKey,
+  sortDirection: SortDirection
+) {
+  let result = 0;
+
+  switch (sortKey) {
+    case "milestone":
+      result = levelEventProgressPolls(left) - levelEventProgressPolls(right);
+      if (result === 0) {
+        result = compareText(formatLevelEventMilestoneLabel(left), formatLevelEventMilestoneLabel(right));
+      }
+      break;
+    case "moduleName":
+      result = compareText(left.moduleName || "", right.moduleName || "");
+      break;
+    case "trigger":
+      result = compareText(left.trigger, right.trigger);
+      break;
+    case "status":
+      result = Number(left.isActive) - Number(right.isActive);
+      break;
+    case "updatedAt":
+      result = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
+      break;
+    case "eventName":
+      result = compareText(left.eventName, right.eventName);
+      break;
+  }
+
+  if (result === 0) {
+    result = compareText(left.eventName, right.eventName);
+  }
+
+  return sortDirection === "asc" ? result : -result;
 }
 
 function createLevelEventDraft(_gameLevels: GameLevel[] = [], eventModules: GameEventModule[] = []): LevelEventDraft {
@@ -2386,6 +2457,13 @@ export function AdminGameWorkspace() {
   const [reminderQuery, setReminderQuery] = useState("");
   const [reminderSortKey, setReminderSortKey] = useState<ReminderSortKey>("updatedAt");
   const [reminderSortDirection, setReminderSortDirection] = useState<SortDirection>("desc");
+  const [levelEventQuery, setLevelEventQuery] = useState("");
+  const [levelEventGradeFilter, setLevelEventGradeFilter] = useState("");
+  const [levelEventLevelFilter, setLevelEventLevelFilter] = useState("");
+  const [levelEventStatusFilter, setLevelEventStatusFilter] = useState<"" | "active" | "draft">("");
+  const [levelEventModuleFilter, setLevelEventModuleFilter] = useState("");
+  const [levelEventSortKey, setLevelEventSortKey] = useState<LevelEventSortKey>("updatedAt");
+  const [levelEventSortDirection, setLevelEventSortDirection] = useState<SortDirection>("desc");
 
   const pollLabelById = useMemo(
     () => Object.fromEntries(pollOptions.map((poll) => [poll.id, poll.question])),
@@ -2553,6 +2631,92 @@ export function AdminGameWorkspace() {
     [filteredReminders, pollLabelById, reminderSortDirection, reminderSortKey]
   );
 
+  const levelEventGradeOptions = useMemo(
+    () =>
+      Array.from(new Set(levelEvents.map((event) => getLevelEventProgression(event).gradeTier)))
+        .filter((grade) => grade > 0)
+        .sort((left, right) => left - right),
+    [levelEvents]
+  );
+
+  const levelEventLevelOptions = useMemo(
+    () =>
+      Array.from(new Set(levelEvents.map((event) => getLevelEventProgression(event).levelTier)))
+        .filter((level) => level > 0)
+        .sort((left, right) => left - right),
+    [levelEvents]
+  );
+
+  const filteredLevelEvents = useMemo(() => {
+    const query = levelEventQuery.trim().toLowerCase();
+    const gradeFilterValue = Number.parseInt(levelEventGradeFilter, 10);
+    const levelFilterValue = Number.parseInt(levelEventLevelFilter, 10);
+    const hasGradeFilter = Number.isFinite(gradeFilterValue) && gradeFilterValue > 0;
+    const hasLevelFilter = Number.isFinite(levelFilterValue) && levelFilterValue > 0;
+
+    return levelEvents.filter((event) => {
+      const progression = getLevelEventProgression(event);
+
+      if (hasGradeFilter && progression.gradeTier !== gradeFilterValue) {
+        return false;
+      }
+
+      if (hasLevelFilter && progression.levelTier !== levelFilterValue) {
+        return false;
+      }
+
+      if (levelEventStatusFilter === "active" && !event.isActive) {
+        return false;
+      }
+
+      if (levelEventStatusFilter === "draft" && event.isActive) {
+        return false;
+      }
+
+      if (levelEventModuleFilter && event.moduleId !== levelEventModuleFilter) {
+        return false;
+      }
+
+      if (query) {
+        const targetPolls = eventTargetProgressPolls(event.metadata, event.sublevelName);
+        const haystack = [
+          event.eventName,
+          formatLevelEventMilestoneLabel(event),
+          event.moduleName,
+          event.trigger,
+          event.isActive ? "active" : "draft",
+          String(targetPolls),
+          String(progression.gradeTier),
+          String(progression.levelTier),
+          String(progression.pollTier)
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        if (!haystack.includes(query)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    levelEventGradeFilter,
+    levelEventLevelFilter,
+    levelEventModuleFilter,
+    levelEventQuery,
+    levelEventStatusFilter,
+    levelEvents
+  ]);
+
+  const sortedLevelEvents = useMemo(
+    () =>
+      [...filteredLevelEvents].sort((left, right) =>
+        compareLevelEvents(left, right, levelEventSortKey, levelEventSortDirection)
+      ),
+    [filteredLevelEvents, levelEventSortDirection, levelEventSortKey]
+  );
+
   useEffect(() => {
     setSelectedRewardIds((current) => current.filter((id) => rewards.some((reward) => reward.id === id)));
   }, [rewards]);
@@ -2568,6 +2732,13 @@ export function AdminGameWorkspace() {
   );
   const hasScoringRuleFilters = Boolean(
     scoringRuleQuery.trim() || scoringRuleMinPoints.trim() || scoringRuleMaxPoints.trim()
+  );
+  const hasLevelEventFilters = Boolean(
+    levelEventQuery.trim() ||
+    levelEventGradeFilter ||
+    levelEventLevelFilter ||
+    levelEventStatusFilter ||
+    levelEventModuleFilter
   );
 
   function handleGameLevelSort(nextKey: GameLevelSortKey) {
@@ -2608,6 +2779,16 @@ export function AdminGameWorkspace() {
 
     setReminderSortKey(nextKey);
     setReminderSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
+  }
+
+  function handleLevelEventSort(nextKey: LevelEventSortKey) {
+    if (levelEventSortKey === nextKey) {
+      setLevelEventSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setLevelEventSortKey(nextKey);
+    setLevelEventSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
   }
 
   async function loadGalleryMedia() {
@@ -3342,6 +3523,48 @@ export function AdminGameWorkspace() {
     }
   }
 
+  async function cloneLevelEvent(event: GameLevelEvent) {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const payload = applyProgressionToLevelEventDraft({
+        ...levelEventToDraft(event),
+        eventName: `${event.eventName} (copy)`
+      });
+      const response = await fetch("/api/admin/game/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: payload.eventName,
+          levelName: payload.levelName,
+          sublevelName: payload.sublevelName,
+          moduleId: payload.moduleId,
+          trigger: "game",
+          isActive: payload.isActive !== false,
+          metadata: payload.metadata ?? { eventType: "confetti" }
+        })
+      });
+      const data = await readAdminJson<{ levelEvent?: GameLevelEvent; error?: string }>(
+        response,
+        "Failed to clone event."
+      );
+
+      if (!data.levelEvent) {
+        throw new Error(data.error ?? "Failed to clone event.");
+      }
+
+      setLevelEvents((current) => [data.levelEvent!, ...current]);
+      setMessage(`Cloned event "${event.eventName}".`);
+      setEditingLevelEventId("");
+      setLevelEventDraft(createLevelEventDraft(gameLevels, eventModules));
+    } catch (cloneError) {
+      setError(cloneError instanceof Error ? cloneError.message : "Failed to clone event.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function deleteLevelEvent(event: GameLevelEvent) {
     if (!window.confirm(`Delete event "${event.eventName}"?`)) return;
     setIsSaving(true);
@@ -3954,21 +4177,95 @@ export function AdminGameWorkspace() {
             onSave={() => void saveLevelEvent()}
           />
         ) : null}
+        <div className="admin-products-filter-bar admin-game-filter-bar">
+          <label className="field">
+            <span>Event</span>
+            <input
+              type="search"
+              value={levelEventQuery}
+              onChange={(event) => setLevelEventQuery(event.target.value)}
+              placeholder="Filter events"
+            />
+          </label>
+          <label className="field">
+            <span>Grade</span>
+            <select
+              value={levelEventGradeFilter}
+              onChange={(event) => setLevelEventGradeFilter(event.target.value)}
+            >
+              <option value="">All grades</option>
+              {levelEventGradeOptions.map((grade) => (
+                <option key={grade} value={grade}>
+                  {grade}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Level</span>
+            <select
+              value={levelEventLevelFilter}
+              onChange={(event) => setLevelEventLevelFilter(event.target.value)}
+            >
+              <option value="">All levels</option>
+              {levelEventLevelOptions.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select
+              value={levelEventStatusFilter}
+              onChange={(event) => setLevelEventStatusFilter(event.target.value as "" | "active" | "draft")}
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Module</span>
+            <select
+              value={levelEventModuleFilter}
+              onChange={(event) => setLevelEventModuleFilter(event.target.value)}
+            >
+              <option value="">All modules</option>
+              {eventModules.map((module) => (
+                <option key={module.id} value={module.id}>
+                  {module.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {hasLevelEventFilters ? (
+          <p className="admin-products-filter-summary">
+            Showing {sortedLevelEvents.length} of {levelEvents.length} events
+          </p>
+        ) : null}
         <div className="table-shell builder-templates-shell">
           <table className="polls-table builder-templates-table">
             <thead>
               <tr>
-                <th>Event</th>
-                <th>Milestone</th>
-                <th>Module</th>
-                <th>Trigger</th>
-                <th>Status</th>
-                <th>Updated</th>
+                {LEVEL_EVENT_TABLE_COLUMNS.map((column) => (
+                  <th key={column.key}>
+                    <AdminTableSortButton
+                      activeSortKey={levelEventSortKey}
+                      label={column.label}
+                      onSort={handleLevelEventSort}
+                      sortDirection={levelEventSortDirection}
+                      sortKey={column.key}
+                    />
+                  </th>
+                ))}
                 <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {levelEvents.map((event) => (
+              {sortedLevelEvents.map((event) => (
                 <tr key={event.id}>
                   <td><strong>{event.eventName}</strong></td>
                   <td>
@@ -3978,14 +4275,7 @@ export function AdminGameWorkspace() {
 
                       return (
                         <>
-                          <strong>
-                            {formatProgressionMilestone(
-                              progression.gradeTier,
-                              progression.levelTier,
-                              progression.pollTier,
-                              progression.pollsPerLevel
-                            )}
-                          </strong>
+                          <strong>{formatLevelEventMilestoneLabel(event)}</strong>
                           <span className="admin-game-level-event-table-meta"> ({targetPolls} progress polls)</span>
                         </>
                       );
@@ -4011,6 +4301,16 @@ export function AdminGameWorkspace() {
                         ✎
                       </button>
                       <button
+                        aria-label="Clone event"
+                        className="polls-icon-button polls-icon-button-view"
+                        disabled={isSaving}
+                        onClick={() => void cloneLevelEvent(event)}
+                        title="Clone"
+                        type="button"
+                      >
+                        ⧉
+                      </button>
+                      <button
                         aria-label="Delete level event"
                         className="polls-icon-button polls-icon-button-danger"
                         disabled={isSaving}
@@ -4024,14 +4324,16 @@ export function AdminGameWorkspace() {
                   </td>
                 </tr>
               ))}
-              {levelEvents.length === 0 ? (
+              {sortedLevelEvents.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={7}>
+                  <td className="empty-cell" colSpan={LEVEL_EVENT_TABLE_COLUMNS.length + 1}>
                     {isLoading
                       ? "Loading events..."
-                      : eventModules.length === 0
-                        ? "No game-triggered Special Effects or Speech Bubble modules found. Save a module with Trigger set to Game first."
-                        : "No events found."}
+                      : levelEvents.length === 0
+                        ? eventModules.length === 0
+                          ? "No game-triggered Special Effects or Speech Bubble modules found. Save a module with Trigger set to Game first."
+                          : "No events found."
+                        : "No events match the current filters."}
                   </td>
                 </tr>
               ) : null}

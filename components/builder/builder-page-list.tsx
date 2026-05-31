@@ -1,6 +1,7 @@
 import type { BackgroundSettings, BuilderPageRecord, BuilderTemplateRecord } from "@/lib/builder-template";
 import { useEffect, useRef, useState } from "react";
 import { BuilderBackgroundControls } from "./builder-background-controls";
+import { BuilderCollapseIcon } from "./builder-collapse-icon";
 import { formatTemplateTimestamp } from "./builder-utils";
 
 type BuilderPageListProps = {
@@ -23,7 +24,7 @@ type BuilderPageListProps = {
   onSetIsPublished: (isPublished: boolean) => void;
   onNewPage: () => void;
   onMakeTemplate: () => void;
-  onSavePage: () => void;
+  onPageEditorFocus: (focused: boolean) => void;
 };
 
 export function BuilderPageList({
@@ -46,7 +47,7 @@ export function BuilderPageList({
   onSetIsPublished,
   onNewPage,
   onMakeTemplate,
-  onSavePage
+  onPageEditorFocus
 }: BuilderPageListProps) {
   const [collapsedPanels, setCollapsedPanels] = useState({
     pages: true,
@@ -56,7 +57,15 @@ export function BuilderPageList({
   const shouldFocusDetailsRef = useRef(false);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
-    setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
+    setCollapsedPanels((current) => {
+      const nextCollapsed = !current[panel];
+
+      if (panel === "details") {
+        onPageEditorFocus(!nextCollapsed);
+      }
+
+      return { ...current, [panel]: nextCollapsed };
+    });
   }
 
   function openDetailsAndFocus() {
@@ -66,11 +75,13 @@ export function BuilderPageList({
 
   function handleEditPage(pageId: string) {
     onSelectPage(pageId);
+    onPageEditorFocus(true);
     openDetailsAndFocus();
   }
 
   function handleNewPage() {
     onNewPage();
+    onPageEditorFocus(true);
     openDetailsAndFocus();
   }
 
@@ -99,7 +110,7 @@ export function BuilderPageList({
             type="button"
           >
             <span className="panel-label">Pages</span>
-            <span className="builder-panel-toggle-icon">{collapsedPanels.pages ? "▸" : "▾"}</span>
+            <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.pages} /></span>
           </button>
           <span className="builder-panel-heading-actions">
             <button
@@ -184,29 +195,17 @@ export function BuilderPageList({
       </div>
 
       <div className="builder-toolbar-shell">
-        <div className="builder-panel-toggle-row">
-          <button
-            aria-expanded={!collapsedPanels.details}
-            aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
-            className="builder-panel-toggle"
-            onClick={() => togglePanel("details")}
-            title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
-            type="button"
-          >
-            <span className="panel-label">Page Details</span>
-            <span className="builder-panel-toggle-icon">{collapsedPanels.details ? "▸" : "▾"}</span>
-          </button>
-          <span className="builder-panel-heading-actions">
-            <button
-              className="submit-button admin-blog-add-button builder-panel-heading-button"
-              disabled={isSaving}
-              onClick={onSavePage}
-              type="button"
-            >
-              {isSaving ? "Saving..." : "Save Page"}
-            </button>
-          </span>
-        </div>
+        <button
+          aria-expanded={!collapsedPanels.details}
+          aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+          className="builder-panel-toggle"
+          onClick={() => togglePanel("details")}
+          title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+          type="button"
+        >
+          <span className="panel-label">Page Details</span>
+          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.details} /></span>
+        </button>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid builder-meta-grid-pages">
             <label className="field">
@@ -257,6 +256,8 @@ export function BuilderPageList({
                 label="Background"
                 background={pageBackground}
                 compact
+                hideClear
+                showColorFieldLabel={false}
                 onChange={onUpdatePageBackground}
               />
             </div>

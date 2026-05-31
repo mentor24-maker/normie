@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { normalizeEmailFunction, type BuilderEmailFunction } from "@/lib/builder-email-template";
 import { CONFETTI_EFFECT_DEFAULTS, normalizeConfettiModuleSettings } from "@/lib/confetti-effect";
 import { normalizeCurrentPollModuleWidth } from "@/lib/current-poll-module";
+import { MODULE_GAME_AUDIENCE_SETTING_KEY, normalizeModuleGameAudience } from "@/lib/module-game-audience";
 import { normalizeModuleTrigger, MODULE_TRIGGER_SETTING_KEY } from "@/lib/module-trigger";
 import { sanitizeCellBackgroundForDrillDown } from "@/lib/builder-drill-down-surface";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
@@ -636,6 +637,9 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
     settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");
     settings.zIndex = normalizeSpacingValue(settings.zIndex, "10", -999, 999999);
     settings[MODULE_TRIGGER_SETTING_KEY] = normalizeModuleTrigger(settings[MODULE_TRIGGER_SETTING_KEY] ?? "game");
+    settings[MODULE_GAME_AUDIENCE_SETTING_KEY] = normalizeModuleGameAudience(
+      settings[MODULE_GAME_AUDIENCE_SETTING_KEY] ?? "both"
+    );
   }
 
   if (type === "headline-rotator") {
@@ -951,6 +955,7 @@ export function createEmptyModule(
             textColor: "#18324a",
             borderRadius: "40",
             trigger: "game",
+            gameAudience: "both",
             offsetX: "0",
             offsetY: "0",
             zIndex: "10"

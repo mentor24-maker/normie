@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, DragEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
 import {
   BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
@@ -9,7 +9,6 @@ import {
   createDefaultBackgroundSettings,
   createEmptyModule,
   createEmptySection,
-  getBuilderBackgroundStyle,
   getLayoutColumns,
   getLayoutGridTemplate,
   normalizeBuilderAssetUrl,
@@ -32,7 +31,17 @@ import { layoutOptions } from "./builder/builder-types";
 import { createDraftFromTemplate, createDraftFromPage, getModuleBackgroundSettings } from "./builder/builder-utils";
 import { BuilderTemplateList } from "./builder/builder-template-list";
 import { BuilderPageList } from "./builder/builder-page-list";
-import { BuilderModuleRepositoryList, type CreatedModuleSource } from "./builder/builder-module-repository-list";
+import {
+  BuilderModuleRepositoryList,
+  type BuilderModuleEditorFocus,
+  type CreatedModuleSource
+} from "./builder/builder-module-repository-list";
+import { BuilderCollapseIcon } from "./builder/builder-collapse-icon";
+import {
+  BuilderFloatingSaveRail,
+  type BuilderFloatingSaveAction
+} from "./builder/builder-floating-save-rail";
+import { BuilderSaveDebugPanel } from "./builder/builder-save-debug-panel";
 import { BuilderSectionCard } from "./builder/builder-section-card";
 import { BuilderGalleryModal } from "./builder/builder-gallery-modal";
 import {
@@ -80,6 +89,11 @@ export function AdminBuilderEditor() {
   const [draft, setDraft] = useState(createDraftFromTemplate(null));
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<string[]>([]);
   const [expandedModuleIds, setExpandedModuleIds] = useState<string[]>([]);
+  const [pageEditorFocused, setPageEditorFocused] = useState(false);
+  const [templateEditorFocused, setTemplateEditorFocused] = useState(false);
+  const [repositorySaveFocus, setRepositorySaveFocus] = useState<BuilderModuleEditorFocus | null>(null);
+  const [repositorySaveActive, setRepositorySaveActive] = useState(false);
+  const repositorySaveRef = useRef<BuilderModuleEditorFocus | null>(null);
   const [galleryMedia, setGalleryMedia] = useState<AdminMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -229,6 +243,34 @@ export function AdminBuilderEditor() {
       setCollapsedSectionIds(selectedPage?.layoutSections.map((s) => s.id) ?? []);
     }
   }, [builderMode, selectedPage]);
+
+  useEffect(() => {
+    if (builderMode !== "pages") {
+      setPageEditorFocused(false);
+    }
+
+    if (builderMode !== "templates") {
+      setTemplateEditorFocused(false);
+    }
+
+    if (builderMode !== "modules") {
+      setRepositorySaveFocus(null);
+      setRepositorySaveActive(false);
+      repositorySaveRef.current = null;
+    }
+  }, [builderMode]);
+
+  useEffect(() => {
+    if (builderMode === "pages" && selectedPageId) {
+      setPageEditorFocused(true);
+    }
+  }, [builderMode, selectedPageId]);
+
+  useEffect(() => {
+    if (builderMode === "templates" && selectedTemplateId) {
+      setTemplateEditorFocused(true);
+    }
+  }, [builderMode, selectedTemplateId]);
 
   useEffect(() => {
     setCollapsedSectionIds((c) => c.filter((id) => draft.layoutSections.some((s) => s.id === id)));
@@ -1414,10 +1456,109 @@ export function AdminBuilderEditor() {
     );
   }
 
+  const handleModuleEditorFocusChange = useCallback(
+    (focus: BuilderModuleEditorFocus | null, syncOnly = false) => {
+      repositorySaveRef.current = focus;
+
+      if (!syncOnly) {
+        setRepositorySaveFocus(focus);
+      }
+    },
+    []
+  );
+
+  const handleRepositoryEditingActiveChange = useCallback((active: boolean) => {
+    setRepositorySaveActive(active);
+
+    if (!active) {
+      repositorySaveRef.current = null;
+      setRepositorySaveFocus(null);
+    }
+  }, []);
+
+  const floatingSaveActions = useMemo((): BuilderFloatingSaveAction[] => {
+    if (builderMode === "pages" && (pageEditorFocused || Boolean(selectedPageId))) {
+      return [
+        {
+          label: "Save Page",
+          savingLabel: "Saving...",
+          onSave: () => void savePage()
+        }
+      ];
+    }
+
+    if (builderMode === "templates" && (templateEditorFocused || Boolean(selectedTemplateId))) {
+      return [
+        {
+          label: "Save Template",
+          savingLabel: "Saving...",
+          onSave: () => void saveTemplate()
+        }
+      ];
+    }
+
+    if (builderMode === "modules" && repositorySaveActive) {
+      const activeFocus = repositorySaveRef.current ?? repositorySaveFocus;
+
+      if (activeFocus?.kind === "section") {
+        return [
+          {
+            label: "Save Section",
+            savingLabel: "Saving...",
+            onSave: () => {
+              const focus = repositorySaveRef.current;
+
+              if (!focus || focus.kind !== "section") {
+                return;
+              }
+
+              void saveSavedSection(focus.sectionId, focus.name, focus.section);
+            }
+          }
+        ];
+      }
+
+      return [
+        {
+          label: "Save Module",
+          savingLabel: "Saving...",
+          onSave: () => {
+            const focus = repositorySaveRef.current;
+
+            if (!focus) {
+              return;
+            }
+
+            if (focus.kind === "created") {
+              void saveCreatedModule(focus.source, focus.module);
+              return;
+            }
+
+            if (focus.kind === "saved") {
+              void saveSavedModule(focus.cellModuleId, focus.name, focus.moduleClass, focus.modules);
+            }
+          }
+        }
+      ];
+    }
+
+    return [];
+  }, [
+    builderMode,
+    repositorySaveActive,
+    repositorySaveFocus,
+    pageEditorFocused,
+    selectedPageId,
+    selectedTemplateId,
+    templateEditorFocused
+  ]);
+
   // --- Render ---
 
   return (
-    <section className="admin-section">
+    <section className="admin-section builder-editor-section">
+      <div className="builder-editor-layout">
+        <div className="builder-editor-layout-main">
       <div className="admin-toolbar">
         <h2 className="admin-section-heading">Page Builder</h2>
         <div className="admin-actions builder-header-actions">
@@ -1450,7 +1591,7 @@ export function AdminBuilderEditor() {
           onSetPreviewDevice={setPreviewDevice}
           onPreviewDraft={openPreviewPage}
           onNewTemplate={startNewTemplate}
-          onSaveTemplate={() => void saveTemplate()}
+          onTemplateEditorFocus={setTemplateEditorFocused}
         />
       ) : builderMode === "modules" ? (
         <BuilderModuleRepositoryList
@@ -1471,6 +1612,8 @@ export function AdminBuilderEditor() {
           onSaveCreatedModule={(source, module) => void saveCreatedModule(source, module)}
           onSaveSavedModule={(id, name, moduleClass, modules) => void saveSavedModule(id, name, moduleClass, modules)}
           onSaveSavedSection={(id, name, section) => void saveSavedSection(id, name, section)}
+          onModuleEditorFocusChange={handleModuleEditorFocusChange}
+          onRepositoryEditingActiveChange={handleRepositoryEditingActiveChange}
         />
       ) : (
         <BuilderPageList
@@ -1493,7 +1636,7 @@ export function AdminBuilderEditor() {
           onSetIsPublished={setIsPublishedPage}
           onNewPage={startNewPage}
           onMakeTemplate={() => void makeTemplateFromPage()}
-          onSavePage={() => void savePage()}
+          onPageEditorFocus={setPageEditorFocused}
         />
       )}
 
@@ -1507,11 +1650,11 @@ export function AdminBuilderEditor() {
               type="button"
             >
               <span className="panel-label">Workspace</span>
-              <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.workspace ? "▸" : "▾"}</span>
+              <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedBuilderPanels.workspace} /></span>
             </button>
             {!collapsedBuilderPanels.workspace ? (
               <div className="builder-workspace-pods">
-                <div className="builder-toolbar-shell builder-workspace-nested-pod">
+                <div className="builder-workspace-nested-pod">
                   <button
                     aria-expanded={!collapsedBuilderPanels.rowConfigurations}
                     className="builder-panel-toggle"
@@ -1519,7 +1662,7 @@ export function AdminBuilderEditor() {
                     type="button"
                   >
                     <span className="panel-label">Row Layouts</span>
-                    <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rowConfigurations ? "▸" : "▾"}</span>
+                    <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedBuilderPanels.rowConfigurations} /></span>
                   </button>
                   {!collapsedBuilderPanels.rowConfigurations ? (
                     <div className="builder-layout-toolbar">
@@ -1544,7 +1687,7 @@ export function AdminBuilderEditor() {
                   ) : null}
                 </div>
 
-                <div className="builder-toolbar-shell builder-workspace-nested-pod">
+                <div className="builder-workspace-nested-pod builder-rows-pod">
                   <button
                     aria-expanded={!collapsedBuilderPanels.rows}
                     className="builder-panel-toggle"
@@ -1552,12 +1695,11 @@ export function AdminBuilderEditor() {
                     type="button"
                   >
                     <span className="panel-label">Rows</span>
-                    <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rows ? "▸" : "▾"}</span>
+                    <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedBuilderPanels.rows} /></span>
                   </button>
                   {!collapsedBuilderPanels.rows ? (
                     <div
                       className={`builder-main builder-workspace ${isEmailTemplateDraft ? "builder-email-workspace" : ""} ${dragOverWorkspace ? "is-drag-over" : ""}`}
-                      style={getBuilderBackgroundStyle(draft.pageBackground)}
                       onDragOver={(event) => { event.preventDefault(); setDragOverWorkspace(true); }}
                       onDragLeave={() => setDragOverWorkspace(false)}
                       onDrop={handleWorkspaceDrop}
@@ -1599,7 +1741,6 @@ export function AdminBuilderEditor() {
                             onDropModule={dropModule}
                             onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
                             onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
-                            onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
                             cellModules={cellModules}
                             products={products}
                             onSaveCellModules={(col) => void saveCellModules(section.id, col)}
@@ -1655,7 +1796,6 @@ export function AdminBuilderEditor() {
                         onDropModule={dropModule}
                         onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
                         onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
-                        onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
                         cellModules={cellModules}
                         products={products}
                         onSaveCellModules={(col) => void saveCellModules(section.id, col)}
@@ -1719,6 +1859,23 @@ export function AdminBuilderEditor() {
           onClose={closeModulePalette}
         />
       ) : null}
+        </div>
+      </div>
+      {floatingSaveActions.length > 0 ? (
+        <BuilderFloatingSaveRail actions={floatingSaveActions} isSaving={isSaving} />
+      ) : null}
+      <BuilderSaveDebugPanel
+        builderMode={builderMode}
+        floatingActionCount={floatingSaveActions.length}
+        floatingActionLabel={floatingSaveActions[0]?.label ?? ""}
+        pageEditorFocused={pageEditorFocused}
+        repositorySaveActive={repositorySaveActive}
+        repositorySaveFocus={repositorySaveFocus}
+        repositorySaveRefFocus={repositorySaveRef.current}
+        selectedPageId={selectedPageId}
+        selectedTemplateId={selectedTemplateId}
+        templateEditorFocused={templateEditorFocused}
+      />
     </section>
   );
 }

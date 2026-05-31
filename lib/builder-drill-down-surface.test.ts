@@ -19,9 +19,15 @@ describe("builder drill-down surfaces", () => {
     ).toBe(true);
   });
 
-  it("resolves cell tier to the cell background token", () => {
+  it("resolves cell tier to the row-body background token", () => {
     expect(resolveBuilderDrillDownSurfaceBackground(createDefaultBackgroundSettings(), "cell")).toEqual({
       background: "var(--builder-bg-cell)"
+    });
+  });
+
+  it("resolves column tier to the column background token", () => {
+    expect(resolveBuilderDrillDownSurfaceBackground(createDefaultBackgroundSettings(), "column")).toEqual({
+      background: "var(--builder-bg-column)"
     });
   });
 

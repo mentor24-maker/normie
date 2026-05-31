@@ -8,7 +8,7 @@ import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
-import { countPlayerProgressPollsFromDb } from "@/lib/player-poll-stats";
+import { countPlayerProgressPollsFromDb, countSessionProgressPollsFromDb } from "@/lib/player-poll-stats";
 import { createAdminClient } from "@/lib/supabase-admin";
 const SESSION_RATE_LIMIT = 40;
 const SESSION_WINDOW_SECONDS = 60;
@@ -164,7 +164,8 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     }
 
     if (existing) {
-      return NextResponse.json({ ok: true, duplicate: true });
+      const progressPollsTaken = await countSessionProgressPollsFromDb(supabase, sessionId);
+      return NextResponse.json({ ok: true, duplicate: true, progressPollsTaken });
     }
   }
 
@@ -209,5 +210,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     return playerAnswerResponse(supabase, player.authUser.id);
   }
 
-  return NextResponse.json({ ok: true, levelUp: false });
+  const progressPollsTaken = await countSessionProgressPollsFromDb(supabase, sessionId);
+
+  return NextResponse.json({ ok: true, levelUp: false, progressPollsTaken });
 });

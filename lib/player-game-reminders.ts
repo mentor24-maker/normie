@@ -118,18 +118,18 @@ async function buildAnonymousSessionReminderContext(sessionId: string): Promise<
   const supabase = createAdminClient();
   const { data: responseRows, error: responsesError } = await supabase
     .from("poll_response")
-    .select("poll_id")
+    .select("poll_id, is_skipped")
     .eq("session_id", sessionId);
 
   if (responsesError) {
     throw new Error(responsesError.message);
   }
 
-  const rows = (responseRows ?? []) as Array<{ poll_id: string }>;
+  const rows = (responseRows ?? []) as Array<{ poll_id: string; is_skipped?: boolean | null }>;
   const answeredPollIds = new Set(rows.map((row) => row.poll_id).filter(Boolean));
 
   return {
-    pollsTaken: rows.length,
+    pollsTaken: countProgressPolls(rows),
     loginCount: 0,
     answeredPollIds,
     isRegistered: false

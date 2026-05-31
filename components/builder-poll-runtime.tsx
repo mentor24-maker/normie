@@ -15,6 +15,7 @@ import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
+import { firePublicProgressGameEvents } from "@/lib/public-game-level-events-client";
 import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
 import type { PollPayload } from "@/src/site/home/types";
 import { SocialShareBar } from "@/components/social-share-module";
@@ -148,13 +149,21 @@ async function submitAnswer(optionId: string) {
       })
     });
 
-    const data = (await response.json()) as { error?: string };
+    const data = (await response.json()) as {
+      duplicate?: boolean;
+      error?: string;
+      progressPollsTaken?: number;
+    };
 
     if (!response.ok) {
       throw new Error(
         data.error ??
           (response.status === 429 ? "Too many answers in a short time. Please wait and try again." : "Failed to save your answer.")
       );
+    }
+
+    if (typeof data.progressPollsTaken === "number") {
+      void firePublicProgressGameEvents(data.progressPollsTaken, { duplicate: data.duplicate });
     }
 
     stripStartPollFromBrowserUrl();

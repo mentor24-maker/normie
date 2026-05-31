@@ -5,18 +5,27 @@ import {
   type BackgroundSettings
 } from "@/lib/builder-template";
 
-export type BuilderDrillDownSurfaceTier = "workspace" | "section" | "cell" | "module";
+export type BuilderDrillDownSurfaceTier =
+  | "workspace"
+  | "section"
+  | "cell"
+  | "column"
+  | "module";
 
 const BUILDER_SURFACE_VAR: Record<BuilderDrillDownSurfaceTier, string> = {
   workspace: "--builder-bg-workspace",
   section: "--builder-bg-section",
   cell: "--builder-bg-cell",
+  column: "--builder-bg-column",
   module: "--builder-bg-module"
 };
 
 const LIGHT_CELL_FILL_COLORS = new Set([
   "#ffffff",
   "#fff",
+  "#eef6ff",
+  "#ddeeff",
+  "#bbddee",
   "#f8fdff",
   "#f6fbff",
   "#eaf4ff",

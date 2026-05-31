@@ -1,13 +1,13 @@
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import {
-  isGameEventPickableModule,
-  resolveSavedModuleClass
-} from "@/lib/module-class-triggers";
+  ACTIVE_GAME_LEVEL_EVENTS_SELECT,
+  buildLevelEventsFromRows,
+  type GameLevelEventRow
+} from "@/lib/game-level-events";
 import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
 import type { BuilderTemplateModule } from "./builder-template";
-import { normalizeBuilderModules } from "./builder-template";
 
 export type PlayerPollOption = {
   id: string;
@@ -137,29 +137,6 @@ type GameRewardRow = {
   points_cost: number | null;
   metadata: unknown;
   updated_at: string | null;
-};
-
-type GameLevelEventRow = {
-  event_name: string | null;
-  level_name: string | null;
-  sublevel_name: string | null;
-  module_id: string | null;
-  trigger: string | null;
-  metadata: unknown;
-  builder_cell_modules?:
-    | {
-        id: string | null;
-        name: string | null;
-        module_class: string | null;
-        modules: unknown;
-      }
-    | Array<{
-        id: string | null;
-        name: string | null;
-        module_class: string | null;
-        modules: unknown;
-      }>
-    | null;
 };
 
 export const PLAYER_POLLS_PER_LEVEL = 10;
@@ -386,41 +363,6 @@ export function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): 
   };
 }
 
-function buildLevelEvents(rows: GameLevelEventRow[]): PlayerPortalLevelEvent[] {
-  return rows.flatMap((row) => {
-    const savedModule = firstRelation(row.builder_cell_modules);
-    const modules = normalizeBuilderModules(savedModule?.modules);
-    const savedModuleDefinition = modules.length === 1 ? modules[0] : null;
-    const moduleSettings = savedModuleDefinition?.settings ?? {};
-    const moduleClass = resolveSavedModuleClass(savedModule?.module_class, modules);
-    const moduleType = String(savedModuleDefinition?.type ?? "").trim();
-
-    if (
-      !savedModuleDefinition ||
-      !isGameEventPickableModule({
-        moduleClass,
-        settings: moduleSettings,
-        moduleType
-      })
-    ) {
-      return [];
-    }
-
-    return [{
-      eventName: row.event_name ?? "Level Up Event",
-      levelName: row.level_name ?? "",
-      sublevelName: row.sublevel_name ?? "",
-      moduleId: row.module_id ?? savedModule?.id ?? "",
-      moduleName: savedModule?.name ?? savedModuleDefinition.name ?? "Game Effect",
-      moduleType,
-      moduleSettings,
-      gameModule: savedModuleDefinition,
-      trigger: row.trigger ?? "game",
-      metadata: toRecord(row.metadata)
-    }];
-  });
-}
-
 export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise<PlayerPortalSnapshot> {
   const supabase = createAdminClient();
   const [
@@ -447,7 +389,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
         .eq("status", "active"),
       supabase
         .from("game_level_events")
-        .select("event_name, level_name, sublevel_name, module_id, trigger, metadata, builder_cell_modules(id, name, module_class, modules)")
+        .select(ACTIVE_GAME_LEVEL_EVENTS_SELECT)
         .eq("is_active", true)
     ]);
 
@@ -589,6 +531,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     leaderboard,
     playerRank,
     rewardTrack: buildRewardTrack((rewardRows ?? []) as unknown as GameRewardRow[], pollsTaken),
-    levelEvents: levelEventsError ? [] : buildLevelEvents((levelEventRows ?? []) as unknown as GameLevelEventRow[])
+    levelEvents: levelEventsError
+      ? []
+      : buildLevelEventsFromRows((levelEventRows ?? []) as unknown as GameLevelEventRow[])
   };
 }

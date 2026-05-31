@@ -10,6 +10,7 @@ import logoBanner from "@/images/logo_normie_3_1600x500.png";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import { firePublicProgressGameEvents } from "@/lib/public-game-level-events-client";
 import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import { getPollGridStyle } from "@/lib/poll-pod-config";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
@@ -72,13 +73,21 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
         body: JSON.stringify({ pollId: payload.currentPoll.id, optionId })
       });
 
-      const data = (await response.json()) as { error?: string };
+      const data = (await response.json()) as {
+        duplicate?: boolean;
+        error?: string;
+        progressPollsTaken?: number;
+      };
 
       if (!response.ok) {
         throw new Error(
           data.error ??
             (response.status === 429 ? "Too many answers in a short time. Please wait and try again." : "Failed to save your answer.")
         );
+      }
+
+      if (typeof data.progressPollsTaken === "number") {
+        void firePublicProgressGameEvents(data.progressPollsTaken, { duplicate: data.duplicate });
       }
 
       stripStartPollFromBrowserUrl();

@@ -3,8 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { PlayerGameFloatingImageHost } from "@/components/player-game-floating-image-host";
-import { PlayerGameSpeechBubbleHost } from "@/components/player-game-speech-bubble-host";
+import { GameModuleOverlayHosts } from "@/components/game-module-overlay-hosts";
 import { PlayerGameRemindersHost } from "@/components/player-game-reminders-host";
 import { PlayerLogoutButton } from "@/components/player-logout-button";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
@@ -83,8 +82,7 @@ export default async function ProtectedPortalLayout({
 
         <div className="player-portal-main">
           <PlayerGameRemindersHost />
-          <PlayerGameFloatingImageHost />
-          <PlayerGameSpeechBubbleHost />
+          <GameModuleOverlayHosts />
           {children}
         </div>
       </div>

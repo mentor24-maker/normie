@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BuilderCollapseIcon } from "./builder-collapse-icon";
 
 type BuilderCellPanelHeaderProps = {
   title: string;
@@ -36,7 +37,7 @@ export function BuilderCellPanelHeader({
           onClick={onToggle}
           type="button"
         >
-          {isCollapsed ? "▸" : "▾"}
+          <BuilderCollapseIcon expanded={!isCollapsed} />
         </button>
       </div>
     </div>

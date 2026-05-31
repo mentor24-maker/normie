@@ -15,6 +15,9 @@ type BuilderBackgroundControlsProps = {
   compact?: boolean;
   horizontal?: boolean;
   hideModeRow?: boolean;
+  hideClear?: boolean;
+  /** When false, compact row uses the outer `label` on the mode field only (e.g. Page Details). */
+  showColorFieldLabel?: boolean;
 };
 
 export function BuilderBackgroundControls({
@@ -25,7 +28,9 @@ export function BuilderBackgroundControls({
   onUploadImage,
   compact = false,
   horizontal = false,
-  hideModeRow = false
+  hideModeRow = false,
+  hideClear = false,
+  showColorFieldLabel = true
 }: BuilderBackgroundControlsProps) {
   if (horizontal) {
     return (
@@ -144,7 +149,7 @@ export function BuilderBackgroundControls({
           </>
         ) : null}
 
-        {background.mode !== "none" ? (
+        {!hideClear && background.mode !== "none" ? (
           <BuilderSettingRow label="Clear background">
             <button
               className="secondary-button"
@@ -183,9 +188,10 @@ export function BuilderBackgroundControls({
 
         {background.mode === "color" || background.mode === "gradient" ? (
           <label className="field builder-background-inline-color-field">
-            <span>Primary color</span>
+            {showColorFieldLabel ? <span>Primary color</span> : null}
             <input
               type="color"
+              aria-label={showColorFieldLabel ? undefined : label}
               value={background.color}
               onChange={(event) =>
                 onChange((current) => ({
@@ -235,7 +241,7 @@ export function BuilderBackgroundControls({
           </label>
         ) : null}
 
-        {background.mode !== "none" ? (
+        {!hideClear && background.mode !== "none" ? (
           <div className="builder-background-inline-action">
             <button
               className="secondary-button"

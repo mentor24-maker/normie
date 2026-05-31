@@ -9,8 +9,10 @@ import type {
   BuilderTemplateModule,
   BuilderTemplateSection
 } from "@/lib/builder-template";
-import { Fragment, useMemo, useState } from "react";
+import { repositoryEditingSessionKeyFromFocus } from "@/lib/builder-repository-save-session";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createDefaultBackgroundSettings, createEmptyModule, normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import { BuilderCollapseIcon } from "./builder-collapse-icon";
 import { BuilderGalleryModal } from "./builder-gallery-modal";
 import { BuilderModuleCard } from "./builder-module-card";
 import { BuilderModulePaletteModal, type ModulePaletteAnchor } from "./builder-module-palette-modal";
@@ -48,6 +50,8 @@ type BuilderModuleRepositoryListProps = {
   onDeleteSavedModule: (cellModuleId: string, currentName: string) => void;
   onSaveSavedSection: (sectionId: string, name: string, section: BuilderTemplateSection) => void;
   onDeleteSavedSection: (sectionId: string, currentName: string) => void;
+  onModuleEditorFocusChange: (focus: BuilderModuleEditorFocus | null, syncOnly?: boolean) => void;
+  onRepositoryEditingActiveChange: (active: boolean) => void;
 };
 
 export type CreatedModuleSource = {
@@ -56,6 +60,26 @@ export type CreatedModuleSource = {
   sectionId: string;
   moduleId: string;
 };
+
+export type BuilderModuleEditorFocus =
+  | {
+      kind: "created";
+      source: CreatedModuleSource;
+      module: BuilderTemplateModule;
+    }
+  | {
+      kind: "saved";
+      cellModuleId: string;
+      name: string;
+      moduleClass: string;
+      modules: BuilderTemplateModule[];
+    }
+  | {
+      kind: "section";
+      sectionId: string;
+      name: string;
+      section: BuilderTemplateSection;
+    };
 
 type CreatedModuleRecord = CreatedModuleSource & {
   id: string;
@@ -389,7 +413,7 @@ function CreatedModulesTable({
         type="button"
       >
         <span className="panel-label">All Created Modules</span>
-        <span className="builder-panel-toggle-icon">{isCollapsed ? "▸" : "▾"}</span>
+        <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
       </button>
       {!isCollapsed ? (
         <>
@@ -612,16 +636,30 @@ function CreatedModulesTable({
                               </p>
                             </div>
                             <div className="builder-meta-actions">
-                              <button className="secondary-button" onClick={onCancelEditing} type="button">
-                                Cancel
-                              </button>
                               <button
                                 className="submit-button admin-blog-add-button"
-                                disabled={isSaving}
-                                onClick={() => onSaveCreatedModule(item, editingCreatedModule)}
+                                disabled={isSaving || !editingCreatedModule}
+                                onClick={() => {
+                                  if (!editingCreatedModule) {
+                                    return;
+                                  }
+
+                                  void onSaveCreatedModule(
+                                    {
+                                      kind: item.kind,
+                                      sourceId: item.sourceId,
+                                      sectionId: item.sectionId,
+                                      moduleId: item.moduleId
+                                    },
+                                    editingCreatedModule
+                                  );
+                                }}
                                 type="button"
                               >
                                 {isSaving ? "Saving..." : "Save Module"}
+                              </button>
+                              <button className="secondary-button" onClick={onCancelEditing} type="button">
+                                Cancel
                               </button>
                             </div>
                           </div>
@@ -637,7 +675,6 @@ function CreatedModulesTable({
                             onOpenGallery={onOpenEditingCreatedModuleGallery}
                             onOpenSocialIconGallery={onOpenEditingCreatedSocialIconGallery}
                             onRemove={() => undefined}
-                            onSaveModule={() => undefined}
                             onToggleExpanded={onToggleEditingCreatedExpanded}
                             onUpdateModule={onUpdateEditingCreatedModule}
                             onUpdateModuleBackground={onUpdateEditingCreatedModuleBackground}
@@ -727,7 +764,7 @@ function RepositoryTable({
         type="button"
       >
         <span className="panel-label">{title}</span>
-        <span className="builder-panel-toggle-icon">{isCollapsed ? "▸" : "▾"}</span>
+        <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
       </button>
       {!isCollapsed ? (
         <div className="table-shell builder-templates-shell">
@@ -817,16 +854,23 @@ function RepositoryTable({
                               </select>
                             </label>
                             <div className="builder-meta-actions">
-                              <button className="secondary-button" onClick={onCancelEditing} type="button">
-                                Cancel
-                              </button>
                               <button
                                 className="submit-button admin-blog-add-button"
-                                disabled={isSaving}
-                                onClick={() => onSaveSavedModule(item.id, editingName, editingModuleClass, editingModules)}
+                                disabled={isSaving || !editingId}
+                                onClick={() => {
+                                  void onSaveSavedModule(
+                                    editingId,
+                                    editingName,
+                                    editingModuleClass,
+                                    editingModules
+                                  );
+                                }}
                                 type="button"
                               >
                                 {isSaving ? "Saving..." : "Save Module"}
+                              </button>
+                              <button className="secondary-button" onClick={onCancelEditing} type="button">
+                                Cancel
                               </button>
                             </div>
                           </div>
@@ -846,7 +890,6 @@ function RepositoryTable({
                                 onOpenGallery={() => onOpenEditingModuleGallery(module.id)}
                                 onOpenSocialIconGallery={(itemId) => onOpenEditingSocialIconGallery(module.id, itemId)}
                                 onRemove={() => undefined}
-                                onSaveModule={() => undefined}
                                 onToggleExpanded={() => onToggleEditingModuleExpanded(module.id)}
                                 onUpdateModule={(updater) => onUpdateEditingModule(module.id, updater)}
                                 onUpdateModuleBackground={(updater) => onUpdateEditingModuleBackground(module.id, updater)}
@@ -891,7 +934,9 @@ export function BuilderModuleRepositoryList({
   onCloneSavedModule,
   onDeleteSavedModule,
   onSaveSavedSection,
-  onDeleteSavedSection
+  onDeleteSavedSection,
+  onModuleEditorFocusChange,
+  onRepositoryEditingActiveChange
 }: BuilderModuleRepositoryListProps) {
   const [collapsedPanels, setCollapsedPanels] = useState({
     createdModules: true,
@@ -930,7 +975,164 @@ export function BuilderModuleRepositoryList({
   >(null);
   const savedModules = cellModules.filter((cellModule) => cellModule.modules.length === 1);
   const savedCells = cellModules.filter((cellModule) => cellModule.modules.length !== 1);
-  const createdModules = getCreatedModules(templates, pages);
+  const createdModules = useMemo(() => getCreatedModules(templates, pages), [pages, templates]);
+
+  function buildCreatedModuleFocus(): BuilderModuleEditorFocus | null {
+    if (!editingCreatedId || !editingCreatedModule) {
+      return null;
+    }
+
+    const source = createdModules.find((item) => item.id === editingCreatedId);
+
+    if (!source) {
+      return null;
+    }
+
+    return {
+      kind: "created",
+      source: {
+        kind: source.kind,
+        sourceId: source.sourceId,
+        sectionId: source.sectionId,
+        moduleId: source.moduleId
+      },
+      module: editingCreatedModule
+    };
+  }
+
+  function buildSavedModuleFocus(): BuilderModuleEditorFocus | null {
+    if (!editingId) {
+      return null;
+    }
+
+    return {
+      kind: "saved",
+      cellModuleId: editingId,
+      name: editingName,
+      moduleClass: editingModuleClass,
+      modules: editingModules
+    };
+  }
+
+  function buildSectionFocus(): BuilderModuleEditorFocus | null {
+    if (!editingSectionId || !editingSection) {
+      return null;
+    }
+
+    return {
+      kind: "section",
+      sectionId: editingSectionId,
+      name: editingSectionName,
+      section: editingSection
+    };
+  }
+
+  const lastPublishedEditingSessionKeyRef = useRef("");
+
+  function publishRepositorySaveFocus(focus: BuilderModuleEditorFocus | null) {
+    lastPublishedEditingSessionKeyRef.current = focus
+      ? repositoryEditingSessionKeyFromFocus(focus)
+      : "";
+
+    onModuleEditorFocusChange(focus, false);
+  }
+
+  function syncRepositorySaveFocus() {
+    const focus =
+      buildSectionFocus() ?? buildCreatedModuleFocus() ?? buildSavedModuleFocus();
+
+    if (!focus) {
+      return;
+    }
+
+    onModuleEditorFocusChange(focus, true);
+  }
+
+  const editingSessionKey = useMemo(() => {
+    const focus =
+      buildSectionFocus() ?? buildCreatedModuleFocus() ?? buildSavedModuleFocus();
+
+    return focus ? repositoryEditingSessionKeyFromFocus(focus) : "";
+  }, [
+    createdModules,
+    editingCreatedId,
+    editingCreatedModule,
+    editingId,
+    editingModuleClass,
+    editingModules,
+    editingName,
+    editingSection,
+    editingSectionId,
+    editingSectionName
+  ]);
+
+  const repositoryEditorOpen = Boolean(editingCreatedId || editingId || editingSectionId);
+
+  useEffect(() => {
+    onRepositoryEditingActiveChange(repositoryEditorOpen);
+  }, [onRepositoryEditingActiveChange, repositoryEditorOpen]);
+
+  useEffect(() => {
+    if (!editingSessionKey) {
+      if (lastPublishedEditingSessionKeyRef.current) {
+        publishRepositorySaveFocus(null);
+      }
+      return;
+    }
+
+    const focus =
+      buildSectionFocus() ?? buildCreatedModuleFocus() ?? buildSavedModuleFocus();
+
+    if (!focus) {
+      return;
+    }
+
+    if (lastPublishedEditingSessionKeyRef.current === editingSessionKey) {
+      syncRepositorySaveFocus();
+      return;
+    }
+
+    lastPublishedEditingSessionKeyRef.current = editingSessionKey;
+    publishRepositorySaveFocus(focus);
+  }, [
+    createdModules,
+    editingCreatedId,
+    editingCreatedModule,
+    editingId,
+    editingModuleClass,
+    editingModules,
+    editingName,
+    editingSection,
+    editingSectionId,
+    editingSectionName,
+    editingSessionKey,
+    onModuleEditorFocusChange
+  ]);
+
+  function resetSavedModuleAndCellEditing() {
+    setEditingId("");
+    setEditingName("");
+    setEditingModuleClass("");
+    setEditingModules([]);
+    setEditingExpandedModuleIds([]);
+  }
+
+  function resetCreatedModuleEditing() {
+    setEditingCreatedId("");
+    setEditingCreatedModule(null);
+    setEditingCreatedExpanded(false);
+  }
+
+  function resetSectionEditing() {
+    setEditingSectionId("");
+    setEditingSectionName("");
+    setEditingSection(null);
+    setEditingSectionCollapsed(false);
+    setEditingSectionExpandedModuleIds([]);
+    setEditingSectionGalleryTarget(null);
+    setEditingSectionPaletteColumn("");
+    setEditingSectionPaletteAnchor(null);
+  }
 
   function cloneSectionForEditing(section: BuilderTemplateSection): BuilderTemplateSection {
     return {
@@ -966,48 +1168,77 @@ export function BuilderModuleRepositoryList({
   }
 
   function startEditing(item: BuilderCellModuleRecord) {
+    resetCreatedModuleEditing();
+    resetSectionEditing();
+
+    const modules = item.modules.map((module) => ({ ...module, settings: { ...module.settings } }));
+    const expandedIds = modules.length > 0 ? [modules[0].id] : [];
+
     setEditingId(item.id);
     setEditingName(item.name);
     setEditingModuleClass(getDisplayModuleClass(item));
-    setEditingModules(item.modules.map((module) => ({ ...module, settings: { ...module.settings } })));
-    setEditingExpandedModuleIds([]);
+    setEditingModules(modules);
+    setEditingExpandedModuleIds(expandedIds);
+    publishRepositorySaveFocus({
+      kind: "saved",
+      cellModuleId: item.id,
+      name: item.name,
+      moduleClass: getDisplayModuleClass(item),
+      modules
+    });
   }
 
   function startEditingCreatedModule(item: CreatedModuleRecord) {
+    resetSavedModuleAndCellEditing();
+    resetSectionEditing();
+
     setEditingCreatedId(item.id);
     setEditingCreatedModule({ ...item.module, settings: { ...item.module.settings } });
     setEditingCreatedExpanded(true);
+    publishRepositorySaveFocus({
+      kind: "created",
+      source: {
+        kind: item.kind,
+        sourceId: item.sourceId,
+        sectionId: item.sectionId,
+        moduleId: item.moduleId
+      },
+      module: { ...item.module, settings: { ...item.module.settings } }
+    });
   }
 
   function cancelEditingCreatedModule() {
-    setEditingCreatedId("");
-    setEditingCreatedModule(null);
-    setEditingCreatedExpanded(false);
+    resetCreatedModuleEditing();
+    publishRepositorySaveFocus(null);
   }
 
   function cancelEditing() {
-    setEditingId("");
-    setEditingName("");
-    setEditingModuleClass("");
-    setEditingModules([]);
-    setEditingExpandedModuleIds([]);
+    resetSavedModuleAndCellEditing();
+    publishRepositorySaveFocus(null);
   }
 
   function startEditingSection(sectionRecord: BuilderSavedSectionRecord) {
+    resetCreatedModuleEditing();
+    resetSavedModuleAndCellEditing();
+
+    const section = cloneSectionForEditing(sectionRecord.section);
+
     setEditingSectionId(sectionRecord.id);
     setEditingSectionName(sectionRecord.name);
-    setEditingSection(cloneSectionForEditing(sectionRecord.section));
+    setEditingSection(section);
     setEditingSectionCollapsed(false);
     setEditingSectionExpandedModuleIds([]);
+    publishRepositorySaveFocus({
+      kind: "section",
+      sectionId: sectionRecord.id,
+      name: sectionRecord.name,
+      section
+    });
   }
 
   function cancelEditingSection() {
-    setEditingSectionId("");
-    setEditingSectionName("");
-    setEditingSection(null);
-    setEditingSectionCollapsed(false);
-    setEditingSectionExpandedModuleIds([]);
-    setEditingSectionGalleryTarget(null);
+    resetSectionEditing();
+    publishRepositorySaveFocus(null);
     setEditingSectionPaletteColumn("");
     setActiveModuleGroup(null);
   }
@@ -1272,22 +1503,6 @@ export function BuilderModuleRepositoryList({
     onCreateSavedModule(name, moduleClass, modules);
   }
 
-  function saveEditingSectionModule(moduleId: string) {
-    if (!editingSection) return;
-
-    const builderModule = editingSection.modules.find((candidate) => candidate.id === moduleId);
-    if (!builderModule) return;
-
-    const fallbackName = builderModule.name || builderModule.type;
-    const name = window.prompt("Name this saved module", fallbackName)?.trim();
-    if (!name) return;
-
-    const moduleClass = window.prompt("Module class (Navigation, Headings, etc.)", getInferredModuleClass([builderModule]))?.trim();
-    if (moduleClass === undefined) return;
-
-    onCreateSavedModule(name, moduleClass, [builderModule]);
-  }
-
   function moveEditingSectionModule(moduleId: string, direction: -1 | 1) {
     updateEditingSection((section) => {
       const index = section.modules.findIndex((module) => module.id === moduleId);
@@ -1487,7 +1702,7 @@ export function BuilderModuleRepositoryList({
           type="button"
         >
           <span className="panel-label">Saved Sections</span>
-          <span className="builder-panel-toggle-icon">{collapsedPanels.sections ? "▸" : "▾"}</span>
+          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.sections} /></span>
         </button>
         {!collapsedPanels.sections ? (
           <div className="table-shell builder-templates-shell">
@@ -1554,16 +1769,22 @@ export function BuilderModuleRepositoryList({
                                 />
                               </label>
                               <div className="builder-meta-actions">
-                                <button className="secondary-button" onClick={cancelEditingSection} type="button">
-                                  Cancel
-                                </button>
                                 <button
                                   className="submit-button admin-blog-add-button"
-                                  disabled={isSaving}
-                                  onClick={() => onSaveSavedSection(section.id, editingSectionName, editingSection)}
+                                  disabled={isSaving || !editingSection}
+                                  onClick={() => {
+                                    if (!editingSection) {
+                                      return;
+                                    }
+
+                                    void onSaveSavedSection(editingSectionId, editingSectionName, editingSection);
+                                  }}
                                   type="button"
                                 >
                                   {isSaving ? "Saving..." : "Save Section"}
+                                </button>
+                                <button className="secondary-button" onClick={cancelEditingSection} type="button">
+                                  Cancel
                                 </button>
                               </div>
                             </div>
@@ -1601,7 +1822,6 @@ export function BuilderModuleRepositoryList({
                               onRemove={() => undefined}
                               onRemoveModule={removeEditingSectionModule}
                               onSaveCellModules={saveEditingSectionCellModules}
-                              onSaveModule={saveEditingSectionModule}
                               onSaveSection={() => onSaveSavedSection(section.id, editingSectionName, editingSection)}
                               onToggleCollapsed={() => setEditingSectionCollapsed((current) => !current)}
                               onToggleModuleExpanded={toggleEditingSectionModuleExpanded}

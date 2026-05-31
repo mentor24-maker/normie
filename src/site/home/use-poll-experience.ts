@@ -7,6 +7,7 @@ import {
   getPollCategoryMeta,
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
+import { firePublicProgressGameEvents } from "@/lib/public-game-level-events-client";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import { POLL_SKIP_FEATURE_KEY } from "@/lib/player-unlocked-features";
@@ -23,6 +24,7 @@ export type PollAnswerResult = {
   duplicate?: boolean;
   claimed?: boolean;
   playerAnswerCount?: number;
+  progressPollsTaken?: number;
   levelUp?: boolean;
 };
 
@@ -106,6 +108,11 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
       }
 
       stripStartPollFromBrowserUrl();
+
+      if (typeof data.progressPollsTaken === "number") {
+        void firePublicProgressGameEvents(data.progressPollsTaken, { duplicate: data.duplicate });
+      }
+
       options?.onAnswered?.(data);
       await loadPolls({ startPoll: "" });
     } catch (submitError) {

@@ -1,4 +1,5 @@
 import type { Options } from "canvas-confetti";
+import { MODULE_GAME_AUDIENCE_SETTING_KEY, normalizeModuleGameAudience } from "@/lib/module-game-audience";
 import {
   getModuleTrigger,
   isGameModuleTrigger,
@@ -85,6 +86,7 @@ export function normalizeConfettiModuleSettings(settings: Record<string, string>
     originY: String(parseOrigin(settings.originY, 0.6)),
     zIndex: String(Math.round(clampNumber(settings.zIndex, 12000, 1, 999999))),
     trigger: normalizeModuleTrigger(settings.trigger),
+    [MODULE_GAME_AUDIENCE_SETTING_KEY]: normalizeModuleGameAudience(settings[MODULE_GAME_AUDIENCE_SETTING_KEY]),
     buttonLabel: String(settings.buttonLabel ?? CONFETTI_EFFECT_DEFAULTS.buttonLabel).trim() || "Confetti",
     disableForReducedMotion: settings.disableForReducedMotion === "true" ? "true" : "false",
     sound: normalizeSoundType(settings.sound, settings.playPopSound),
