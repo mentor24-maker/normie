@@ -44,14 +44,14 @@ export function getSavedModulePaletteIcon(module: BuilderTemplateModule): string
 }
 
 export function getSavedModulePaletteLabel(cellModule: BuilderCellModuleRecord): string {
-  const module = cellModule.modules[0];
+  const savedModule = cellModule.modules[0];
 
-  if (!module) {
+  if (!savedModule) {
     return cellModule.name || "Saved Module";
   }
 
-  const paletteItem = modulePaletteItems.find((item) => item.type === module.type);
-  const typeLabel = paletteItem?.label ?? module.type;
+  const paletteItem = modulePaletteItems.find((item) => item.type === savedModule.type);
+  const typeLabel = paletteItem?.label ?? savedModule.type;
 
-  return cellModule.name?.trim() || module.name?.trim() || typeLabel;
+  return cellModule.name?.trim() || savedModule.name?.trim() || typeLabel;
 }

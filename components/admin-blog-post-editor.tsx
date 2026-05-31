@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { AdminMediaItem } from "@/lib/admin-media";
 import {
   normalizeBlogSlugInput,
   slugifyBlogText,
@@ -13,7 +12,6 @@ import {
   type BlogTopicRecord,
   type BlogTwitterCardType
 } from "@/lib/blog";
-import { readAdminJson } from "@/lib/admin-fetch";
 import { BlogRichTextEditor } from "@/components/blog-rich-text-editor";
 import { BuilderGalleryModal } from "@/components/builder/builder-gallery-modal";
 
@@ -66,8 +64,6 @@ export function AdminBlogPostEditor({
   onCancel
 }: AdminBlogPostEditorProps) {
   const [galleryTarget, setGalleryTarget] = useState<"featured" | "og" | "body" | null>(null);
-  const [media, setMedia] = useState<AdminMediaItem[]>([]);
-  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
   const [pendingBodyImage, setPendingBodyImage] = useState<string | null>(null);
 
   const statusOptions: BlogPostStatus[] = canPublish
@@ -79,23 +75,8 @@ export function AdminBlogPostEditor({
     [draft.id, posts]
   );
 
-  async function openGallery(target: "featured" | "og" | "body") {
+  function openGallery(target: "featured" | "og" | "body") {
     setGalleryTarget(target);
-    setIsGalleryLoading(true);
-
-    try {
-      const response = await fetch("/api/admin/media", { cache: "no-store" });
-
-      if (response.ok) {
-        const payload = await readAdminJson<{ media?: AdminMediaItem[] }>(
-          response,
-          "Failed to load media gallery."
-        );
-        setMedia(payload.media ?? []);
-      }
-    } finally {
-      setIsGalleryLoading(false);
-    }
   }
 
   function applyGalleryImage(imagePath: string) {
@@ -426,8 +407,7 @@ export function AdminBlogPostEditor({
 
       {galleryTarget ? (
         <BuilderGalleryModal
-          isUploading={isGalleryLoading}
-          media={media}
+          isUploading={false}
           onClose={() => setGalleryTarget(null)}
           onSelectImage={applyGalleryImage}
         />

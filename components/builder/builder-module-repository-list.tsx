@@ -1643,7 +1643,6 @@ export function BuilderModuleRepositoryList({
       </div>
       {editingGalleryTarget ? (
         <BuilderGalleryModal
-          media={galleryMedia}
           isUploading={isUploadingMedia}
           onSelectImage={selectEditingGalleryImage}
           onClose={() => setEditingGalleryTarget(null)}
@@ -1651,7 +1650,6 @@ export function BuilderModuleRepositoryList({
       ) : null}
       {editingSectionGalleryTarget ? (
         <BuilderGalleryModal
-          media={galleryMedia}
           isUploading={isUploadingMedia}
           onSelectImage={selectEditingSectionGalleryImage}
           onClose={() => setEditingSectionGalleryTarget(null)}

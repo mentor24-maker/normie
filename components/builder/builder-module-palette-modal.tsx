@@ -152,9 +152,9 @@ export function BuilderModulePaletteModal({
                 ) : null}
                 <div className="builder-module-item-grid">
                   {savedModulesForGroup.map((cellModule) => {
-                    const module = cellModule.modules[0];
+                    const savedModule = cellModule.modules[0];
 
-                    if (!module) {
+                    if (!savedModule) {
                       return null;
                     }
 
@@ -165,7 +165,7 @@ export function BuilderModulePaletteModal({
                         onClick={() => onSelectSavedModule?.(cellModule.id)}
                         type="button"
                       >
-                        <span className="builder-module-item-icon">{getSavedModulePaletteIcon(module)}</span>
+                        <span className="builder-module-item-icon">{getSavedModulePaletteIcon(savedModule)}</span>
                         <strong>{getSavedModulePaletteLabel(cellModule)}</strong>
                       </button>
                     );

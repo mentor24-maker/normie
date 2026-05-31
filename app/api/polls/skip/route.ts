@@ -184,7 +184,7 @@ export const POST = withObservedRoute("polls.skip", async (request) => {
   });
 
   if (levelUp) {
-    response.cookies.set(PLAYER_LEVEL_UP_PENDING_COOKIE, String(answerCount), {
+    response.cookies.set(PLAYER_LEVEL_UP_PENDING_COOKIE, String(progressPollCount), {
       maxAge: 60,
       path: "/portal",
       sameSite: "lax"

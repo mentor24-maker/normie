@@ -1152,7 +1152,6 @@ export function AdminBlogWorkspace() {
       {isGalleryOpen ? (
         <BuilderGalleryModal
           isUploading={isUploadingMedia}
-          media={galleryMedia}
           onClose={() => {
             setIsGalleryOpen(false);
             setGalleryTarget(null);

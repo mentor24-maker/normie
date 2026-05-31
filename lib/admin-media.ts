@@ -1,27 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getMediaKind, type AdminMediaItem } from "@/lib/admin-media-shared";
 
-export type AdminMediaKind = "image" | "video";
-
-export type AdminMediaItem = {
-  name: string;
-  path: string;
-  directory: "images" | "gallery";
-  kind: AdminMediaKind;
-  extension: string;
-  storageName?: string;
-  badge?: boolean;
-};
-
-const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"]);
-const videoExtensions = new Set([".mp4", ".mov", ".m4v", ".webm", ".ogg"]);
-
-export function getMediaKind(extension: string): AdminMediaKind | null {
-  const normalized = extension.toLowerCase();
-  if (imageExtensions.has(normalized)) return "image";
-  if (videoExtensions.has(normalized)) return "video";
-  return null;
-}
+export type { AdminMediaItem, AdminMediaKind } from "@/lib/admin-media-shared";
+export {
+  GALLERY_FILTER_EXTENSIONS,
+  GALLERY_IMAGE_EXTENSIONS,
+  GALLERY_VIDEO_EXTENSIONS,
+  getMediaKind
+} from "@/lib/admin-media-shared";
 
 export function getMediaAbsolutePath(relativePath: string) {
   const normalized = relativePath.replace(/^\/+/, "");

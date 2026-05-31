@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import path from "node:path";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { getMediaKind } from "@/lib/admin-media";
+import { buildGalleryUploadFileName } from "@/lib/gallery-upload-filename";
 import {
   createGalleryMediaRecord,
   listGalleryMediaLibrary,
-  setGalleryMediaBadge
+  setGalleryMediaBadge,
+  syncGalleryStorageIndex
 } from "@/lib/gallery-media";
+import {
+  galleryMediaQueryUsesServerFilters,
+  parseGalleryMediaQueryParams,
+  queryGalleryMediaLibrary
+} from "@/lib/gallery-media-query";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 function sanitizeFilename(filename: string) {
@@ -22,7 +29,7 @@ function parseBadgeFlag(value: FormDataEntryValue | null | undefined) {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireAdminRoute();
 
   if ("response" in auth) {
@@ -30,8 +37,16 @@ export async function GET() {
   }
 
   try {
+    const { searchParams } = new URL(request.url);
+    const query = parseGalleryMediaQueryParams(searchParams);
+
+    if (galleryMediaQueryUsesServerFilters(query)) {
+      const result = await queryGalleryMediaLibrary(query, { syncIndex: syncGalleryStorageIndex });
+      return auth.finish(NextResponse.json(result));
+    }
+
     const media = await listGalleryMediaLibrary();
-    return auth.finish(NextResponse.json({ media }));
+    return auth.finish(NextResponse.json({ media, total: media.length, limit: media.length, offset: 0 }));
   } catch (error) {
     return auth.finish(
       NextResponse.json(
@@ -96,7 +111,7 @@ export async function POST(request: Request) {
     }
 
     const baseName = sanitizeFilename(path.basename(file.name, extension)) || "upload";
-    const finalName = `${Date.now()}-${baseName}${extension}`;
+    const finalName = buildGalleryUploadFileName(baseName, extension);
     const badge = parseBadgeFlag(formData.get("badge"));
 
     const buffer = Buffer.from(await file.arrayBuffer());

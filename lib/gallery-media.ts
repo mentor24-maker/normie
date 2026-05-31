@@ -1,11 +1,12 @@
 import path from "node:path";
-import type { AdminMediaItem } from "@/lib/admin-media";
-import { getMediaKind } from "@/lib/admin-media";
+import type { AdminMediaItem } from "@/lib/admin-media-shared";
+import { getMediaKind } from "@/lib/admin-media-shared";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export type GalleryMediaRecord = {
   storage_name: string;
   badge: boolean;
+  created_at?: string;
   updated_at: string;
 };
 
@@ -63,39 +64,102 @@ export function mergeGalleryMediaBadges(
   });
 }
 
-export async function listGalleryStorageMedia(): Promise<AdminMediaItem[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.storage.from("gallery").list("", {
-    limit: 200,
-    sortBy: { column: "created_at", order: "desc" }
-  });
+const GALLERY_STORAGE_LIST_PAGE_SIZE = 1000;
 
-  if (error) {
-    throw error;
+export async function syncGalleryStorageIndex(): Promise<number> {
+  const supabase = createAdminClient();
+  let offset = 0;
+  let synced = 0;
+
+  while (true) {
+    const { data, error } = await supabase.storage.from("gallery").list("", {
+      limit: GALLERY_STORAGE_LIST_PAGE_SIZE,
+      offset,
+      sortBy: { column: "name", order: "asc" }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const page = data ?? [];
+    const files = page.filter(
+      (item) => item.name !== ".emptyFolderPlaceholder" && getMediaKind(path.extname(item.name).toLowerCase())
+    );
+
+    if (files.length > 0) {
+      await Promise.all(files.map((file) => createGalleryMediaRecord(file.name, false)));
+      synced += files.length;
+    }
+
+    if (page.length < GALLERY_STORAGE_LIST_PAGE_SIZE) {
+      break;
+    }
+
+    offset += page.length;
   }
 
-  return (data ?? [])
-    .filter((item) => item.name !== ".emptyFolderPlaceholder")
-    .map((item) => {
+  return synced;
+}
+
+export async function listGalleryStorageMedia(): Promise<AdminMediaItem[]> {
+  const supabase = createAdminClient();
+  const items: AdminMediaItem[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase.storage.from("gallery").list("", {
+      limit: GALLERY_STORAGE_LIST_PAGE_SIZE,
+      offset,
+      sortBy: { column: "created_at", order: "desc" }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const page = data ?? [];
+
+    for (const item of page) {
+      if (item.name === ".emptyFolderPlaceholder") {
+        continue;
+      }
+
       const extension = path.extname(item.name).toLowerCase();
-      const kind = getMediaKind(extension) ?? "image";
+      const kind = getMediaKind(extension);
+
+      if (!kind) {
+        continue;
+      }
+
       const { data: urlData } = supabase.storage.from("gallery").getPublicUrl(item.name);
 
-      return {
+      items.push({
         name: item.name,
         path: urlData.publicUrl,
-        directory: "gallery" as const,
+        directory: "gallery",
         kind,
         extension,
         storageName: item.name,
         badge: false
-      };
-    });
+      });
+    }
+
+    if (page.length < GALLERY_STORAGE_LIST_PAGE_SIZE) {
+      break;
+    }
+
+    offset += page.length;
+  }
+
+  return items;
 }
 
 export async function loadGalleryMediaRecords(): Promise<GalleryMediaRecord[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("gallery_media").select("storage_name, badge, updated_at");
+  const { data, error } = await supabase
+    .from("gallery_media")
+    .select("storage_name, badge, created_at, updated_at");
 
   if (error) {
     throw error;

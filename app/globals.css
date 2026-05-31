@@ -9473,6 +9473,18 @@ select.builder-number-select-control,
   margin: 0;
 }
 
+.builder-gallery-modal-summary {
+  margin: 6px 0 0;
+}
+
+.builder-gallery-modal .admin-gallery-filter-bar {
+  margin-bottom: 14px;
+}
+
+.builder-gallery-modal .admin-gallery-load-more {
+  margin-top: 14px;
+}
+
 .builder-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -9659,6 +9671,78 @@ select.builder-number-select-control,
   width: 16px;
   height: 16px;
   margin: 0;
+}
+
+.admin-gallery-filter-bar {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.4fr)
+    minmax(0, 0.85fr)
+    minmax(0, 0.85fr)
+    minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(11, 143, 196, 0.22);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.72), transparent 48%),
+    linear-gradient(145deg, #f3fbff 0%, #e8f6fc 52%, #d4eef9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.admin-gallery-filter-field {
+  display: grid;
+  grid-template-columns: minmax(5.25rem, 6.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+}
+
+.admin-gallery-filter-label {
+  padding: 8px 10px 8px 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.admin-gallery-filter-field input,
+.admin-gallery-filter-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 10px;
+  box-sizing: border-box;
+}
+
+.admin-gallery-filter-bar:has(.admin-gallery-filter-clear .secondary-button) {
+  grid-template-columns:
+    minmax(0, 1.35fr)
+    minmax(0, 0.8fr)
+    minmax(0, 0.8fr)
+    minmax(0, 0.95fr)
+    auto;
+}
+
+.admin-gallery-filter-clear {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 34px;
+}
+
+.admin-gallery-filter-clear .secondary-button {
+  white-space: nowrap;
+  padding: 7px 14px;
+  min-height: 34px;
+}
+
+.admin-gallery-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
 }
 
 .gallery-controls {
@@ -9990,6 +10074,7 @@ code {
   }
 
   .admin-form-grid,
+  .admin-gallery-filter-bar,
   .gallery-controls,
   .gallery-upload-card {
     grid-template-columns: 1fr;

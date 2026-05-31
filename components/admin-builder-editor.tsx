@@ -24,7 +24,7 @@ import {
   type BuilderTemplateRecord,
   type BuilderTemplateSection
 } from "@/lib/builder-template";
-import type { BuilderEmailFunction } from "@/lib/builder-email-template";
+import { getDefaultEmailTemplateName, type BuilderEmailFunction } from "@/lib/builder-email-template";
 import { inferModuleClassFromBuilderModules, resolveModuleClassForBuilderModule } from "@/lib/module-class-triggers";
 
 import type { GalleryTarget, ModulePaletteGroup, ModulePaletteItem } from "./builder/builder-types";
@@ -1694,7 +1694,6 @@ export function AdminBuilderEditor() {
 
       {isGalleryOpen ? (
         <BuilderGalleryModal
-          media={galleryMedia}
           isUploading={isUploadingMedia}
           onSelectImage={selectGalleryImage}
           onClose={closeGallery}
