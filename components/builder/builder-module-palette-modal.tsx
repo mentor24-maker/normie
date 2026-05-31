@@ -1,41 +1,111 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import type { CSSProperties } from "react";
+import type { BuilderCellModuleRecord } from "@/lib/builder-template";
+import {
+  getSavedModulePaletteIcon,
+  getSavedModulePaletteLabel,
+  getSavedModulesForPaletteGroup,
+  getStarterModulesForPaletteGroup,
+  isSavedModuleOnlyPaletteGroup
+} from "@/lib/builder-saved-module-palette";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
-import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
+import { modulePaletteGroups } from "./builder-types";
+
+export type ModulePaletteAnchor = {
+  x: number;
+  y: number;
+};
 
 type BuilderModulePaletteModalProps = {
   activeGroup: ModulePaletteGroup | null;
+  anchor?: ModulePaletteAnchor | null;
+  cellModules?: BuilderCellModuleRecord[];
   onSelectGroup: (group: ModulePaletteGroup) => void;
   onSelectItem: (item: ModulePaletteItem) => void;
+  onSelectSavedModule?: (cellModuleId: string) => void;
   onClose: () => void;
 };
 
+const ANCHOR_GAP_PX = 8;
+const VIEWPORT_EDGE_PADDING_PX = 16;
+
+const MODULE_PALETTE_WIDTH_PX = 1200;
+const MODULE_PALETTE_HEIGHT_PX = 800;
+
+function getAnchoredModulePaletteStyle(anchor: ModulePaletteAnchor): CSSProperties {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const modalWidth = Math.min(MODULE_PALETTE_WIDTH_PX, viewportWidth - VIEWPORT_EDGE_PADDING_PX * 2);
+  const halfWidth = modalWidth / 2;
+  const left = Math.min(
+    Math.max(anchor.x, VIEWPORT_EDGE_PADDING_PX + halfWidth),
+    viewportWidth - VIEWPORT_EDGE_PADDING_PX - halfWidth
+  );
+  const spaceAboveAnchor = Math.max(anchor.y - ANCHOR_GAP_PX - 24, 220);
+  const modalHeight = Math.min(MODULE_PALETTE_HEIGHT_PX, spaceAboveAnchor, viewportHeight - 32);
+
+  return {
+    position: "fixed",
+    left,
+    bottom: viewportHeight - anchor.y + ANCHOR_GAP_PX,
+    transform: "translateX(-50%)",
+    width: modalWidth,
+    height: modalHeight,
+    maxHeight: modalHeight
+  };
+}
+
 export function BuilderModulePaletteModal({
   activeGroup,
+  anchor = null,
+  cellModules = [],
   onSelectGroup,
   onSelectItem,
+  onSelectSavedModule,
   onClose
 }: BuilderModulePaletteModalProps) {
-  const activePaletteItems = activeGroup
-    ? modulePaletteItems.filter((item) => item.group === activeGroup)
-    : [];
+  const [mounted, setMounted] = useState(false);
+  const starterModules = activeGroup ? getStarterModulesForPaletteGroup(activeGroup) : [];
+  const savedModulesForGroup = activeGroup ? getSavedModulesForPaletteGroup(cellModules, activeGroup) : [];
+  const classOnlyGroup = activeGroup ? isSavedModuleOnlyPaletteGroup(activeGroup) : false;
+  const isAnchored = anchor != null;
+  const anchoredModalStyle = isAnchored && mounted ? getAnchoredModulePaletteStyle(anchor) : undefined;
 
-  return (
-    <div className="builder-gallery-overlay" onClick={onClose} role="presentation">
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      className={`builder-gallery-overlay${isAnchored ? " builder-gallery-overlay-anchored" : ""}`}
+      onClick={onClose}
+      role="presentation"
+    >
       <div
-        className="builder-gallery-modal builder-module-palette-modal"
+        className={`builder-gallery-modal builder-module-palette-modal${isAnchored ? " is-anchored" : ""}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Module library"
+        style={anchoredModalStyle}
       >
         <div className="builder-gallery-header">
           <div>
             <div className="panel-label">Module Library</div>
-            <h3>Add a module to this pod</h3>
-            <p className="page-copy admin-copy">
-              {activeGroup
-                ? "Pick a module style below, or switch groups from the top row."
-                : "Start by choosing a module group."}
-            </p>
+            {activeGroup ? (
+              <p className="page-copy admin-copy">
+                {classOnlyGroup
+                  ? "Choose a saved module from the Special Effects class in your repository."
+                  : "Pick a starter module or insert a saved module with the same class."}
+              </p>
+            ) : null}
           </div>
           <button className="secondary-button" onClick={onClose} type="button">
             Close
@@ -57,19 +127,57 @@ export function BuilderModulePaletteModal({
                 </button>
               ))}
             </div>
-            <div className="builder-module-item-grid">
-              {activePaletteItems.map((item) => (
-                <button
-                  className="builder-module-item-card"
-                  key={item.id}
-                  onClick={() => onSelectItem(item)}
-                  type="button"
-                >
-                  <span className="builder-module-item-icon">{item.icon}</span>
-                  <strong>{item.label}</strong>
-                </button>
-              ))}
-            </div>
+            {starterModules.length > 0 ? (
+              <div className="builder-module-palette-section">
+                <div className="builder-module-palette-section-label">Starter Modules</div>
+                <div className="builder-module-item-grid">
+                  {starterModules.map((item) => (
+                    <button
+                      className="builder-module-item-card"
+                      key={item.id}
+                      onClick={() => onSelectItem(item)}
+                      type="button"
+                    >
+                      <span className="builder-module-item-icon">{item.icon}</span>
+                      <strong>{item.label}</strong>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {savedModulesForGroup.length > 0 ? (
+              <div className="builder-module-palette-section">
+                {!classOnlyGroup ? (
+                  <div className="builder-module-palette-section-label">Saved Modules</div>
+                ) : null}
+                <div className="builder-module-item-grid">
+                  {savedModulesForGroup.map((cellModule) => {
+                    const module = cellModule.modules[0];
+
+                    if (!module) {
+                      return null;
+                    }
+
+                    return (
+                      <button
+                        className="builder-module-item-card builder-module-item-card-saved"
+                        key={cellModule.id}
+                        onClick={() => onSelectSavedModule?.(cellModule.id)}
+                        type="button"
+                      >
+                        <span className="builder-module-item-icon">{getSavedModulePaletteIcon(module)}</span>
+                        <strong>{getSavedModulePaletteLabel(cellModule)}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : classOnlyGroup ? (
+              <p className="panel-copy builder-module-palette-empty">
+                No saved modules with Module class Special Effects yet. Create one in the Modules workspace, assign
+                that class, then return here.
+              </p>
+            ) : null}
           </>
         ) : (
           <div className="builder-module-group-grid">
@@ -87,6 +195,7 @@ export function BuilderModulePaletteModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -18,7 +18,7 @@ export async function sendBuilderAuthEmail(options: {
   }
 
   const template = await fetchBuilderEmailTemplate(options.emailFunction);
-  const html = renderBuilderEmailHtmlWithFallback(template, options.mergeContext);
+  const html = renderBuilderEmailHtmlWithFallback(template, options.mergeContext, options.emailFunction);
 
   await sendAuthEmailViaResend({
     to: options.to,

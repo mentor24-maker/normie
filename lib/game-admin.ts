@@ -1,5 +1,11 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 import { gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
+import {
+  isGameEventPickableModule,
+  resolveSavedModuleClass
+} from "@/lib/module-class-triggers";
+import type { BuilderTemplateModule } from "@/lib/builder-template";
+import { normalizeBuilderModules } from "@/lib/builder-template";
 
 export type {
   GameReminder,
@@ -132,6 +138,7 @@ export type GameProgressiveFeature = {
 export type GameEventModule = {
   id: string;
   name: string;
+  moduleClass: string;
   moduleType: string;
   trigger: string;
   settings: Record<string, string>;
@@ -491,35 +498,24 @@ export function gameLevelEventToClient(row: GameLevelEventRow): GameLevelEvent {
 }
 
 function gameEventModuleToClient(row: GameEventModuleRow): GameEventModule | null {
-  if (!Array.isArray(row.modules) || row.modules.length !== 1) {
+  const modules = normalizeBuilderModules(row.modules);
+
+  if (modules.length !== 1) {
     return null;
   }
 
-  const savedModule = row.modules[0];
-  if (!savedModule || typeof savedModule !== "object" || Array.isArray(savedModule)) {
+  const savedModule = modules[0];
+  const moduleType = savedModule.type;
+  const stringSettings = savedModule.settings;
+
+  if (!moduleType) {
     return null;
   }
-
-  const record = savedModule as Record<string, unknown>;
-  const settings = toRecord(record.settings);
-  const stringSettings = Object.fromEntries(
-    Object.entries(settings).map(([key, value]) => [key, String(value ?? "")])
-  );
-  const isConfettiModule =
-    record.type === "confetti" ||
-    (
-      /special effects/i.test(String(row.module_class ?? "")) &&
-      /confetti/i.test(`${row.name} ${String(record.name ?? "")}`)
-    ) ||
-    stringSettings.particleCount !== undefined ||
-    stringSettings.spread !== undefined ||
-    stringSettings.popVolume !== undefined;
-
-  const moduleType = isConfettiModule ? "confetti" : String(record.type ?? "");
 
   return {
     id: row.id,
     name: row.name,
+    moduleClass: resolveSavedModuleClass(row.module_class, modules),
     moduleType,
     trigger: String(stringSettings.trigger ?? ""),
     settings: stringSettings
@@ -655,11 +651,7 @@ export async function getAdminGameSnapshot() {
 
   const eventModules = ((eventModulesResult.data ?? []) as GameEventModuleRow[])
     .map(gameEventModuleToClient)
-    .filter((module): module is GameEventModule =>
-      module !== null &&
-      module.moduleType === "confetti" &&
-      module.trigger === "game"
-    );
+    .filter((module): module is GameEventModule => module !== null && isGameEventPickableModule(module));
   let levelEvents = ((levelEventsResult.data ?? []) as unknown as GameLevelEventRow[]).map(gameLevelEventToClient);
 
   if (levelEvents.length === 0 && eventModules.length > 0) {

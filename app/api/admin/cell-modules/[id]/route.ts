@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { canonicalizeModuleClassName } from "@/lib/module-class-triggers";
 import { normalizeBuilderModules, rowToBuilderCellModule, safeText } from "@/lib/builder-template";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -16,7 +17,7 @@ export async function PATCH(
   const { id } = await context.params;
   const body = (await request.json()) as { name?: unknown; moduleClass?: unknown; modules?: unknown };
   const name = safeText(body.name, 255);
-  const moduleClass = safeText(body.moduleClass, 255);
+  const moduleClass = canonicalizeModuleClassName(safeText(body.moduleClass, 255));
   const modules = body.modules === undefined ? undefined : normalizeBuilderModules(body.modules);
 
   if (!name) {

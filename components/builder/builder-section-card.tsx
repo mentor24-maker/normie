@@ -66,8 +66,17 @@ type BuilderSectionCardProps = {
   onUploadButtonBackgroundMedia: (moduleId: string, file: File | null) => void;
   onOpenSectionBackgroundGallery: () => void;
   onUploadSectionBackgroundMedia: (file: File | null) => void;
-  onOpenModulePalette: (column: string) => void;
+  onOpenModulePalette: (column: string, anchor?: { x: number; y: number }) => void;
 };
+
+function getModulePaletteAnchorFromButton(button: HTMLButtonElement) {
+  const rect = button.getBoundingClientRect();
+
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  };
+}
 
 export function BuilderSectionCard({
   section,
@@ -402,7 +411,11 @@ export function BuilderSectionCard({
                           </label>
                         </div>
                         {columnModules.length === 0 ? (
-                          <button className="builder-column-empty-button" onClick={() => onOpenModulePalette(column)} type="button">
+                          <button
+                            className="builder-column-empty-button"
+                            onClick={(event) => onOpenModulePalette(column, getModulePaletteAnchorFromButton(event.currentTarget))}
+                            type="button"
+                          >
                             <span className="builder-column-empty-plus">+</span>
                           </button>
                         ) : (
@@ -451,7 +464,16 @@ export function BuilderSectionCard({
                                   }}
                                 />
                                 {moduleIndex === columnModules.length - 1 ? (
-                                  <button aria-label="Add module" className="builder-column-add-circle builder-column-add-button-inline" onClick={() => onOpenModulePalette(column)} type="button">+</button>
+                                  <button
+                                    aria-label="Add module"
+                                    className="builder-column-add-circle builder-column-add-button-inline"
+                                    onClick={(event) =>
+                                      onOpenModulePalette(column, getModulePaletteAnchorFromButton(event.currentTarget))
+                                    }
+                                    type="button"
+                                  >
+                                    +
+                                  </button>
                                 ) : null}
                               </div>
                             ))}

@@ -1,4 +1,11 @@
 import type { Options } from "canvas-confetti";
+import {
+  getModuleTrigger,
+  isGameModuleTrigger,
+  MODULE_TRIGGER_OPTIONS,
+  normalizeModuleTrigger,
+  type ModuleTrigger
+} from "@/lib/module-trigger";
 
 /** Above portal chrome, modals, and builder overlays (site uses up to ~1100). */
 export const PLAYER_PORTAL_CONFETTI_Z_INDEX = 12000;
@@ -49,24 +56,8 @@ function normalizeSoundType(value: string | undefined, playPopSoundLegacy?: stri
   return "pop";
 }
 
-export const CONFETTI_TRIGGER_OPTIONS = [
-  { value: "button", label: "Button Click" },
-  { value: "on-load", label: "Page Load" },
-  { value: "game", label: "Game" }
-] as const;
-
-export type ConfettiTrigger = (typeof CONFETTI_TRIGGER_OPTIONS)[number]["value"];
-
-function normalizeConfettiTrigger(value: string | undefined): ConfettiTrigger {
-  const allowed = new Set(CONFETTI_TRIGGER_OPTIONS.map((option) => option.value));
-  const candidate = String(value ?? "").trim();
-
-  if (allowed.has(candidate as ConfettiTrigger)) {
-    return candidate as ConfettiTrigger;
-  }
-
-  return "button";
-}
+export const CONFETTI_TRIGGER_OPTIONS = MODULE_TRIGGER_OPTIONS;
+export type ConfettiTrigger = ModuleTrigger;
 
 function clampNumber(value: string | undefined, fallback: number, min: number, max: number) {
   const parsed = Number.parseFloat(String(value ?? fallback));
@@ -93,7 +84,7 @@ export function normalizeConfettiModuleSettings(settings: Record<string, string>
     originX: String(parseOrigin(settings.originX, 0.5)),
     originY: String(parseOrigin(settings.originY, 0.6)),
     zIndex: String(Math.round(clampNumber(settings.zIndex, 12000, 1, 999999))),
-    trigger: normalizeConfettiTrigger(settings.trigger),
+    trigger: normalizeModuleTrigger(settings.trigger),
     buttonLabel: String(settings.buttonLabel ?? CONFETTI_EFFECT_DEFAULTS.buttonLabel).trim() || "Confetti",
     disableForReducedMotion: settings.disableForReducedMotion === "true" ? "true" : "false",
     sound: normalizeSoundType(settings.sound, settings.playPopSound),
@@ -125,11 +116,11 @@ export function confettiBurstFromModuleSettings(settings: Record<string, string>
 }
 
 export function getConfettiTrigger(settings: Record<string, string>): ConfettiTrigger {
-  return normalizeConfettiTrigger(normalizeConfettiModuleSettings(settings).trigger);
+  return getModuleTrigger(normalizeConfettiModuleSettings(settings));
 }
 
 export function isGameTriggeredConfetti(settings: Record<string, string>): boolean {
-  return getConfettiTrigger(settings) === "game";
+  return isGameModuleTrigger(normalizeConfettiModuleSettings(settings));
 }
 
 export function getConfettiButtonLabel(settings: Record<string, string>) {

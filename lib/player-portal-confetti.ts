@@ -1,3 +1,9 @@
+import { fireGameEventModule } from "@/lib/game-event-module-runtime";
+import {
+  eventTargetProgressPolls,
+  readEventProgressionFromMetadata
+} from "@/lib/player-progression-tiers";
+import { isGameModuleTrigger } from "@/lib/module-trigger";
 import { CONFETTI_EFFECT_DEFAULTS, confettiBurstFromModuleSettings } from "@/lib/confetti-effect";
 import type { PlayerPortalLevelEvent } from "@/lib/player-portal";
 
@@ -9,37 +15,33 @@ export async function firePlayerLevelUpConfetti(): Promise<void> {
   await fireConfettiBurst(confettiBurstFromModuleSettings(CONFETTI_EFFECT_DEFAULTS));
 }
 
-function eventMatchesCompletedLevel(event: PlayerPortalLevelEvent, completedLevelRewards?: number | null) {
-  if (!completedLevelRewards) {
+function eventMatchesProgressPolls(event: PlayerPortalLevelEvent, progressPollsTaken?: number | null) {
+  if (!progressPollsTaken) {
     return true;
   }
 
-  const sublevelNumber = Number.parseInt(String(event.sublevelName ?? "").trim(), 10);
-
-  return Number.isFinite(sublevelNumber) && sublevelNumber === completedLevelRewards;
+  return eventTargetProgressPolls(event.metadata, event.sublevelName) === progressPollsTaken;
 }
 
 export async function firePlayerLevelUpGameEvents(
   levelEvents: PlayerPortalLevelEvent[],
-  completedLevelRewards?: number | null
+  progressPollsTaken?: number | null
 ): Promise<void> {
-  const gameConfettiEvents = levelEvents.filter(
+  const gameTriggeredEvents = levelEvents.filter(
     (event) =>
       event.trigger === "game" &&
-      event.moduleType === "confetti" &&
-      eventMatchesCompletedLevel(event, completedLevelRewards)
+      isGameModuleTrigger(event.moduleSettings) &&
+      eventMatchesProgressPolls(event, progressPollsTaken)
   );
 
-  if (!gameConfettiEvents.length) {
+  if (!gameTriggeredEvents.length) {
     if (levelEvents.length === 0) {
       await firePlayerLevelUpConfetti();
     }
     return;
   }
 
-  const { fireConfettiFromModuleSettings } = await import("@/lib/confetti-game-trigger");
-
-  for (const event of gameConfettiEvents) {
-    await fireConfettiFromModuleSettings(event.moduleSettings);
+  for (const event of gameTriggeredEvents) {
+    await fireGameEventModule(event.moduleType, event.moduleSettings, event.gameModule);
   }
 }

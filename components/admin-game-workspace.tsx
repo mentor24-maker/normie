@@ -45,6 +45,14 @@ import {
 } from "@/lib/game-admin";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import {
+  DEFAULT_EVENT_POLLS_PER_LEVEL,
+  eventTargetProgressPolls,
+  formatProgressionMilestone,
+  progressPollsAtEvent,
+  readEventProgressionFromMetadata
+} from "@/lib/player-progression-tiers";
+import { PLAYER_LEVELS_PER_GRADE } from "@/lib/player-portal";
 import { formatTemplateTimestamp } from "@/components/builder/builder-utils";
 import { BuilderRichTextEditor } from "@/components/builder-rich-text-editor";
 import { BuilderSettingRow } from "@/components/builder/builder-setting-row";
@@ -72,7 +80,12 @@ type AdminPollOption = {
 
 type GameLevelDraft = Partial<GameLevel>;
 type LevelUpRuleDraft = Partial<GameLevelUpRule>;
-type LevelEventDraft = Partial<GameLevelEvent>;
+type LevelEventDraft = Partial<GameLevelEvent> & {
+  gradeTier?: number;
+  levelTier?: number;
+  pollTier?: number;
+  pollsPerLevel?: number;
+};
 type ProgressiveFeatureDraft = Partial<GameProgressiveFeature>;
 type RewardDraft = Partial<GameReward> & {
   inventoryCountText?: string;
@@ -311,21 +324,53 @@ function createProgressiveFeatureDraft(gameLevels: GameLevel[] = []): Progressiv
   };
 }
 
-function createLevelEventDraft(gameLevels: GameLevel[] = [], eventModules: GameEventModule[] = []): LevelEventDraft {
-  const levelTrack = gameLevels.find((gameLevel) => gameLevel.levelName === "Level") ?? gameLevels[0];
-  const firstSublevel = levelTrack?.sublevels.slice().sort((left, right) => left.order - right.order)[0];
-  const firstGameConfetti = eventModules.find((module) => module.moduleType === "confetti" && module.trigger === "game") ?? eventModules[0];
+const LEVEL_TIER_OPTIONS = Array.from({ length: PLAYER_LEVELS_PER_GRADE }, (_, index) => index + 1);
+
+function applyProgressionToLevelEventDraft(draft: LevelEventDraft): LevelEventDraft {
+  const gradeTier = Math.max(1, Number(draft.gradeTier) || 1);
+  const levelTier = Math.min(PLAYER_LEVELS_PER_GRADE, Math.max(1, Number(draft.levelTier) || 1));
+  const pollsPerLevel = Math.max(1, Number(draft.pollsPerLevel) || DEFAULT_EVENT_POLLS_PER_LEVEL);
+  const pollTier = Math.min(pollsPerLevel, Math.max(1, Number(draft.pollTier) || pollsPerLevel));
+  const targetProgressPolls = progressPollsAtEvent(gradeTier, levelTier, pollTier, pollsPerLevel);
 
   return {
-    eventName: "Level 1.1 Confetti",
-    levelName: levelTrack?.levelName ?? "Level",
-    sublevelName: firstSublevel?.name ?? "1",
-    moduleId: firstGameConfetti?.id ?? "",
-    moduleName: firstGameConfetti?.name ?? "",
+    ...draft,
+    gradeTier,
+    levelTier,
+    pollTier,
+    pollsPerLevel,
+    levelName: "Level",
+    sublevelName: String(Math.max(1, Math.ceil(targetProgressPolls / DEFAULT_EVENT_POLLS_PER_LEVEL))),
+    metadata: {
+      ...(draft.metadata ?? {}),
+      eventType: String(draft.metadata?.eventType ?? "confetti"),
+      gradeTier,
+      levelTier,
+      pollTier,
+      pollsPerLevel
+    }
+  };
+}
+
+function getLevelEventProgression(event: GameLevelEvent | LevelEventDraft): ReturnType<typeof readEventProgressionFromMetadata> {
+  return readEventProgressionFromMetadata(event.metadata, event.sublevelName);
+}
+
+function createLevelEventDraft(_gameLevels: GameLevel[] = [], eventModules: GameEventModule[] = []): LevelEventDraft {
+  const firstGameModule = eventModules[0];
+
+  return applyProgressionToLevelEventDraft({
+    eventName: "Grade 1 Level 1 Confetti",
+    gradeTier: 1,
+    levelTier: 1,
+    pollTier: DEFAULT_EVENT_POLLS_PER_LEVEL,
+    pollsPerLevel: DEFAULT_EVENT_POLLS_PER_LEVEL,
+    moduleId: firstGameModule?.id ?? "",
+    moduleName: firstGameModule?.name ?? "",
     trigger: "game",
     isActive: true,
     metadata: { eventType: "confetti" }
-  };
+  });
 }
 
 function createRewardDraft(): RewardDraft {
@@ -425,7 +470,16 @@ function progressiveFeatureToDraft(feature: GameProgressiveFeature): Progressive
 }
 
 function levelEventToDraft(event: GameLevelEvent): LevelEventDraft {
-  return { ...event, metadata: { ...event.metadata } };
+  const progression = getLevelEventProgression(event);
+
+  return applyProgressionToLevelEventDraft({
+    ...event,
+    gradeTier: progression.gradeTier,
+    levelTier: progression.levelTier,
+    pollTier: progression.pollTier,
+    pollsPerLevel: progression.pollsPerLevel,
+    metadata: { ...event.metadata }
+  });
 }
 
 function getSublevelsForLevel(gameLevels: GameLevel[], levelName: GameLevelName | undefined) {
@@ -1332,7 +1386,6 @@ function ProgressiveFeatureEditor({
 function LevelEventEditor({
   draft,
   eventModules,
-  gameLevels,
   isSaving,
   onCancel,
   onChange,
@@ -1340,90 +1393,130 @@ function LevelEventEditor({
 }: {
   draft: LevelEventDraft;
   eventModules: GameEventModule[];
-  gameLevels: GameLevel[];
   isSaving: boolean;
   onCancel: () => void;
   onChange: (next: LevelEventDraft) => void;
   onSave: () => void;
 }) {
-  const sublevels = getSublevelsForLevel(gameLevels, draft.levelName);
-  const gameTriggeredModules = eventModules.filter((module) => module.moduleType === "confetti" && module.trigger === "game");
+  const gradeTier = Math.max(1, Number(draft.gradeTier) || 1);
+  const levelTier = Math.min(PLAYER_LEVELS_PER_GRADE, Math.max(1, Number(draft.levelTier) || 1));
+  const pollsPerLevel = Math.max(1, Number(draft.pollsPerLevel) || DEFAULT_EVENT_POLLS_PER_LEVEL);
+  const pollTier = Math.min(pollsPerLevel, Math.max(1, Number(draft.pollTier) || pollsPerLevel));
+  const pollTierOptions = Array.from({ length: pollsPerLevel }, (_, index) => index + 1);
+  const targetProgressPolls = progressPollsAtEvent(gradeTier, levelTier, pollTier, pollsPerLevel);
+
+  function updateDraft(next: LevelEventDraft) {
+    onChange(applyProgressionToLevelEventDraft(next));
+  }
 
   return (
-    <div className="builder-product-editor admin-game-editor">
-      <div className="builder-product-editor-grid admin-game-editor-grid">
-        <label className="field admin-game-inline-field">
-          <span>Event Name</span>
+    <div className="builder-product-editor admin-game-editor admin-game-level-event-editor">
+      <div className="admin-game-reward-grid">
+        <BuilderSettingRow fullWidth label="Event Name">
           <input
+            className="admin-game-reward-field-medium"
             type="text"
             value={draft.eventName ?? ""}
-            onChange={(event) => onChange({ ...draft, eventName: event.target.value })}
-            placeholder="Level 1.1 Confetti"
+            onChange={(event) => updateDraft({ ...draft, eventName: event.target.value })}
+            placeholder="Grade 1 Level 1 Confetti"
           />
-        </label>
-        <label className="field admin-game-inline-field">
-          <span>Graduation Track</span>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Grade">
+          <input
+            className="admin-game-reward-field-number"
+            min="1"
+            type="number"
+            value={gradeTier}
+            onChange={(event) =>
+              updateDraft({ ...draft, gradeTier: Math.max(1, Number(event.target.value) || 1) })
+            }
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Level">
           <select
-            value={draft.levelName ?? "Level"}
+            className="admin-game-reward-field-select"
+            value={levelTier}
+            onChange={(event) =>
+              updateDraft({ ...draft, levelTier: Math.max(1, Number(event.target.value) || 1) })
+            }
+          >
+            {LEVEL_TIER_OPTIONS.map((tier) => (
+              <option key={tier} value={tier}>
+                Level {tier}
+              </option>
+            ))}
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Polls Per Level">
+          <input
+            className="admin-game-reward-field-number"
+            min="1"
+            type="number"
+            value={pollsPerLevel}
             onChange={(event) => {
-              const levelName = event.target.value as GameLevelName;
-              const firstSublevel = getSublevelsForLevel(gameLevels, levelName).slice().sort((left, right) => left.order - right.order)[0];
-              onChange({ ...draft, levelName, sublevelName: firstSublevel?.name ?? "" });
+              const nextPollsPerLevel = Math.max(1, Number(event.target.value) || DEFAULT_EVENT_POLLS_PER_LEVEL);
+              updateDraft({
+                ...draft,
+                pollsPerLevel: nextPollsPerLevel,
+                pollTier: Math.min(nextPollsPerLevel, pollTier)
+              });
             }}
-          >
-            {GAME_LEVEL_NAMES.map((levelName) => (
-              <option key={levelName} value={levelName}>{formatGameLevelName(levelName)}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field admin-game-inline-field">
-          <span>Graduation Sublevel</span>
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Poll">
           <select
-            value={draft.sublevelName ?? ""}
-            onChange={(event) => onChange({ ...draft, sublevelName: event.target.value })}
+            className="admin-game-reward-field-select"
+            value={pollTier}
+            onChange={(event) =>
+              updateDraft({ ...draft, pollTier: Math.max(1, Number(event.target.value) || pollsPerLevel) })
+            }
           >
-            <option value="">Select sublevel</option>
-            {sublevels.map((sublevel) => (
-              <option key={`${sublevel.order}-${sublevel.name}`} value={sublevel.name}>
-                {sublevel.order}. {sublevel.name}
+            {pollTierOptions.map((tier) => (
+              <option key={tier} value={tier}>
+                Poll {tier}
               </option>
             ))}
           </select>
-        </label>
-        <label className="field admin-game-inline-field">
-          <span>Module</span>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Milestone">
+          <p className="admin-game-level-event-milestone">
+            Fires after progress poll {targetProgressPolls} when the player reaches{" "}
+            {formatProgressionMilestone(gradeTier, levelTier, pollTier, pollsPerLevel)}.
+          </p>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Module">
           <select
+            className="admin-game-reward-field-select"
             value={draft.moduleId ?? ""}
-            onChange={(event) => onChange({ ...draft, moduleId: event.target.value })}
+            onChange={(event) => updateDraft({ ...draft, moduleId: event.target.value })}
           >
-            <option value="">Select module</option>
-            {gameTriggeredModules.map((module) => (
+            <option value="">Select Module</option>
+            {eventModules.map((module) => (
               <option key={module.id} value={module.id}>
-                {module.name}
+                {module.name} ({module.moduleClass})
               </option>
             ))}
           </select>
-          <small className="admin-field-help">
-            Only saved Confetti modules with Trigger set to Game are shown.
-          </small>
-        </label>
-        <label className="field admin-game-inline-field">
-          <span>Trigger</span>
-          <select value="game" disabled>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Trigger">
+          <select className="admin-game-reward-field-select" value="game" disabled>
             <option value="game">Game</option>
           </select>
-        </label>
-        <label className="field admin-game-inline-field">
-          <span>Status</span>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Status">
           <select
+            className="admin-game-reward-field-select"
             value={draft.isActive === false ? "draft" : "active"}
-            onChange={(event) => onChange({ ...draft, isActive: event.target.value === "active" })}
+            onChange={(event) => updateDraft({ ...draft, isActive: event.target.value === "active" })}
           >
             <option value="active">Active</option>
             <option value="draft">Draft</option>
           </select>
-        </label>
+        </BuilderSettingRow>
       </div>
+      <p className="admin-field-help admin-game-level-event-help">
+        Only saved Special Effects or Speech Bubble modules with Trigger set to Game are listed.
+      </p>
       <div className="builder-meta-actions">
         <button className="secondary-button" onClick={onCancel} type="button">
           Cancel
@@ -2612,7 +2705,7 @@ export function AdminGameWorkspace() {
   function startNewLevelEvent() {
     resetMessages();
     if (eventModules.length === 0) {
-      setError("No game-triggered confetti modules found. Save a Confetti module with Trigger set to Game first.");
+      setError("No game-triggered Special Effects or Speech Bubble modules found. Save a module with Trigger set to Game first.");
       setEditingLevelEventId("");
       return;
     }
@@ -2784,20 +2877,22 @@ export function AdminGameWorkspace() {
     setIsSaving(true);
     resetMessages();
 
+    const payload = applyProgressionToLevelEventDraft(levelEventDraft);
+
     try {
       const response = await fetch(
-        levelEventDraft.id ? `/api/admin/game/events/${levelEventDraft.id}` : "/api/admin/game/events",
+        payload.id ? `/api/admin/game/events/${payload.id}` : "/api/admin/game/events",
         {
-          method: levelEventDraft.id ? "PATCH" : "POST",
+          method: payload.id ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            eventName: levelEventDraft.eventName,
-            levelName: levelEventDraft.levelName,
-            sublevelName: levelEventDraft.sublevelName,
-            moduleId: levelEventDraft.moduleId,
+            eventName: payload.eventName,
+            levelName: payload.levelName,
+            sublevelName: payload.sublevelName,
+            moduleId: payload.moduleId,
             trigger: "game",
-            isActive: levelEventDraft.isActive !== false,
-            metadata: levelEventDraft.metadata ?? { eventType: "confetti" }
+            isActive: payload.isActive !== false,
+            metadata: payload.metadata ?? { eventType: "confetti" }
           })
         }
       );
@@ -2811,7 +2906,7 @@ export function AdminGameWorkspace() {
       }
 
       setLevelEvents((current) =>
-        levelEventDraft.id
+        payload.id
           ? current.map((item) => (item.id === data.levelEvent!.id ? data.levelEvent! : item))
           : [data.levelEvent!, ...current]
       );
@@ -3839,16 +3934,13 @@ export function AdminGameWorkspace() {
       <section className="admin-section">
         <div className="admin-toolbar">
           <div>
-            <div className="panel-label">Graduation Actions</div>
+            <div className="panel-label">Completion Effects</div>
             <h2>Events</h2>
             <p className="admin-section-intro">
-              Define one-time effects that fire when a player graduates to a specific level or sublevel.
-            </p>
-            <p className="admin-field-help">
-              Only saved Confetti modules with Trigger set to Game are shown in the module list.
+              Define one-time effects that fire after a specific progress poll. Use Grade, Level, and Poll to target milestones; Polls Per Level defaults to 10.
             </p>
           </div>
-          <button className="submit-button" disabled={isSaving || gameLevels.length === 0 || eventModules.length === 0} onClick={startNewLevelEvent} type="button">
+          <button className="submit-button" disabled={isSaving || eventModules.length === 0} onClick={startNewLevelEvent} type="button">
             New Event
           </button>
         </div>
@@ -3856,7 +3948,6 @@ export function AdminGameWorkspace() {
           <LevelEventEditor
             draft={levelEventDraft}
             eventModules={eventModules}
-            gameLevels={gameLevels}
             isSaving={isSaving}
             onCancel={() => setEditingLevelEventId("")}
             onChange={setLevelEventDraft}
@@ -3868,7 +3959,7 @@ export function AdminGameWorkspace() {
             <thead>
               <tr>
                 <th>Event</th>
-                <th>Graduation</th>
+                <th>Milestone</th>
                 <th>Module</th>
                 <th>Trigger</th>
                 <th>Status</th>
@@ -3880,7 +3971,26 @@ export function AdminGameWorkspace() {
               {levelEvents.map((event) => (
                 <tr key={event.id}>
                   <td><strong>{event.eventName}</strong></td>
-                  <td>{formatGameLevelName(event.levelName)}: {event.sublevelName || "Any"}</td>
+                  <td>
+                    {(() => {
+                      const progression = getLevelEventProgression(event);
+                      const targetPolls = eventTargetProgressPolls(event.metadata, event.sublevelName);
+
+                      return (
+                        <>
+                          <strong>
+                            {formatProgressionMilestone(
+                              progression.gradeTier,
+                              progression.levelTier,
+                              progression.pollTier,
+                              progression.pollsPerLevel
+                            )}
+                          </strong>
+                          <span className="admin-game-level-event-table-meta"> ({targetPolls} progress polls)</span>
+                        </>
+                      );
+                    })()}
+                  </td>
                   <td>{event.moduleName || "No module selected"}</td>
                   <td>{event.trigger}</td>
                   <td>{event.isActive ? "Active" : "Draft"}</td>
@@ -3920,7 +4030,7 @@ export function AdminGameWorkspace() {
                     {isLoading
                       ? "Loading events..."
                       : eventModules.length === 0
-                        ? "No game-triggered confetti modules found. Save a Confetti module with Trigger set to Game first."
+                        ? "No game-triggered Special Effects or Speech Bubble modules found. Save a module with Trigger set to Game first."
                         : "No events found."}
                   </td>
                 </tr>
@@ -3932,7 +4042,6 @@ export function AdminGameWorkspace() {
           <LevelEventEditor
             draft={levelEventDraft}
             eventModules={eventModules}
-            gameLevels={gameLevels}
             isSaving={isSaving}
             onCancel={() => setEditingLevelEventId("")}
             onChange={setLevelEventDraft}

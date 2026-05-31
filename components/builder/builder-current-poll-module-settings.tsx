@@ -4,7 +4,7 @@ import type { BackgroundSettings, BuilderTemplateModule } from "@/lib/builder-te
 import { POLL_CONTENT_WIDTH_OPTIONS } from "@/lib/poll-pod-config";
 import { BuilderAlignmentIconGroup } from "./builder-alignment-icon-group";
 import { BuilderBackgroundControls } from "./builder-background-controls";
-import { BuilderInlineNumberSelect } from "./builder-inline-number-select";
+import { BuilderNumberSelectControl } from "./builder-inline-number-select";
 import { BuilderSettingRow } from "./builder-setting-row";
 import { getModuleAlignment, getModuleBackgroundSettings } from "./builder-utils";
 
@@ -42,13 +42,13 @@ export function BuilderCurrentPollModuleSettings({
       </BuilderSettingRow>
 
       <BuilderBackgroundControls
-        label="Module Background"
+        label="Background"
         background={getModuleBackgroundSettings(module.settings)}
         horizontal
         onChange={onUpdateModuleBackground}
       />
 
-      <BuilderSettingRow label="Alignment">
+      <BuilderSettingRow label="Alignment" fullWidth>
         <BuilderAlignmentIconGroup
           value={moduleAlignment}
           onChange={(alignment) =>
@@ -60,19 +60,20 @@ export function BuilderCurrentPollModuleSettings({
         />
       </BuilderSettingRow>
 
-      <BuilderInlineNumberSelect
-        label="Vertical Margin"
-        value={module.settings.verticalMargin ?? "0"}
-        min={0}
-        max={160}
-        fallback="0"
-        onChange={(verticalMargin) =>
-          onUpdateModule((current) => ({
-            ...current,
-            settings: { ...current.settings, verticalMargin }
-          }))
-        }
-      />
+      <BuilderSettingRow label="Vertical Margin" fullWidth>
+        <BuilderNumberSelectControl
+          fallback="0"
+          max={160}
+          min={0}
+          value={module.settings.verticalMargin ?? "0"}
+          onChange={(verticalMargin) =>
+            onUpdateModule((current) => ({
+              ...current,
+              settings: { ...current.settings, verticalMargin }
+            }))
+          }
+        />
+      </BuilderSettingRow>
     </div>
   );
 }

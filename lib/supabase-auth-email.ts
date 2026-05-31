@@ -1,5 +1,5 @@
 import type { BuilderEmailFunction } from "@/lib/builder-email-template";
-import { getSiteUrl } from "@/lib/site-url";
+import { getAuthEmailSiteUrl } from "@/lib/site-url";
 
 export type SupabaseAuthEmailAction =
   | "signup"
@@ -87,7 +87,7 @@ export function buildAuthEmailMergeContext(payload: SupabaseSendEmailPayload): A
   return {
     confirmationUrl: buildSupabaseConfirmationUrl(payload.email_data),
     email: recipient,
-    siteUrl: payload.email_data.site_url || getSiteUrl()
+    siteUrl: payload.email_data.site_url || getAuthEmailSiteUrl()
   };
 }
 

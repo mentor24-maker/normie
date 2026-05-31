@@ -1,8 +1,13 @@
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
+import {
+  isGameEventPickableModule,
+  resolveSavedModuleClass
+} from "@/lib/module-class-triggers";
 import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
 import type { BuilderTemplateModule } from "./builder-template";
+import { normalizeBuilderModules } from "./builder-template";
 
 export type PlayerPollOption = {
   id: string;
@@ -68,6 +73,7 @@ export type PlayerPortalLevelEvent = {
   moduleName: string;
   moduleType: string;
   moduleSettings: Record<string, string>;
+  gameModule: BuilderTemplateModule | null;
   trigger: string;
   metadata: Record<string, unknown>;
 };
@@ -144,11 +150,13 @@ type GameLevelEventRow = {
     | {
         id: string | null;
         name: string | null;
+        module_class: string | null;
         modules: unknown;
       }
     | Array<{
         id: string | null;
         name: string | null;
+        module_class: string | null;
         modules: unknown;
       }>
     | null;
@@ -381,16 +389,20 @@ export function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): 
 function buildLevelEvents(rows: GameLevelEventRow[]): PlayerPortalLevelEvent[] {
   return rows.flatMap((row) => {
     const savedModule = firstRelation(row.builder_cell_modules);
-    const modules = Array.isArray(savedModule?.modules) ? (savedModule.modules as BuilderTemplateModule[]) : [];
+    const modules = normalizeBuilderModules(savedModule?.modules);
     const savedModuleDefinition = modules.length === 1 ? modules[0] : null;
-    const moduleSettings = toStringRecord(savedModuleDefinition?.settings);
-    const isConfettiModule =
-      savedModuleDefinition?.type === "confetti" ||
-      moduleSettings.particleCount !== undefined ||
-      moduleSettings.spread !== undefined ||
-      moduleSettings.popVolume !== undefined;
+    const moduleSettings = savedModuleDefinition?.settings ?? {};
+    const moduleClass = resolveSavedModuleClass(savedModule?.module_class, modules);
+    const moduleType = String(savedModuleDefinition?.type ?? "").trim();
 
-    if (!savedModuleDefinition || !isConfettiModule || moduleSettings.trigger !== "game") {
+    if (
+      !savedModuleDefinition ||
+      !isGameEventPickableModule({
+        moduleClass,
+        settings: moduleSettings,
+        moduleType
+      })
+    ) {
       return [];
     }
 
@@ -399,9 +411,10 @@ function buildLevelEvents(rows: GameLevelEventRow[]): PlayerPortalLevelEvent[] {
       levelName: row.level_name ?? "",
       sublevelName: row.sublevel_name ?? "",
       moduleId: row.module_id ?? savedModule?.id ?? "",
-      moduleName: savedModule?.name ?? savedModuleDefinition.name ?? "Confetti",
-      moduleType: "confetti",
+      moduleName: savedModule?.name ?? savedModuleDefinition.name ?? "Game Effect",
+      moduleType,
       moduleSettings,
+      gameModule: savedModuleDefinition,
       trigger: row.trigger ?? "game",
       metadata: toRecord(row.metadata)
     }];
@@ -434,7 +447,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
         .eq("status", "active"),
       supabase
         .from("game_level_events")
-        .select("event_name, level_name, sublevel_name, module_id, trigger, metadata, builder_cell_modules(id, name, modules)")
+        .select("event_name, level_name, sublevel_name, module_id, trigger, metadata, builder_cell_modules(id, name, module_class, modules)")
         .eq("is_active", true)
     ]);
 

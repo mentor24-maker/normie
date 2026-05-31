@@ -29,6 +29,23 @@ export function getSiteUrl() {
   return normalizeSiteOrigin(raw);
 }
 
+/** Public origin for auth email assets (logo, footer). Mail clients cannot load localhost URLs. */
+export function getAuthEmailSiteUrl() {
+  const explicit = process.env.AUTH_EMAIL_SITE_URL?.trim();
+
+  if (explicit) {
+    return normalizeSiteOrigin(explicit);
+  }
+
+  const siteUrl = getSiteUrl();
+
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(siteUrl)) {
+    return DEFAULT_SITE_URL;
+  }
+
+  return siteUrl;
+}
+
 function resolveOriginFromRequest(request?: Request | null) {
   if (!request) {
     return null;

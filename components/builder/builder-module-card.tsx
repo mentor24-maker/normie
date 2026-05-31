@@ -31,9 +31,16 @@ import { BuilderBackgroundControls } from "./builder-background-controls";
 import { MerchModuleEditor } from "./builder-merch-module-editor";
 import { BuilderCodeEmbed } from "./builder-code-embed";
 import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
+import { BuilderSpeechBubbleModuleSettings } from "./builder-speech-bubble-module-settings";
+import { SpeechBubblePreview } from "./speech-bubble-preview";
 import { getConfettiTrigger } from "@/lib/confetti-effect";
+import { getModuleTrigger } from "@/lib/module-trigger";
+import {
+  builderModuleShowsTriggerSettings
+} from "@/lib/module-class-triggers";
 import { BuilderConfettiRuntime } from "@/components/builder-confetti-runtime";
 import { BuilderConfettiModuleSettings } from "./builder-confetti-module-settings";
+import { BuilderModuleTriggerSettings } from "./builder-module-trigger-settings";
 import { BuilderCurrentPollModuleSettings } from "./builder-current-poll-module-settings";
 import { BuilderSocialModuleSettings } from "./builder-social-module-settings";
 import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
@@ -59,7 +66,8 @@ import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/
 import { BuilderSettingRow } from "./builder-setting-row";
 import {
   BuilderInlineNumberSelect,
-  BuilderInlineNumberSelectRow
+  BuilderInlineNumberSelectRow,
+  BuilderNumberSelectControl
 } from "./builder-inline-number-select";
 
 type BuilderModuleCardProps = {
@@ -83,6 +91,7 @@ type BuilderModuleCardProps = {
   onClone: () => void;
   hideHeaderActions?: boolean;
   isEmailTemplate?: boolean;
+  moduleClassOverride?: string;
   onModuleDragStart?: (event: DragEvent<HTMLDivElement>) => void;
 };
 
@@ -195,6 +204,10 @@ function renderModulePreview(module: BuilderTemplateModule) {
         {module.text || "Quote"}
       </blockquote>
     );
+  }
+
+  if (module.type === "speech-bubble") {
+    return <SpeechBubblePreview classNamePrefix="builder-module-preview" module={module} />;
   }
 
   if (module.type === "headline-rotator") {
@@ -1655,6 +1668,7 @@ export function BuilderModuleCard({
   products = [],
   hideHeaderActions = false,
   isEmailTemplate = false,
+  moduleClassOverride,
   onModuleDragStart
 }: BuilderModuleCardProps) {
     const moduleAlignment = getModuleAlignment(module.settings);
@@ -1667,6 +1681,7 @@ export function BuilderModuleCard({
     const isConfettiModule = module.type === "confetti";
     const isSocialModule = module.type === "social";
     const isPollRuntimeModule = isCurrentPollModule || module.type === "previous-results";
+    const showModuleTriggerSettings = builderModuleShowsTriggerSettings(module, moduleClassOverride);
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
@@ -1678,7 +1693,9 @@ export function BuilderModuleCard({
           ? getModuleMarginStyle(module.settings)
           : module.type === "button"
             ? getModuleOuterSpacingStyle(module.settings)
-            : getVerticalMarginStyle(module.settings.verticalMargin))
+            : isFloatingImage
+              ? {}
+              : getVerticalMarginStyle(module.settings.verticalMargin))
       }}
     >
       {onModuleDragStart ? (
@@ -1750,7 +1767,7 @@ export function BuilderModuleCard({
 
       {isExpanded ? (
         <div className="builder-module-editor">
-          <BuilderSettingRow label={module.type === "social" ? "Label" : "Module label"} fullWidth>
+          <BuilderSettingRow label="Label" fullWidth>
             <input
               type="text"
               value={module.name}
@@ -1819,6 +1836,9 @@ export function BuilderModuleCard({
             </div>
           ) : (
           <>
+          {showModuleTriggerSettings ? (
+            <BuilderModuleTriggerSettings module={module} onUpdateModule={onUpdateModule} />
+          ) : null}
           {module.type !== "button" ? (
             isCurrentPollModule ? (
               <BuilderCurrentPollModuleSettings
@@ -1838,12 +1858,12 @@ export function BuilderModuleCard({
             ) : module.type === "heading" ? (
               <div className="builder-heading-module-chrome">
                 <BuilderBackgroundControls
-                  label="Module Background"
+                  label="Background"
                   background={getModuleBackgroundSettings(module.settings)}
                   horizontal
                   onChange={onUpdateModuleBackground}
                 />
-                <BuilderSettingRow label="Alignment">
+                <BuilderSettingRow label="Alignment" fullWidth>
                   <BuilderAlignmentIconGroup
                     value={moduleAlignment}
                     onChange={(alignment) =>
@@ -1855,16 +1875,24 @@ export function BuilderModuleCard({
                   />
                 </BuilderSettingRow>
               </div>
-            ) : (
-              <div className="builder-module-settings-row">
+            ) : isFloatingImage ? (
+              <div className="builder-floating-image-module-chrome">
                 <BuilderBackgroundControls
-                  label="Module Background"
                   background={getModuleBackgroundSettings(module.settings)}
-                  compact
+                  horizontal
+                  label="Background"
                   onChange={onUpdateModuleBackground}
                 />
-                <div className="builder-module-alignment-controls">
-                  <span>Alignment</span>
+              </div>
+            ) : (
+              <div className="builder-module-chrome">
+                <BuilderBackgroundControls
+                  label="Background"
+                  background={getModuleBackgroundSettings(module.settings)}
+                  horizontal
+                  onChange={onUpdateModuleBackground}
+                />
+                <BuilderSettingRow label="Alignment" fullWidth>
                   <BuilderAlignmentIconGroup
                     value={moduleAlignment}
                     onChange={(alignment) =>
@@ -1874,20 +1902,21 @@ export function BuilderModuleCard({
                       }))
                     }
                   />
-                </div>
-                <BuilderInlineNumberSelect
-                  label="Vertical margin"
-                  value={module.settings.verticalMargin ?? "0"}
-                  min={0}
-                  max={160}
-                  fallback="0"
-                  onChange={(verticalMargin) =>
-                    onUpdateModule((current) => ({
-                      ...current,
-                      settings: { ...current.settings, verticalMargin }
-                    }))
-                  }
-                />
+                </BuilderSettingRow>
+                <BuilderSettingRow label="Vertical Margin" fullWidth>
+                  <BuilderNumberSelectControl
+                    fallback="0"
+                    max={160}
+                    min={0}
+                    value={module.settings.verticalMargin ?? "0"}
+                    onChange={(verticalMargin) =>
+                      onUpdateModule((current) => ({
+                        ...current,
+                        settings: { ...current.settings, verticalMargin }
+                      }))
+                    }
+                  />
+                </BuilderSettingRow>
               </div>
             )
           ) : null}
@@ -1911,7 +1940,7 @@ export function BuilderModuleCard({
             />
           ) : null}
 
-          {(isStandardImage || isFloatingImage || module.type === "video") && (
+          {(isStandardImage || module.type === "video") && (
             <label className="field">
               <span>{isVideoModule ? "Video embed URL" : "URL"}</span>
               <input
@@ -2032,7 +2061,7 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
-          {(isStandardImage || isFloatingImage || module.type === "video") ? (
+          {(isStandardImage || module.type === "video") ? (
             <div className="builder-media-actions">
               <button className="secondary-button builder-gallery-button" onClick={onOpenGallery} type="button">Choose From Gallery</button>
               <label className="secondary-button builder-gallery-button builder-upload-button">
@@ -2042,7 +2071,18 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
-          {isFloatingImage ? <BuilderFloatingImageModuleSettings module={module} onUpdateModule={onUpdateModule} /> : null}
+          {isFloatingImage ? (
+            <BuilderFloatingImageModuleSettings
+              module={module}
+              onOpenGallery={onOpenGallery}
+              onUploadMedia={onUploadMedia}
+              onUpdateModule={onUpdateModule}
+            />
+          ) : null}
+
+          {module.type === "speech-bubble" ? (
+            <BuilderSpeechBubbleModuleSettings module={module} onUpdateModule={onUpdateModule} />
+          ) : null}
 
           {isStandardImage ? (
             <>
@@ -2163,6 +2203,17 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
+          {module.type === "speech-bubble" ? (
+            <div className="builder-module-runtime-note">
+              <strong>Speech bubble</strong>
+              <p>
+                {getModuleTrigger(module.settings) === "game"
+                  ? "Game trigger: the bubble is shown by the game layer when the player reaches your configured milestone."
+                  : "Use page preview or a live page to test how this bubble reads beside Normie."}
+              </p>
+            </div>
+          ) : null}
+
           {module.type !== "image" &&
           module.type !== "floating-image" &&
           module.type !== "contact-form" &&
@@ -2178,6 +2229,7 @@ export function BuilderModuleCard({
           module.type !== "previous-results" &&
           module.type !== "current-poll" &&
           module.type !== "confetti" &&
+          module.type !== "speech-bubble" &&
           module.type !== "button" &&
           module.type !== "heading" ? (
             <label className="field">

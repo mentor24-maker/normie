@@ -46,6 +46,7 @@ import {
 } from "@/components/builder/builder-utils";
 import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
 import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
+import { SpeechBubblePreview } from "@/components/builder/speech-bubble-preview";
 import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
 import { resolveEmailMergeTokensForPreview } from "@/lib/builder-email-template";
 import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/player-portal-auth-form";
@@ -384,6 +385,10 @@ function BuilderModulePreview({
         {module.text || ""}
       </blockquote>
     );
+  }
+
+  if (module.type === "speech-bubble") {
+    return <SpeechBubblePreview module={module} />;
   }
 
   if (module.type === "button") {

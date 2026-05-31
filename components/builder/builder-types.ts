@@ -63,6 +63,12 @@ export const modulePaletteGroups: Array<{
   { value: "floating-image", label: "Floating Image", icon: "✦", description: "Absolutely positioned images that float over the layout." },
   { value: "video", label: "Video", icon: "V", description: "Embeddable videos from YouTube, Vimeo, or uploaded files." },
   { value: "quote", label: "Quote", icon: "Q", description: "Pull quotes, testimonials, and callouts." },
+  {
+    value: "speech-bubble",
+    label: "Speech Bubble",
+    icon: "💬",
+    description: "Normie speech callouts with a tail pointing toward the character."
+  },
   { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
   { value: "contact-form", label: "Contact Forms", icon: "CF", description: "Lead capture forms with simple presets." },
   { value: "player-portal", label: "Player Portal", icon: "PP", description: "Player login and registration on any page." },
@@ -76,7 +82,7 @@ export const modulePaletteGroups: Array<{
     value: "special-effects",
     label: "Special Effects",
     icon: "🪄",
-    description: "Celebration bursts and other scripted visual effects."
+    description: "Saved celebration and game-layer effects from your module repository."
   }
 ];
 
@@ -253,6 +259,27 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     settings: { variant: "embed", url: "", videoName: "", videoDescription: "" }
   },
   {
+    id: "speech-bubble-normie",
+    type: "speech-bubble",
+    group: "speech-bubble",
+    label: "Speech Bubble",
+    icon: "💬",
+    description: "Rounded callout with a tail for Normie dialogue.",
+    name: "",
+    text: "<p>Hi! I'm Normie.</p>",
+    settings: {
+      backgroundColor: "#ffffff",
+      borderColor: "#9ed4ee",
+      borderThickness: "2",
+      textColor: "#18324a",
+      borderRadius: "40",
+      trigger: "game",
+      offsetX: "0",
+      offsetY: "0",
+      zIndex: "10"
+    }
+  },
+  {
     id: "quote-pull",
     type: "quote",
     group: "quote",
@@ -420,16 +447,5 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "",
     text: "",
     settings: { variant: "standard" }
-  },
-  {
-    id: "special-effects-confetti",
-    type: "confetti",
-    group: "special-effects",
-    label: "Confetti",
-    icon: "🪄",
-    description: "Canvas confetti burst with adjustable particle settings.",
-    name: "Confetti",
-    text: "",
-    settings: {}
   }
 ];

@@ -25,7 +25,7 @@ import {
   type BuilderTemplateSection
 } from "@/lib/builder-template";
 import type { BuilderEmailFunction } from "@/lib/builder-email-template";
-import { getDefaultEmailTemplateName } from "@/lib/builder-email-template";
+import { inferModuleClassFromBuilderModules, resolveModuleClassForBuilderModule } from "@/lib/module-class-triggers";
 
 import type { GalleryTarget, ModulePaletteGroup, ModulePaletteItem } from "./builder/builder-types";
 import { layoutOptions } from "./builder/builder-types";
@@ -35,7 +35,10 @@ import { BuilderPageList } from "./builder/builder-page-list";
 import { BuilderModuleRepositoryList, type CreatedModuleSource } from "./builder/builder-module-repository-list";
 import { BuilderSectionCard } from "./builder/builder-section-card";
 import { BuilderGalleryModal } from "./builder/builder-gallery-modal";
-import { BuilderModulePaletteModal } from "./builder/builder-module-palette-modal";
+import {
+  BuilderModulePaletteModal,
+  type ModulePaletteAnchor
+} from "./builder/builder-module-palette-modal";
 
 type AdminApiPayload = {
   error?: string;
@@ -85,9 +88,11 @@ export function AdminBuilderEditor() {
   const [isModulePaletteOpen, setIsModulePaletteOpen] = useState(false);
   const [galleryTarget, setGalleryTarget] = useState<GalleryTarget | null>(null);
   const [modulePaletteTarget, setModulePaletteTarget] = useState<{ sectionId: string; column: string } | null>(null);
+  const [modulePaletteAnchor, setModulePaletteAnchor] = useState<ModulePaletteAnchor | null>(null);
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
   const [collapsedBuilderPanels, setCollapsedBuilderPanels] = useState({
     rowConfigurations: true,
+    rows: false,
     workspace: true
   });
   const [savedSectionSelectKey, setSavedSectionSelectKey] = useState(0);
@@ -660,7 +665,7 @@ export function AdminBuilderEditor() {
     const name = window.prompt("Name this saved module", fallbackName)?.trim();
     if (!name) return;
 
-    const moduleClass = promptForModuleClass(builderModule.type);
+    const moduleClass = promptForModuleClass(resolveModuleClassForBuilderModule(builderModule));
     if (moduleClass === null) return;
 
     try {
@@ -710,6 +715,35 @@ export function AdminBuilderEditor() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function cloneSavedModules(modules: BuilderTemplateModule[]) {
+    const timestamp = Date.now();
+    return modules.map((module, index) => ({
+      ...module,
+      id: `${module.type}-${timestamp}-${index}`,
+      settings: { ...module.settings }
+    }));
+  }
+
+  async function cloneSavedModule(cellModuleId: string) {
+    const source = cellModules.find((cellModule) => cellModule.id === cellModuleId);
+    if (!source || source.modules.length === 0) {
+      return;
+    }
+
+    const baseName = source.name?.trim() || "Untitled saved module";
+    await createSavedModule(`${baseName} (copy)`, source.moduleClass?.trim() ?? "", cloneSavedModules(source.modules));
+  }
+
+  async function cloneCreatedModule(module: BuilderTemplateModule, moduleLabel: string) {
+    const baseName = moduleLabel.trim() || module.name?.trim() || module.type;
+
+    await createSavedModule(
+      `${baseName} (copy)`,
+      inferModuleClassFromBuilderModules([module]),
+      cloneSavedModules([module])
+    );
   }
 
   async function createSavedModule(name: string, moduleClass: string, modules: BuilderTemplateModule[]) {
@@ -1125,14 +1159,20 @@ export function AdminBuilderEditor() {
     setIsGalleryOpen(true);
   }
 
-  function openModulePalette(sectionId: string, column: string) {
+  function openModulePalette(sectionId: string, column: string, anchor?: ModulePaletteAnchor) {
     setModulePaletteTarget({ sectionId, column });
+    setModulePaletteAnchor(anchor ?? null);
     setActiveModuleGroup(null);
     setIsModulePaletteOpen(true);
   }
 
   function closeGallery() { setIsGalleryOpen(false); setGalleryTarget(null); }
-  function closeModulePalette() { setIsModulePaletteOpen(false); setModulePaletteTarget(null); setActiveModuleGroup(null); }
+  function closeModulePalette() {
+    setIsModulePaletteOpen(false);
+    setModulePaletteTarget(null);
+    setModulePaletteAnchor(null);
+    setActiveModuleGroup(null);
+  }
 
   function selectGalleryImage(imagePath: string) {
     if (!galleryTarget) return;
@@ -1425,6 +1465,8 @@ export function AdminBuilderEditor() {
           onDeleteCreatedModule={(source, name) => void deleteCreatedModule(source, name)}
           onDeleteSavedModule={(id, name) => void deleteSavedModule(id, name)}
           onDeleteSavedSection={(id, name) => void deleteSavedSection(id, name)}
+          onCloneCreatedModule={(module, moduleLabel) => void cloneCreatedModule(module, moduleLabel)}
+          onCloneSavedModule={(id) => void cloneSavedModule(id)}
           onCreateSavedModule={(name, moduleClass, modules) => void createSavedModule(name, moduleClass, modules)}
           onSaveCreatedModule={(source, module) => void saveCreatedModule(source, module)}
           onSaveSavedModule={(id, name, moduleClass, modules) => void saveSavedModule(id, name, moduleClass, modules)}
@@ -1457,40 +1499,7 @@ export function AdminBuilderEditor() {
 
       {builderMode !== "modules" ? (
         <>
-          <div className="builder-toolbar-shell">
-            <button
-              aria-expanded={!collapsedBuilderPanels.rowConfigurations}
-              className="builder-panel-toggle"
-              onClick={() => toggleBuilderPanel("rowConfigurations")}
-              type="button"
-            >
-              <span className="panel-label">Row Layouts</span>
-              <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rowConfigurations ? "▸" : "▾"}</span>
-            </button>
-            {!collapsedBuilderPanels.rowConfigurations ? (
-              <div className="builder-layout-toolbar">
-                {layoutOptions.map((layout) => renderLayoutTile(layout))}
-                <label className="field builder-cell-repository-select">
-                  <select
-                    key={savedSectionSelectKey}
-                    defaultValue=""
-                    onChange={handleSavedSectionSelect}
-                  >
-                    <option disabled value="">
-                      Saved Section
-                    </option>
-                    {savedSections.map((savedSection) => (
-                      <option key={savedSection.id} value={savedSection.id}>
-                        {savedSection.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="builder-toolbar-shell">
+          <div className="builder-toolbar-shell builder-workspace-shell">
             <button
               aria-expanded={!collapsedBuilderPanels.workspace}
               className="builder-panel-toggle"
@@ -1501,13 +1510,58 @@ export function AdminBuilderEditor() {
               <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.workspace ? "▸" : "▾"}</span>
             </button>
             {!collapsedBuilderPanels.workspace ? (
-              <div
-                className={`builder-main builder-workspace ${isEmailTemplateDraft ? "builder-email-workspace" : ""} ${dragOverWorkspace ? "is-drag-over" : ""}`}
-                style={getBuilderBackgroundStyle(draft.pageBackground)}
-                onDragOver={(event) => { event.preventDefault(); setDragOverWorkspace(true); }}
-                onDragLeave={() => setDragOverWorkspace(false)}
-                onDrop={handleWorkspaceDrop}
-              >
+              <div className="builder-workspace-pods">
+                <div className="builder-toolbar-shell builder-workspace-nested-pod">
+                  <button
+                    aria-expanded={!collapsedBuilderPanels.rowConfigurations}
+                    className="builder-panel-toggle"
+                    onClick={() => toggleBuilderPanel("rowConfigurations")}
+                    type="button"
+                  >
+                    <span className="panel-label">Row Layouts</span>
+                    <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rowConfigurations ? "▸" : "▾"}</span>
+                  </button>
+                  {!collapsedBuilderPanels.rowConfigurations ? (
+                    <div className="builder-layout-toolbar">
+                      {layoutOptions.map((layout) => renderLayoutTile(layout))}
+                      <label className="field builder-cell-repository-select">
+                        <select
+                          key={savedSectionSelectKey}
+                          defaultValue=""
+                          onChange={handleSavedSectionSelect}
+                        >
+                          <option disabled value="">
+                            Saved Section
+                          </option>
+                          {savedSections.map((savedSection) => (
+                            <option key={savedSection.id} value={savedSection.id}>
+                              {savedSection.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="builder-toolbar-shell builder-workspace-nested-pod">
+                  <button
+                    aria-expanded={!collapsedBuilderPanels.rows}
+                    className="builder-panel-toggle"
+                    onClick={() => toggleBuilderPanel("rows")}
+                    type="button"
+                  >
+                    <span className="panel-label">Rows</span>
+                    <span className="builder-panel-toggle-icon">{collapsedBuilderPanels.rows ? "▸" : "▾"}</span>
+                  </button>
+                  {!collapsedBuilderPanels.rows ? (
+                    <div
+                      className={`builder-main builder-workspace ${isEmailTemplateDraft ? "builder-email-workspace" : ""} ${dragOverWorkspace ? "is-drag-over" : ""}`}
+                      style={getBuilderBackgroundStyle(draft.pageBackground)}
+                      onDragOver={(event) => { event.preventDefault(); setDragOverWorkspace(true); }}
+                      onDragLeave={() => setDragOverWorkspace(false)}
+                      onDrop={handleWorkspaceDrop}
+                    >
                 {isEmailTemplateDraft ? (
                   <div className="builder-email-workspace-pod">
                     {draft.layoutSections.length === 0 ? (
@@ -1560,7 +1614,7 @@ export function AdminBuilderEditor() {
                             }
                             onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
                             onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}
-                            onOpenModulePalette={(col) => openModulePalette(section.id, col)}
+                            onOpenModulePalette={(col, anchor) => openModulePalette(section.id, col, anchor)}
                           />
                         ))}
                       </div>
@@ -1569,7 +1623,7 @@ export function AdminBuilderEditor() {
                 ) : draft.layoutSections.length === 0 ? (
                   <div className="builder-workspace-empty">
                     <div className="builder-workspace-empty-title">Drop a row onto the workspace</div>
-                    <div className="builder-workspace-empty-copy">Drag a row layout from the toolbar above, or click one to add it instantly.</div>
+                    <div className="builder-workspace-empty-copy">Drag a row layout from Row Layouts above, or click one to add it instantly.</div>
                   </div>
                 ) : (
                   <div className="builder-sections">
@@ -1616,11 +1670,14 @@ export function AdminBuilderEditor() {
                         }
                         onOpenSectionBackgroundGallery={() => openSectionBackgroundGallery(section.id)}
                         onUploadSectionBackgroundMedia={(file) => uploadMediaForSectionBackground(section.id, file)}
-                        onOpenModulePalette={(col) => openModulePalette(section.id, col)}
+                        onOpenModulePalette={(col, anchor) => openModulePalette(section.id, col, anchor)}
                       />
                     ))}
                   </div>
                 )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
@@ -1647,10 +1704,17 @@ export function AdminBuilderEditor() {
       {isModulePaletteOpen ? (
         <BuilderModulePaletteModal
           activeGroup={activeModuleGroup}
+          anchor={modulePaletteAnchor}
+          cellModules={cellModules}
           onSelectGroup={setActiveModuleGroup}
           onSelectItem={(item) => {
             if (!modulePaletteTarget) return;
             addModuleFromPalette(modulePaletteTarget.sectionId, modulePaletteTarget.column, item);
+            closeModulePalette();
+          }}
+          onSelectSavedModule={(cellModuleId) => {
+            if (!modulePaletteTarget) return;
+            insertSavedModule(modulePaletteTarget.sectionId, modulePaletteTarget.column, cellModuleId);
             closeModulePalette();
           }}
           onClose={closeModulePalette}

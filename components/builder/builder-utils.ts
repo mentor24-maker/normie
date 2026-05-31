@@ -8,6 +8,7 @@ import type {
   BuilderTemplateSection
 } from "@/lib/builder-template";
 import type { BuilderEmailFunction } from "@/lib/builder-email-template";
+import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import {
   createDefaultBackgroundSettings,
   getBuilderBackgroundStyle,
@@ -171,6 +172,32 @@ export function getImageModuleStyle(settings: Record<string, string>): CSSProper
     }`,
     borderRadius: `${Math.max(Number.isFinite(borderRadius) ? borderRadius : 18, 0)}px`
   };
+}
+
+export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CSSProperties {
+  const borderRadius = Math.max(0, Number.parseInt(settings.borderRadius ?? "40", 10) || 40);
+  const borderThickness = Math.max(0, Number.parseInt(settings.borderThickness ?? "2", 10) || 2);
+  const offsetX = Number.parseInt(normalizeSignedOffsetValue(settings.offsetX, "0"), 10);
+  const offsetY = Number.parseInt(normalizeSignedOffsetValue(settings.offsetY, "0"), 10);
+  const zIndex = Number.parseInt(settings.zIndex ?? "10", 10);
+  const resolvedOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+  const resolvedOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
+  const resolvedZIndex = Number.isFinite(zIndex) ? zIndex : 10;
+
+  return {
+    "--speech-bubble-bg": normalizeBuilderHexColor(settings.backgroundColor || "#ffffff"),
+    "--speech-bubble-border": normalizeBuilderHexColor(settings.borderColor || "#9ed4ee"),
+    "--speech-bubble-border-width": `${borderThickness}px`,
+    "--speech-bubble-radius": `${borderRadius}px`,
+    "--speech-bubble-text": normalizeBuilderHexColor(settings.textColor || "#18324a"),
+    color: normalizeBuilderHexColor(settings.textColor || "#18324a"),
+    position: "relative",
+    zIndex: resolvedZIndex,
+    transform:
+      resolvedOffsetX !== 0 || resolvedOffsetY !== 0
+        ? `translate(${resolvedOffsetX}px, ${-resolvedOffsetY}px)`
+        : undefined
+  } as CSSProperties;
 }
 
 export function getFloatingImageModuleStyle(settings: Record<string, string>): CSSProperties {

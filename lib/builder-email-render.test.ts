@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultBackgroundSettings, createEmptyModule, createEmptySection } from "@/lib/builder-template";
 import type { BuilderTemplateRecord } from "@/lib/builder-template";
-import { renderBuilderEmailHtml } from "@/lib/builder-email-render";
+import { renderBuilderEmailHtml, renderBuilderEmailHtmlWithFallback } from "@/lib/builder-email-render";
 import { applyAuthEmailMergeFields } from "@/lib/supabase-auth-email";
 
 describe("renderBuilderEmailHtml", () => {
@@ -39,6 +39,24 @@ describe("renderBuilderEmailHtml", () => {
 
     expect(html).toContain("Confirm Your Email");
     expect(html).toContain("https://example.supabase.co/auth/v1/verify?token=abc&type=signup");
+    expect(html).not.toContain("{{ .ConfirmationURL }}");
+  });
+
+  it("renders a styled password reset fallback when no builder template exists", () => {
+    const html = renderBuilderEmailHtmlWithFallback(
+      null,
+      {
+        confirmationUrl: "https://example.supabase.co/auth/v1/verify?token=abc&type=recovery",
+        email: "player@example.com",
+        siteUrl: "https://normie.one"
+      },
+      "password_reset"
+    );
+
+    expect(html).toContain("Reset your password");
+    expect(html).toContain("Reset Password");
+    expect(html).toContain("https://example.supabase.co/auth/v1/verify?token=abc&type=recovery");
+    expect(html).toContain("https://normie.one/api/brand/normie-logo");
     expect(html).not.toContain("{{ .ConfirmationURL }}");
   });
 });

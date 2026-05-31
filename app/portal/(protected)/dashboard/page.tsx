@@ -33,6 +33,7 @@ export default async function PlayerDashboardPage() {
       <PlayerPortalLevelUpCelebration
         levelEvents={snapshot.levelEvents}
         pendingLevelUpCount={Number.isFinite(pendingLevelUpCount) ? pendingLevelUpCount : null}
+        progressPollsTaken={snapshot.pollsTaken}
         rewardTrack={snapshot.rewardTrack}
       />
       <section className="player-dashboard-grid">

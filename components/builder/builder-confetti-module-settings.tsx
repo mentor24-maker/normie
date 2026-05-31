@@ -5,8 +5,6 @@ import {
   buildConfettiOriginSelectOptions,
   CONFETTI_EFFECT_DEFAULTS,
   CONFETTI_SOUND_OPTIONS,
-  CONFETTI_TRIGGER_OPTIONS,
-  getConfettiTrigger,
   normalizeConfettiModuleSettings
 } from "@/lib/confetti-effect";
 import { BuilderNumberSelectControl } from "./builder-inline-number-select";
@@ -24,8 +22,6 @@ export function BuilderConfettiModuleSettings({
   onUpdateModule
 }: BuilderConfettiModuleSettingsProps) {
   const settings = normalizeConfettiModuleSettings(module.settings);
-  const trigger = getConfettiTrigger(module.settings);
-  const showButtonLabel = trigger === "button";
 
   function updateSettings(updates: Record<string, string>) {
     onUpdateModule((current) => ({
@@ -36,36 +32,6 @@ export function BuilderConfettiModuleSettings({
 
   return (
     <div className="builder-confetti-module-settings">
-      <BuilderSettingRow label="Trigger" fullWidth>
-        <select
-          value={settings.trigger}
-          onChange={(event) => updateSettings({ trigger: event.target.value })}
-        >
-          {CONFETTI_TRIGGER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </BuilderSettingRow>
-
-      {trigger === "game" ? (
-        <p className="panel-copy builder-confetti-game-trigger-note">
-          No button is shown on the live page. The game layer calls this module when the player levels up or
-          meets your criteria.
-        </p>
-      ) : null}
-
-      {showButtonLabel ? (
-        <BuilderSettingRow label="Button Label" fullWidth>
-          <input
-            onChange={(event) => updateSettings({ buttonLabel: event.target.value })}
-            type="text"
-            value={settings.buttonLabel}
-          />
-        </BuilderSettingRow>
-      ) : null}
-
       <BuilderSettingRow label="Particle Count" fullWidth>
         <BuilderNumberSelectControl
           value={settings.particleCount}

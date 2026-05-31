@@ -7,6 +7,7 @@ import {
   getModuleWidthStyle,
   getOverlayFlowCollapsedModuleStyle,
   getOverlayFlowCollapsedSectionStyle,
+  getSpeechBubbleModuleStyle,
   isFloatingImageModule,
   isOverlayImageModule,
   sectionHasOnlyOverlayImageModules
@@ -98,6 +99,27 @@ describe("getImageModuleShellStyle", () => {
 
     expect(style.transform).toContain("translate(calc(-50% + 0px), calc(-50% + 0px))");
     expect(style.transform).toContain("translate(-6px, -10px)");
+  });
+});
+
+describe("getSpeechBubbleModuleStyle", () => {
+  it("nudges speech bubbles using signed horizontal and vertical offsets", () => {
+    const style = getSpeechBubbleModuleStyle({
+      offsetX: "24",
+      offsetY: "-40"
+    });
+
+    expect(style.transform).toBe("translate(24px, 40px)");
+    expect(style.zIndex).toBe(10);
+  });
+
+  it("leaves transform unset when both offsets are zero", () => {
+    const style = getSpeechBubbleModuleStyle({
+      offsetX: "0",
+      offsetY: "0"
+    });
+
+    expect(style.transform).toBeUndefined();
   });
 });
 

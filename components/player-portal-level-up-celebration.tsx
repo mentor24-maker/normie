@@ -20,6 +20,7 @@ export function markPlayerLevelUpCheckPending(completedLevelRewards: number): vo
 type PlayerPortalLevelUpCelebrationProps = {
   levelEvents: PlayerPortalLevelEvent[];
   pendingLevelUpCount?: number | null;
+  progressPollsTaken: number;
   rewardTrack: PlayerPortalRewardTrack;
 };
 
@@ -34,6 +35,7 @@ function clearPendingLevelUpCookie() {
 export function PlayerPortalLevelUpCelebration({
   levelEvents,
   pendingLevelUpCount,
+  progressPollsTaken,
   rewardTrack
 }: PlayerPortalLevelUpCelebrationProps) {
   useEffect(() => {
@@ -43,6 +45,7 @@ export function PlayerPortalLevelUpCelebration({
 
     appendPlayerLevelUpDiagnostic("pending-cookie.detected", {
       pendingLevelUpCount,
+      progressPollsTaken,
       completedLevelRewards: rewardTrack.completedLevelRewards
     });
     clearPendingLevelUpCookie();
@@ -53,16 +56,17 @@ export function PlayerPortalLevelUpCelebration({
         levelEvents: levelEvents.length,
         pendingLevelUpCount,
         completedCount,
+        progressPollsTaken,
         completedLevelRewards: rewardTrack.completedLevelRewards
       });
-      void firePlayerLevelUpGameEvents(levelEvents, rewardTrack.completedLevelRewards);
+      void firePlayerLevelUpGameEvents(levelEvents, progressPollsTaken);
     } else {
       appendPlayerLevelUpDiagnostic("pending-cookie.waiting-for-dashboard-count", {
         pendingLevelUpCount,
         completedCount
       });
     }
-  }, [levelEvents, pendingLevelUpCount, rewardTrack.completedLevelRewards]);
+  }, [levelEvents, pendingLevelUpCount, progressPollsTaken, rewardTrack.completedLevelRewards]);
 
   useEffect(() => {
     const pendingValue = sessionStorage.getItem(LEVEL_UP_CHECK_STORAGE_KEY);
@@ -82,16 +86,17 @@ export function PlayerPortalLevelUpCelebration({
       appendPlayerLevelUpDiagnostic("session-check.fire-confetti", {
         levelEvents: levelEvents.length,
         previousCompletedRewards,
+        progressPollsTaken,
         completedLevelRewards: rewardTrack.completedLevelRewards
       });
-      void firePlayerLevelUpGameEvents(levelEvents, rewardTrack.completedLevelRewards);
+      void firePlayerLevelUpGameEvents(levelEvents, progressPollsTaken);
     } else {
       appendPlayerLevelUpDiagnostic("session-check.no-fire", {
         previousCompletedRewards,
         completedLevelRewards: rewardTrack.completedLevelRewards
       });
     }
-  }, [levelEvents, rewardTrack.completedLevelRewards, rewardTrack.levelName, rewardTrack.sublevelName]);
+  }, [levelEvents, progressPollsTaken, rewardTrack.completedLevelRewards, rewardTrack.levelName, rewardTrack.sublevelName]);
 
   return null;
 }

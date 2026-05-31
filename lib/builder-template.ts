@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { normalizeEmailFunction, type BuilderEmailFunction } from "@/lib/builder-email-template";
 import { CONFETTI_EFFECT_DEFAULTS, normalizeConfettiModuleSettings } from "@/lib/confetti-effect";
 import { normalizeCurrentPollModuleWidth } from "@/lib/current-poll-module";
+import { normalizeModuleTrigger, MODULE_TRIGGER_SETTING_KEY } from "@/lib/module-trigger";
 import { sanitizeCellBackgroundForDrillDown } from "@/lib/builder-drill-down-surface";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import {
@@ -33,6 +34,7 @@ export type BuilderTemplateModuleType =
   | "floating-image"
   | "video"
   | "quote"
+  | "speech-bubble"
   | "button"
   | "contact-form"
   | "player-portal"
@@ -512,6 +514,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "floating-image" ||
     type === "video" ||
     type === "quote" ||
+    type === "speech-bubble" ||
     type === "button" ||
     type === "contact-form" ||
     type === "player-portal" ||
@@ -586,7 +589,7 @@ export function resolveBuilderModuleType(
   return type;
 }
 
-function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: unknown) {
+export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModuleType, value: unknown) {
   const settings = normalizeModuleSettings(value);
 
   if (type === "navigation") {
@@ -623,6 +626,18 @@ function normalizeModuleSettingsForType(type: BuilderTemplateModuleType, value: 
     return normalizeConfettiModuleSettings(settings);
   }
 
+  if (type === "speech-bubble") {
+    settings.backgroundColor = normalizeBuilderHexColor(settings.backgroundColor || "#ffffff");
+    settings.borderColor = normalizeBuilderHexColor(settings.borderColor || "#9ed4ee");
+    settings.textColor = normalizeBuilderHexColor(settings.textColor || "#18324a");
+    settings.borderRadius = normalizeSpacingValue(settings.borderRadius, "40", 0, 80);
+    settings.borderThickness = normalizeSpacingValue(settings.borderThickness, "2", 0, 24);
+    settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
+    settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");
+    settings.zIndex = normalizeSpacingValue(settings.zIndex, "10", -999, 999999);
+    settings[MODULE_TRIGGER_SETTING_KEY] = normalizeModuleTrigger(settings[MODULE_TRIGGER_SETTING_KEY] ?? "game");
+  }
+
   if (type === "headline-rotator") {
     settings.headlines = normalizeHeadlineRotatorHeadlinesJson(
       settings.headlines ?? "",
@@ -656,7 +671,7 @@ function normalizeBuilderModuleFromRecord(
     column: safeText(module.column, 40) || fallbackColumn,
     name: safeText(module.name, 255),
     text: safeText(module.text, 10000),
-    settings: normalizeModuleSettingsForType(type, rawSettings)
+    settings: normalizeBuilderModuleSettingsForType(type, rawSettings)
   };
 }
 
@@ -928,6 +943,18 @@ export function createEmptyModule(
           videoName: "",
           videoDescription: ""
         }
+      : type === "speech-bubble"
+        ? {
+            backgroundColor: "#ffffff",
+            borderColor: "#9ed4ee",
+            borderThickness: "2",
+            textColor: "#18324a",
+            borderRadius: "40",
+            trigger: "game",
+            offsetX: "0",
+            offsetY: "0",
+            zIndex: "10"
+          }
       : type === "button"
         ? {
             href: "",

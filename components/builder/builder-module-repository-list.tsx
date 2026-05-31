@@ -9,33 +9,25 @@ import type {
   BuilderTemplateModule,
   BuilderTemplateSection
 } from "@/lib/builder-template";
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createDefaultBackgroundSettings, createEmptyModule, normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { BuilderGalleryModal } from "./builder-gallery-modal";
 import { BuilderModuleCard } from "./builder-module-card";
-import { BuilderModulePaletteModal } from "./builder-module-palette-modal";
+import { BuilderModulePaletteModal, type ModulePaletteAnchor } from "./builder-module-palette-modal";
 import { BuilderSectionCard } from "./builder-section-card";
 import { formatTemplateTimestamp } from "./builder-utils";
-import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
+import { layoutOptions, modulePaletteGroups, modulePaletteItems } from "./builder-types";
+import {
+  BUILDER_MODULE_CLASS_OPTIONS,
+  getBuilderModuleClassOptions,
+  inferModuleClassFromBuilderModules,
+  resolveModuleClassForBuilderModule,
+  resolveSavedModuleClass
+} from "@/lib/module-class-triggers";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
 
-const builderModuleClassOptions = [
-  ...modulePaletteGroups.map((group) => group.label),
-  "Layout",
-  "Content",
-  "Media",
-  "Game",
-  "Custom"
-].filter((value, index, values) => values.indexOf(value) === index);
-
 function getModuleClassOptions(currentValue: string) {
-  const trimmedValue = currentValue.trim();
-
-  if (!trimmedValue || builderModuleClassOptions.includes(trimmedValue)) {
-    return builderModuleClassOptions;
-  }
-
-  return [trimmedValue, ...builderModuleClassOptions];
+  return getBuilderModuleClassOptions(currentValue);
 }
 
 type BuilderModuleRepositoryListProps = {
@@ -48,9 +40,11 @@ type BuilderModuleRepositoryListProps = {
   templates: BuilderTemplateRecord[];
   isSaving: boolean;
   onSaveCreatedModule: (source: CreatedModuleSource, module: BuilderTemplateModule) => void;
+  onCloneCreatedModule: (module: BuilderTemplateModule, moduleLabel: string) => void;
   onDeleteCreatedModule: (source: CreatedModuleSource, moduleName: string) => void;
   onSaveSavedModule: (cellModuleId: string, name: string, moduleClass: string, modules: BuilderTemplateModule[]) => void;
   onCreateSavedModule: (name: string, moduleClass: string, modules: BuilderTemplateModule[]) => void;
+  onCloneSavedModule: (cellModuleId: string) => void;
   onDeleteSavedModule: (cellModuleId: string, currentName: string) => void;
   onSaveSavedSection: (sectionId: string, name: string, section: BuilderTemplateSection) => void;
   onDeleteSavedSection: (sectionId: string, currentName: string) => void;
@@ -80,27 +74,210 @@ function getModuleSummary(cellModule: BuilderCellModuleRecord) {
 }
 
 function getInferredModuleClass(modules: BuilderTemplateModule[]) {
-  if (modules.length !== 1) {
-    return "Layout";
-  }
+  return inferModuleClassFromBuilderModules(modules);
+}
 
-  const moduleType = modules[0]?.type;
-  const paletteItem = modulePaletteItems.find((item) => item.type === moduleType);
-  const paletteGroup = modulePaletteGroups.find((group) => group.value === (paletteItem?.group ?? moduleType));
-
-  return paletteGroup?.label ?? moduleType;
+function getDisplayModuleClassForModule(module: BuilderTemplateModule) {
+  return resolveModuleClassForBuilderModule(module) || "Unclassified";
 }
 
 function getDisplayModuleClass(cellModule: BuilderCellModuleRecord) {
-  return cellModule.moduleClass || getInferredModuleClass(cellModule.modules) || "Unclassified";
+  return resolveSavedModuleClass(cellModule.moduleClass, cellModule.modules) || "Unclassified";
+}
+
+function stripRichTextPreview(value: string): string {
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const MODULE_TYPE_LABELS = new Map(modulePaletteGroups.map((group) => [group.value, group.label]));
+
+function formatBuilderModuleTypeLabel(type: string): string {
+  const normalized = type.trim().toLowerCase();
+
+  if (MODULE_TYPE_LABELS.has(normalized as ModulePaletteGroup)) {
+    return MODULE_TYPE_LABELS.get(normalized as ModulePaletteGroup) ?? type;
+  }
+
+  return normalized
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatSectionTitle(sectionTitle: string): string {
+  const trimmed = sectionTitle.trim();
+
+  if (!trimmed) {
+    return "Untitled Section";
+  }
+
+  return layoutOptions.find((option) => option.value === trimmed)?.label ?? trimmed;
+}
+
+function CrudTruncateCell({ text, title }: { text: string; title?: string }) {
+  const resolvedTitle = title ?? text;
+
+  return (
+    <span className="builder-crud-truncate" title={resolvedTitle}>
+      {text}
+    </span>
+  );
 }
 
 function getModuleLabel(module: BuilderTemplateModule) {
-  return module.name || module.text || module.settings.label || module.type;
+  const name = module.name?.trim();
+
+  if (name) {
+    return name;
+  }
+
+  const settingsLabel = module.settings.label?.trim();
+
+  if (settingsLabel) {
+    return settingsLabel;
+  }
+
+  const textPreview = stripRichTextPreview(module.text || "");
+
+  if (textPreview) {
+    return textPreview;
+  }
+
+  return formatBuilderModuleTypeLabel(module.type);
 }
 
 function getCreatedModuleSourceLabel(item: CreatedModuleRecord) {
-  return `${item.kind === "template" ? "Template" : "Page"}: ${item.sourceName}`;
+  const kindLabel = item.kind === "template" ? "Template" : "Page";
+  const sourceName = item.sourceName?.trim() || "Untitled";
+
+  return `${kindLabel}: ${sourceName}`;
+}
+
+type CreatedModuleFilters = {
+  module: string;
+  type: string;
+  section: string;
+  className: string;
+  updated: string;
+};
+
+const EMPTY_CREATED_MODULE_FILTERS: CreatedModuleFilters = {
+  module: "",
+  type: "",
+  section: "",
+  className: "",
+  updated: ""
+};
+
+function getCreatedModuleFilterOptions(items: CreatedModuleRecord[]) {
+  const types = new Set<string>();
+  const sections = new Set<string>();
+
+  for (const item of items) {
+    types.add(formatBuilderModuleTypeLabel(item.module.type));
+    sections.add(formatSectionTitle(item.sectionTitle));
+  }
+
+  return {
+    types: [...types].sort((a, b) => a.localeCompare(b)),
+    classes: BUILDER_MODULE_CLASS_OPTIONS,
+    sections: [...sections].sort((a, b) => a.localeCompare(b))
+  };
+}
+
+function matchesCreatedModuleFilters(item: CreatedModuleRecord, filters: CreatedModuleFilters) {
+  const moduleLabel = getModuleLabel(item.module);
+  const moduleTypeLabel = formatBuilderModuleTypeLabel(item.module.type);
+  const sectionLabel = formatSectionTitle(item.sectionTitle);
+  const moduleClassLabel = getDisplayModuleClassForModule(item.module);
+  const moduleQuery = filters.module.trim().toLowerCase();
+  const updatedQuery = filters.updated.trim().toLowerCase();
+  const updatedLabel = formatTemplateTimestamp(item.updatedAt).toLowerCase();
+
+  if (moduleQuery && !moduleLabel.toLowerCase().includes(moduleQuery)) {
+    return false;
+  }
+
+  if (filters.type && moduleTypeLabel !== filters.type) {
+    return false;
+  }
+
+  if (filters.section && sectionLabel !== filters.section) {
+    return false;
+  }
+
+  if (filters.className && moduleClassLabel !== filters.className) {
+    return false;
+  }
+
+  if (updatedQuery && !updatedLabel.includes(updatedQuery) && !item.updatedAt.toLowerCase().includes(updatedQuery)) {
+    return false;
+  }
+
+  return true;
+}
+
+type CreatedModuleSortKey = "module" | "type" | "section" | "moduleClass" | "updated";
+type SortDirection = "asc" | "desc";
+
+function getCreatedModuleRowValues(item: CreatedModuleRecord) {
+  return {
+    module: getModuleLabel(item.module),
+    type: formatBuilderModuleTypeLabel(item.module.type),
+    section: formatSectionTitle(item.sectionTitle),
+    moduleClass: getDisplayModuleClassForModule(item.module)
+  };
+}
+
+function compareCreatedModuleRecords(
+  left: CreatedModuleRecord,
+  right: CreatedModuleRecord,
+  sortKey: CreatedModuleSortKey,
+  sortDirection: SortDirection
+) {
+  if (sortKey === "updated") {
+    const result = left.updatedAt.localeCompare(right.updatedAt);
+
+    return sortDirection === "asc" ? result : -result;
+  }
+
+  const leftValue = getCreatedModuleRowValues(left)[sortKey];
+  const rightValue = getCreatedModuleRowValues(right)[sortKey];
+  const result = leftValue.localeCompare(rightValue, undefined, { sensitivity: "base" });
+
+  return sortDirection === "asc" ? result : -result;
+}
+
+function BuilderCrudSortButton({
+  activeSortKey,
+  label,
+  onSort,
+  sortDirection,
+  sortKey
+}: {
+  activeSortKey: CreatedModuleSortKey;
+  label: string;
+  onSort: (key: CreatedModuleSortKey) => void;
+  sortDirection: SortDirection;
+  sortKey: CreatedModuleSortKey;
+}) {
+  const isActive = activeSortKey === sortKey;
+  const indicator = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
+
+  return (
+    <button
+      aria-label={`Sort by ${label}`}
+      className={`admin-table-sort-button${isActive ? " is-active" : ""}`}
+      onClick={() => onSort(sortKey)}
+      type="button"
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="admin-table-sort-indicator">
+        {indicator}
+      </span>
+    </button>
+  );
 }
 
 function getCreatedModules(templates: BuilderTemplateRecord[], pages: BuilderPageRecord[]): CreatedModuleRecord[] {
@@ -135,7 +312,7 @@ function getCreatedModules(templates: BuilderTemplateRecord[], pages: BuilderPag
     )
   );
 
-  return [...templateModules, ...pageModules].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return [...templateModules, ...pageModules];
 }
 
 function CreatedModulesTable({
@@ -156,6 +333,7 @@ function CreatedModulesTable({
   onOpenEditingCreatedModuleGallery,
   onOpenEditingCreatedSocialIconGallery,
   onSaveCreatedModule,
+  onCloneCreatedModule,
   onDeleteCreatedModule
 }: {
   emptyLabel: string;
@@ -175,8 +353,33 @@ function CreatedModulesTable({
   onOpenEditingCreatedModuleGallery: () => void;
   onOpenEditingCreatedSocialIconGallery: (itemId: string) => void;
   onSaveCreatedModule: BuilderModuleRepositoryListProps["onSaveCreatedModule"];
+  onCloneCreatedModule: BuilderModuleRepositoryListProps["onCloneCreatedModule"];
   onDeleteCreatedModule: BuilderModuleRepositoryListProps["onDeleteCreatedModule"];
 }) {
+  const [filters, setFilters] = useState<CreatedModuleFilters>(EMPTY_CREATED_MODULE_FILTERS);
+  const [sortKey, setSortKey] = useState<CreatedModuleSortKey>("module");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const filterOptions = useMemo(() => getCreatedModuleFilterOptions(items), [items]);
+  const visibleItems = useMemo(() => {
+    const filtered = items.filter((item) => matchesCreatedModuleFilters(item, filters));
+
+    return [...filtered].sort((left, right) => compareCreatedModuleRecords(left, right, sortKey, sortDirection));
+  }, [filters, items, sortDirection, sortKey]);
+
+  function updateFilter<K extends keyof CreatedModuleFilters>(key: K, value: CreatedModuleFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSort(nextKey: CreatedModuleSortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextKey);
+    setSortDirection("asc");
+  }
+
   return (
     <div className="builder-toolbar-shell">
       <button
@@ -189,33 +392,179 @@ function CreatedModulesTable({
         <span className="builder-panel-toggle-icon">{isCollapsed ? "▸" : "▾"}</span>
       </button>
       {!isCollapsed ? (
-        <div className="table-shell builder-templates-shell">
-          <table className="polls-table builder-templates-table">
+        <>
+          <p className="panel-copy admin-copy builder-modules-crud-intro">
+            Modules appear here after you add them to a page or template in the Pages workspace. New types such as
+            Speech Bubble live in Pages → Module Library.
+          </p>
+          <div className="table-shell builder-templates-shell builder-modules-crud-shell">
+            <table className="polls-table builder-templates-table builder-modules-crud-table">
+            <colgroup>
+              <col className="builder-crud-col-module" />
+              <col className="builder-crud-col-type" />
+              <col className="builder-crud-col-section" />
+              <col className="builder-crud-col-class" />
+              <col className="builder-crud-col-updated" />
+              <col className="builder-crud-col-actions" />
+            </colgroup>
             <thead>
+              <tr className="builder-crud-filter-row">
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Module</span>
+                    <input
+                      className="builder-crud-filter-input"
+                      placeholder="Search"
+                      type="search"
+                      value={filters.module}
+                      onChange={(event) => updateFilter("module", event.target.value)}
+                    />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Type</span>
+                    <select
+                      className="builder-crud-filter-select"
+                      value={filters.type}
+                      onChange={(event) => updateFilter("type", event.target.value)}
+                    >
+                      <option value="">All</option>
+                      {filterOptions.types.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Section</span>
+                    <select
+                      className="builder-crud-filter-select"
+                      value={filters.section}
+                      onChange={(event) => updateFilter("section", event.target.value)}
+                    >
+                      <option value="">All</option>
+                      {filterOptions.sections.map((section) => (
+                        <option key={section} value={section}>
+                          {section}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Class</span>
+                    <select
+                      className="builder-crud-filter-select"
+                      value={filters.className}
+                      onChange={(event) => updateFilter("className", event.target.value)}
+                    >
+                      <option value="">All</option>
+                      {filterOptions.classes.map((moduleClass) => (
+                        <option key={moduleClass} value={moduleClass}>
+                          {moduleClass}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Updated</span>
+                    <input
+                      className="builder-crud-filter-input"
+                      placeholder="Search"
+                      type="search"
+                      value={filters.updated}
+                      onChange={(event) => updateFilter("updated", event.target.value)}
+                    />
+                  </label>
+                </th>
+                <th className="crud-actions-cell" scope="col" />
+              </tr>
               <tr>
-                <th>Module</th>
-                <th>Type</th>
-                <th>Source</th>
-                <th>Section</th>
-                <th>ID</th>
-                <th>Updated</th>
-                <th className="crud-actions-cell">Actions</th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Module"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="module"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Type"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="type"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Section"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="section"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Class"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="moduleClass"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Updated"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="updated"
+                  />
+                </th>
+                <th className="crud-actions-cell" scope="col">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {visibleItems.map((item) => {
+                const moduleLabel = getModuleLabel(item.module);
+                const moduleTypeLabel = formatBuilderModuleTypeLabel(item.module.type);
+                const sectionLabel = formatSectionTitle(item.sectionTitle);
+                const moduleClassLabel = getDisplayModuleClassForModule(item.module);
+                const updatedLabel = formatTemplateTimestamp(item.updatedAt);
+
+                return (
                 <Fragment key={item.id}>
                   <tr>
+                    <td className="builder-crud-cell-module">
+                      <strong className="builder-crud-truncate" title={moduleLabel}>
+                        {moduleLabel}
+                      </strong>
+                    </td>
                     <td>
-                      <strong>{getModuleLabel(item.module)}</strong>
+                      <CrudTruncateCell text={moduleTypeLabel} title={moduleTypeLabel} />
                     </td>
-                    <td>{item.module.type}</td>
-                    <td>{getCreatedModuleSourceLabel(item)}</td>
-                    <td>{item.sectionTitle}</td>
-                    <td className="template-id-cell">
-                      <code>{item.module.id}</code>
+                    <td>
+                      <CrudTruncateCell text={sectionLabel} title={sectionLabel} />
                     </td>
-                    <td>{formatTemplateTimestamp(item.updatedAt)}</td>
+                    <td>
+                      <CrudTruncateCell text={moduleClassLabel} title={moduleClassLabel} />
+                    </td>
+                    <td className="builder-crud-cell-updated">
+                      <CrudTruncateCell text={updatedLabel} title={updatedLabel} />
+                    </td>
                     <td className="crud-actions-cell">
                       <div className="builder-template-actions">
                         <button
@@ -229,10 +578,20 @@ function CreatedModulesTable({
                           ✎
                         </button>
                         <button
+                          aria-label="Clone created module"
+                          className="polls-icon-button polls-icon-button-view"
+                          disabled={isSaving}
+                          onClick={() => onCloneCreatedModule(item.module, moduleLabel)}
+                          title="Clone"
+                          type="button"
+                        >
+                          ⧉
+                        </button>
+                        <button
                           aria-label="Delete created module"
                           className="polls-icon-button polls-icon-button-danger"
                           disabled={isSaving}
-                          onClick={() => onDeleteCreatedModule(item, getModuleLabel(item.module))}
+                          onClick={() => onDeleteCreatedModule(item, moduleLabel)}
                           title="Delete"
                           type="button"
                         >
@@ -243,13 +602,13 @@ function CreatedModulesTable({
                   </tr>
                   {editingCreatedId === item.id && editingCreatedModule ? (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={6}>
                         <div className="builder-saved-module-editor">
                           <div className="builder-meta-grid">
                             <div>
                               <strong>{getCreatedModuleSourceLabel(item)}</strong>
                               <p className="builder-module-editor-copy">
-                                Editing the live module in {item.sectionTitle}.
+                                Editing the live module in {sectionLabel}.
                               </p>
                             </div>
                             <div className="builder-meta-actions">
@@ -290,15 +649,19 @@ function CreatedModulesTable({
                     </tr>
                   ) : null}
                 </Fragment>
-              ))}
-              {items.length === 0 ? (
+                );
+              })}
+              {visibleItems.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={7}>{emptyLabel}</td>
+                  <td className="empty-cell" colSpan={6}>
+                    {items.length === 0 ? emptyLabel : "No modules match the current filters."}
+                  </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
+        </>
       ) : null}
     </div>
   );
@@ -327,6 +690,7 @@ function RepositoryTable({
   onOpenEditingModuleGallery,
   onOpenEditingSocialIconGallery,
   onSaveSavedModule,
+  onCloneSavedModule,
   onDeleteSavedModule
 }: {
   emptyLabel: string;
@@ -351,6 +715,7 @@ function RepositoryTable({
   onOpenEditingModuleGallery: (moduleId: string) => void;
   onOpenEditingSocialIconGallery: (moduleId: string, itemId: string) => void;
   onSaveSavedModule: BuilderModuleRepositoryListProps["onSaveSavedModule"];
+  onCloneSavedModule: BuilderModuleRepositoryListProps["onCloneSavedModule"];
   onDeleteSavedModule: BuilderModuleRepositoryListProps["onDeleteSavedModule"];
 }) {
   return (
@@ -401,6 +766,16 @@ function RepositoryTable({
                           type="button"
                         >
                           ✎
+                        </button>
+                        <button
+                          aria-label="Clone"
+                          className="polls-icon-button polls-icon-button-view"
+                          disabled={isSaving}
+                          onClick={() => onCloneSavedModule(item.id)}
+                          title="Clone"
+                          type="button"
+                        >
+                          ⧉
                         </button>
                         <button
                           aria-label="Delete saved module"
@@ -463,6 +838,7 @@ function RepositoryTable({
                                 isExpanded={editingExpandedModuleIds.includes(module.id)}
                                 key={module.id}
                                 module={module}
+                                moduleClassOverride={editingModuleClass}
                                 products={products}
                                 onClone={() => undefined}
                                 onMoveDown={() => undefined}
@@ -508,9 +884,11 @@ export function BuilderModuleRepositoryList({
   templates,
   isSaving,
   onSaveCreatedModule,
+  onCloneCreatedModule,
   onDeleteCreatedModule,
   onSaveSavedModule,
   onCreateSavedModule,
+  onCloneSavedModule,
   onDeleteSavedModule,
   onSaveSavedSection,
   onDeleteSavedSection
@@ -541,6 +919,7 @@ export function BuilderModuleRepositoryList({
     | null
   >(null);
   const [editingSectionPaletteColumn, setEditingSectionPaletteColumn] = useState("");
+  const [editingSectionPaletteAnchor, setEditingSectionPaletteAnchor] = useState<ModulePaletteAnchor | null>(null);
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
   const [editingGalleryTarget, setEditingGalleryTarget] = useState<
     | { kind: "created-module" }
@@ -1019,12 +1398,12 @@ export function BuilderModuleRepositoryList({
   return (
     <>
       <datalist id="builder-module-class-options">
-        {builderModuleClassOptions.map((moduleClass) => (
+        {BUILDER_MODULE_CLASS_OPTIONS.map((moduleClass) => (
           <option key={moduleClass} value={moduleClass} />
         ))}
       </datalist>
       <CreatedModulesTable
-        emptyLabel="No created modules found in templates or pages."
+        emptyLabel="No modules on pages or templates yet. Add one from Pages → Module Library (for example Speech Bubble)."
         editingCreatedExpanded={editingCreatedExpanded}
         editingCreatedId={editingCreatedId}
         editingCreatedModule={editingCreatedModule}
@@ -1033,6 +1412,7 @@ export function BuilderModuleRepositoryList({
         items={createdModules}
         products={products}
         onCancelEditing={cancelEditingCreatedModule}
+        onCloneCreatedModule={onCloneCreatedModule}
         onDeleteCreatedModule={onDeleteCreatedModule}
         onOpenEditingCreatedModuleGallery={() => setEditingGalleryTarget({ kind: "created-module" })}
         onOpenEditingCreatedSocialIconGallery={(itemId) => setEditingGalleryTarget({ kind: "created-social-icon", itemId })}
@@ -1055,6 +1435,7 @@ export function BuilderModuleRepositoryList({
         editingExpandedModuleIds={editingExpandedModuleIds}
         editingModules={editingModules}
         onDeleteSavedModule={onDeleteSavedModule}
+        onCloneSavedModule={onCloneSavedModule}
         onCancelEditing={cancelEditing}
         onSaveSavedModule={onSaveSavedModule}
         onSetEditingName={setEditingName}
@@ -1082,6 +1463,7 @@ export function BuilderModuleRepositoryList({
         editingExpandedModuleIds={editingExpandedModuleIds}
         editingModules={editingModules}
         onDeleteSavedModule={onDeleteSavedModule}
+        onCloneSavedModule={onCloneSavedModule}
         onCancelEditing={cancelEditing}
         onSaveSavedModule={onSaveSavedModule}
         onSetEditingName={setEditingName}
@@ -1208,7 +1590,10 @@ export function BuilderModuleRepositoryList({
                               onMoveUp={() => undefined}
                               onOpenGallery={(moduleId) => setEditingSectionGalleryTarget({ kind: "module", moduleId })}
                               onOpenButtonBackgroundGallery={() => undefined}
-                              onOpenModulePalette={(column) => setEditingSectionPaletteColumn(column)}
+                              onOpenModulePalette={(column, anchor) => {
+                                setEditingSectionPaletteColumn(column);
+                                setEditingSectionPaletteAnchor(anchor ?? null);
+                              }}
                               onOpenSectionBackgroundGallery={() => setEditingSectionGalleryTarget({ kind: "section-background" })}
                               onOpenSocialIconGallery={(moduleId, itemId) =>
                                 setEditingSectionGalleryTarget({ kind: "social-icon", moduleId, itemId })
@@ -1275,11 +1660,19 @@ export function BuilderModuleRepositoryList({
       {editingSectionPaletteColumn ? (
         <BuilderModulePaletteModal
           activeGroup={activeModuleGroup}
+          anchor={editingSectionPaletteAnchor}
+          cellModules={cellModules}
           onClose={() => {
             setEditingSectionPaletteColumn("");
+            setEditingSectionPaletteAnchor(null);
             setActiveModuleGroup(null);
           }}
           onSelectItem={(item) => addEditingSectionModuleFromPalette(editingSectionPaletteColumn, item)}
+          onSelectSavedModule={(cellModuleId) => {
+            insertEditingSectionCellModule(editingSectionPaletteColumn, cellModuleId, 1);
+            setEditingSectionPaletteColumn("");
+            setActiveModuleGroup(null);
+          }}
           onSelectGroup={setActiveModuleGroup}
         />
       ) : null}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { BuilderProductRecord, BuilderTemplateModule } from "@/lib/builder-template";
 import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { BuilderProductPickerModal } from "@/components/builder/builder-product-picker-modal";
+import { BuilderSettingRow } from "./builder-setting-row";
 
 type MerchModuleEditorProps = {
   module: BuilderTemplateModule;
@@ -16,101 +17,84 @@ export function MerchModuleEditor({ module, products, onUpdateModule }: MerchMod
   const merchProducts = products.filter((product) => product.productType === "merch");
   const selectedProduct = merchProducts.find((product) => product.id === module.settings.productId);
 
+  function updateSettings(updates: Record<string, string>) {
+    onUpdateModule((current) => ({
+      ...current,
+      settings: { ...current.settings, ...updates }
+    }));
+  }
+
   function applyMerchProduct(productId: string) {
     const product = products.find((candidate) => candidate.id === productId);
 
-    onUpdateModule((current) => ({
-      ...current,
-      settings: {
-        ...current.settings,
-        productId,
-        productUrl: product?.productUrl ?? current.settings.productUrl ?? "",
-        productName: product?.name ?? current.settings.productName ?? "",
-        imageUrl: product?.imageUrl ?? current.settings.imageUrl ?? ""
-      }
-    }));
+    updateSettings({
+      productId,
+      productUrl: product?.productUrl ?? module.settings.productUrl ?? "",
+      productName: product?.name ?? module.settings.productName ?? "",
+      imageUrl: product?.imageUrl ?? module.settings.imageUrl ?? ""
+    });
   }
 
   return (
     <>
-      <div className="builder-merch-editor-grid">
-        <div className="builder-product-picker-row">
-          <label className="field builder-merch-product-picker-field">
-            <span>Saved product</span>
+      <div className="builder-merch-module-settings">
+        <BuilderSettingRow fullWidth label="Saved Product">
+          <div className="builder-merch-product-picker">
             <input
-              type="text"
+              placeholder="Choose From Shop"
               readOnly
+              type="text"
               value={selectedProduct?.name ?? ""}
-              placeholder="Choose from shop"
             />
-          </label>
-          <button
-            aria-label="Browse shop products"
-            className="builder-icon-button builder-product-picker-button"
-            onClick={() => setIsPickerOpen(true)}
-            title="Browse shop products"
-            type="button"
-          >
-            🛍
-          </button>
-        </div>
+            <button
+              aria-label="Browse shop products"
+              className="builder-icon-button builder-product-picker-button"
+              onClick={() => setIsPickerOpen(true)}
+              title="Browse Shop Products"
+              type="button"
+            >
+              🛍
+            </button>
+          </div>
+        </BuilderSettingRow>
 
-        <label className="field builder-merch-product-url-field">
-          <span>Product URL</span>
+        <BuilderSettingRow fullWidth label="Product URL">
           <input
+            placeholder="https://www.redbubble.com/i/t-shirt/..."
             type="text"
             value={module.settings.productUrl ?? ""}
-            onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: { ...current.settings, productUrl: event.target.value }
-              }))
-            }
-            placeholder="https://www.redbubble.com/i/t-shirt/..."
+            onChange={(event) => updateSettings({ productUrl: event.target.value })}
           />
-        </label>
-        <label className="field">
-          <span>Product name</span>
+        </BuilderSettingRow>
+
+        <BuilderSettingRow fullWidth label="Product Name">
           <input
+            placeholder="Active T-Shirt"
             type="text"
             value={module.settings.productName ?? ""}
-            onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: { ...current.settings, productName: event.target.value }
-              }))
-            }
-            placeholder="Active T-Shirt"
+            onChange={(event) => updateSettings({ productName: event.target.value })}
           />
-        </label>
-        <label className="field">
-          <span>Image URL</span>
+        </BuilderSettingRow>
+
+        <BuilderSettingRow fullWidth label="Image URL">
           <input
+            placeholder="https://ih1.redbubble.net/..."
             type="text"
             value={module.settings.imageUrl ?? ""}
             onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: { ...current.settings, imageUrl: normalizeBuilderAssetUrl(event.target.value) }
-              }))
+              updateSettings({ imageUrl: normalizeBuilderAssetUrl(event.target.value) })
             }
-            placeholder="https://ih1.redbubble.net/..."
           />
-        </label>
-        <label className="field">
-          <span>Button label</span>
+        </BuilderSettingRow>
+
+        <BuilderSettingRow fullWidth label="Button Label">
           <input
+            placeholder="Buy on Redbubble"
             type="text"
             value={module.settings.buttonLabel ?? "Buy on Redbubble"}
-            onChange={(event) =>
-              onUpdateModule((current) => ({
-                ...current,
-                settings: { ...current.settings, buttonLabel: event.target.value }
-              }))
-            }
-            placeholder="Buy on Redbubble"
+            onChange={(event) => updateSettings({ buttonLabel: event.target.value })}
           />
-        </label>
+        </BuilderSettingRow>
       </div>
 
       {isPickerOpen ? (

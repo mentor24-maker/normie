@@ -1,26 +1,7 @@
+import { normalizeSupabaseActionLink } from "@/lib/player-auth-action-link";
 import { sendBuilderAuthEmail } from "@/lib/send-builder-auth-email";
-import { getSiteUrl } from "@/lib/site-url";
+import { getAuthEmailSiteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase-admin";
-
-function normalizeSupabaseActionLink(actionLink: string): string {
-  const trimmed = String(actionLink ?? "").trim();
-
-  if (!trimmed) {
-    throw new Error("Supabase did not return a confirmation link.");
-  }
-
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-
-  if (!supabaseUrl) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
-  }
-
-  return new URL(trimmed.startsWith("/") ? trimmed : `/${trimmed}`, supabaseUrl).toString();
-}
 
 type SendPlayerSignupConfirmationEmailInput = {
   email: string;
@@ -92,7 +73,7 @@ export async function sendPlayerSignupConfirmationEmail(
     mergeContext: {
       confirmationUrl,
       email,
-      siteUrl: getSiteUrl()
+      siteUrl: getAuthEmailSiteUrl()
     }
   });
 }

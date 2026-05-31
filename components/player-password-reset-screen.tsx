@@ -116,9 +116,16 @@ export function PlayerPasswordResetScreen() {
 
   return (
     <section className="player-login-shell">
-      <div className="player-login-card">
+      <div className="player-login-card player-password-reset-card">
+        <img
+          alt="Normie"
+          className="player-password-reset-logo"
+          height={62}
+          src="/api/brand/normie-logo"
+          width={200}
+        />
         <div className="panel-label">Player Portal</div>
-        <h1>Reset your password.</h1>
+        <h1 className="player-password-reset-title">Reset Your Password</h1>
         <p className="page-copy admin-copy">Choose a new password for your Normie player account.</p>
 
         {state === "checking" ? <div className="notice success player-inline-notice">Checking reset link...</div> : null}

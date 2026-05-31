@@ -8,7 +8,6 @@ import { type PollAnswerResult, usePollExperience } from "@/src/site/home/use-po
 import { PLAYER_PORTAL_POLLS_SECTION_ID } from "@/lib/player-portal-play-polls";
 import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
 import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
-import { PLAYER_LEVEL_UP_INTERVAL } from "@/lib/player-level-up-event";
 import { firePlayerLevelUpGameEvents } from "@/lib/player-portal-confetti";
 
 export type PlayerPortalPollStats = {
@@ -46,16 +45,19 @@ export function PlayerPortalPollSectionOpen({
         claimed: result.claimed ?? false
       });
 
-      if (result.levelUp) {
-        const completedLevelRewards = Math.floor(nextPollsTaken / PLAYER_LEVEL_UP_INTERVAL);
+      if (!result.duplicate && nextPollsTaken > previousPollsTaken) {
         appendPlayerLevelUpDiagnostic("poll-answer.fire-confetti-immediate", {
-          completedLevelRewards,
+          progressPollsTaken: nextPollsTaken,
           levelEvents: levelEvents.length,
-          playerAnswerCount: result.playerAnswerCount ?? null
+          playerAnswerCount: result.playerAnswerCount ?? null,
+          levelUp: result.levelUp ?? false
         });
-        void firePlayerLevelUpGameEvents(levelEvents, completedLevelRewards);
+        void firePlayerLevelUpGameEvents(levelEvents, nextPollsTaken);
       } else {
         appendPlayerLevelUpDiagnostic("poll-answer.no-immediate-fire", {
+          duplicate: result.duplicate ?? false,
+          previousPollsTaken,
+          nextPollsTaken,
           playerAnswerCount: result.playerAnswerCount ?? null
         });
       }

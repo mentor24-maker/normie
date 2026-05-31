@@ -16,6 +16,7 @@ import {
   getSectionMarginStyle
 } from "@/components/builder/builder-utils";
 import { applyAuthEmailMergeFields, type AuthEmailMergeContext } from "@/lib/supabase-auth-email";
+import type { BuilderEmailFunction } from "@/lib/builder-email-template";
 import { toAbsoluteSiteUrl } from "@/lib/site-url";
 
 function cssPropertiesToInline(style: CSSProperties | undefined): string {
@@ -84,6 +85,17 @@ function renderEmailModule(module: BuilderTemplateModule): string {
     const html = formatEmailRichTextContent(module.text);
 
     return `<tr><td align="${alignAttr}" style="padding:0 40px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#3d5a73;${marginStyle}">${html}</td></tr>`;
+  }
+
+  if (module.type === "speech-bubble") {
+    const html = formatEmailRichTextContent(module.text);
+    const backgroundColor = module.settings.backgroundColor || "#ffffff";
+    const borderColor = module.settings.borderColor || "#9ed4ee";
+    const borderThickness = Math.max(0, Number.parseInt(module.settings.borderThickness ?? "2", 10) || 2);
+    const borderRadius = Math.max(0, Number.parseInt(module.settings.borderRadius ?? "40", 10) || 40);
+    const textColor = module.settings.textColor || "#18324a";
+
+    return `<tr><td align="${alignAttr}" style="padding:0 40px 12px;${marginStyle}"><div style="display:inline-block;max-width:520px;padding:18px 22px;border:${borderThickness}px solid ${borderColor};border-radius:${borderRadius}px;background:${backgroundColor};color:${textColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.55;">${html}</div></td></tr>`;
   }
 
   if (module.type === "quote") {
@@ -165,31 +177,106 @@ export function renderBuilderEmailHtml(
   return mergeContext ? applyAuthEmailMergeFields(html, mergeContext) : html;
 }
 
-export function renderBuilderEmailHtmlWithFallback(
-  template: BuilderTemplateRecord | null,
-  mergeContext: AuthEmailMergeContext
-): string {
-  if (template && template.layoutSections.length > 0) {
-    return renderBuilderEmailHtml(template, mergeContext);
-  }
-
-  return applyAuthEmailMergeFields(
-    `<!DOCTYPE html>
+const AUTH_EMAIL_SHELL_OPEN = `<!DOCTYPE html>
 <html lang="en">
-  <body style="margin:0;padding:32px 16px;background:#e8f4fc;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #e8f4fc;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(160deg, #fff8dc 0%, #e8f4fc 45%, #fde8f2 100%); min-width: 100%;">
       <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:50px;border:1px solid #d9e4ef;padding:32px 40px;">
-            <tr><td style="font-size:26px;font-weight:800;color:#18324a;padding-bottom:16px;">Confirm your Normie account</td></tr>
-            <tr><td style="font-size:16px;line-height:1.6;color:#3d5a73;padding-bottom:24px;">Thanks for signing up. Confirm <strong>{{ .Email }}</strong> to finish creating your player account.</td></tr>
-            <tr><td><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 32px;background:#4cbb17;color:#fff700;text-decoration:none;font-weight:800;border-radius:999px;">Confirm Your Email</a></td></tr>
+        <td align="center" style="padding: 32px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 50px; border: 1px solid #d9e4ef; overflow: hidden; box-shadow: 0 18px 48px rgba(24, 50, 74, 0.12);">
+            <tr>
+              <td align="center" style="padding: 32px 36px 20px; background-color: #ffffff;">
+                <img src="{{ .SiteURL }}/api/brand/normie-logo" alt="Normie" width="200" height="62" style="display: block; width: 200px; max-width: 100%; height: auto; border: 0; margin: 0 auto;" />
+              </td>
+            </tr>`;
+
+const AUTH_EMAIL_SHELL_CLOSE = `
+            <tr>
+              <td style="padding: 0 40px 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <p style="margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: #6b8499;">
+                  If the button does not work, copy and paste this link into your browser:
+                </p>
+                <p style="margin: 0; font-size: 12px; line-height: 1.5; word-break: break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color: #12bdf4;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 18px 40px 28px; background-color: #f7fbff; border-top: 1px solid #eef4f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #6b8499; text-align: center;">
+                  Normie · Where Average is Awesome! · {{ .SiteURL }}
+                </p>
+              </td>
+            </tr>
           </table>
         </td>
       </tr>
     </table>
   </body>
-</html>`,
-    mergeContext
-  );
+</html>`;
+
+const AUTH_EMAIL_BUTTON =
+  '<a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 16px 32px; background-color: #4cbb17; background-image: linear-gradient(180deg, #5fd428 0%, #4cbb17 55%, #3a9612 100%); color: #fff700; text-decoration: none; font-family: Arial, Helvetica, sans-serif; font-size: 18px; font-weight: 800; letter-spacing: 0.02em; border-radius: 999px; border: 2px solid #2d7a0e; text-shadow: 1px 1px 0 #000000, 2px 2px 0 #000000, 3px 3px 6px rgba(0, 0, 0, 0.85); white-space: nowrap;">';
+
+function buildAuthEmailFallbackHtml(emailFunction: BuilderEmailFunction): string {
+  if (emailFunction === "password_reset") {
+    return `${AUTH_EMAIL_SHELL_OPEN}
+            <tr>
+              <td style="padding: 8px 40px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <p style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #5a7a94; font-weight: 700;">
+                  Password reset
+                </p>
+                <h1 style="margin: 0 0 16px; font-size: 26px; line-height: 1.2; color: #18324a; font-weight: 800;">
+                  Reset your password
+                </h1>
+                <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #3d5a73;">
+                  We received a request to reset the password for
+                  <strong style="color: #18324a;">{{ .Email }}</strong>.
+                  Use the button below to choose a new password. If you did not request this, you can ignore this email.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding: 12px 40px 36px;">
+                ${AUTH_EMAIL_BUTTON}Reset Password</a>
+              </td>
+            </tr>${AUTH_EMAIL_SHELL_CLOSE}`;
+  }
+
+  return `${AUTH_EMAIL_SHELL_OPEN}
+            <tr>
+              <td style="padding: 8px 40px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                <p style="margin: 0 0 12px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #5a7a94; font-weight: 700;">
+                  Player signup
+                </p>
+                <h1 style="margin: 0 0 16px; font-size: 26px; line-height: 1.2; color: #18324a; font-weight: 800;">
+                  Welcome to Normie
+                </h1>
+                <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #3d5a73;">
+                  Thanks for signing up. Confirm your email address
+                  <strong style="color: #18324a;">{{ .Email }}</strong> to finish creating your player account and start answering polls.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding: 12px 40px 36px;">
+                ${AUTH_EMAIL_BUTTON}Confirm Your Email</a>
+              </td>
+            </tr>${AUTH_EMAIL_SHELL_CLOSE}`;
+}
+
+export function renderBuilderEmailHtmlWithFallback(
+  template: BuilderTemplateRecord | null,
+  mergeContext: AuthEmailMergeContext,
+  emailFunction: BuilderEmailFunction = "signup_confirmation"
+): string {
+  if (template && template.layoutSections.length > 0) {
+    return renderBuilderEmailHtml(template, mergeContext);
+  }
+
+  return applyAuthEmailMergeFields(buildAuthEmailFallbackHtml(emailFunction), mergeContext);
 }
