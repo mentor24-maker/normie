@@ -574,13 +574,15 @@ function CreatedModulesTable({
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
-  function handleSort(nextKey: CreatedModuleSortKey) {
-    if (sortKey === nextKey) {
+  function handleSort(nextKey: string) {
+    const typedKey = nextKey as CreatedModuleSortKey;
+
+    if (sortKey === typedKey) {
       setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
       return;
     }
 
-    setSortKey(nextKey);
+    setSortKey(typedKey);
     setSortDirection("asc");
   }
 
@@ -1270,6 +1272,7 @@ function SavedSectionsTable({
   onOpenEditingSectionModulePalette,
   onRemoveEditingSectionModule,
   onSaveEditingSectionCellModules,
+  onSaveEditingSectionModule,
   onToggleEditingSectionCollapsed,
   onToggleEditingSectionModuleExpanded,
   onUpdateEditingSectionCellBackground,
@@ -1310,6 +1313,7 @@ function SavedSectionsTable({
   onOpenEditingSectionModulePalette: (column: string, anchor?: ModulePaletteAnchor) => void;
   onRemoveEditingSectionModule: (moduleId: string) => void;
   onSaveEditingSectionCellModules: (column: string) => void;
+  onSaveEditingSectionModule: (moduleId: string) => void;
   onToggleEditingSectionCollapsed: () => void;
   onToggleEditingSectionModuleExpanded: (moduleId: string) => void;
   onUpdateEditingSectionCellBackground: (column: string, updater: (background: BackgroundSettings) => BackgroundSettings) => void;
@@ -1455,7 +1459,7 @@ function SavedSectionsTable({
                             section={editingSection}
                             sectionIndex={0}
                             onCloneModule={(_, moduleId) => onCloneEditingSectionModule(moduleId)}
-                            onSaveModule={saveEditingSectionModule}
+                            onSaveModule={onSaveEditingSectionModule}
                             onCloneSection={() => undefined}
                             onDropModule={onDropEditingSectionModule}
                             onInsertCellModule={(column, cellModuleId) => onInsertEditingSectionCellModule(column, cellModuleId, "many")}
@@ -2344,6 +2348,7 @@ export function BuilderModuleRepositoryList({
         }
         onRemoveEditingSectionModule={removeEditingSectionModule}
         onSaveEditingSectionCellModules={saveEditingSectionCellModules}
+        onSaveEditingSectionModule={saveEditingSectionModule}
         onSaveSavedSection={onSaveSavedSection}
         onSetEditingSectionName={setEditingSectionName}
         onStartEditingSection={startEditingSection}
