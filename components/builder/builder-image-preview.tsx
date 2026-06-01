@@ -12,6 +12,7 @@ import {
 
 export function getImageEffectClassName(effect: string | undefined) {
   if (effect === "bounce") return " normie-effect-bounce";
+  if (effect === "fast-bounce") return " normie-effect-fast-bounce";
   if (effect === "spin") return " normie-effect-spin";
   if (effect === "cruise") return " normie-effect-cruise";
   if (effect === "tumbleweed") return " normie-effect-tumbleweed";

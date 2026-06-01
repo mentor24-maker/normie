@@ -89,6 +89,7 @@ type BuilderModuleCardProps = {
   onUploadMedia: (file: File | null) => void;
   onUploadButtonBackgroundMedia?: (file: File | null) => void;
   onClone: () => void;
+  onSaveModule?: () => void;
   hideHeaderActions?: boolean;
   isEmailTemplate?: boolean;
   moduleClassOverride?: string;
@@ -1664,6 +1665,7 @@ export function BuilderModuleCard({
   onUploadMedia,
   onUploadButtonBackgroundMedia,
   onClone,
+  onSaveModule,
   products = [],
   hideHeaderActions = false,
   isEmailTemplate = false,
@@ -1733,6 +1735,17 @@ export function BuilderModuleCard({
             >
               ⧉
             </button>
+            {onSaveModule ? (
+              <button
+                aria-label="Save module"
+                className="builder-icon-button"
+                onClick={onSaveModule}
+                title="Save Module"
+                type="button"
+              >
+                💾
+              </button>
+            ) : null}
             <button aria-label="Delete module" className="builder-icon-button builder-icon-button-danger" onClick={onRemove} title="Delete module" type="button">✕</button>
           </div>
         )}

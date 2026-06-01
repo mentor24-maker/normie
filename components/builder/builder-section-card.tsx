@@ -54,6 +54,7 @@ type BuilderSectionCardProps = {
   ) => void;
   onRemoveModule: (moduleId: string) => void;
   onCloneModule: (sectionId: string, moduleId: string) => void;
+  onSaveModule: (moduleId: string) => void;
   cellModules: BuilderCellModuleRecord[];
   products: BuilderProductRecord[];
   onSaveCellModules: (column: string) => void;
@@ -104,6 +105,7 @@ export function BuilderSectionCard({
   onDropModule,
   onRemoveModule,
   onCloneModule,
+  onSaveModule,
   cellModules,
   products,
   onSaveCellModules,
@@ -443,6 +445,7 @@ export function BuilderSectionCard({
                                   onMoveDown={() => onMoveModule(module.id, 1)}
                                   onRemove={() => onRemoveModule(module.id)}
                                   onClone={() => onCloneModule(section.id, module.id)}
+                                  onSaveModule={() => onSaveModule(module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
                                   onOpenButtonBackgroundGallery={() => onOpenButtonBackgroundGallery(module.id)}
                                   onOpenSocialIconGallery={(itemId) => onOpenSocialIconGallery(module.id, itemId)}

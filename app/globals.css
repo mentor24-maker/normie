@@ -5274,6 +5274,101 @@ a.polls-icon-button {
   position: relative;
 }
 
+/* Modules workspace — same drill-down surfaces as Pages (pure tier tokens, light → dark) */
+.builder-modules-repository {
+  display: grid;
+  gap: 18px;
+}
+
+.builder-modules-repository > .builder-toolbar-shell {
+  background: var(--builder-bg-workspace);
+  border-color: rgba(15, 79, 143, 0.14);
+  padding: 12px 14px;
+  gap: 10px;
+}
+
+.builder-modules-repository .builder-panel-toggle-row .builder-panel-toggle[aria-expanded="true"] {
+  border-radius: 16px 16px 0 0;
+}
+
+.builder-modules-repository .builder-toolbar-shell > .panel-copy.admin-copy {
+  margin: 0;
+  padding: 0 4px 10px;
+  max-width: none;
+}
+
+/* Section tier — table band inside workspace pod */
+.builder-modules-repository .builder-toolbar-shell .table-shell {
+  margin-top: 0;
+  padding: 0 2px 10px;
+  border-radius: 0 0 14px 14px;
+  background: var(--builder-bg-section);
+}
+
+.builder-modules-repository .polls-table.builder-templates-table thead tr:not(.builder-crud-filter-row) th {
+  background: color-mix(in srgb, var(--builder-bg-section) 55%, var(--builder-bg-cell));
+  color: var(--ink);
+}
+
+.builder-modules-repository .builder-crud-filter-row th {
+  background: var(--builder-bg-cell);
+  border-bottom-color: rgba(15, 79, 143, 0.14);
+}
+
+.builder-modules-repository .builder-crud-filter-input,
+.builder-modules-repository .builder-crud-filter-select {
+  background: #ffffff;
+  border-color: rgba(15, 79, 143, 0.14);
+}
+
+.builder-modules-repository .polls-table tbody td {
+  background: var(--builder-bg-section);
+}
+
+.builder-modules-repository .is-selected-row td {
+  background: color-mix(in srgb, var(--builder-bg-section) 45%, var(--builder-bg-cell));
+}
+
+.builder-modules-repository .polls-table th.crud-actions-cell,
+.builder-modules-repository .polls-table td.crud-actions-cell {
+  background: var(--builder-bg-section);
+}
+
+/* Cell tier — expanded inline editor row */
+.builder-modules-repository .polls-table tbody tr:has(.builder-saved-module-editor) > td {
+  padding: 0;
+  background: var(--builder-bg-cell);
+}
+
+.builder-modules-repository .builder-saved-module-editor {
+  gap: 14px;
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--builder-bg-cell);
+}
+
+/* Column tier — wraps module card(s) inside cell editor (matches Pages column pod) */
+.builder-modules-repository .builder-saved-module-column-pod {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(15, 79, 143, 0.14);
+  border-radius: 16px;
+  background: var(--builder-bg-column);
+}
+
+/* Saved section: cell editor → column pod → section row UI → cell body → column → module */
+.builder-modules-repository .builder-saved-module-editor .builder-rows-pod {
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--builder-bg-column);
+}
+
+.builder-modules-repository .builder-saved-module-editor .builder-rows-pod .builder-section-card:has(.builder-section-header[aria-expanded="true"]) > :not(.builder-section-header) {
+  background: var(--builder-bg-cell);
+}
+
 .builder-editor-layout {
   display: block;
 }
@@ -6033,6 +6128,40 @@ a.polls-icon-button {
   border-radius: 24px;
   padding: 18px;
   overflow: visible;
+}
+
+/* Live pages: overlay rows (floating images) must stack above later sections (poll pods, etc.) */
+.page-shell .builder-preview-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow {
+  position: relative;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow a,
+.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow button,
+.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow video,
+.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow .builder-preview-image-shell-overlay {
+  pointer-events: auto;
+}
+
+.page-shell .builder-preview-shell > .builder-preview-section:not(.builder-preview-section-overlay-flow) {
+  position: relative;
+  z-index: 1;
+}
+
+.page-shell .builder-preview-column-overlay-flow {
+  position: relative;
+  z-index: 40;
+}
+
+.page-shell .builder-preview-module-overlay-flow {
+  position: relative;
+  z-index: 40;
 }
 
 .builder-preview-section-overlay-flow {
@@ -7133,6 +7262,11 @@ a.polls-icon-button {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   overflow: hidden;
+}
+
+.builder-module-card .builder-table-cell-module {
+  border-color: rgba(15, 79, 143, 0.16);
+  background: color-mix(in srgb, var(--builder-bg-module) 72%, var(--builder-bg-column));
 }
 
 .builder-table-cell-module-preview {
@@ -9374,9 +9508,9 @@ select.builder-number-select-control,
   display: grid;
   gap: 18px;
   padding: 18px;
-  border: 1px solid rgba(9, 16, 24, 0.08);
+  border: 1px solid rgba(15, 79, 143, 0.16);
   border-radius: 18px;
-  background: rgba(244, 250, 255, 0.72);
+  background: var(--builder-bg-cell);
 }
 
 .builder-saved-module-editor-stack {
@@ -10844,6 +10978,24 @@ code {
 
 .normie-effect-bounce {
   animation: normie-bounce 1.6s infinite;
+}
+
+@keyframes normie-fast-bounce {
+
+  0%,
+  100% {
+    transform: translateY(0);
+    animation-timing-function: ease-in;
+  }
+
+  50% {
+    transform: translateY(-21.6px);
+    animation-timing-function: ease-out;
+  }
+}
+
+.normie-effect-fast-bounce {
+  animation: normie-fast-bounce 0.8s infinite;
 }
 
 @keyframes normie-spin {

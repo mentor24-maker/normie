@@ -280,11 +280,11 @@ function BuilderCrudSortButton({
   sortDirection,
   sortKey
 }: {
-  activeSortKey: CreatedModuleSortKey;
+  activeSortKey: string;
   label: string;
-  onSort: (key: CreatedModuleSortKey) => void;
+  onSort: (key: string) => void;
   sortDirection: SortDirection;
-  sortKey: CreatedModuleSortKey;
+  sortKey: string;
 }) {
   const isActive = activeSortKey === sortKey;
   const indicator = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
@@ -337,6 +337,186 @@ function getCreatedModules(templates: BuilderTemplateRecord[], pages: BuilderPag
   );
 
   return [...templateModules, ...pageModules];
+}
+
+type RepositoryFilters = {
+  name: string;
+  className: string;
+  contents: string;
+  id: string;
+  updated: string;
+};
+
+const EMPTY_REPOSITORY_FILTERS: RepositoryFilters = {
+  name: "",
+  className: "",
+  contents: "",
+  id: "",
+  updated: ""
+};
+
+type RepositorySortKey = "name" | "moduleClass" | "contents" | "id" | "updated";
+
+function getRepositoryFilterOptions(items: BuilderCellModuleRecord[]) {
+  const classes = new Set<string>();
+
+  for (const item of items) {
+    classes.add(getDisplayModuleClass(item));
+  }
+
+  return { classes: [...classes].sort((a, b) => a.localeCompare(b)) };
+}
+
+function matchesRepositoryFilters(item: BuilderCellModuleRecord, filters: RepositoryFilters) {
+  const name = item.name || "Untitled saved module";
+  const moduleClass = getDisplayModuleClass(item);
+  const contents = getModuleSummary(item);
+  const updated = formatTemplateTimestamp(item.updatedAt);
+  const nameQuery = filters.name.trim().toLowerCase();
+  const contentsQuery = filters.contents.trim().toLowerCase();
+  const idQuery = filters.id.trim().toLowerCase();
+  const updatedQuery = filters.updated.trim().toLowerCase();
+
+  if (nameQuery && !name.toLowerCase().includes(nameQuery)) {
+    return false;
+  }
+
+  if (filters.className && moduleClass !== filters.className) {
+    return false;
+  }
+
+  if (contentsQuery && !contents.toLowerCase().includes(contentsQuery)) {
+    return false;
+  }
+
+  if (idQuery && !item.id.toLowerCase().includes(idQuery)) {
+    return false;
+  }
+
+  if (updatedQuery && !updated.toLowerCase().includes(updatedQuery) && !item.updatedAt.toLowerCase().includes(updatedQuery)) {
+    return false;
+  }
+
+  return true;
+}
+
+function compareRepositoryRecords(
+  left: BuilderCellModuleRecord,
+  right: BuilderCellModuleRecord,
+  sortKey: RepositorySortKey,
+  sortDirection: SortDirection
+) {
+  let result = 0;
+
+  if (sortKey === "updated") {
+    result = left.updatedAt.localeCompare(right.updatedAt);
+  } else {
+    const leftValue =
+      sortKey === "name"
+        ? left.name || "Untitled saved module"
+        : sortKey === "moduleClass"
+          ? getDisplayModuleClass(left)
+          : sortKey === "contents"
+            ? getModuleSummary(left)
+            : left.id;
+    const rightValue =
+      sortKey === "name"
+        ? right.name || "Untitled saved module"
+        : sortKey === "moduleClass"
+          ? getDisplayModuleClass(right)
+          : sortKey === "contents"
+            ? getModuleSummary(right)
+            : right.id;
+
+    result = leftValue.localeCompare(rightValue, undefined, { sensitivity: "base", numeric: true });
+  }
+
+  return sortDirection === "asc" ? result : -result;
+}
+
+type SavedSectionFilters = {
+  name: string;
+  layout: string;
+  modules: string;
+  id: string;
+  updated: string;
+};
+
+const EMPTY_SAVED_SECTION_FILTERS: SavedSectionFilters = {
+  name: "",
+  layout: "",
+  modules: "",
+  id: "",
+  updated: ""
+};
+
+type SavedSectionSortKey = "name" | "layout" | "modules" | "id" | "updated";
+
+function getSavedSectionFilterOptions(items: BuilderSavedSectionRecord[]) {
+  const layouts = new Set<string>();
+
+  for (const item of items) {
+    layouts.add(item.section.layout);
+  }
+
+  return { layouts: [...layouts].sort((a, b) => a.localeCompare(b)) };
+}
+
+function matchesSavedSectionFilters(item: BuilderSavedSectionRecord, filters: SavedSectionFilters) {
+  const name = item.name || "Untitled saved section";
+  const layout = item.section.layout;
+  const modules = item.section.modules.length;
+  const updated = formatTemplateTimestamp(item.updatedAt);
+  const nameQuery = filters.name.trim().toLowerCase();
+  const modulesQuery = filters.modules.trim().toLowerCase();
+  const idQuery = filters.id.trim().toLowerCase();
+  const updatedQuery = filters.updated.trim().toLowerCase();
+
+  if (nameQuery && !name.toLowerCase().includes(nameQuery)) {
+    return false;
+  }
+
+  if (filters.layout && layout !== filters.layout) {
+    return false;
+  }
+
+  if (modulesQuery && !String(modules).includes(modulesQuery)) {
+    return false;
+  }
+
+  if (idQuery && !item.id.toLowerCase().includes(idQuery)) {
+    return false;
+  }
+
+  if (updatedQuery && !updated.toLowerCase().includes(updatedQuery) && !item.updatedAt.toLowerCase().includes(updatedQuery)) {
+    return false;
+  }
+
+  return true;
+}
+
+function compareSavedSections(
+  left: BuilderSavedSectionRecord,
+  right: BuilderSavedSectionRecord,
+  sortKey: SavedSectionSortKey,
+  sortDirection: SortDirection
+) {
+  let result = 0;
+
+  if (sortKey === "modules") {
+    result = left.section.modules.length - right.section.modules.length;
+  } else if (sortKey === "updated") {
+    result = left.updatedAt.localeCompare(right.updatedAt);
+  } else {
+    const leftValue =
+      sortKey === "name" ? left.name || "Untitled saved section" : sortKey === "layout" ? left.section.layout : left.id;
+    const rightValue =
+      sortKey === "name" ? right.name || "Untitled saved section" : sortKey === "layout" ? right.section.layout : right.id;
+
+    result = leftValue.localeCompare(rightValue, undefined, { sensitivity: "base", numeric: true });
+  }
+
+  return sortDirection === "asc" ? result : -result;
 }
 
 function CreatedModulesTable({
@@ -406,15 +586,19 @@ function CreatedModulesTable({
 
   return (
     <div className="builder-toolbar-shell">
-      <button
-        aria-expanded={!isCollapsed}
-        className="builder-panel-toggle"
-        onClick={onToggle}
-        type="button"
-      >
-        <span className="panel-label">All Created Modules</span>
-        <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
-      </button>
+      <div className="builder-panel-toggle-row">
+        <button
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? "Expand All Created Modules" : "Collapse All Created Modules"}
+          className="builder-panel-toggle"
+          onClick={onToggle}
+          title={isCollapsed ? "Expand All Created Modules" : "Collapse All Created Modules"}
+          type="button"
+        >
+          <span className="panel-label">All Created Modules</span>
+          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
+        </button>
+      </div>
       {!isCollapsed ? (
         <>
           <p className="panel-copy admin-copy builder-modules-crud-intro">
@@ -663,24 +847,26 @@ function CreatedModulesTable({
                               </button>
                             </div>
                           </div>
-                          <BuilderModuleCard
-                            editorDevice="browser"
-                            hideHeaderActions
-                            isExpanded={editingCreatedExpanded}
-                            module={editingCreatedModule}
-                            products={products}
-                            onClone={() => undefined}
-                            onMoveDown={() => undefined}
-                            onMoveUp={() => undefined}
-                            onOpenGallery={onOpenEditingCreatedModuleGallery}
-                            onOpenSocialIconGallery={onOpenEditingCreatedSocialIconGallery}
-                            onRemove={() => undefined}
-                            onToggleExpanded={onToggleEditingCreatedExpanded}
-                            onUpdateModule={onUpdateEditingCreatedModule}
-                            onUpdateModuleBackground={onUpdateEditingCreatedModuleBackground}
-                            onUploadMedia={() => undefined}
-                            sectionId="created-module-editor"
-                          />
+                          <div className="builder-saved-module-column-pod">
+                            <BuilderModuleCard
+                              editorDevice="browser"
+                              hideHeaderActions
+                              isExpanded={editingCreatedExpanded}
+                              module={editingCreatedModule}
+                              products={products}
+                              onClone={() => undefined}
+                              onMoveDown={() => undefined}
+                              onMoveUp={() => undefined}
+                              onOpenGallery={onOpenEditingCreatedModuleGallery}
+                              onOpenSocialIconGallery={onOpenEditingCreatedSocialIconGallery}
+                              onRemove={() => undefined}
+                              onToggleExpanded={onToggleEditingCreatedExpanded}
+                              onUpdateModule={onUpdateEditingCreatedModule}
+                              onUpdateModuleBackground={onUpdateEditingCreatedModuleBackground}
+                              onUploadMedia={() => undefined}
+                              sectionId="created-module-editor"
+                            />
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -755,32 +941,170 @@ function RepositoryTable({
   onCloneSavedModule: BuilderModuleRepositoryListProps["onCloneSavedModule"];
   onDeleteSavedModule: BuilderModuleRepositoryListProps["onDeleteSavedModule"];
 }) {
+  const [filters, setFilters] = useState<RepositoryFilters>(EMPTY_REPOSITORY_FILTERS);
+  const [sortKey, setSortKey] = useState<RepositorySortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const filterOptions = useMemo(() => getRepositoryFilterOptions(items), [items]);
+  const visibleItems = useMemo(() => {
+    const filtered = items.filter((item) => matchesRepositoryFilters(item, filters));
+
+    return [...filtered].sort((left, right) => compareRepositoryRecords(left, right, sortKey, sortDirection));
+  }, [filters, items, sortDirection, sortKey]);
+
+  function updateFilter<K extends keyof RepositoryFilters>(key: K, value: RepositoryFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSort(nextKey: string) {
+    const typedKey = nextKey as RepositorySortKey;
+
+    if (sortKey === typedKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(typedKey);
+    setSortDirection("asc");
+  }
+
   return (
     <div className="builder-toolbar-shell">
-      <button
-        aria-expanded={!isCollapsed}
-        className="builder-panel-toggle"
-        onClick={onToggle}
-        type="button"
-      >
-        <span className="panel-label">{title}</span>
-        <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
-      </button>
+      <div className="builder-panel-toggle-row">
+        <button
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? `Expand ${title}` : `Collapse ${title}`}
+          className="builder-panel-toggle"
+          onClick={onToggle}
+          title={isCollapsed ? `Expand ${title}` : `Collapse ${title}`}
+          type="button"
+        >
+          <span className="panel-label">{title}</span>
+          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
+        </button>
+      </div>
       {!isCollapsed ? (
         <div className="table-shell builder-templates-shell">
           <table className="polls-table builder-templates-table">
             <thead>
+              <tr className="builder-crud-filter-row">
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Name</span>
+                    <input
+                      className="builder-crud-filter-input"
+                      placeholder="Search"
+                      type="search"
+                      value={filters.name}
+                      onChange={(event) => updateFilter("name", event.target.value)}
+                    />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Class</span>
+                    <select
+                      className="builder-crud-filter-select"
+                      value={filters.className}
+                      onChange={(event) => updateFilter("className", event.target.value)}
+                    >
+                      <option value="">All</option>
+                      {filterOptions.classes.map((moduleClass) => (
+                        <option key={moduleClass} value={moduleClass}>
+                          {moduleClass}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Contents</span>
+                    <input
+                      className="builder-crud-filter-input"
+                      placeholder="Search"
+                      type="search"
+                      value={filters.contents}
+                      onChange={(event) => updateFilter("contents", event.target.value)}
+                    />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter ID</span>
+                    <input
+                      className="builder-crud-filter-input"
+                      placeholder="Search"
+                      type="search"
+                      value={filters.id}
+                      onChange={(event) => updateFilter("id", event.target.value)}
+                    />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Updated</span>
+                    <input
+                      className="builder-crud-filter-input"
+                      placeholder="Search"
+                      type="search"
+                      value={filters.updated}
+                      onChange={(event) => updateFilter("updated", event.target.value)}
+                    />
+                  </label>
+                </th>
+                <th className="crud-actions-cell" scope="col" />
+              </tr>
               <tr>
-                <th>Name</th>
-                <th>Class</th>
-                <th>Contents</th>
-                <th>ID</th>
-                <th>Updated</th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Name"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="name"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Class"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="moduleClass"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Contents"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="contents"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="ID"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="id"
+                  />
+                </th>
+                <th scope="col">
+                  <BuilderCrudSortButton
+                    activeSortKey={sortKey}
+                    label="Updated"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="updated"
+                  />
+                </th>
                 <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <Fragment key={item.id}>
                   <tr key={item.id}>
                     <td>
@@ -874,7 +1198,7 @@ function RepositoryTable({
                               </button>
                             </div>
                           </div>
-                          <div className="builder-saved-module-editor-stack">
+                          <div className="builder-saved-module-column-pod builder-saved-module-editor-stack">
                             {editingModules.map((module) => (
                               <BuilderModuleCard
                                 editorDevice="browser"
@@ -904,9 +1228,276 @@ function RepositoryTable({
                   ) : null}
                 </Fragment>
               ))}
-              {items.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={6}>{emptyLabel}</td>
+                  <td className="empty-cell" colSpan={6}>
+                    {items.length === 0 ? emptyLabel : "No saved records match the current filters."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SavedSectionsTable({
+  savedSections,
+  cellModules,
+  products,
+  isSaving,
+  isCollapsed,
+  editingSectionId,
+  editingSectionName,
+  editingSection,
+  editingSectionCollapsed,
+  editingSectionExpandedModuleIds,
+  onToggle,
+  onStartEditingSection,
+  onDeleteSavedSection,
+  onSetEditingSectionName,
+  onSaveSavedSection,
+  onCancelEditingSection,
+  onCloneEditingSectionModule,
+  onDropEditingSectionModule,
+  onInsertEditingSectionCellModule,
+  onMoveEditingSectionModule,
+  onOpenEditingSectionModuleGallery,
+  onOpenEditingSectionBackgroundGallery,
+  onOpenEditingSectionSocialIconGallery,
+  onOpenEditingSectionModulePalette,
+  onRemoveEditingSectionModule,
+  onSaveEditingSectionCellModules,
+  onToggleEditingSectionCollapsed,
+  onToggleEditingSectionModuleExpanded,
+  onUpdateEditingSectionCellBackground,
+  onUpdateEditingSectionCellRecord,
+  onUpdateEditingSectionModule,
+  onUpdateEditingSectionModuleBackground,
+  onUpdateEditingSection
+}: {
+  savedSections: BuilderSavedSectionRecord[];
+  cellModules: BuilderCellModuleRecord[];
+  products: BuilderProductRecord[];
+  isSaving: boolean;
+  isCollapsed: boolean;
+  editingSectionId: string;
+  editingSectionName: string;
+  editingSection: BuilderTemplateSection | null;
+  editingSectionCollapsed: boolean;
+  editingSectionExpandedModuleIds: string[];
+  onToggle: () => void;
+  onStartEditingSection: (section: BuilderSavedSectionRecord) => void;
+  onDeleteSavedSection: (sectionId: string, currentName: string) => void;
+  onSetEditingSectionName: (name: string) => void;
+  onSaveSavedSection: (sectionId: string, name: string, section: BuilderTemplateSection) => void;
+  onCancelEditingSection: () => void;
+  onCloneEditingSectionModule: (moduleId: string) => void;
+  onDropEditingSectionModule: (
+    moduleId: string,
+    sourceSectionId: string,
+    targetSectionId: string,
+    targetColumn: string,
+    targetBeforeModuleId?: string
+  ) => void;
+  onInsertEditingSectionCellModule: (column: string, cellModuleId: string, moduleCount: 1 | "many") => void;
+  onMoveEditingSectionModule: (moduleId: string, direction: -1 | 1) => void;
+  onOpenEditingSectionModuleGallery: (moduleId: string) => void;
+  onOpenEditingSectionBackgroundGallery: () => void;
+  onOpenEditingSectionSocialIconGallery: (moduleId: string, itemId: string) => void;
+  onOpenEditingSectionModulePalette: (column: string, anchor?: ModulePaletteAnchor) => void;
+  onRemoveEditingSectionModule: (moduleId: string) => void;
+  onSaveEditingSectionCellModules: (column: string) => void;
+  onToggleEditingSectionCollapsed: () => void;
+  onToggleEditingSectionModuleExpanded: (moduleId: string) => void;
+  onUpdateEditingSectionCellBackground: (column: string, updater: (background: BackgroundSettings) => BackgroundSettings) => void;
+  onUpdateEditingSectionCellRecord: (key: keyof BuilderTemplateSection, column: string, value: string) => void;
+  onUpdateEditingSectionModule: (moduleId: string, updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+  onUpdateEditingSectionModuleBackground: (
+    moduleId: string,
+    updater: (background: BackgroundSettings) => BackgroundSettings
+  ) => void;
+  onUpdateEditingSection: (updater: (section: BuilderTemplateSection) => BuilderTemplateSection) => void;
+}) {
+  const [filters, setFilters] = useState<SavedSectionFilters>(EMPTY_SAVED_SECTION_FILTERS);
+  const [sortKey, setSortKey] = useState<SavedSectionSortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const filterOptions = useMemo(() => getSavedSectionFilterOptions(savedSections), [savedSections]);
+  const visibleSections = useMemo(() => {
+    const filtered = savedSections.filter((section) => matchesSavedSectionFilters(section, filters));
+    return [...filtered].sort((left, right) => compareSavedSections(left, right, sortKey, sortDirection));
+  }, [filters, savedSections, sortDirection, sortKey]);
+
+  function updateFilter<K extends keyof SavedSectionFilters>(key: K, value: SavedSectionFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSort(nextKey: string) {
+    const typedKey = nextKey as SavedSectionSortKey;
+
+    if (sortKey === typedKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(typedKey);
+    setSortDirection("asc");
+  }
+
+  return (
+    <div className="builder-toolbar-shell">
+      <div className="builder-panel-toggle-row">
+        <button
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? "Expand Saved Sections" : "Collapse Saved Sections"}
+          className="builder-panel-toggle"
+          onClick={onToggle}
+          title={isCollapsed ? "Expand Saved Sections" : "Collapse Saved Sections"}
+          type="button"
+        >
+          <span className="panel-label">Saved Sections</span>
+          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!isCollapsed} /></span>
+        </button>
+      </div>
+      {!isCollapsed ? (
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table">
+            <thead>
+              <tr className="builder-crud-filter-row">
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Name</span>
+                    <input className="builder-crud-filter-input" placeholder="Search" type="search" value={filters.name} onChange={(event) => updateFilter("name", event.target.value)} />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Layout</span>
+                    <select className="builder-crud-filter-select" value={filters.layout} onChange={(event) => updateFilter("layout", event.target.value)}>
+                      <option value="">All</option>
+                      {filterOptions.layouts.map((layout) => (
+                        <option key={layout} value={layout}>{layout}</option>
+                      ))}
+                    </select>
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Modules</span>
+                    <input className="builder-crud-filter-input" placeholder="Search" type="search" value={filters.modules} onChange={(event) => updateFilter("modules", event.target.value)} />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter ID</span>
+                    <input className="builder-crud-filter-input" placeholder="Search" type="search" value={filters.id} onChange={(event) => updateFilter("id", event.target.value)} />
+                  </label>
+                </th>
+                <th scope="col">
+                  <label className="builder-crud-filter-field">
+                    <span className="builder-crud-filter-label">Filter Updated</span>
+                    <input className="builder-crud-filter-input" placeholder="Search" type="search" value={filters.updated} onChange={(event) => updateFilter("updated", event.target.value)} />
+                  </label>
+                </th>
+                <th className="crud-actions-cell" scope="col" />
+              </tr>
+              <tr>
+                <th scope="col"><BuilderCrudSortButton activeSortKey={sortKey} label="Name" onSort={handleSort} sortDirection={sortDirection} sortKey="name" /></th>
+                <th scope="col"><BuilderCrudSortButton activeSortKey={sortKey} label="Layout" onSort={handleSort} sortDirection={sortDirection} sortKey="layout" /></th>
+                <th scope="col"><BuilderCrudSortButton activeSortKey={sortKey} label="Modules" onSort={handleSort} sortDirection={sortDirection} sortKey="modules" /></th>
+                <th scope="col"><BuilderCrudSortButton activeSortKey={sortKey} label="ID" onSort={handleSort} sortDirection={sortDirection} sortKey="id" /></th>
+                <th scope="col"><BuilderCrudSortButton activeSortKey={sortKey} label="Updated" onSort={handleSort} sortDirection={sortDirection} sortKey="updated" /></th>
+                <th className="crud-actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleSections.map((section) => (
+                <Fragment key={section.id}>
+                  <tr>
+                    <td><strong>{section.name || "Untitled saved section"}</strong></td>
+                    <td>{section.section.layout}</td>
+                    <td>{section.section.modules.length}</td>
+                    <td className="template-id-cell"><code>{section.id}</code></td>
+                    <td>{formatTemplateTimestamp(section.updatedAt)}</td>
+                    <td className="crud-actions-cell">
+                      <div className="builder-template-actions">
+                        <button aria-label="Edit saved section" className="polls-icon-button polls-icon-button-edit" disabled={isSaving} onClick={() => onStartEditingSection(section)} title="Edit section" type="button">✎</button>
+                        <button aria-label="Delete saved section" className="polls-icon-button polls-icon-button-danger" disabled={isSaving} onClick={() => onDeleteSavedSection(section.id, section.name)} title="Delete" type="button">🗑</button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingSectionId === section.id && editingSection ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="builder-saved-module-editor">
+                          <div className="builder-meta-grid">
+                            <label className="field">
+                              <span>Saved section name</span>
+                              <input type="text" value={editingSectionName} onChange={(event) => onSetEditingSectionName(event.target.value)} />
+                            </label>
+                            <div className="builder-meta-actions">
+                              <button className="submit-button admin-blog-add-button" disabled={isSaving || !editingSection} onClick={() => void onSaveSavedSection(editingSectionId, editingSectionName, editingSection)} type="button">
+                                {isSaving ? "Saving..." : "Save Section"}
+                              </button>
+                              <button className="secondary-button" onClick={onCancelEditingSection} type="button">Cancel</button>
+                            </div>
+                          </div>
+                          <div className="builder-rows-pod">
+                            <BuilderSectionCard
+                            cellModules={cellModules}
+                            editorDevice="browser"
+                            expandedModuleIds={editingSectionExpandedModuleIds}
+                            isCollapsed={editingSectionCollapsed}
+                            key={editingSection.id}
+                            products={products}
+                            section={editingSection}
+                            sectionIndex={0}
+                            onCloneModule={(_, moduleId) => onCloneEditingSectionModule(moduleId)}
+                            onSaveModule={saveEditingSectionModule}
+                            onCloneSection={() => undefined}
+                            onDropModule={onDropEditingSectionModule}
+                            onInsertCellModule={(column, cellModuleId) => onInsertEditingSectionCellModule(column, cellModuleId, "many")}
+                            onInsertSavedModule={(column, cellModuleId) => onInsertEditingSectionCellModule(column, cellModuleId, 1)}
+                            onMoveDown={() => undefined}
+                            onMoveModule={onMoveEditingSectionModule}
+                            onMoveUp={() => undefined}
+                            onOpenGallery={onOpenEditingSectionModuleGallery}
+                            onOpenButtonBackgroundGallery={() => undefined}
+                            onOpenModulePalette={onOpenEditingSectionModulePalette}
+                            onOpenSectionBackgroundGallery={onOpenEditingSectionBackgroundGallery}
+                            onOpenSocialIconGallery={onOpenEditingSectionSocialIconGallery}
+                            onRemove={() => undefined}
+                            onRemoveModule={onRemoveEditingSectionModule}
+                            onSaveCellModules={onSaveEditingSectionCellModules}
+                            onSaveSection={() => onSaveSavedSection(section.id, editingSectionName, editingSection)}
+                            onToggleCollapsed={onToggleEditingSectionCollapsed}
+                            onToggleModuleExpanded={onToggleEditingSectionModuleExpanded}
+                            onUpdateCellBackground={onUpdateEditingSectionCellBackground}
+                            onUpdateCellBorderColor={(column, value) => onUpdateEditingSectionCellRecord("cellBorderColor", column, value)}
+                            onUpdateCellBorderRadius={(column, value) => onUpdateEditingSectionCellRecord("cellBorderRadius", column, value)}
+                            onUpdateCellBorderWidth={(column, value) => onUpdateEditingSectionCellRecord("cellBorderWidth", column, value)}
+                            onUpdateCellPadding={(column, value) => onUpdateEditingSectionCellRecord("cellPadding", column, value)}
+                            onUpdateModule={onUpdateEditingSectionModule}
+                            onUpdateModuleBackground={onUpdateEditingSectionModuleBackground}
+                            onUpdateSection={onUpdateEditingSection}
+                            onUploadMediaForModule={() => undefined}
+                            onUploadButtonBackgroundMedia={() => undefined}
+                            onUploadSectionBackgroundMedia={() => undefined}
+                          />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
+              {visibleSections.length === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={6}>
+                    {savedSections.length === 0 ? "No saved sections found." : "No saved sections match the current filters."}
+                  </td>
                 </tr>
               ) : null}
             </tbody>
@@ -1503,6 +2094,36 @@ export function BuilderModuleRepositoryList({
     onCreateSavedModule(name, moduleClass, modules);
   }
 
+  function saveEditingSectionModule(moduleId: string) {
+    if (!editingSection) {
+      return;
+    }
+
+    const builderModule = editingSection.modules.find((module) => module.id === moduleId);
+    if (!builderModule) {
+      return;
+    }
+
+    const fallbackName = builderModule.name || builderModule.type;
+    const name = window.prompt("Name this saved module", fallbackName)?.trim();
+    if (!name) {
+      return;
+    }
+
+    const moduleClass = window
+      .prompt(
+        "Module class (Navigation, Headings, etc.)",
+        resolveModuleClassForBuilderModule(builderModule) || inferModuleClassFromBuilderModules([builderModule])
+      )
+      ?.trim();
+
+    if (moduleClass === undefined) {
+      return;
+    }
+
+    onCreateSavedModule(name, moduleClass, [builderModule]);
+  }
+
   function moveEditingSectionModule(moduleId: string, direction: -1 | 1) {
     updateEditingSection((section) => {
       const index = section.modules.findIndex((module) => module.id === moduleId);
@@ -1617,6 +2238,7 @@ export function BuilderModuleRepositoryList({
           <option key={moduleClass} value={moduleClass} />
         ))}
       </datalist>
+      <div className="builder-modules-repository">
       <CreatedModulesTable
         emptyLabel="No modules on pages or templates yet. Add one from Pages → Module Library (for example Speech Bubble)."
         editingCreatedExpanded={editingCreatedExpanded}
@@ -1694,172 +2316,46 @@ export function BuilderModuleRepositoryList({
         onUpdateEditingModuleBackground={updateEditingModuleBackground}
         title="Saved Cells"
       />
-      <div className="builder-toolbar-shell">
-        <button
-          aria-expanded={!collapsedPanels.sections}
-          className="builder-panel-toggle"
-          onClick={() => togglePanel("sections")}
-          type="button"
-        >
-          <span className="panel-label">Saved Sections</span>
-          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.sections} /></span>
-        </button>
-        {!collapsedPanels.sections ? (
-          <div className="table-shell builder-templates-shell">
-            <table className="polls-table builder-templates-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Layout</th>
-                  <th>Modules</th>
-                  <th>ID</th>
-                  <th>Updated</th>
-                  <th className="crud-actions-cell">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {savedSections.map((section) => (
-                  <Fragment key={section.id}>
-                    <tr>
-                      <td>
-                        <strong>{section.name || "Untitled saved section"}</strong>
-                      </td>
-                      <td>{section.section.layout}</td>
-                      <td>{section.section.modules.length}</td>
-                      <td className="template-id-cell">
-                        <code>{section.id}</code>
-                      </td>
-                      <td>{formatTemplateTimestamp(section.updatedAt)}</td>
-                      <td className="crud-actions-cell">
-                        <div className="builder-template-actions">
-                          <button
-                            aria-label="Edit saved section"
-                            className="polls-icon-button polls-icon-button-edit"
-                            disabled={isSaving}
-                            onClick={() => startEditingSection(section)}
-                            title="Edit section"
-                            type="button"
-                          >
-                            ✎
-                          </button>
-                          <button
-                            aria-label="Delete saved section"
-                            className="polls-icon-button polls-icon-button-danger"
-                            disabled={isSaving}
-                            onClick={() => onDeleteSavedSection(section.id, section.name)}
-                            title="Delete"
-                            type="button"
-                          >
-                            🗑
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {editingSectionId === section.id && editingSection ? (
-                      <tr>
-                        <td colSpan={6}>
-                          <div className="builder-saved-module-editor">
-                            <div className="builder-meta-grid">
-                              <label className="field">
-                                <span>Saved section name</span>
-                                <input
-                                  type="text"
-                                  value={editingSectionName}
-                                  onChange={(event) => setEditingSectionName(event.target.value)}
-                                />
-                              </label>
-                              <div className="builder-meta-actions">
-                                <button
-                                  className="submit-button admin-blog-add-button"
-                                  disabled={isSaving || !editingSection}
-                                  onClick={() => {
-                                    if (!editingSection) {
-                                      return;
-                                    }
-
-                                    void onSaveSavedSection(editingSectionId, editingSectionName, editingSection);
-                                  }}
-                                  type="button"
-                                >
-                                  {isSaving ? "Saving..." : "Save Section"}
-                                </button>
-                                <button className="secondary-button" onClick={cancelEditingSection} type="button">
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                            <BuilderSectionCard
-                              cellModules={cellModules}
-                              editorDevice="browser"
-                              expandedModuleIds={editingSectionExpandedModuleIds}
-                              isCollapsed={editingSectionCollapsed}
-                              key={editingSection.id}
-                              products={products}
-                              section={editingSection}
-                              sectionIndex={0}
-                              onCloneModule={(_, moduleId) => cloneEditingSectionModule(moduleId)}
-                              onCloneSection={() => undefined}
-                              onDropModule={dropEditingSectionModule}
-                              onInsertCellModule={(column, cellModuleId) =>
-                                insertEditingSectionCellModule(column, cellModuleId, "many")
-                              }
-                              onInsertSavedModule={(column, cellModuleId) =>
-                                insertEditingSectionCellModule(column, cellModuleId, 1)
-                              }
-                              onMoveDown={() => undefined}
-                              onMoveModule={(moduleId, direction) => moveEditingSectionModule(moduleId, direction)}
-                              onMoveUp={() => undefined}
-                              onOpenGallery={(moduleId) => setEditingSectionGalleryTarget({ kind: "module", moduleId })}
-                              onOpenButtonBackgroundGallery={() => undefined}
-                              onOpenModulePalette={(column, anchor) => {
-                                setEditingSectionPaletteColumn(column);
-                                setEditingSectionPaletteAnchor(anchor ?? null);
-                              }}
-                              onOpenSectionBackgroundGallery={() => setEditingSectionGalleryTarget({ kind: "section-background" })}
-                              onOpenSocialIconGallery={(moduleId, itemId) =>
-                                setEditingSectionGalleryTarget({ kind: "social-icon", moduleId, itemId })
-                              }
-                              onRemove={() => undefined}
-                              onRemoveModule={removeEditingSectionModule}
-                              onSaveCellModules={saveEditingSectionCellModules}
-                              onSaveSection={() => onSaveSavedSection(section.id, editingSectionName, editingSection)}
-                              onToggleCollapsed={() => setEditingSectionCollapsed((current) => !current)}
-                              onToggleModuleExpanded={toggleEditingSectionModuleExpanded}
-                              onUpdateCellBackground={updateEditingSectionCellBackground}
-                              onUpdateCellBorderColor={(column, value) =>
-                                updateEditingSectionCellRecord("cellBorderColor", column, value)
-                              }
-                              onUpdateCellBorderRadius={(column, value) =>
-                                updateEditingSectionCellRecord("cellBorderRadius", column, value)
-                              }
-                              onUpdateCellBorderWidth={(column, value) =>
-                                updateEditingSectionCellRecord("cellBorderWidth", column, value)
-                              }
-                              onUpdateCellPadding={(column, value) =>
-                                updateEditingSectionCellRecord("cellPadding", column, value)
-                              }
-                              onUpdateModule={updateEditingSectionModule}
-                              onUpdateModuleBackground={updateEditingSectionModuleBackground}
-                              onUpdateSection={updateEditingSection}
-                              onUploadMediaForModule={() => undefined}
-                              onUploadButtonBackgroundMedia={() => undefined}
-                              onUploadSectionBackgroundMedia={() => undefined}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                ))}
-                {savedSections.length === 0 ? (
-                  <tr>
-                    <td className="empty-cell" colSpan={6}>No saved sections found.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
+      <SavedSectionsTable
+        cellModules={cellModules}
+        editingSection={editingSection}
+        editingSectionCollapsed={editingSectionCollapsed}
+        editingSectionExpandedModuleIds={editingSectionExpandedModuleIds}
+        editingSectionId={editingSectionId}
+        editingSectionName={editingSectionName}
+        isCollapsed={collapsedPanels.sections}
+        isSaving={isSaving}
+        products={products}
+        savedSections={savedSections}
+        onCancelEditingSection={cancelEditingSection}
+        onCloneEditingSectionModule={cloneEditingSectionModule}
+        onDeleteSavedSection={onDeleteSavedSection}
+        onDropEditingSectionModule={dropEditingSectionModule}
+        onInsertEditingSectionCellModule={insertEditingSectionCellModule}
+        onMoveEditingSectionModule={moveEditingSectionModule}
+        onOpenEditingSectionBackgroundGallery={() => setEditingSectionGalleryTarget({ kind: "section-background" })}
+        onOpenEditingSectionModuleGallery={(moduleId) => setEditingSectionGalleryTarget({ kind: "module", moduleId })}
+        onOpenEditingSectionModulePalette={(column, anchor) => {
+          setEditingSectionPaletteColumn(column);
+          setEditingSectionPaletteAnchor(anchor ?? null);
+        }}
+        onOpenEditingSectionSocialIconGallery={(moduleId, itemId) =>
+          setEditingSectionGalleryTarget({ kind: "social-icon", moduleId, itemId })
+        }
+        onRemoveEditingSectionModule={removeEditingSectionModule}
+        onSaveEditingSectionCellModules={saveEditingSectionCellModules}
+        onSaveSavedSection={onSaveSavedSection}
+        onSetEditingSectionName={setEditingSectionName}
+        onStartEditingSection={startEditingSection}
+        onToggle={() => togglePanel("sections")}
+        onToggleEditingSectionCollapsed={() => setEditingSectionCollapsed((current) => !current)}
+        onToggleEditingSectionModuleExpanded={toggleEditingSectionModuleExpanded}
+        onUpdateEditingSection={updateEditingSection}
+        onUpdateEditingSectionCellBackground={updateEditingSectionCellBackground}
+        onUpdateEditingSectionCellRecord={updateEditingSectionCellRecord}
+        onUpdateEditingSectionModule={updateEditingSectionModule}
+        onUpdateEditingSectionModuleBackground={updateEditingSectionModuleBackground}
+      />
       </div>
       {editingGalleryTarget ? (
         <BuilderGalleryModal

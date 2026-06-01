@@ -34,6 +34,7 @@ const SIZE_OPTIONS = ["10", "15", "25", "33", "50", "66", "75", "100"] as const;
 const EFFECT_OPTIONS = [
   { value: "none", label: "None" },
   { value: "bounce", label: "Bounce" },
+  { value: "fast-bounce", label: "Fast Bounce" },
   { value: "spin", label: "Spin" },
   { value: "cruise", label: "Cruise" },
   { value: "tumbleweed", label: "Tumbleweed" }

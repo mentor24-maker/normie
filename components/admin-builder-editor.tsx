@@ -1556,7 +1556,9 @@ export function AdminBuilderEditor() {
   // --- Render ---
 
   return (
-    <section className="admin-section builder-editor-section">
+    <section
+      className={`admin-section builder-editor-section${builderMode === "modules" ? " builder-editor-section-modules" : ""}`}
+    >
       <div className="builder-editor-layout">
         <div className="builder-editor-layout-main">
       <div className="admin-toolbar">
@@ -1741,6 +1743,7 @@ export function AdminBuilderEditor() {
                             onDropModule={dropModule}
                             onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
                             onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
+                            onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
                             cellModules={cellModules}
                             products={products}
                             onSaveCellModules={(col) => void saveCellModules(section.id, col)}
@@ -1796,6 +1799,7 @@ export function AdminBuilderEditor() {
                         onDropModule={dropModule}
                         onRemoveModule={(moduleId) => removeModule(section.id, moduleId)}
                         onCloneModule={(sectionId, moduleId) => cloneModule(sectionId, moduleId)}
+                        onSaveModule={(moduleId) => void saveModule(section.id, moduleId)}
                         cellModules={cellModules}
                         products={products}
                         onSaveCellModules={(col) => void saveCellModules(section.id, col)}

@@ -311,7 +311,7 @@ export function getOverlayFlowCollapsedModuleStyle(collapsed: boolean): CSSPrope
 export function getImageOverlayStyle(settings: Record<string, string>): CSSProperties {
   const x = Number.parseInt(settings.offsetX ?? "0", 10);
   const y = Number.parseInt(settings.offsetY ?? "0", 10);
-  const zIndex = Number.parseInt(settings.zIndex ?? "2", 10);
+  const zIndex = Number.parseInt(settings.zIndex ?? "20", 10);
   const size = Number.parseInt(settings.size ?? "100", 10);
   const offsetX = Number.isFinite(x) ? x : 0;
   const offsetY = Number.isFinite(y) ? y : 0;
