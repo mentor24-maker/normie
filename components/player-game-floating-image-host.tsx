@@ -41,6 +41,22 @@ export function PlayerGameFloatingImageHost() {
       return;
     }
 
+    function dismissOnNextClick() {
+      setActiveModule(null);
+    }
+
+    window.addEventListener("click", dismissOnNextClick, { once: true });
+
+    return () => {
+      window.removeEventListener("click", dismissOnNextClick);
+    };
+  }, [activeModule]);
+
+  useEffect(() => {
+    if (!activeModule) {
+      return;
+    }
+
     const dismissMs = resolveGameFloatingImageDismissMs(activeModule.settings);
 
     if (dismissMs === null) {
@@ -62,6 +78,7 @@ export function PlayerGameFloatingImageHost() {
 
   return (
     <div aria-live="polite" className="player-game-floating-image-host">
+      <div aria-hidden="true" className="player-game-event-backdrop" />
       <BuilderImagePreview module={activeModule} />
     </div>
   );

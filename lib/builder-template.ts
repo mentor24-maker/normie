@@ -633,7 +633,8 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
     settings.textColor = normalizeBuilderHexColor(settings.textColor || "#18324a");
     settings.borderRadius = normalizeSpacingValue(settings.borderRadius, "40", 0, 80);
     settings.borderThickness = normalizeSpacingValue(settings.borderThickness, "2", 0, 24);
-    settings.containerWidth = normalizeSpacingValue(settings.containerWidth, "520", 200, 900);
+    // Backward compatibility for older saved bubbles that used `width`.
+    settings.containerWidth = normalizeSpacingValue(settings.containerWidth ?? settings.width, "520", 200, 900);
     settings.containerHeight = normalizeSpacingValue(settings.containerHeight, "0", 0, 800);
     settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
     settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");

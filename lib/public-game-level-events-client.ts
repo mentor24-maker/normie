@@ -45,6 +45,7 @@ export async function firePublicProgressGameEvents(
     return;
   }
 
+  resetPublicGameLevelEventsCache();
   const levelEvents = await loadPublicGameLevelEvents();
   await firePlayerLevelUpGameEvents(levelEvents, progressPollsTaken, "public");
 }

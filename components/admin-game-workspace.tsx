@@ -121,7 +121,7 @@ type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels";
 type RewardSortKey = "name" | "rewardType" | "levelTier" | "gradeTier" | "classTier" | "rewardVisual";
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
 type ReminderSortKey = "name" | "displayType" | "criterion" | "isActive" | "updatedAt";
-type LevelEventSortKey = "eventName" | "milestone" | "moduleName" | "trigger" | "status" | "updatedAt";
+type LevelEventSortKey = "eventName" | "milestone" | "poll" | "moduleName" | "status" | "updatedAt";
 type RewardTierType = "levelTier" | "gradeTier" | "classTier";
 type RewardBulkAction = RewardTierType | "pollSize" | "levelSize" | "color";
 
@@ -236,8 +236,8 @@ const REMINDER_TABLE_COLUMNS: Array<{ key: ReminderSortKey; label: string }> = [
 const LEVEL_EVENT_TABLE_COLUMNS: Array<{ key: LevelEventSortKey; label: string }> = [
   { key: "eventName", label: "Event" },
   { key: "milestone", label: "Milestone" },
+  { key: "poll", label: "Poll" },
   { key: "moduleName", label: "Module" },
-  { key: "trigger", label: "Trigger" },
   { key: "status", label: "Status" },
   { key: "updatedAt", label: "Updated" }
 ];
@@ -366,15 +366,9 @@ function getLevelEventProgression(event: GameLevelEvent | LevelEventDraft): Retu
   return readEventProgressionFromMetadata(event.metadata, event.sublevelName);
 }
 
-function formatLevelEventMilestoneLabel(event: GameLevelEvent | LevelEventDraft) {
+function formatLevelEventMilestoneCompact(event: GameLevelEvent | LevelEventDraft) {
   const progression = getLevelEventProgression(event);
-
-  return formatProgressionMilestone(
-    progression.gradeTier,
-    progression.levelTier,
-    progression.pollTier,
-    progression.pollsPerLevel
-  );
+  return `G-${progression.gradeTier} L-${progression.levelTier} P-${progression.pollTier}`;
 }
 
 function levelEventProgressPolls(event: GameLevelEvent | LevelEventDraft) {
@@ -400,14 +394,14 @@ function compareLevelEvents(
     case "milestone":
       result = levelEventProgressPolls(left) - levelEventProgressPolls(right);
       if (result === 0) {
-        result = compareText(formatLevelEventMilestoneLabel(left), formatLevelEventMilestoneLabel(right));
+        result = compareText(formatLevelEventMilestoneCompact(left), formatLevelEventMilestoneCompact(right));
       }
+      break;
+    case "poll":
+      result = levelEventProgressPolls(left) - levelEventProgressPolls(right);
       break;
     case "moduleName":
       result = compareText(left.moduleName || "", right.moduleName || "");
-      break;
-    case "trigger":
-      result = compareText(left.trigger, right.trigger);
       break;
     case "status":
       result = Number(left.isActive) - Number(right.isActive);
@@ -2681,9 +2675,8 @@ export function AdminGameWorkspace() {
         const targetPolls = eventTargetProgressPolls(event.metadata, event.sublevelName);
         const haystack = [
           event.eventName,
-          formatLevelEventMilestoneLabel(event),
+          formatLevelEventMilestoneCompact(event),
           event.moduleName,
-          event.trigger,
           event.isActive ? "active" : "draft",
           String(targetPolls),
           String(progression.gradeTier),
@@ -4320,20 +4313,10 @@ export function AdminGameWorkspace() {
                 <tr key={event.id}>
                   <td><strong>{event.eventName}</strong></td>
                   <td>
-                    {(() => {
-                      const progression = getLevelEventProgression(event);
-                      const targetPolls = eventTargetProgressPolls(event.metadata, event.sublevelName);
-
-                      return (
-                        <>
-                          <strong>{formatLevelEventMilestoneLabel(event)}</strong>
-                          <span className="admin-game-level-event-table-meta"> ({targetPolls} progress polls)</span>
-                        </>
-                      );
-                    })()}
+                    <strong>{formatLevelEventMilestoneCompact(event)}</strong>
                   </td>
+                  <td className="admin-game-level-event-poll-cell">{levelEventProgressPolls(event)}</td>
                   <td>{event.moduleName || "No module selected"}</td>
-                  <td>{event.trigger}</td>
                   <td>{event.isActive ? "Active" : "Draft"}</td>
                   <td>{formatTemplateTimestamp(event.updatedAt)}</td>
                   <td className="crud-actions-cell">

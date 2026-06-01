@@ -175,7 +175,7 @@ export function getImageModuleStyle(settings: Record<string, string>): CSSProper
 }
 
 export function getSpeechBubbleContainerWidthPx(settings: Record<string, string>): number {
-  const parsed = Number.parseInt(settings.containerWidth ?? "520", 10);
+  const parsed = Number.parseInt(settings.containerWidth ?? settings.width ?? "520", 10);
   return Math.min(Math.max(Number.isFinite(parsed) ? parsed : 520, 200), 900);
 }
 
@@ -197,6 +197,9 @@ export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CS
   const resolvedZIndex = Number.isFinite(zIndex) ? zIndex : 10;
 
   return {
+    width: `${containerWidth}px`,
+    maxWidth: "100%",
+    boxSizing: "border-box",
     "--speech-bubble-container-width": `${containerWidth}px`,
     ...(containerHeight > 0
       ? { "--speech-bubble-container-min-height": `${containerHeight}px` }
@@ -214,6 +217,19 @@ export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CS
         ? `translate(${resolvedOffsetX}px, ${-resolvedOffsetY}px)`
         : undefined
   } as CSSProperties;
+}
+
+export function getSpeechBubbleBodyStyle(settings: Record<string, string>): CSSProperties {
+  const containerHeight = getSpeechBubbleContainerHeightPx(settings);
+
+  if (containerHeight <= 0) {
+    return {};
+  }
+
+  return {
+    minHeight: `${containerHeight}px`,
+    boxSizing: "border-box"
+  };
 }
 
 export function getFloatingImageModuleStyle(settings: Record<string, string>): CSSProperties {

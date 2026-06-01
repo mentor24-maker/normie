@@ -7,6 +7,7 @@ import {
   getModuleWidthStyle,
   getOverlayFlowCollapsedModuleStyle,
   getOverlayFlowCollapsedSectionStyle,
+  getSpeechBubbleBodyStyle,
   getSpeechBubbleModuleStyle,
   isFloatingImageModule,
   isOverlayImageModule,
@@ -128,6 +129,8 @@ describe("getSpeechBubbleModuleStyle", () => {
       containerHeight: "220"
     });
 
+    expect(style.width).toBe("640px");
+    expect(style.maxWidth).toBe("100%");
     expect(style["--speech-bubble-container-width"]).toBe("640px");
     expect(style["--speech-bubble-container-min-height"]).toBe("220px");
   });
@@ -140,6 +143,19 @@ describe("getSpeechBubbleModuleStyle", () => {
 
     expect(style["--speech-bubble-container-width"]).toBe("520px");
     expect(style["--speech-bubble-container-min-height"]).toBeUndefined();
+  });
+});
+
+describe("getSpeechBubbleBodyStyle", () => {
+  it("sets min-height when container height is configured", () => {
+    expect(getSpeechBubbleBodyStyle({ containerHeight: "180" })).toEqual({
+      minHeight: "180px",
+      boxSizing: "border-box"
+    });
+  });
+
+  it("returns empty styles when container height is zero", () => {
+    expect(getSpeechBubbleBodyStyle({ containerHeight: "0" })).toEqual({});
   });
 });
 

@@ -1,5 +1,5 @@
 import { formatRichTextContent, type BuilderTemplateModule } from "@/lib/builder-template";
-import { getSpeechBubbleModuleStyle } from "./builder-utils";
+import { getSpeechBubbleBodyStyle, getSpeechBubbleModuleStyle } from "./builder-utils";
 
 type SpeechBubblePreviewProps = {
   classNamePrefix?: "builder-preview" | "builder-module-preview";
@@ -11,11 +11,12 @@ export function SpeechBubblePreview({
   module
 }: SpeechBubblePreviewProps) {
   const bubbleStyle = getSpeechBubbleModuleStyle(module.settings);
+  const bodyStyle = getSpeechBubbleBodyStyle(module.settings);
   const contentHtml = formatRichTextContent(module.text) || "<p>What Normie has to say goes here.</p>";
 
   return (
     <div className={`${classNamePrefix}-speech-bubble`} style={bubbleStyle}>
-      <div className={`${classNamePrefix}-speech-bubble-body`}>
+      <div className={`${classNamePrefix}-speech-bubble-body`} style={bodyStyle}>
         <div
           className={`${classNamePrefix}-speech-bubble-content`}
           dangerouslySetInnerHTML={{ __html: contentHtml }}

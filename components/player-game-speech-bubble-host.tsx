@@ -35,12 +35,29 @@ export function PlayerGameSpeechBubbleHost() {
     setActiveModule(null);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!activeModule) {
+      return;
+    }
+
+    function dismissOnNextClick() {
+      setActiveModule(null);
+    }
+
+    window.addEventListener("click", dismissOnNextClick, { once: true });
+
+    return () => {
+      window.removeEventListener("click", dismissOnNextClick);
+    };
+  }, [activeModule]);
+
   if (!activeModule) {
     return null;
   }
 
   return (
     <div aria-live="polite" className="player-game-speech-bubble-host">
+      <div aria-hidden="true" className="player-game-event-backdrop" />
       <SpeechBubblePreview classNamePrefix="builder-preview" module={activeModule} />
     </div>
   );
