@@ -58,6 +58,29 @@ export function BuilderSpeechBubbleModuleSettings({
           onChange={(borderThickness) => updateSettings({ borderThickness })}
         />
       </BuilderSettingRow>
+      <BuilderSettingRow fullWidth label="Container Width">
+        <BuilderNumberSelectControl
+          fallback="520"
+          max={900}
+          min={200}
+          step={10}
+          value={module.settings.containerWidth ?? "520"}
+          onChange={(containerWidth) => updateSettings({ containerWidth })}
+        />
+      </BuilderSettingRow>
+      <BuilderSettingRow fullWidth label="Container Height">
+        <div className="builder-setting-value-stack">
+          <BuilderNumberSelectControl
+            fallback="0"
+            max={800}
+            min={0}
+            step={10}
+            value={module.settings.containerHeight ?? "0"}
+            onChange={(containerHeight) => updateSettings({ containerHeight })}
+          />
+          <span className="builder-module-offset-hint">0 fits content; larger values set a minimum height.</span>
+        </div>
+      </BuilderSettingRow>
       <BuilderSettingRow fullWidth label="Text Color">
         <input
           type="color"

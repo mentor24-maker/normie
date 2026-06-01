@@ -174,9 +174,21 @@ export function getImageModuleStyle(settings: Record<string, string>): CSSProper
   };
 }
 
+export function getSpeechBubbleContainerWidthPx(settings: Record<string, string>): number {
+  const parsed = Number.parseInt(settings.containerWidth ?? "520", 10);
+  return Math.min(Math.max(Number.isFinite(parsed) ? parsed : 520, 200), 900);
+}
+
+export function getSpeechBubbleContainerHeightPx(settings: Record<string, string>): number {
+  const parsed = Number.parseInt(settings.containerHeight ?? "0", 10);
+  return Math.min(Math.max(Number.isFinite(parsed) ? parsed : 0, 0), 800);
+}
+
 export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CSSProperties {
   const borderRadius = Math.max(0, Number.parseInt(settings.borderRadius ?? "40", 10) || 40);
   const borderThickness = Math.max(0, Number.parseInt(settings.borderThickness ?? "2", 10) || 2);
+  const containerWidth = getSpeechBubbleContainerWidthPx(settings);
+  const containerHeight = getSpeechBubbleContainerHeightPx(settings);
   const offsetX = Number.parseInt(normalizeSignedOffsetValue(settings.offsetX, "0"), 10);
   const offsetY = Number.parseInt(normalizeSignedOffsetValue(settings.offsetY, "0"), 10);
   const zIndex = Number.parseInt(settings.zIndex ?? "10", 10);
@@ -185,6 +197,10 @@ export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CS
   const resolvedZIndex = Number.isFinite(zIndex) ? zIndex : 10;
 
   return {
+    "--speech-bubble-container-width": `${containerWidth}px`,
+    ...(containerHeight > 0
+      ? { "--speech-bubble-container-min-height": `${containerHeight}px` }
+      : {}),
     "--speech-bubble-bg": normalizeBuilderHexColor(settings.backgroundColor || "#ffffff"),
     "--speech-bubble-border": normalizeBuilderHexColor(settings.borderColor || "#9ed4ee"),
     "--speech-bubble-border-width": `${borderThickness}px`,

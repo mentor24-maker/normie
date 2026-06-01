@@ -3565,6 +3565,57 @@ export function AdminGameWorkspace() {
     }
   }
 
+  async function toggleLevelEventPlayerVisibility(event: GameLevelEvent) {
+    const nextActive = !event.isActive;
+
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(`/api/admin/game/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: event.eventName,
+          levelName: event.levelName,
+          sublevelName: event.sublevelName,
+          moduleId: event.moduleId,
+          trigger: event.trigger,
+          isActive: nextActive,
+          metadata: event.metadata ?? { eventType: "confetti" }
+        })
+      });
+      const data = await readAdminJson<{ levelEvent?: GameLevelEvent; error?: string }>(
+        response,
+        "Failed to update event visibility."
+      );
+
+      if (!data.levelEvent) {
+        throw new Error(data.error ?? "Failed to update event visibility.");
+      }
+
+      setLevelEvents((current) =>
+        current.map((item) => (item.id === data.levelEvent!.id ? data.levelEvent! : item))
+      );
+
+      if (editingLevelEventId === event.id) {
+        setLevelEventDraft(levelEventToDraft(data.levelEvent));
+      }
+
+      setMessage(
+        nextActive
+          ? `"${event.eventName}" is visible to players on the site and portal.`
+          : `"${event.eventName}" is hidden from players (still editable here as Draft).`
+      );
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error ? toggleError.message : "Failed to update event visibility."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function deleteLevelEvent(event: GameLevelEvent) {
     if (!window.confirm(`Delete event "${event.eventName}"?`)) return;
     setIsSaving(true);
@@ -4287,6 +4338,25 @@ export function AdminGameWorkspace() {
                   <td>{formatTemplateTimestamp(event.updatedAt)}</td>
                   <td className="crud-actions-cell">
                     <div className="table-actions">
+                      <button
+                        aria-label={
+                          event.isActive
+                            ? "Hide event from players"
+                            : "Show event to players"
+                        }
+                        className="polls-icon-button polls-icon-button-view"
+                        disabled={isSaving}
+                        onClick={() => void toggleLevelEventPlayerVisibility(event)}
+                        title={event.isActive ? "Hide on Site" : "Show on Site"}
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={
+                            event.isActive ? "polls-icon-glyph-eye-hidden" : "polls-icon-glyph-eye"
+                          }
+                        />
+                      </button>
                       <button
                         aria-label="Edit level event"
                         className="polls-icon-button polls-icon-button-edit"

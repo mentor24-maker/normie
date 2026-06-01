@@ -273,6 +273,8 @@ export const modulePaletteItems: ModulePaletteItem[] = [
       borderThickness: "2",
       textColor: "#18324a",
       borderRadius: "40",
+      containerWidth: "520",
+      containerHeight: "0",
       trigger: "game",
       gameAudience: "both",
       offsetX: "0",

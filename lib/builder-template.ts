@@ -633,6 +633,8 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
     settings.textColor = normalizeBuilderHexColor(settings.textColor || "#18324a");
     settings.borderRadius = normalizeSpacingValue(settings.borderRadius, "40", 0, 80);
     settings.borderThickness = normalizeSpacingValue(settings.borderThickness, "2", 0, 24);
+    settings.containerWidth = normalizeSpacingValue(settings.containerWidth, "520", 200, 900);
+    settings.containerHeight = normalizeSpacingValue(settings.containerHeight, "0", 0, 800);
     settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
     settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");
     settings.zIndex = normalizeSpacingValue(settings.zIndex, "10", -999, 999999);
@@ -954,6 +956,8 @@ export function createEmptyModule(
             borderThickness: "2",
             textColor: "#18324a",
             borderRadius: "40",
+            containerWidth: "520",
+            containerHeight: "0",
             trigger: "game",
             gameAudience: "both",
             offsetX: "0",

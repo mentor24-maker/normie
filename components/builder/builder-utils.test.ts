@@ -121,6 +121,26 @@ describe("getSpeechBubbleModuleStyle", () => {
 
     expect(style.transform).toBeUndefined();
   });
+
+  it("applies container width and minimum height variables", () => {
+    const style = getSpeechBubbleModuleStyle({
+      containerWidth: "640",
+      containerHeight: "220"
+    });
+
+    expect(style["--speech-bubble-container-width"]).toBe("640px");
+    expect(style["--speech-bubble-container-min-height"]).toBe("220px");
+  });
+
+  it("omits minimum height when container height is zero", () => {
+    const style = getSpeechBubbleModuleStyle({
+      containerWidth: "520",
+      containerHeight: "0"
+    });
+
+    expect(style["--speech-bubble-container-width"]).toBe("520px");
+    expect(style["--speech-bubble-container-min-height"]).toBeUndefined();
+  });
 });
 
 describe("getHeadingModuleStyle", () => {

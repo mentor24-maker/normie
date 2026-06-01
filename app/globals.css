@@ -3497,7 +3497,8 @@ h2 {
 
 .player-game-speech-bubble-host .builder-preview-speech-bubble {
   pointer-events: auto;
-  max-width: min(100%, 520px);
+  width: min(100%, var(--speech-bubble-container-width, 520px));
+  max-width: min(100%, var(--speech-bubble-container-width, 520px));
 }
 
 .player-game-reminder-inline-stack {
@@ -5018,6 +5019,42 @@ a.polls-icon-button {
   height: 7px;
   border-radius: 50%;
   background: var(--crud-view-iris);
+  transform: translate(-50%, -50%);
+}
+
+.polls-icon-glyph-eye-hidden {
+  display: inline-block;
+  width: 16px;
+  height: 11px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  box-sizing: border-box;
+  position: relative;
+  vertical-align: middle;
+}
+
+.polls-icon-glyph-eye-hidden::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -1px;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translateY(-50%) rotate(-32deg);
+}
+
+.polls-icon-glyph-eye-hidden::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
   transform: translate(-50%, -50%);
 }
 
@@ -7791,10 +7828,12 @@ a.polls-icon-button {
 .builder-preview-speech-bubble,
 .builder-module-preview-speech-bubble {
   position: relative;
-  display: inline-block;
-  max-width: min(100%, 520px);
+  display: block;
+  width: min(100%, var(--speech-bubble-container-width, 520px));
+  max-width: min(100%, var(--speech-bubble-container-width, 520px));
   margin: 0 0 44px;
   color: var(--speech-bubble-text, #18324a);
+  box-sizing: border-box;
 }
 
 .builder-preview-speech-bubble-body,
@@ -7805,12 +7844,14 @@ a.polls-icon-button {
   --speech-bubble-tail-drop-nudge: 10px;
   position: relative;
   z-index: 1;
+  min-height: var(--speech-bubble-container-min-height, auto);
   padding: 18px 22px 30px;
   border: var(--speech-bubble-border-width, 2px) solid var(--speech-bubble-border, #9ed4ee);
   border-radius: var(--speech-bubble-radius, 40px);
   background: var(--speech-bubble-bg, #ffffff);
   line-height: 1.55;
   overflow: visible;
+  box-sizing: border-box;
 }
 
 .builder-preview-speech-bubble-content,
