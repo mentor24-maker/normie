@@ -62,15 +62,10 @@ export function BuilderTemplateList({
   const shouldFocusDetailsRef = useRef(false);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
-    setCollapsedPanels((current) => {
-      const nextCollapsed = !current[panel];
-
-      if (panel === "details") {
-        onTemplateEditorFocus(!nextCollapsed);
-      }
-
-      return { ...current, [panel]: nextCollapsed };
-    });
+    setCollapsedPanels((current) => ({
+      ...current,
+      [panel]: !current[panel]
+    }));
   }
 
   function openDetailsAndFocus() {
@@ -97,6 +92,10 @@ export function BuilderTemplateList({
       onSetEmailFunction("signup_confirmation");
     }
   }
+
+  useEffect(() => {
+    onTemplateEditorFocus(!collapsedPanels.details);
+  }, [collapsedPanels.details, onTemplateEditorFocus]);
 
   useEffect(() => {
     if (collapsedPanels.details || !shouldFocusDetailsRef.current) {

@@ -5095,6 +5095,126 @@ a.polls-icon-button {
   min-width: 100%;
 }
 
+.builder-pages-list-shell {
+  --builder-pages-actions-width: 220px;
+}
+
+.builder-pages-list-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.builder-pages-list-table col.builder-pages-col-title {
+  width: 32%;
+}
+
+.builder-pages-list-table col.builder-pages-col-slug {
+  width: 18%;
+}
+
+.builder-pages-list-table col.builder-pages-col-template {
+  width: 22%;
+}
+
+.builder-pages-list-table col.builder-pages-col-updated {
+  width: 9.5rem;
+}
+
+.builder-pages-list-table col.builder-pages-col-actions {
+  width: var(--builder-pages-actions-width);
+}
+
+.builder-pages-list-heading-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--builder-pages-actions-width);
+  align-items: stretch;
+  gap: 20px;
+}
+
+.builder-pages-list-heading-primary {
+  min-width: 0;
+}
+
+.builder-pages-list-heading-primary .builder-panel-toggle {
+  width: 100%;
+  border-radius: 14px;
+}
+
+.builder-pages-list-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--builder-pages-actions-width);
+  min-width: var(--builder-pages-actions-width);
+  max-width: var(--builder-pages-actions-width);
+  box-sizing: border-box;
+}
+
+.builder-pages-list-table th.crud-actions-cell,
+.builder-pages-list-table td.crud-actions-cell {
+  min-width: var(--builder-pages-actions-width);
+  width: var(--builder-pages-actions-width);
+}
+
+.builder-pages-list-table .builder-template-actions {
+  gap: 10px;
+  padding-inline: 10px;
+}
+
+.builder-pages-list-heading-actions .builder-panel-heading-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.builder-pages-list-columns-row th {
+  border-top: 1px solid rgba(9, 16, 24, 0.08);
+}
+
+.builder-pages-crud-heading-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  align-items: stretch;
+  gap: 20px;
+}
+
+.builder-pages-details-shell .builder-pages-crud-heading-layout {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.builder-pages-crud-heading-primary {
+  min-width: 0;
+}
+
+.builder-pages-crud-heading-primary .builder-panel-toggle {
+  width: 100%;
+  border-radius: 14px;
+}
+
+.builder-pages-crud-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
+  padding: 8px 14px;
+  box-sizing: border-box;
+}
+
+.builder-pages-details-shell .builder-pages-crud-heading-actions {
+  width: auto;
+  min-width: 112px;
+  max-width: none;
+}
+
+.builder-pages-crud-heading-actions .builder-panel-heading-button {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding-inline: 18px;
+  justify-content: center;
+}
+
 .builder-modules-crud-shell {
   max-width: 100%;
 }
@@ -6131,38 +6251,30 @@ a.polls-icon-button {
   overflow: visible;
 }
 
-/* Live pages: overlay rows (floating images) must stack above later sections (poll pods, etc.) */
-.page-shell .builder-preview-shell {
+/* Overlay rows (floating images): cover the preview shell so anchor % resolves to the full page, not a zero-height row. */
+.builder-preview-shell {
   position: relative;
   isolation: isolate;
 }
 
-.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow {
-  position: relative;
+.builder-preview-shell > .builder-preview-section-overlay-flow {
+  position: absolute;
+  inset: 0;
   z-index: 40;
+  width: 100%;
   pointer-events: none;
 }
 
-.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow a,
-.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow button,
-.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow video,
-.page-shell .builder-preview-shell > .builder-preview-section-overlay-flow .builder-preview-image-shell-overlay {
+.builder-preview-shell > .builder-preview-section-overlay-flow a,
+.builder-preview-shell > .builder-preview-section-overlay-flow button,
+.builder-preview-shell > .builder-preview-section-overlay-flow video,
+.builder-preview-shell > .builder-preview-section-overlay-flow .builder-preview-image-shell-overlay {
   pointer-events: auto;
 }
 
-.page-shell .builder-preview-shell > .builder-preview-section:not(.builder-preview-section-overlay-flow) {
+.builder-preview-shell > .builder-preview-section:not(.builder-preview-section-overlay-flow) {
   position: relative;
   z-index: 1;
-}
-
-.page-shell .builder-preview-column-overlay-flow {
-  position: relative;
-  z-index: 40;
-}
-
-.page-shell .builder-preview-module-overlay-flow {
-  position: relative;
-  z-index: 40;
 }
 
 .builder-preview-section-overlay-flow {
@@ -6173,14 +6285,21 @@ a.polls-icon-button {
 }
 
 .builder-preview-column-overlay-flow {
+  position: relative;
+  z-index: 40;
   padding: 0 !important;
-  min-height: 0;
+  min-height: 100%;
+  height: 100%;
+  align-self: stretch;
   overflow: visible;
   border: none !important;
 }
 
 .builder-preview-module-overlay-flow {
-  height: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
   min-height: 0;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
@@ -6900,7 +7019,7 @@ a.polls-icon-button {
     minmax(0, 1.1fr)
     minmax(96px, 118px)
     minmax(132px, 188px)
-    auto;
+    112px;
   align-items: end;
 }
 
@@ -6936,6 +7055,9 @@ a.polls-icon-button {
 .builder-meta-grid-pages-actions {
   display: flex;
   align-items: flex-end;
+  justify-content: center;
+  width: 112px;
+  justify-self: end;
 }
 
 .builder-meta-actions {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildClonedPageCreatePayload,
   columnHasOnlyOverlayImageModules,
   getHeadingModuleStyle,
   getImageOverlayStyle,
@@ -57,7 +58,11 @@ describe("overlay flow collapse helpers", () => {
       minHeight: 0,
       overflow: "visible"
     });
-    expect(getOverlayFlowCollapsedModuleStyle(true).height).toBe(0);
+    expect(getOverlayFlowCollapsedModuleStyle(true)).toMatchObject({
+      position: "absolute",
+      inset: 0,
+      width: "100%"
+    });
   });
 
   it("does not collapse sections that mix overlay and inline modules", () => {
@@ -102,6 +107,60 @@ describe("getImageModuleShellStyle", () => {
     expect(style.transform).toContain("translate(-50%, -50%)");
     expect(style.transform).toContain("translate(0px, 0px)");
     expect(style.transform).toContain("translate(-6px, -10px)");
+  });
+});
+
+describe("buildClonedPageCreatePayload", () => {
+  it("assigns a unique slug and fresh section/module ids", () => {
+    const source = {
+      id: "page-1",
+      name: "Image TEST",
+      slug: "test-image",
+      templateId: "tpl-1",
+      pageBackground: { mode: "color" as const, color: "#ffffff", color2: "#ffffff", imageUrl: "", styleKey: "" as const },
+      layoutSections: [
+        {
+          id: "section-1",
+          title: "Section",
+          layout: "single" as const,
+          alignment: "left" as const,
+          marginTop: "0",
+          marginBottom: "0",
+          mobileHidden: "",
+          desktopHidden: "",
+          mobileLayout: "stack" as const,
+          background: { mode: "none" as const, color: "#ffffff", color2: "#ffffff", imageUrl: "", styleKey: "" as const },
+          cellBackgrounds: {},
+          cellPadding: {},
+          cellVerticalMargin: {},
+          cellMobileHidden: {},
+          cellBorderWidth: {},
+          cellBorderColor: {},
+          cellBorderRadius: {},
+          modules: [
+            {
+              id: "module-1",
+              type: "heading" as const,
+              column: "main",
+              name: "Heading",
+              text: "Hello",
+              settings: {}
+            }
+          ]
+        }
+      ],
+      createdAt: "",
+      updatedAt: "",
+      isPublished: true
+    };
+
+    const payload = buildClonedPageCreatePayload(source, [source, { ...source, id: "page-2", slug: "test-image-copy" }]);
+
+    expect(payload.name).toBe("Image TEST Copy");
+    expect(payload.slug).toBe("test-image-copy-2");
+    expect(payload.isPublished).toBe(false);
+    expect(payload.layoutSections[0]?.id).not.toBe("section-1");
+    expect(payload.layoutSections[0]?.modules[0]?.id).not.toBe("module-1");
   });
 });
 

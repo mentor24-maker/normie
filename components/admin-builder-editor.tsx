@@ -28,7 +28,12 @@ import { inferModuleClassFromBuilderModules, resolveModuleClassForBuilderModule 
 
 import type { GalleryTarget, ModulePaletteGroup, ModulePaletteItem } from "./builder/builder-types";
 import { layoutOptions } from "./builder/builder-types";
-import { createDraftFromTemplate, createDraftFromPage, getModuleBackgroundSettings } from "./builder/builder-utils";
+import {
+  buildClonedPageCreatePayload,
+  createDraftFromTemplate,
+  createDraftFromPage,
+  getModuleBackgroundSettings
+} from "./builder/builder-utils";
 import { BuilderTemplateList } from "./builder/builder-template-list";
 import { BuilderPageList } from "./builder/builder-page-list";
 import {
@@ -94,6 +99,8 @@ export function AdminBuilderEditor() {
   const [repositorySaveFocus, setRepositorySaveFocus] = useState<BuilderModuleEditorFocus | null>(null);
   const [repositorySaveActive, setRepositorySaveActive] = useState(false);
   const repositorySaveRef = useRef<BuilderModuleEditorFocus | null>(null);
+  const hydratedPageSelectionRef = useRef("");
+  const hydratedTemplateSelectionRef = useRef("");
   const [galleryMedia, setGalleryMedia] = useState<AdminMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -116,14 +123,6 @@ export function AdminBuilderEditor() {
 
   // --- Derived values ---
 
-  const selectedTemplate = useMemo(
-    () => pageTemplates.find((t) => t.id === selectedTemplateId) ?? null,
-    [pageTemplates, selectedTemplateId]
-  );
-  const selectedPage = useMemo(
-    () => pages.find((p) => p.id === selectedPageId) ?? null,
-    [pages, selectedPageId]
-  );
   const pageLayoutTemplates = useMemo(
     () => pageTemplates.filter((template) => template.templateKind !== "email"),
     [pageTemplates]
@@ -230,19 +229,44 @@ export function AdminBuilderEditor() {
       return;
     }
 
-    setDraft(createDraftFromTemplate(selectedTemplate));
-    setCollapsedSectionIds(selectedTemplate?.layoutSections.map((s) => s.id) ?? []);
-  }, [builderMode, selectedTemplate, selectedTemplateId]);
+    const template = pageTemplates.find((template) => template.id === selectedTemplateId) ?? null;
+
+    if (!template) {
+      return;
+    }
+
+    if (hydratedTemplateSelectionRef.current === selectedTemplateId) {
+      return;
+    }
+
+    hydratedTemplateSelectionRef.current = selectedTemplateId;
+    setDraft(createDraftFromTemplate(template));
+    setCollapsedSectionIds(template.layoutSections.map((section) => section.id));
+  }, [builderMode, selectedTemplateId, pageTemplates]);
 
   useEffect(() => {
-    if (builderMode === "pages") {
-      setDraft(createDraftFromPage(selectedPage));
-      setPageSlug(selectedPage?.slug ?? "");
-      setPageTemplateId(selectedPage?.templateId ?? "");
-      setIsPublishedPage(selectedPage?.isPublished ?? true);
-      setCollapsedSectionIds(selectedPage?.layoutSections.map((s) => s.id) ?? []);
+    if (builderMode !== "pages") {
+      return;
     }
-  }, [builderMode, selectedPage]);
+
+    const selectionKey = selectedPageId || "__new__";
+    const page = selectedPageId ? pages.find((entry) => entry.id === selectedPageId) ?? null : null;
+
+    if (selectedPageId && !page) {
+      return;
+    }
+
+    if (hydratedPageSelectionRef.current === selectionKey) {
+      return;
+    }
+
+    hydratedPageSelectionRef.current = selectionKey;
+    setDraft(createDraftFromPage(page));
+    setPageSlug(page?.slug ?? "");
+    setPageTemplateId(page?.templateId ?? "");
+    setIsPublishedPage(page?.isPublished ?? true);
+    setCollapsedSectionIds(page?.layoutSections.map((section) => section.id) ?? []);
+  }, [builderMode, selectedPageId, pages]);
 
   useEffect(() => {
     if (builderMode !== "pages") {
@@ -1120,6 +1144,7 @@ export function AdminBuilderEditor() {
   // --- Template / page helpers ---
 
   function startNewTemplate() {
+    hydratedTemplateSelectionRef.current = "";
     setSelectedTemplateId("");
     setDraft(createDraftFromTemplate(null));
     setMessage(null);
@@ -1127,6 +1152,7 @@ export function AdminBuilderEditor() {
   }
 
   function startNewPage() {
+    hydratedPageSelectionRef.current = "";
     setSelectedPageId("");
     setPageSlug("");
     setPageTemplateId("");
@@ -1405,6 +1431,43 @@ export function AdminBuilderEditor() {
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to delete page."); }
   }
 
+  async function clonePageById(pageId: string) {
+    const source = pages.find((page) => page.id === pageId);
+
+    if (!source) {
+      setError("Page not found.");
+      return;
+    }
+
+    const payload = buildClonedPageCreatePayload(source, pages);
+
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await readAdminJson<{ page?: BuilderPageRecord; error?: string }>(response, "Failed to clone page.");
+
+      if (!data.page?.id) {
+        throw new Error(data.error ?? "Failed to clone page.");
+      }
+
+      hydratedPageSelectionRef.current = "";
+      setSelectedPageId(data.page.id);
+      setMessage(`Cloned page "${payload.name}".`);
+      await loadPages();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to clone page.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // --- Preview ---
 
   function openPreviewPage() {
@@ -1476,7 +1539,7 @@ export function AdminBuilderEditor() {
     }
   }, []);
 
-  const floatingSaveActions = useMemo((): BuilderFloatingSaveAction[] => {
+  const floatingSaveActions: BuilderFloatingSaveAction[] = (() => {
     if (builderMode === "pages" && (pageEditorFocused || Boolean(selectedPageId))) {
       return [
         {
@@ -1543,15 +1606,7 @@ export function AdminBuilderEditor() {
     }
 
     return [];
-  }, [
-    builderMode,
-    repositorySaveActive,
-    repositorySaveFocus,
-    pageEditorFocused,
-    selectedPageId,
-    selectedTemplateId,
-    templateEditorFocused
-  ]);
+  })();
 
   // --- Render ---
 
@@ -1630,6 +1685,7 @@ export function AdminBuilderEditor() {
           isSaving={isSaving}
           onSelectPage={setSelectedPageId}
           onPreviewPage={openPagePreview}
+          onClonePage={(id) => void clonePageById(id)}
           onDeletePage={(id, name) => void deletePageById(id, name)}
           onSetDraftName={setDraftName}
           onUpdatePageBackground={updatePageBackground}
@@ -1637,6 +1693,7 @@ export function AdminBuilderEditor() {
           onApplyTemplate={applyTemplateToPage}
           onSetIsPublished={setIsPublishedPage}
           onNewPage={startNewPage}
+          onPreviewDraft={openPreviewPage}
           onMakeTemplate={() => void makeTemplateFromPage()}
           onPageEditorFocus={setPageEditorFocused}
         />

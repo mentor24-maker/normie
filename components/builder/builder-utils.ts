@@ -281,6 +281,43 @@ export function sectionHasOnlyOverlayImageModules(section: BuilderTemplateSectio
 export const columnHasOnlyFloatingImageModules = columnHasOnlyOverlayImageModules;
 export const sectionHasOnlyFloatingImageModules = sectionHasOnlyOverlayImageModules;
 
+export function cloneBuilderLayoutSections(sections: BuilderTemplateSection[]): BuilderTemplateSection[] {
+  return sections.map((section) => ({
+    ...section,
+    id: crypto.randomUUID(),
+    modules: section.modules.map((module) => ({
+      ...module,
+      id: crypto.randomUUID(),
+      settings: { ...module.settings }
+    }))
+  }));
+}
+
+export function buildUniquePageSlug(baseSlug: string, existingSlugs: Iterable<string>): string {
+  const slugs = new Set(existingSlugs);
+  const normalized = baseSlug.replace(/^-+|-+$/g, "") || "page";
+  let candidate = `${normalized}-copy`;
+  let counter = 2;
+
+  while (slugs.has(candidate)) {
+    candidate = `${normalized}-copy-${counter}`;
+    counter += 1;
+  }
+
+  return candidate;
+}
+
+export function buildClonedPageCreatePayload(source: BuilderPageRecord, existingPages: BuilderPageRecord[]) {
+  return {
+    name: `${source.name.trim() || "Untitled page"} Copy`,
+    slug: buildUniquePageSlug(source.slug, existingPages.map((page) => page.slug)),
+    templateId: source.templateId,
+    isPublished: false,
+    pageBackground: { ...source.pageBackground },
+    layoutSections: cloneBuilderLayoutSections(source.layoutSections)
+  };
+}
+
 /** Overlay images are painted out-of-flow; collapse their row/column layout box. */
 export function getOverlayFlowCollapsedSectionStyle(collapsed: boolean): CSSProperties {
   return collapsed
@@ -309,7 +346,9 @@ export function getOverlayFlowCollapsedColumnStyle(collapsed: boolean): CSSPrope
 export function getOverlayFlowCollapsedModuleStyle(collapsed: boolean): CSSProperties {
   return collapsed
     ? {
-        height: 0,
+        position: "absolute",
+        inset: 0,
+        width: "100%",
         minHeight: 0,
         marginTop: 0,
         marginBottom: 0,

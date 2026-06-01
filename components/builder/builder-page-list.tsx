@@ -16,6 +16,7 @@ type BuilderPageListProps = {
   isSaving: boolean;
   onSelectPage: (pageId: string) => void;
   onPreviewPage: (slug: string) => void;
+  onClonePage: (pageId: string) => void;
   onDeletePage: (pageId: string, pageName: string) => void;
   onSetDraftName: (name: string) => void;
   onUpdatePageBackground: (updater: (background: BackgroundSettings) => BackgroundSettings) => void;
@@ -23,6 +24,7 @@ type BuilderPageListProps = {
   onApplyTemplate: (templateId: string) => void;
   onSetIsPublished: (isPublished: boolean) => void;
   onNewPage: () => void;
+  onPreviewDraft: () => void;
   onMakeTemplate: () => void;
   onPageEditorFocus: (focused: boolean) => void;
 };
@@ -39,6 +41,7 @@ export function BuilderPageList({
   isSaving,
   onSelectPage,
   onPreviewPage,
+  onClonePage,
   onDeletePage,
   onSetDraftName,
   onUpdatePageBackground,
@@ -46,6 +49,7 @@ export function BuilderPageList({
   onApplyTemplate,
   onSetIsPublished,
   onNewPage,
+  onPreviewDraft,
   onMakeTemplate,
   onPageEditorFocus
 }: BuilderPageListProps) {
@@ -57,16 +61,15 @@ export function BuilderPageList({
   const shouldFocusDetailsRef = useRef(false);
 
   function togglePanel(panel: keyof typeof collapsedPanels) {
-    setCollapsedPanels((current) => {
-      const nextCollapsed = !current[panel];
-
-      if (panel === "details") {
-        onPageEditorFocus(!nextCollapsed);
-      }
-
-      return { ...current, [panel]: nextCollapsed };
-    });
+    setCollapsedPanels((current) => ({
+      ...current,
+      [panel]: !current[panel]
+    }));
   }
+
+  useEffect(() => {
+    onPageEditorFocus(!collapsedPanels.details);
+  }, [collapsedPanels.details, onPageEditorFocus]);
 
   function openDetailsAndFocus() {
     shouldFocusDetailsRef.current = true;
@@ -99,20 +102,22 @@ export function BuilderPageList({
 
   return (
     <>
-      <div className="builder-toolbar-shell">
-        <div className="builder-panel-toggle-row">
-          <button
-            aria-expanded={!collapsedPanels.pages}
-            aria-label={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
-            className="builder-panel-toggle"
-            onClick={() => togglePanel("pages")}
-            title={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
-            type="button"
-          >
-            <span className="panel-label">Pages</span>
-            <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.pages} /></span>
-          </button>
-          <span className="builder-panel-heading-actions">
+      <div className="builder-toolbar-shell builder-pages-list-shell">
+        <div className="builder-pages-list-heading-layout">
+          <div className="builder-pages-list-heading-primary">
+            <button
+              aria-expanded={!collapsedPanels.pages}
+              aria-label={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
+              className="builder-panel-toggle"
+              onClick={() => togglePanel("pages")}
+              title={collapsedPanels.pages ? "Expand Pages" : "Collapse Pages"}
+              type="button"
+            >
+              <span className="panel-label">Pages</span>
+              <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.pages} /></span>
+            </button>
+          </div>
+          <div className="builder-pages-list-heading-actions">
             <button
               className="submit-button builder-panel-heading-button"
               onClick={handleNewPage}
@@ -120,20 +125,29 @@ export function BuilderPageList({
             >
               New Page
             </button>
-          </span>
+          </div>
         </div>
-        {!collapsedPanels.pages ? (
-          <div className="table-shell builder-templates-shell">
-            <table className="polls-table builder-templates-table">
-              <thead>
-                <tr>
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table builder-pages-list-table">
+            <colgroup>
+              <col className="builder-pages-col-title" />
+              <col className="builder-pages-col-slug" />
+              <col className="builder-pages-col-template" />
+              <col className="builder-pages-col-updated" />
+              <col className="builder-pages-col-actions" />
+            </colgroup>
+            <thead>
+              {!collapsedPanels.pages ? (
+                <tr className="builder-pages-list-columns-row">
                   <th>Title</th>
                   <th>Slug</th>
                   <th>Template</th>
                   <th>Updated</th>
                   <th className="crud-actions-cell">Actions</th>
                 </tr>
-              </thead>
+              ) : null}
+            </thead>
+            {!collapsedPanels.pages ? (
               <tbody>
                 {pages.map((page) => {
                   const isSelected = page.id === selectedPageId;
@@ -169,6 +183,16 @@ export function BuilderPageList({
                             <span aria-hidden="true" className="polls-icon-glyph-eye" />
                           </button>
                           <button
+                            aria-label="Clone page"
+                            className="polls-icon-button polls-icon-button-view"
+                            disabled={isSaving}
+                            onClick={() => onClonePage(page.id)}
+                            title="Clone"
+                            type="button"
+                          >
+                            ⧉
+                          </button>
+                          <button
                             className="polls-icon-button polls-icon-button-danger"
                             onClick={() => onDeletePage(page.id, page.name)}
                             type="button"
@@ -189,23 +213,36 @@ export function BuilderPageList({
                   </tr>
                 ) : null}
               </tbody>
-            </table>
-          </div>
-        ) : null}
+            ) : null}
+          </table>
+        </div>
       </div>
 
-      <div className="builder-toolbar-shell">
-        <button
-          aria-expanded={!collapsedPanels.details}
-          aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
-          className="builder-panel-toggle"
-          onClick={() => togglePanel("details")}
-          title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
-          type="button"
-        >
-          <span className="panel-label">Page Details</span>
-          <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.details} /></span>
-        </button>
+      <div className="builder-toolbar-shell builder-pages-details-shell">
+        <div className="builder-pages-crud-heading-layout">
+          <div className="builder-pages-crud-heading-primary">
+            <button
+              aria-expanded={!collapsedPanels.details}
+              aria-label={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+              className="builder-panel-toggle"
+              onClick={() => togglePanel("details")}
+              title={collapsedPanels.details ? "Expand Page Details" : "Collapse Page Details"}
+              type="button"
+            >
+              <span className="panel-label">Page Details</span>
+              <span className="builder-panel-toggle-icon"><BuilderCollapseIcon expanded={!collapsedPanels.details} /></span>
+            </button>
+          </div>
+          <div className="builder-pages-crud-heading-actions">
+            <button
+              className="submit-button builder-panel-heading-button"
+              onClick={onPreviewDraft}
+              type="button"
+            >
+              Preview
+            </button>
+          </div>
+        </div>
         {!collapsedPanels.details ? (
           <div className="builder-meta-grid builder-meta-grid-pages">
             <label className="field">
