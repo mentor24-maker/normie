@@ -58,7 +58,7 @@ export function PlayerGameSpeechBubbleHost() {
   return (
     <div aria-live="polite" className="player-game-speech-bubble-host">
       <div aria-hidden="true" className="player-game-event-backdrop" />
-      <SpeechBubblePreview classNamePrefix="builder-preview" module={activeModule} />
+      <SpeechBubblePreview classNamePrefix="builder-preview" layoutMode="overlay" module={activeModule} />
     </div>
   );
 }

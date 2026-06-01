@@ -179,16 +179,30 @@ export function getSpeechBubbleContainerWidthPx(settings: Record<string, string>
   return Math.min(Math.max(Number.isFinite(parsed) ? parsed : 520, 200), 900);
 }
 
+export type SpeechBubbleLayoutMode = "overlay" | "embedded";
+
+function getSpeechBubbleMaxWidthCss(containerWidth: number, layoutMode: SpeechBubbleLayoutMode): string {
+  if (layoutMode === "overlay") {
+    return `min(${containerWidth}px, calc(100vw - 48px))`;
+  }
+
+  return `min(${containerWidth}px, 100%)`;
+}
+
 export function getSpeechBubbleContainerHeightPx(settings: Record<string, string>): number {
   const parsed = Number.parseInt(settings.containerHeight ?? "0", 10);
   return Math.min(Math.max(Number.isFinite(parsed) ? parsed : 0, 0), 800);
 }
 
-export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CSSProperties {
+export function getSpeechBubbleModuleStyle(
+  settings: Record<string, string>,
+  layoutMode: SpeechBubbleLayoutMode = "embedded"
+): CSSProperties {
   const borderRadius = Math.max(0, Number.parseInt(settings.borderRadius ?? "40", 10) || 40);
   const borderThickness = Math.max(0, Number.parseInt(settings.borderThickness ?? "2", 10) || 2);
   const containerWidth = getSpeechBubbleContainerWidthPx(settings);
   const containerHeight = getSpeechBubbleContainerHeightPx(settings);
+  const maxWidth = getSpeechBubbleMaxWidthCss(containerWidth, layoutMode);
   const offsetX = Number.parseInt(normalizeSignedOffsetValue(settings.offsetX, "0"), 10);
   const offsetY = Number.parseInt(normalizeSignedOffsetValue(settings.offsetY, "0"), 10);
   const zIndex = Number.parseInt(settings.zIndex ?? "10", 10);
@@ -197,8 +211,8 @@ export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CS
   const resolvedZIndex = Number.isFinite(zIndex) ? zIndex : 10;
 
   return {
-    width: `${containerWidth}px`,
-    maxWidth: "100%",
+    width: maxWidth,
+    maxWidth,
     boxSizing: "border-box",
     "--speech-bubble-container-width": `${containerWidth}px`,
     ...(containerHeight > 0
@@ -222,13 +236,10 @@ export function getSpeechBubbleModuleStyle(settings: Record<string, string>): CS
 export function getSpeechBubbleBodyStyle(settings: Record<string, string>): CSSProperties {
   const containerHeight = getSpeechBubbleContainerHeightPx(settings);
 
-  if (containerHeight <= 0) {
-    return {};
-  }
-
   return {
-    minHeight: `${containerHeight}px`,
-    boxSizing: "border-box"
+    width: "100%",
+    boxSizing: "border-box",
+    ...(containerHeight > 0 ? { minHeight: `${containerHeight}px` } : {})
   };
 }
 
@@ -317,68 +328,74 @@ export function getImageOverlayStyle(settings: Record<string, string>): CSSPrope
   const offsetY = Number.isFinite(y) ? y : 0;
   const anchor = settings.overlayAnchor ?? "center";
   const width = `${Math.min(Math.max(Number.isFinite(size) ? size : 100, 10), 100)}%`;
+  /** Match speech bubble: positive Y moves up, negative Y moves down. */
+  const offsetTransform = `translate(${offsetX}px, ${-offsetY}px)`;
 
   const style: CSSProperties = {
     position: "absolute",
-    zIndex: Number.isFinite(zIndex) ? zIndex : 2,
+    zIndex: Number.isFinite(zIndex) ? zIndex : 20,
     width
   };
 
   if (anchor === "top-left") {
-    style.left = `${offsetX}px`;
-    style.top = `${offsetY}px`;
+    style.left = "0";
+    style.top = "0";
+    style.transform = offsetTransform;
     return style;
   }
 
   if (anchor === "top-center") {
     style.left = "50%";
-    style.top = `${offsetY}px`;
-    style.transform = `translateX(calc(-50% + ${offsetX}px))`;
+    style.top = "0";
+    style.transform = `translateX(-50%) ${offsetTransform}`;
     return style;
   }
 
   if (anchor === "top-right") {
-    style.right = `${offsetX}px`;
-    style.top = `${offsetY}px`;
+    style.right = "0";
+    style.top = "0";
+    style.transform = offsetTransform;
     return style;
   }
 
   if (anchor === "center-left") {
-    style.left = `${offsetX}px`;
+    style.left = "0";
     style.top = "50%";
-    style.transform = `translateY(calc(-50% + ${offsetY}px))`;
+    style.transform = `translateY(-50%) ${offsetTransform}`;
     return style;
   }
 
   if (anchor === "center-right") {
-    style.right = `${offsetX}px`;
+    style.right = "0";
     style.top = "50%";
-    style.transform = `translateY(calc(-50% + ${offsetY}px))`;
+    style.transform = `translateY(-50%) ${offsetTransform}`;
     return style;
   }
 
   if (anchor === "bottom-left") {
-    style.left = `${offsetX}px`;
-    style.bottom = `${offsetY}px`;
+    style.left = "0";
+    style.bottom = "0";
+    style.transform = offsetTransform;
     return style;
   }
 
   if (anchor === "bottom-center") {
     style.left = "50%";
-    style.bottom = `${offsetY}px`;
-    style.transform = `translateX(calc(-50% + ${offsetX}px))`;
+    style.bottom = "0";
+    style.transform = `translateX(-50%) ${offsetTransform}`;
     return style;
   }
 
   if (anchor === "bottom-right") {
-    style.right = `${offsetX}px`;
-    style.bottom = `${offsetY}px`;
+    style.right = "0";
+    style.bottom = "0";
+    style.transform = offsetTransform;
     return style;
   }
 
   style.left = "50%";
   style.top = "50%";
-  style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+  style.transform = `translate(-50%, -50%) ${offsetTransform}`;
   return style;
 }
 

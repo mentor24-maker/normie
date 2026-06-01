@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   columnHasOnlyOverlayImageModules,
   getHeadingModuleStyle,
+  getImageOverlayStyle,
   getImageModuleShellStyle,
   getModuleWidthShellStyle,
   getModuleWidthStyle,
@@ -98,8 +99,30 @@ describe("getImageModuleShellStyle", () => {
       verticalOffset: "10"
     });
 
-    expect(style.transform).toContain("translate(calc(-50% + 0px), calc(-50% + 0px))");
+    expect(style.transform).toContain("translate(-50%, -50%)");
+    expect(style.transform).toContain("translate(0px, 0px)");
     expect(style.transform).toContain("translate(-6px, -10px)");
+  });
+});
+
+describe("getImageOverlayStyle", () => {
+  it("moves center-anchored overlays down when Y offset is negative", () => {
+    const style = getImageOverlayStyle({
+      overlayAnchor: "center",
+      offsetX: "-45",
+      offsetY: "-300"
+    });
+
+    expect(style.transform).toBe("translate(-50%, -50%) translate(-45px, 300px)");
+  });
+
+  it("moves center-anchored overlays up when Y offset is positive", () => {
+    const style = getImageOverlayStyle({
+      overlayAnchor: "center",
+      offsetY: "120"
+    });
+
+    expect(style.transform).toBe("translate(-50%, -50%) translate(0px, -120px)");
   });
 });
 
@@ -123,16 +146,31 @@ describe("getSpeechBubbleModuleStyle", () => {
     expect(style.transform).toBeUndefined();
   });
 
-  it("applies container width and minimum height variables", () => {
-    const style = getSpeechBubbleModuleStyle({
-      containerWidth: "640",
-      containerHeight: "220"
-    });
+  it("applies container width and minimum height variables in embedded layout", () => {
+    const style = getSpeechBubbleModuleStyle(
+      {
+        containerWidth: "640",
+        containerHeight: "220"
+      },
+      "embedded"
+    );
 
-    expect(style.width).toBe("640px");
-    expect(style.maxWidth).toBe("100%");
+    expect(style.width).toBe("min(640px, 100%)");
+    expect(style.maxWidth).toBe("min(640px, 100%)");
     expect(style["--speech-bubble-container-width"]).toBe("640px");
     expect(style["--speech-bubble-container-min-height"]).toBe("220px");
+  });
+
+  it("uses viewport cap for overlay layout (game / full-screen events)", () => {
+    const style = getSpeechBubbleModuleStyle(
+      {
+        containerWidth: "720"
+      },
+      "overlay"
+    );
+
+    expect(style.width).toBe("min(720px, calc(100vw - 48px))");
+    expect(style.maxWidth).toBe("min(720px, calc(100vw - 48px))");
   });
 
   it("omits minimum height when container height is zero", () => {
@@ -149,13 +187,17 @@ describe("getSpeechBubbleModuleStyle", () => {
 describe("getSpeechBubbleBodyStyle", () => {
   it("sets min-height when container height is configured", () => {
     expect(getSpeechBubbleBodyStyle({ containerHeight: "180" })).toEqual({
+      width: "100%",
       minHeight: "180px",
       boxSizing: "border-box"
     });
   });
 
-  it("returns empty styles when container height is zero", () => {
-    expect(getSpeechBubbleBodyStyle({ containerHeight: "0" })).toEqual({});
+  it("always spans the outer shell width", () => {
+    expect(getSpeechBubbleBodyStyle({ containerHeight: "0" })).toEqual({
+      width: "100%",
+      boxSizing: "border-box"
+    });
   });
 });
 

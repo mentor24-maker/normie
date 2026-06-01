@@ -607,8 +607,11 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
     delete settings.positionMode;
     delete settings.linkUrl;
     delete settings.newTab;
+    settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
+    settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");
     settings.horizontalOffset = normalizeSignedOffsetValue(settings.horizontalOffset, "0");
     settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
+    settings.zIndex = normalizeSpacingValue(settings.zIndex, "20", -999, 999999);
   }
 
   if (type === "heading") {
@@ -635,6 +638,7 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
     settings.borderThickness = normalizeSpacingValue(settings.borderThickness, "2", 0, 24);
     // Backward compatibility for older saved bubbles that used `width`.
     settings.containerWidth = normalizeSpacingValue(settings.containerWidth ?? settings.width, "520", 200, 900);
+    delete settings.width;
     settings.containerHeight = normalizeSpacingValue(settings.containerHeight, "0", 0, 800);
     settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
     settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");

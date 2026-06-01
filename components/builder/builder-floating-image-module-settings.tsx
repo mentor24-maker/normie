@@ -40,8 +40,6 @@ const EFFECT_OPTIONS = [
   { value: "tumbleweed", label: "Tumbleweed" }
 ] as const;
 
-const Z_INDEX_OPTIONS = ["0", "1", "2", "3", "4", "5", "10", "20"] as const;
-
 export function BuilderFloatingImageModuleSettings({
   module,
   onOpenGallery,
@@ -191,32 +189,41 @@ export function BuilderFloatingImageModuleSettings({
       </BuilderSettingRow>
 
       <BuilderSettingRow fullWidth label="X Offset">
-        <input
-          type="number"
-          value={module.settings.offsetX ?? "0"}
-          onChange={(event) => updateSettings({ offsetX: event.target.value })}
-        />
+        <div className="builder-setting-value-stack">
+          <input
+            type="number"
+            value={module.settings.offsetX ?? "0"}
+            onChange={(event) => updateSettings({ offsetX: event.target.value })}
+          />
+          <span className="builder-module-offset-hint">Positive moves right; negative moves left.</span>
+        </div>
       </BuilderSettingRow>
 
       <BuilderSettingRow fullWidth label="Y Offset">
-        <input
-          type="number"
-          value={module.settings.offsetY ?? "0"}
-          onChange={(event) => updateSettings({ offsetY: event.target.value })}
-        />
+        <div className="builder-setting-value-stack">
+          <input
+            type="number"
+            value={module.settings.offsetY ?? "0"}
+            onChange={(event) => updateSettings({ offsetY: event.target.value })}
+          />
+          <span className="builder-module-offset-hint">Positive moves up; negative moves down.</span>
+        </div>
       </BuilderSettingRow>
 
       <BuilderSettingRow fullWidth label="Z-Index">
-        <select
-          value={module.settings.zIndex ?? "20"}
-          onChange={(event) => updateSettings({ zIndex: event.target.value })}
-        >
-          {Z_INDEX_OPTIONS.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
+        <div className="builder-setting-value-stack">
+          <input
+            max={999999}
+            min={-999}
+            step={1}
+            type="number"
+            value={module.settings.zIndex ?? "20"}
+            onChange={(event) => updateSettings({ zIndex: event.target.value })}
+          />
+          <span className="builder-module-offset-hint">
+            Higher values stack in front (e.g. 50–100 above page content). Lower values stack behind.
+          </span>
+        </div>
       </BuilderSettingRow>
 
       <BuilderModuleOffsetFields

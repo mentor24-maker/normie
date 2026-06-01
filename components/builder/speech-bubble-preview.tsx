@@ -1,16 +1,22 @@
 import { formatRichTextContent, type BuilderTemplateModule } from "@/lib/builder-template";
-import { getSpeechBubbleBodyStyle, getSpeechBubbleModuleStyle } from "./builder-utils";
+import {
+  getSpeechBubbleBodyStyle,
+  getSpeechBubbleModuleStyle,
+  type SpeechBubbleLayoutMode
+} from "./builder-utils";
 
 type SpeechBubblePreviewProps = {
   classNamePrefix?: "builder-preview" | "builder-module-preview";
+  layoutMode?: SpeechBubbleLayoutMode;
   module: BuilderTemplateModule;
 };
 
 export function SpeechBubblePreview({
   classNamePrefix = "builder-preview",
+  layoutMode = "embedded",
   module
 }: SpeechBubblePreviewProps) {
-  const bubbleStyle = getSpeechBubbleModuleStyle(module.settings);
+  const bubbleStyle = getSpeechBubbleModuleStyle(module.settings, layoutMode);
   const bodyStyle = getSpeechBubbleBodyStyle(module.settings);
   const contentHtml = formatRichTextContent(module.text) || "<p>What Normie has to say goes here.</p>";
 

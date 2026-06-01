@@ -3489,7 +3489,6 @@ h2 {
 
 .player-game-floating-image-host .builder-image-preview-shell {
   position: absolute;
-  inset: 0;
   z-index: 1;
 }
 
@@ -3506,9 +3505,11 @@ h2 {
 
 .player-game-speech-bubble-host .builder-preview-speech-bubble {
   pointer-events: auto;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   align-self: center;
   z-index: 1;
+  width: min(var(--speech-bubble-container-width, 520px), calc(100vw - 48px));
+  max-width: min(var(--speech-bubble-container-width, 520px), calc(100vw - 48px));
 }
 
 .player-game-reminder-inline-stack {
@@ -7973,8 +7974,6 @@ a.polls-icon-button {
 .builder-module-preview-speech-bubble {
   position: relative;
   display: block;
-  width: min(100%, var(--speech-bubble-container-width, 520px));
-  max-width: min(100%, var(--speech-bubble-container-width, 520px));
   margin: 0 0 44px;
   color: var(--speech-bubble-text, #18324a);
   box-sizing: border-box;

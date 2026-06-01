@@ -29,7 +29,7 @@ export async function fireGameEventModule(
     const { fireGameSpeechBubbleModule } = await import("@/lib/game-speech-bubble-trigger");
     fireGameSpeechBubbleModule({
       ...moduleDefinition,
-      settings
+      settings: { ...moduleDefinition.settings, ...settings }
     });
     return true;
   }
