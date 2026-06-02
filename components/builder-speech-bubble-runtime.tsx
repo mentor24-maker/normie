@@ -8,12 +8,15 @@ import {
   type ModuleGamePlayContext
 } from "@/lib/module-game-audience";
 import { getModuleTrigger } from "@/lib/module-trigger";
+import { shouldRunGameLayerOnSite } from "@/lib/public-game-layer";
 
 type BuilderSpeechBubbleRuntimeProps = {
   module: BuilderTemplateModule;
   /** Builder /preview route — show a test control instead of auto-firing on load. */
   previewMode?: boolean;
   gamePlayContext?: ModuleGamePlayContext;
+  /** When false on the public site, game/page-load overlays do not auto-fire (reminders only). */
+  sitePlayerRegistered?: boolean;
 };
 
 export function shouldSpeechBubbleUseOverlayRuntime(trigger: ReturnType<typeof getModuleTrigger>): boolean {
@@ -23,14 +26,20 @@ export function shouldSpeechBubbleUseOverlayRuntime(trigger: ReturnType<typeof g
 export function BuilderSpeechBubbleRuntime({
   module,
   previewMode = false,
-  gamePlayContext = "public"
+  gamePlayContext = "public",
+  sitePlayerRegistered = false
 }: BuilderSpeechBubbleRuntimeProps) {
   const trigger = getModuleTrigger(module.settings);
   const hasFiredOnLoadRef = useRef(false);
   const firesOnThisSite = moduleFiresForGameContext(module.settings, gamePlayContext);
+  const gameLayerAllowed = shouldRunGameLayerOnSite(sitePlayerRegistered, gamePlayContext);
 
   function fireBubble() {
     if (!firesOnThisSite) {
+      return;
+    }
+
+    if (!previewMode && !gameLayerAllowed) {
       return;
     }
 
@@ -38,7 +47,7 @@ export function BuilderSpeechBubbleRuntime({
   }
 
   useEffect(() => {
-    if (previewMode || !firesOnThisSite) {
+    if (previewMode || !firesOnThisSite || !gameLayerAllowed) {
       return;
     }
 
@@ -52,8 +61,10 @@ export function BuilderSpeechBubbleRuntime({
     }
 
     hasFiredOnLoadRef.current = true;
-    fireGameSpeechBubbleModule(module);
-  }, [firesOnThisSite, module.id, module.settings, module.text, module.type, previewMode, trigger]);
+    queueMicrotask(() => {
+      fireGameSpeechBubbleModule(module);
+    });
+  }, [firesOnThisSite, gameLayerAllowed, module.id, module.settings, module.text, module.type, previewMode, trigger]);
 
   if (!shouldSpeechBubbleUseOverlayRuntime(trigger) || !firesOnThisSite) {
     return null;
@@ -62,6 +73,17 @@ export function BuilderSpeechBubbleRuntime({
   if (trigger === "game" || trigger === "on-load") {
     if (!previewMode) {
       return null;
+    }
+
+    if (!gameLayerAllowed) {
+      return (
+        <div className="builder-confetti-module builder-confetti-module-game-stub" aria-hidden="true">
+          <p className="panel-copy builder-confetti-module-copy">
+            Game layer modules do not run for anonymous visitors on the live site. Log in to preview, or use
+            reminders for public users.
+          </p>
+        </div>
+      );
     }
 
     return (

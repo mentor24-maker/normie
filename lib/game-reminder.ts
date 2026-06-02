@@ -1,4 +1,14 @@
+/**
+ * Reminder criteria, appearance, and evaluation types.
+ * Public reminders are configured as Page Builder `reminder` modules (not the legacy `game_reminders` table).
+ */
+import { normalizeGameAudience, type GameAudience } from "@/lib/game-audience";
+
+/** @deprecated Legacy DB column; use `appearance` for UI. */
 export type GameReminderDisplayType = "popup" | "inline";
+
+export type GameReminderAppearance = "speech_bubble" | "strip";
+export type GameReminderStripPlacement = "top" | "bottom";
 export type GameReminderCriterionType = "polls_taken" | "logins" | "specific_poll" | "registered";
 export type GameReminderOperator = "gte" | "eq" | "lte";
 export type GameReminderCriteriaLogic = "and" | "or";
@@ -35,12 +45,15 @@ export type GameReminderCriteriaConfig = {
 export type GameReminder = {
   id: string;
   name: string;
+  /** @deprecated Use `appearance`. */
   displayType: GameReminderDisplayType;
+  appearance: GameReminderAppearance;
   messageHtml: string;
   criteriaLogic: GameReminderCriteriaLogic;
   criteria: GameReminderCriterion[];
   criterionType: GameReminderCriterionType;
   criterionValue: GameReminderCriterionValue;
+  audience: GameAudience;
   isActive: boolean;
   sortOrder: number;
   metadata: Record<string, unknown>;
@@ -49,6 +62,8 @@ export type GameReminder = {
 };
 
 export const GAME_REMINDER_DISPLAY_TYPES: GameReminderDisplayType[] = ["popup", "inline"];
+export const GAME_REMINDER_APPEARANCES: GameReminderAppearance[] = ["speech_bubble", "strip"];
+export const GAME_REMINDER_STRIP_PLACEMENTS: GameReminderStripPlacement[] = ["top", "bottom"];
 export const GAME_REMINDER_CRITERION_TYPES: GameReminderCriterionType[] = [
   "polls_taken",
   "logins",
@@ -62,9 +77,11 @@ type GameReminderRow = {
   id: string;
   name: string;
   display_type: string | null;
+  appearance?: string | null;
   message_html: string | null;
   criterion_type: string | null;
   criterion_value: unknown;
+  audience?: string | null;
   is_active: boolean | null;
   sort_order: number | null;
   metadata: unknown;
@@ -82,6 +99,36 @@ function normalizeDisplayType(value: unknown): GameReminderDisplayType {
     ? (displayType as GameReminderDisplayType)
     : "popup";
 }
+
+export function normalizeGameReminderAppearance(value: unknown): GameReminderAppearance {
+  const appearance = String(value ?? "").trim();
+
+  if (GAME_REMINDER_APPEARANCES.includes(appearance as GameReminderAppearance)) {
+    return appearance as GameReminderAppearance;
+  }
+
+  const legacyDisplay = normalizeDisplayType(value);
+  return legacyDisplay === "inline" ? "strip" : "speech_bubble";
+}
+
+export function appearanceToLegacyDisplayType(appearance: GameReminderAppearance): GameReminderDisplayType {
+  return appearance === "strip" ? "inline" : "popup";
+}
+
+export function resolveReminderPersistenceFields(input: {
+  appearance?: unknown;
+  displayType?: unknown;
+}): { appearance: GameReminderAppearance; display_type: GameReminderDisplayType } {
+  const appearance = normalizeGameReminderAppearance(input.appearance ?? input.displayType);
+
+  return {
+    appearance,
+    display_type: appearanceToLegacyDisplayType(appearance)
+  };
+}
+
+export const GAME_REMINDER_SELECT_COLUMNS =
+  "id, name, display_type, appearance, message_html, criterion_type, criterion_value, audience, is_active, sort_order, metadata, created_at, updated_at";
 
 function normalizeCriterionType(value: unknown): GameReminderCriterionType {
   const criterionType = String(value ?? "").trim();
@@ -261,15 +308,19 @@ export function gameReminderToClient(row: GameReminderRow): GameReminder {
   const criteriaConfig = parseCriteriaConfigFromMetadata(row.metadata, criterionType, row.criterion_value);
   const primaryCriterion = criteriaConfig.criteria[0] ?? createDefaultReminderCriterion(criterionType);
 
+  const appearance = normalizeGameReminderAppearance(row.appearance ?? row.display_type);
+
   return {
     id: row.id,
     name: row.name,
-    displayType: normalizeDisplayType(row.display_type),
+    displayType: appearanceToLegacyDisplayType(appearance),
+    appearance,
     messageHtml: row.message_html ?? "",
     criteriaLogic: criteriaConfig.logic,
     criteria: criteriaConfig.criteria,
     criterionType: primaryCriterion.type,
     criterionValue: primaryCriterion.value,
+    audience: normalizeGameAudience(row.audience),
     isActive: row.is_active ?? true,
     sortOrder: row.sort_order ?? 0,
     metadata: toRecord(row.metadata),
@@ -279,17 +330,26 @@ export function gameReminderToClient(row: GameReminderRow): GameReminder {
 }
 
 export function buildReminderSaveFields(input: {
+  audience?: unknown;
   criteriaLogic?: unknown;
   criteria?: unknown;
   criterionType?: unknown;
   criterionValue?: unknown;
   existingMetadata?: unknown;
-}): { config: GameReminderCriteriaConfig; criterionType: GameReminderCriterionType; criterionValue: GameReminderCriterionValue; metadata: Record<string, unknown>; error: string | null } {
+}): {
+  audience: GameAudience;
+  config: GameReminderCriteriaConfig;
+  criterionType: GameReminderCriterionType;
+  criterionValue: GameReminderCriterionValue;
+  metadata: Record<string, unknown>;
+  error: string | null;
+} {
   const { config, error } = parseReminderCriteriaInput(input);
   const primaryCriterion = config.criteria[0] ?? createDefaultReminderCriterion();
   const existingMetadata = toRecord(input.existingMetadata);
 
   return {
+    audience: normalizeGameAudience(input.audience),
     config,
     criterionType: primaryCriterion.type,
     criterionValue: primaryCriterion.value,
@@ -338,6 +398,10 @@ export function reminderCriterionTypeLabel(criterionType: GameReminderCriterionT
 
 export function reminderDisplayTypeLabel(displayType: GameReminderDisplayType): string {
   return displayType === "inline" ? "Inline" : "Popup";
+}
+
+export function reminderAppearanceLabel(appearance: GameReminderAppearance): string {
+  return appearance === "strip" ? "Strip" : "Speech Bubble";
 }
 
 export function reminderCriteriaLogicLabel(logic: GameReminderCriteriaLogic): string {

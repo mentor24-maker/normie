@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { GameModuleOverlayHosts } from "@/components/game-module-overlay-hosts";
-import { PlayerGameRemindersHost } from "@/components/player-game-reminders-host";
 import { PlayerLogoutButton } from "@/components/player-logout-button";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { PlayerPortalPlayCta } from "@/components/player-portal-play-cta";
@@ -81,7 +80,6 @@ export default async function ProtectedPortalLayout({
         </Suspense>
 
         <div className="player-portal-main">
-          <PlayerGameRemindersHost />
           <GameModuleOverlayHosts />
           {children}
         </div>

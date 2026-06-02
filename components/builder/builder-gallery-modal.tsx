@@ -1,11 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { GalleryMediaFilterBar } from "@/components/gallery-media-filter-bar";
+import { getRichTextGalleryModalStyle, type BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import { getGalleryMediaThumbnailUrl } from "@/lib/gallery-media-thumbnail";
 import { useGalleryMediaLibrary } from "@/lib/use-gallery-media-library";
 
 type BuilderGalleryModalProps = {
+  anchor?: BuilderModalAnchor | null;
   isUploading: boolean;
   onSelectImage: (imagePath: string) => void;
   onClose: () => void;
@@ -13,11 +17,16 @@ type BuilderGalleryModalProps = {
 };
 
 export function BuilderGalleryModal({
+  anchor = null,
   isUploading,
   onSelectImage,
   onClose,
   onUploadImage
 }: BuilderGalleryModalProps) {
+  const [mounted, setMounted] = useState(false);
+  const isAnchored = anchor != null;
+  const anchoredModalStyle = isAnchored && mounted ? getRichTextGalleryModalStyle() : undefined;
+
   const {
     media,
     total,
@@ -31,6 +40,10 @@ export function BuilderGalleryModal({
     canLoadMore
   } = useGalleryMediaLibrary({ syncOnFirstLoad: false });
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   async function handleUpload(file: File | null) {
     if (!file || !onUploadImage) {
       return;
@@ -40,14 +53,23 @@ export function BuilderGalleryModal({
     await loadMedia();
   }
 
-  return (
-    <div className="builder-gallery-overlay" onClick={onClose} role="presentation">
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      className={`builder-gallery-overlay${isAnchored ? " builder-gallery-overlay-anchored" : ""}`}
+      onClick={onClose}
+      role="presentation"
+    >
       <div
-        className="builder-gallery-modal"
+        className={`builder-gallery-modal${isAnchored ? " builder-gallery-modal-rich-text is-anchored" : ""}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="Media gallery"
+        style={anchoredModalStyle}
       >
         <div className="builder-gallery-header">
           <div>
@@ -141,6 +163,7 @@ export function BuilderGalleryModal({
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { getModuleTrigger } from "@/lib/module-trigger";
 import type {
   BackgroundSettings,
   BuilderPageRecord,
@@ -9,6 +10,10 @@ import type {
 } from "@/lib/builder-template";
 import type { BuilderEmailFunction } from "@/lib/builder-email-template";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
+import {
+  PLAYER_GAME_FLOATING_IMAGE_LAYER_Z_INDEX,
+  resolveGameOverlayContentZIndex
+} from "@/lib/game-overlay-layer";
 import {
   createDefaultBackgroundSettings,
   getBuilderBackgroundStyle,
@@ -208,7 +213,12 @@ export function getSpeechBubbleModuleStyle(
   const zIndex = Number.parseInt(settings.zIndex ?? "10", 10);
   const resolvedOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
   const resolvedOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
-  const resolvedZIndex = Number.isFinite(zIndex) ? zIndex : 10;
+  const resolvedZIndex =
+    layoutMode === "overlay"
+      ? resolveGameOverlayContentZIndex(settings, Number.isFinite(zIndex) ? zIndex : 10)
+      : Number.isFinite(zIndex)
+        ? zIndex
+        : 10;
 
   return {
     width: maxWidth,
@@ -235,12 +245,16 @@ export function getSpeechBubbleModuleStyle(
 
 export function getSpeechBubbleBodyStyle(settings: Record<string, string>): CSSProperties {
   const containerHeight = getSpeechBubbleContainerHeightPx(settings);
+  const borderThickness = Math.max(0, Number.parseInt(settings.borderThickness ?? "2", 10) || 2);
 
   return {
     width: "100%",
     boxSizing: "border-box",
+    "--speech-bubble-bg": normalizeBuilderHexColor(settings.backgroundColor || "#ffffff"),
+    "--speech-bubble-border": normalizeBuilderHexColor(settings.borderColor || "#9ed4ee"),
+    "--speech-bubble-border-width": `${borderThickness}px`,
     ...(containerHeight > 0 ? { minHeight: `${containerHeight}px` } : {})
-  };
+  } as CSSProperties;
 }
 
 export function getFloatingImageModuleStyle(settings: Record<string, string>): CSSProperties {
@@ -274,8 +288,40 @@ export function columnHasOnlyOverlayImageModules(modules: BuilderTemplateModule[
   return modules.length > 0 && modules.every(isOverlayImageModule);
 }
 
+/** Button-trigger floating images (e.g. Bouncing Normie) anchor to their row below the nav, not the full page. */
+export function isSectionScopedOverlayDecor(module: Pick<BuilderTemplateModule, "type" | "settings">) {
+  return isFloatingImageModule(module) && getModuleTrigger(module.settings) === "button";
+}
+
+export function columnHasOnlySectionScopedOverlayModules(modules: BuilderTemplateModule[]) {
+  return modules.length > 0 && modules.every(isSectionScopedOverlayDecor);
+}
+
+export function sectionHasOnlySectionScopedOverlayModules(section: BuilderTemplateSection) {
+  return section.modules.length > 0 && section.modules.every(isSectionScopedOverlayDecor);
+}
+
+/** Stack decorative floating rows above poll pods and other main sections (builder Z-Index applies here). */
+export function resolveSectionScopedOverlaySectionZIndex(section: BuilderTemplateSection): number {
+  return section.modules.reduce((max, module) => {
+    if (!isSectionScopedOverlayDecor(module)) {
+      return max;
+    }
+
+    return Math.max(max, resolveGameOverlayContentZIndex(module.settings, PLAYER_GAME_FLOATING_IMAGE_LAYER_Z_INDEX));
+  }, PLAYER_GAME_FLOATING_IMAGE_LAYER_Z_INDEX);
+}
+
+/** Game / page-load floating images paint a full-page overlay layer above main content. */
+export function sectionHasOnlyPageOverlayImageModules(section: BuilderTemplateSection) {
+  return (
+    section.modules.length > 0 &&
+    section.modules.every((module) => isOverlayImageModule(module) && !isSectionScopedOverlayDecor(module))
+  );
+}
+
 export function sectionHasOnlyOverlayImageModules(section: BuilderTemplateSection) {
-  return section.modules.length > 0 && section.modules.every(isOverlayImageModule);
+  return sectionHasOnlyPageOverlayImageModules(section);
 }
 
 export const columnHasOnlyFloatingImageModules = columnHasOnlyOverlayImageModules;
@@ -354,6 +400,35 @@ export function getOverlayFlowCollapsedModuleStyle(collapsed: boolean): CSSPrope
         marginBottom: 0,
         padding: 0,
         overflow: "visible"
+      }
+    : {};
+}
+
+/** Zero-height in-flow row; image shell is positioned inside this slot (below nav when the row follows navigation). */
+export function getSectionScopedOverlayColumnStyle(collapsed: boolean): CSSProperties {
+  return collapsed
+    ? {
+        position: "relative",
+        padding: 0,
+        minHeight: 0,
+        overflow: "visible",
+        borderWidth: 0
+      }
+    : {};
+}
+
+export function getSectionScopedOverlayModuleStyle(collapsed: boolean): CSSProperties {
+  return collapsed
+    ? {
+        position: "relative",
+        height: 0,
+        width: "100%",
+        minHeight: 0,
+        marginTop: 0,
+        marginBottom: 0,
+        padding: 0,
+        overflow: "visible",
+        zIndex: 40
       }
     : {};
 }
@@ -451,8 +526,28 @@ export function getModuleNudgeTransform(settings: Record<string, string>) {
   return `translate(${offsetX}px, ${-offsetY}px)`;
 }
 
-export function getFloatingImageModuleShellStyle(settings: Record<string, string>): CSSProperties {
-  return getImageModuleShellStyle({ ...settings, positionMode: "overlay" });
+export function getFloatingImageModuleShellStyle(
+  settings: Record<string, string>,
+  options?: { sectionScopedDecor?: boolean }
+): CSSProperties {
+  const base = getImageModuleShellStyle({ ...settings, positionMode: "overlay" });
+
+  if (!options?.sectionScopedDecor) {
+    return base;
+  }
+
+  return {
+    ...base,
+    zIndex: resolveGameOverlayContentZIndex(settings, PLAYER_GAME_FLOATING_IMAGE_LAYER_Z_INDEX)
+  };
+}
+
+/** Shell styles when rendered inside `PlayerGameFloatingImageHost` (above the white backdrop). */
+export function getGameOverlayFloatingImageShellStyle(settings: Record<string, string>): CSSProperties {
+  return {
+    ...getImageOverlayStyle(settings),
+    zIndex: resolveGameOverlayContentZIndex(settings)
+  };
 }
 
 export function getImageModuleShellStyle(settings: Record<string, string>): CSSProperties {

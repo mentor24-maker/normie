@@ -274,6 +274,7 @@ create table if not exists public.game_level_events (
   sublevel_name text not null default '',
   module_id uuid references public.builder_cell_modules(id) on delete set null,
   trigger text not null default 'game' check (trigger in ('game')),
+  audience text not null default 'both' check (audience in ('public', 'portal', 'both')),
   is_active boolean not null default true,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),

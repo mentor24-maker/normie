@@ -17,6 +17,8 @@ import { BuilderGalleryModal } from "./builder-gallery-modal";
 import { BuilderModuleCard } from "./builder-module-card";
 import { BuilderModulePaletteModal, type ModulePaletteAnchor } from "./builder-module-palette-modal";
 import { BuilderSectionCard } from "./builder-section-card";
+import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
+import { appendRichTextImageToHtml } from "@/lib/rich-text-image";
 import { formatTemplateTimestamp } from "./builder-utils";
 import { layoutOptions, modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import {
@@ -535,6 +537,7 @@ function CreatedModulesTable({
   onUpdateEditingCreatedModule,
   onUpdateEditingCreatedModuleBackground,
   onOpenEditingCreatedModuleGallery,
+  onOpenEditingCreatedRichTextGallery,
   onOpenEditingCreatedSocialIconGallery,
   onSaveCreatedModule,
   onCloneCreatedModule,
@@ -555,6 +558,7 @@ function CreatedModulesTable({
   onUpdateEditingCreatedModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
   onUpdateEditingCreatedModuleBackground: (updater: (background: BackgroundSettings) => BackgroundSettings) => void;
   onOpenEditingCreatedModuleGallery: () => void;
+  onOpenEditingCreatedRichTextGallery: (anchor?: BuilderModalAnchor) => void;
   onOpenEditingCreatedSocialIconGallery: (itemId: string) => void;
   onSaveCreatedModule: BuilderModuleRepositoryListProps["onSaveCreatedModule"];
   onCloneCreatedModule: BuilderModuleRepositoryListProps["onCloneCreatedModule"];
@@ -860,6 +864,7 @@ function CreatedModulesTable({
                               onMoveDown={() => undefined}
                               onMoveUp={() => undefined}
                               onOpenGallery={onOpenEditingCreatedModuleGallery}
+                              onOpenRichTextGallery={onOpenEditingCreatedRichTextGallery}
                               onOpenSocialIconGallery={onOpenEditingCreatedSocialIconGallery}
                               onRemove={() => undefined}
                               onToggleExpanded={onToggleEditingCreatedExpanded}
@@ -913,6 +918,7 @@ function RepositoryTable({
   onUpdateEditingModule,
   onUpdateEditingModuleBackground,
   onOpenEditingModuleGallery,
+  onOpenEditingRichTextGallery,
   onOpenEditingSocialIconGallery,
   onSaveSavedModule,
   onCloneSavedModule,
@@ -938,6 +944,7 @@ function RepositoryTable({
   onUpdateEditingModule: (moduleId: string, updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
   onUpdateEditingModuleBackground: (moduleId: string, updater: (background: BackgroundSettings) => BackgroundSettings) => void;
   onOpenEditingModuleGallery: (moduleId: string) => void;
+  onOpenEditingRichTextGallery: (moduleId: string, anchor?: BuilderModalAnchor) => void;
   onOpenEditingSocialIconGallery: (moduleId: string, itemId: string) => void;
   onSaveSavedModule: BuilderModuleRepositoryListProps["onSaveSavedModule"];
   onCloneSavedModule: BuilderModuleRepositoryListProps["onCloneSavedModule"];
@@ -1214,6 +1221,7 @@ function RepositoryTable({
                                 onMoveDown={() => undefined}
                                 onMoveUp={() => undefined}
                                 onOpenGallery={() => onOpenEditingModuleGallery(module.id)}
+                                onOpenRichTextGallery={(anchor) => onOpenEditingRichTextGallery(module.id, anchor)}
                                 onOpenSocialIconGallery={(itemId) => onOpenEditingSocialIconGallery(module.id, itemId)}
                                 onRemove={() => undefined}
                                 onToggleExpanded={() => onToggleEditingModuleExpanded(module.id)}
@@ -1267,6 +1275,7 @@ function SavedSectionsTable({
   onInsertEditingSectionCellModule,
   onMoveEditingSectionModule,
   onOpenEditingSectionModuleGallery,
+  onOpenEditingSectionRichTextGallery,
   onOpenEditingSectionBackgroundGallery,
   onOpenEditingSectionSocialIconGallery,
   onOpenEditingSectionModulePalette,
@@ -1308,6 +1317,7 @@ function SavedSectionsTable({
   onInsertEditingSectionCellModule: (column: string, cellModuleId: string, moduleCount: 1 | "many") => void;
   onMoveEditingSectionModule: (moduleId: string, direction: -1 | 1) => void;
   onOpenEditingSectionModuleGallery: (moduleId: string) => void;
+  onOpenEditingSectionRichTextGallery: (moduleId: string, anchor?: BuilderModalAnchor) => void;
   onOpenEditingSectionBackgroundGallery: () => void;
   onOpenEditingSectionSocialIconGallery: (moduleId: string, itemId: string) => void;
   onOpenEditingSectionModulePalette: (column: string, anchor?: ModulePaletteAnchor) => void;
@@ -1468,6 +1478,7 @@ function SavedSectionsTable({
                             onMoveModule={onMoveEditingSectionModule}
                             onMoveUp={() => undefined}
                             onOpenGallery={onOpenEditingSectionModuleGallery}
+                            onOpenRichTextGallery={onOpenEditingSectionRichTextGallery}
                             onOpenButtonBackgroundGallery={() => undefined}
                             onOpenModulePalette={onOpenEditingSectionModulePalette}
                             onOpenSectionBackgroundGallery={onOpenEditingSectionBackgroundGallery}
@@ -1555,6 +1566,7 @@ export function BuilderModuleRepositoryList({
   const [editingSectionGalleryTarget, setEditingSectionGalleryTarget] = useState<
     | { kind: "section-background" }
     | { kind: "module"; moduleId: string }
+    | { kind: "rich-text"; moduleId: string }
     | { kind: "social-icon"; moduleId: string; itemId: string }
     | null
   >(null);
@@ -1563,11 +1575,14 @@ export function BuilderModuleRepositoryList({
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
   const [editingGalleryTarget, setEditingGalleryTarget] = useState<
     | { kind: "created-module" }
+    | { kind: "created-rich-text" }
     | { kind: "created-social-icon"; itemId: string }
     | { kind: "module"; moduleId: string }
+    | { kind: "rich-text"; moduleId: string }
     | { kind: "social-icon"; moduleId: string; itemId: string }
     | null
   >(null);
+  const [editingGalleryAnchor, setEditingGalleryAnchor] = useState<BuilderModalAnchor | null>(null);
   const savedModules = cellModules.filter((cellModule) => cellModule.modules.length === 1);
   const savedCells = cellModules.filter((cellModule) => cellModule.modules.length !== 1);
   const createdModules = useMemo(() => getCreatedModules(templates, pages), [pages, templates]);
@@ -1848,6 +1863,26 @@ export function BuilderModuleRepositoryList({
 
   function selectEditingGalleryImage(imagePath: string) {
     if (!editingGalleryTarget) return;
+
+    if (editingGalleryTarget.kind === "created-rich-text") {
+      updateEditingCreatedModule((module) => ({
+        ...module,
+        text: appendRichTextImageToHtml(module.text, normalizeBuilderAssetUrl(imagePath))
+      }));
+      setEditingGalleryTarget(null);
+      setEditingGalleryAnchor(null);
+      return;
+    }
+
+    if (editingGalleryTarget.kind === "rich-text") {
+      updateEditingModule(editingGalleryTarget.moduleId, (module) => ({
+        ...module,
+        text: appendRichTextImageToHtml(module.text, normalizeBuilderAssetUrl(imagePath))
+      }));
+      setEditingGalleryTarget(null);
+      setEditingGalleryAnchor(null);
+      return;
+    }
 
     if (editingGalleryTarget.kind === "created-module") {
       updateEditingCreatedModule((module) => ({
@@ -2194,6 +2229,16 @@ export function BuilderModuleRepositoryList({
   function selectEditingSectionGalleryImage(imagePath: string) {
     if (!editingSectionGalleryTarget) return;
 
+    if (editingSectionGalleryTarget.kind === "rich-text") {
+      updateEditingSectionModule(editingSectionGalleryTarget.moduleId, (module) => ({
+        ...module,
+        text: appendRichTextImageToHtml(module.text, normalizeBuilderAssetUrl(imagePath))
+      }));
+      setEditingSectionGalleryTarget(null);
+      setEditingGalleryAnchor(null);
+      return;
+    }
+
     if (editingSectionGalleryTarget.kind === "section-background") {
       updateEditingSection((section) => ({
         ...section,
@@ -2256,6 +2301,10 @@ export function BuilderModuleRepositoryList({
         onCloneCreatedModule={onCloneCreatedModule}
         onDeleteCreatedModule={onDeleteCreatedModule}
         onOpenEditingCreatedModuleGallery={() => setEditingGalleryTarget({ kind: "created-module" })}
+        onOpenEditingCreatedRichTextGallery={(anchor) => {
+          setEditingGalleryAnchor(anchor ?? null);
+          setEditingGalleryTarget({ kind: "created-rich-text" });
+        }}
         onOpenEditingCreatedSocialIconGallery={(itemId) => setEditingGalleryTarget({ kind: "created-social-icon", itemId })}
         onSaveCreatedModule={onSaveCreatedModule}
         onStartEditing={startEditingCreatedModule}
@@ -2285,6 +2334,10 @@ export function BuilderModuleRepositoryList({
         onToggle={() => togglePanel("modules")}
         onToggleEditingModuleExpanded={toggleEditingModuleExpanded}
         onOpenEditingModuleGallery={(moduleId) => setEditingGalleryTarget({ kind: "module", moduleId })}
+        onOpenEditingRichTextGallery={(moduleId, anchor) => {
+          setEditingGalleryAnchor(anchor ?? null);
+          setEditingGalleryTarget({ kind: "rich-text", moduleId });
+        }}
         onOpenEditingSocialIconGallery={(moduleId, itemId) =>
           setEditingGalleryTarget({ kind: "social-icon", moduleId, itemId })
         }
@@ -2313,6 +2366,10 @@ export function BuilderModuleRepositoryList({
         onToggle={() => togglePanel("cells")}
         onToggleEditingModuleExpanded={toggleEditingModuleExpanded}
         onOpenEditingModuleGallery={(moduleId) => setEditingGalleryTarget({ kind: "module", moduleId })}
+        onOpenEditingRichTextGallery={(moduleId, anchor) => {
+          setEditingGalleryAnchor(anchor ?? null);
+          setEditingGalleryTarget({ kind: "rich-text", moduleId });
+        }}
         onOpenEditingSocialIconGallery={(moduleId, itemId) =>
           setEditingGalleryTarget({ kind: "social-icon", moduleId, itemId })
         }
@@ -2339,6 +2396,10 @@ export function BuilderModuleRepositoryList({
         onMoveEditingSectionModule={moveEditingSectionModule}
         onOpenEditingSectionBackgroundGallery={() => setEditingSectionGalleryTarget({ kind: "section-background" })}
         onOpenEditingSectionModuleGallery={(moduleId) => setEditingSectionGalleryTarget({ kind: "module", moduleId })}
+        onOpenEditingSectionRichTextGallery={(moduleId, anchor) => {
+          setEditingGalleryAnchor(anchor ?? null);
+          setEditingSectionGalleryTarget({ kind: "rich-text", moduleId });
+        }}
         onOpenEditingSectionModulePalette={(column, anchor) => {
           setEditingSectionPaletteColumn(column);
           setEditingSectionPaletteAnchor(anchor ?? null);
@@ -2364,16 +2425,28 @@ export function BuilderModuleRepositoryList({
       </div>
       {editingGalleryTarget ? (
         <BuilderGalleryModal
+          anchor={
+            editingGalleryTarget.kind === "rich-text" || editingGalleryTarget.kind === "created-rich-text"
+              ? editingGalleryAnchor
+              : null
+          }
           isUploading={isUploadingMedia}
           onSelectImage={selectEditingGalleryImage}
-          onClose={() => setEditingGalleryTarget(null)}
+          onClose={() => {
+            setEditingGalleryTarget(null);
+            setEditingGalleryAnchor(null);
+          }}
         />
       ) : null}
       {editingSectionGalleryTarget ? (
         <BuilderGalleryModal
+          anchor={editingSectionGalleryTarget.kind === "rich-text" ? editingGalleryAnchor : null}
           isUploading={isUploadingMedia}
           onSelectImage={selectEditingSectionGalleryImage}
-          onClose={() => setEditingSectionGalleryTarget(null)}
+          onClose={() => {
+            setEditingSectionGalleryTarget(null);
+            setEditingGalleryAnchor(null);
+          }}
         />
       ) : null}
       {editingSectionPaletteColumn ? (

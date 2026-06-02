@@ -4,6 +4,7 @@ import type { BuilderTemplateModule } from "@/lib/builder-template";
 import {
   getFloatingImageModuleShellStyle,
   getFloatingImageModuleStyle,
+  getGameOverlayFloatingImageShellStyle,
   getImageModuleShellStyle,
   getImageModuleStyle,
   isFloatingImageModule,
@@ -13,6 +14,7 @@ import {
 export function getImageEffectClassName(effect: string | undefined) {
   if (effect === "bounce") return " normie-effect-bounce";
   if (effect === "fast-bounce") return " normie-effect-fast-bounce";
+  if (effect === "big-bounce") return " normie-effect-big-bounce";
   if (effect === "spin") return " normie-effect-spin";
   if (effect === "cruise") return " normie-effect-cruise";
   if (effect === "tumbleweed") return " normie-effect-tumbleweed";
@@ -24,19 +26,29 @@ type BuilderImagePreviewProps = {
   variant?: string;
   imageClassName?: string;
   placeholder?: string;
+  /** Render in the full-screen game overlay host (above the translucent backdrop). */
+  gameOverlayHost?: boolean;
+  /** Button-trigger mascot row (stack above poll pods; Z-Index from module settings). */
+  sectionScopedDecor?: boolean;
 };
 
 export function BuilderImagePreview({
   module,
   variant,
   imageClassName = "builder-preview-image",
-  placeholder = "Choose an image"
+  placeholder = "Choose an image",
+  gameOverlayHost = false,
+  sectionScopedDecor = false
 }: BuilderImagePreviewProps) {
   const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
   const linkUrl = isFloatingImageModule(module) ? "" : normalizeBuilderAssetUrl(module.settings.linkUrl);
   const floating = isFloatingImageModule(module);
   const imageStyle = floating ? getFloatingImageModuleStyle(module.settings) : getImageModuleStyle(module.settings);
-  const shellStyle = floating ? getFloatingImageModuleShellStyle(module.settings) : getImageModuleShellStyle(module.settings);
+  const shellStyle = floating
+    ? gameOverlayHost
+      ? getGameOverlayFloatingImageShellStyle(module.settings)
+      : getFloatingImageModuleShellStyle(module.settings, { sectionScopedDecor })
+    : getImageModuleShellStyle(module.settings);
   const opensInNewTab = module.settings.newTab === "true";
   const effectClass = getImageEffectClassName(module.settings.effect);
   const resolvedVariant = variant ?? module.settings.variant ?? "default";

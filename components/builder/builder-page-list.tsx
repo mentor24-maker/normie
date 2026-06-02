@@ -27,6 +27,7 @@ type BuilderPageListProps = {
   onPreviewDraft: () => void;
   onMakeTemplate: () => void;
   onPageEditorFocus: (focused: boolean) => void;
+  onSavePage: () => void;
 };
 
 export function BuilderPageList({
@@ -51,7 +52,8 @@ export function BuilderPageList({
   onNewPage,
   onPreviewDraft,
   onMakeTemplate,
-  onPageEditorFocus
+  onPageEditorFocus,
+  onSavePage
 }: BuilderPageListProps) {
   const [collapsedPanels, setCollapsedPanels] = useState({
     pages: true,
@@ -68,8 +70,8 @@ export function BuilderPageList({
   }
 
   useEffect(() => {
-    onPageEditorFocus(!collapsedPanels.details);
-  }, [collapsedPanels.details, onPageEditorFocus]);
+    onPageEditorFocus(!collapsedPanels.details || Boolean(selectedPageId));
+  }, [collapsedPanels.details, onPageEditorFocus, selectedPageId]);
 
   function openDetailsAndFocus() {
     shouldFocusDetailsRef.current = true;
@@ -234,6 +236,14 @@ export function BuilderPageList({
             </button>
           </div>
           <div className="builder-pages-crud-heading-actions">
+            <button
+              className="submit-button admin-blog-add-button builder-panel-heading-button"
+              disabled={isSaving}
+              onClick={onSavePage}
+              type="button"
+            >
+              {isSaving ? "Saving..." : "Save Page"}
+            </button>
             <button
               className="submit-button builder-panel-heading-button"
               onClick={onPreviewDraft}

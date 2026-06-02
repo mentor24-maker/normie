@@ -8,6 +8,7 @@ import { countPlayerProgressPollsFromDb } from "@/lib/player-poll-stats";
 import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
 import { POLL_SKIP_FEATURE_KEY, playerHasPollSkip } from "@/lib/player-unlocked-features";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
+import { isPollTestModeRequest, readPollTestPin } from "@/lib/poll-test-mode";
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -69,6 +70,13 @@ export const POST = withObservedRoute("polls.skip", async (request) => {
 
   if (!pollId || !isUuid(pollId)) {
     return NextResponse.json({ error: "pollId is required." }, { status: 400 });
+  }
+
+  const pollTestPin = readPollTestPin(cookieStore);
+
+  if (isPollTestModeRequest(request, cookieStore) && pollTestPin === pollId) {
+    const progressPolls = await countPlayerProgressPollsFromDb(createAdminClient(), player.authUser.id);
+    return NextResponse.json({ ok: true, skipped: false, duplicate: true, playerAnswerCount: progressPolls });
   }
 
   let canSkip = false;

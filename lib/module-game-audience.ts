@@ -1,3 +1,11 @@
+import {
+  gameAudienceFiresForContext,
+  normalizeGameAudience,
+  type GameAudience,
+  type GamePlayContext
+} from "@/lib/game-audience";
+
+/** @deprecated Use `gameAudience` on game events / reminders. Kept for on-page module overlays. */
 export const MODULE_GAME_AUDIENCE_SETTING_KEY = "gameAudience";
 
 export const MODULE_GAME_AUDIENCE_OPTIONS = [
@@ -6,18 +14,11 @@ export const MODULE_GAME_AUDIENCE_OPTIONS = [
   { value: "both", label: "Public and Portal" }
 ] as const;
 
-export type ModuleGameAudience = (typeof MODULE_GAME_AUDIENCE_OPTIONS)[number]["value"];
-
-export type ModuleGamePlayContext = "public" | "portal";
+export type ModuleGameAudience = GameAudience;
+export type ModuleGamePlayContext = GamePlayContext;
 
 export function normalizeModuleGameAudience(value: string | undefined): ModuleGameAudience {
-  const candidate = String(value ?? "").trim();
-
-  if (MODULE_GAME_AUDIENCE_OPTIONS.some((option) => option.value === candidate)) {
-    return candidate as ModuleGameAudience;
-  }
-
-  return "both";
+  return normalizeGameAudience(value);
 }
 
 export function getModuleGameAudience(settings: Record<string, string>): ModuleGameAudience {
@@ -28,11 +29,5 @@ export function moduleFiresForGameContext(
   settings: Record<string, string>,
   context: ModuleGamePlayContext
 ): boolean {
-  const audience = getModuleGameAudience(settings);
-
-  if (audience === "both") {
-    return true;
-  }
-
-  return audience === context;
+  return gameAudienceFiresForContext(getModuleGameAudience(settings), context);
 }

@@ -143,3 +143,19 @@ export function RichTextLinkIcon(props: RichTextToolbarIconProps) {
     </IconShell>
   );
 }
+
+export function RichTextImageIcon(props: RichTextToolbarIconProps) {
+  return (
+    <IconShell {...props}>
+      <rect height="7.5" rx="1.2" stroke="currentColor" strokeWidth="1.25" width="9.5" x="3.25" y="4.25" />
+      <path
+        d="M4.5 10.25 6.35 8.1l1.55 1.55L10.1 7.55 11.5 9.25"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.2"
+      />
+      <circle cx="6.1" cy="6.35" fill="currentColor" r="0.85" />
+    </IconShell>
+  );
+}

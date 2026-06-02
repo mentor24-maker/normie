@@ -10,10 +10,12 @@ import logoBanner from "@/images/logo_normie_3_1600x500.png";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
-import { firePublicProgressGameEvents } from "@/lib/public-game-level-events-client";
+import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
+import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
 import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import { getPollGridStyle } from "@/lib/poll-pod-config";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
 import type { PollPayload } from "@/src/site/home/types";
 
 export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
@@ -60,6 +62,15 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     void loadPolls();
   }, [loadPolls]);
 
+  useEffect(() => {
+    const reloadForTestMode = () => {
+      void loadPolls({ startPoll: "" });
+    };
+
+    window.addEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    return () => window.removeEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+  }, [loadPolls]);
+
   async function submitAnswer(optionId: string) {
     if (!payload?.currentPoll) return;
 
@@ -73,11 +84,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
         body: JSON.stringify({ pollId: payload.currentPoll.id, optionId })
       });
 
-      const data = (await response.json()) as {
-        duplicate?: boolean;
-        error?: string;
-        progressPollsTaken?: number;
-      };
+      const data = (await response.json()) as PollAnswerClientPayload & { error?: string };
 
       if (!response.ok) {
         throw new Error(
@@ -86,9 +93,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
         );
       }
 
-      if (typeof data.progressPollsTaken === "number") {
-        void firePublicProgressGameEvents(data.progressPollsTaken, { duplicate: data.duplicate });
-      }
+      await runPollAnswerSideEffects(data);
 
       stripStartPollFromBrowserUrl();
       await loadPolls({ startPoll: "" });

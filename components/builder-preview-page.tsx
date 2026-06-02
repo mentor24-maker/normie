@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { GameModuleOverlayHosts } from "@/components/game-module-overlay-hosts";
 import { BuilderTemplatePreview } from "@/components/builder-template-preview";
 import {
   BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
@@ -57,7 +56,6 @@ export function BuilderPreviewPage() {
 
   return (
     <main className="admin-page">
-      <GameModuleOverlayHosts />
       <section className="admin-shell admin-shell-wide">
         <div className="admin-header">
           <div className="admin-brand-copy">

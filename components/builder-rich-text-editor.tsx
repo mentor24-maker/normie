@@ -2,6 +2,7 @@
 
 import { Extension } from "@tiptap/core";
 import Color from "@tiptap/extension-color";
+import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";
 import TextAlign from "@tiptap/extension-text-align";
@@ -9,7 +10,15 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
-import { formatRichTextContent } from "@/lib/builder-template";
+import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
+import type { RichTextGalleryBinding } from "@/components/builder/builder-types";
+import { prepareRichTextHtmlForEditor, prepareRichTextHtmlForStorage } from "@/lib/builder-template";
+import { readAdminJson } from "@/lib/admin-fetch";
+import {
+  appendRichTextImageToHtml,
+  RICH_TEXT_IMAGE_CLASS,
+  resolveRichTextImageSrc
+} from "@/lib/rich-text-image";
 import {
   RichTextAlignCenterIcon,
   RichTextAlignLeftIcon,
@@ -18,13 +27,14 @@ import {
   RichTextBulletListIcon,
   RichTextClearIcon,
   RichTextCodeIcon,
+  RichTextImageIcon,
   RichTextLinkIcon,
   RichTextOrderedListIcon,
   RichTextOutlineIcon,
   RichTextShadowIcon
 } from "@/components/builder/rich-text-toolbar-icons";
 
-type BuilderRichTextEditorProps = {
+type BuilderRichTextEditorProps = RichTextGalleryBinding & {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -145,7 +155,11 @@ const LineHeightStyle = Extension.create({
 export function BuilderRichTextEditor({
   value,
   onChange,
-  placeholder = "Enter content"
+  placeholder = "Enter content",
+  onOpenGallery,
+  galleryImagePath,
+  onGalleryImageConsumed,
+  onUploadGalleryImage
 }: BuilderRichTextEditorProps) {
   const fontSizeOptions = [
     "14",
@@ -168,8 +182,14 @@ export function BuilderRichTextEditor({
   const [activeFontSize, setActiveFontSize] = useState("16");
   const [activeLineHeight, setActiveLineHeight] = useState("default");
   const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const imageButtonRef = useRef<HTMLButtonElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const lastEmittedStorageRef = useRef(prepareRichTextHtmlForStorage(prepareRichTextHtmlForEditor(value) || ""));
+  const skipValueSyncRef = useRef(false);
   const [isCodeView, setIsCodeView] = useState(false);
   const [codeViewValue, setCodeViewValue] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -191,13 +211,19 @@ export function BuilderRichTextEditor({
       LineHeightStyle,
       Color,
       Underline,
+      Image.configure({
+        inline: false,
+        HTMLAttributes: { class: RICH_TEXT_IMAGE_CLASS }
+      }),
       TextAlign.configure({
         types: ["heading", "paragraph"]
       })
     ],
-    content: formatRichTextContent(value) || "<p></p>",
+    content: prepareRichTextHtmlForEditor(value) || "<p></p>",
     onUpdate: ({ editor: currentEditor }) => {
-      onChange(currentEditor.getHTML());
+      const storageHtml = prepareRichTextHtmlForStorage(currentEditor.getHTML());
+      lastEmittedStorageRef.current = storageHtml;
+      onChange(storageHtml);
     }
   });
 
@@ -206,12 +232,54 @@ export function BuilderRichTextEditor({
       return;
     }
 
-    const normalizedValue = formatRichTextContent(value) || "<p></p>";
+    if (skipValueSyncRef.current) {
+      if (value === lastEmittedStorageRef.current) {
+        skipValueSyncRef.current = false;
+      }
+
+      return;
+    }
+
+    const storageFromEditor = prepareRichTextHtmlForStorage(editor.getHTML());
+
+    if (value === lastEmittedStorageRef.current) {
+      return;
+    }
+
+    if (storageFromEditor === lastEmittedStorageRef.current) {
+      return;
+    }
+
+    const normalizedValue = prepareRichTextHtmlForEditor(value) || "<p></p>";
 
     if (editor.getHTML() !== normalizedValue) {
       editor.commands.setContent(normalizedValue, { emitUpdate: false });
     }
+
+    lastEmittedStorageRef.current = value;
   }, [editor, value]);
+
+  useEffect(() => {
+    if (!editor || !galleryImagePath) {
+      return;
+    }
+
+    const nextText = appendRichTextImageToHtml(
+      prepareRichTextHtmlForStorage(editor.getHTML()),
+      galleryImagePath
+    );
+
+    if (!nextText) {
+      onGalleryImageConsumed?.();
+      return;
+    }
+
+    const normalizedValue = prepareRichTextHtmlForEditor(nextText) || "<p></p>";
+    editor.commands.setContent(normalizedValue, { emitUpdate: true });
+    lastEmittedStorageRef.current = nextText;
+    skipValueSyncRef.current = true;
+    onGalleryImageConsumed?.();
+  }, [editor, galleryImagePath, onGalleryImageConsumed]);
 
   useEffect(() => {
     if (!editor) {
@@ -320,7 +388,7 @@ export function BuilderRichTextEditor({
       setCodeViewValue(formatHTML(editor.getHTML()));
       setIsCodeView(true);
     } else {
-      editor.commands.setContent(codeViewValue, { emitUpdate: true });
+      editor.commands.setContent(prepareRichTextHtmlForStorage(codeViewValue), { emitUpdate: true });
       setIsCodeView(false);
     }
   }
@@ -385,6 +453,93 @@ export function BuilderRichTextEditor({
     chain.extendMarkRange("link").setLink({ href: url }).run();
   }
 
+  function insertImageSrc(src: string) {
+    if (!editor) {
+      return;
+    }
+
+    const resolved = resolveRichTextImageSrc(src, "editor");
+
+    if (!resolved) {
+      return;
+    }
+
+    editor.chain().focus().setImage({ src: resolved, alt: "" }).run();
+  }
+
+  function getGalleryAnchor(): BuilderModalAnchor | undefined {
+    const rect = shellRef.current?.getBoundingClientRect();
+
+    if (!rect) {
+      return undefined;
+    }
+
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top
+    };
+  }
+
+  function openImagePicker() {
+    if (onOpenGallery) {
+      onOpenGallery(getGalleryAnchor());
+      return;
+    }
+
+    imageInputRef.current?.click();
+  }
+
+  async function handleImageFileSelected(file: File | null) {
+    if (!file || !editor) {
+      return;
+    }
+
+    if (onUploadGalleryImage) {
+      try {
+        setIsUploadingImage(true);
+        const path = await onUploadGalleryImage(file);
+
+        if (path) {
+          insertImageSrc(path);
+        }
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "Failed to upload image.");
+      } finally {
+        setIsUploadingImage(false);
+        if (imageInputRef.current) {
+          imageInputRef.current.value = "";
+        }
+      }
+
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
+      const data = await readAdminJson<{ media?: { path?: string }; error?: string }>(
+        response,
+        "Failed to upload image."
+      );
+
+      if (!data.media?.path) {
+        throw new Error(data.error ?? "Failed to upload image.");
+      }
+
+      insertImageSrc(data.media.path);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Failed to upload image.");
+    } finally {
+      setIsUploadingImage(false);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = "";
+      }
+    }
+  }
+
   if (!editor) {
     return (
       <div className="builder-rich-text-shell">
@@ -394,7 +549,7 @@ export function BuilderRichTextEditor({
   }
 
   return (
-    <div className="builder-rich-text-shell">
+    <div className="builder-rich-text-shell" ref={shellRef}>
       <div className="builder-rich-text-toolbar">
         <button
           className={!editor.isActive("heading") ? "is-active" : undefined}
@@ -447,6 +602,23 @@ export function BuilderRichTextEditor({
         >
           <RichTextLinkIcon />
         </button>
+        <button
+          className={editor.isActive("image") ? "is-active" : undefined}
+          disabled={isUploadingImage}
+          onClick={openImagePicker}
+          ref={imageButtonRef}
+          title="Image"
+          type="button"
+        >
+          <RichTextImageIcon />
+        </button>
+        <input
+          accept="image/*"
+          className="builder-rich-text-image-input"
+          onChange={(event) => void handleImageFileSelected(event.target.files?.[0] ?? null)}
+          ref={imageInputRef}
+          type="file"
+        />
         <button
           className={hasTextShadow ? "is-active" : undefined}
           onClick={toggleTextShadow}

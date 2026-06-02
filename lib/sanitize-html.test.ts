@@ -26,6 +26,17 @@ describe("sanitizeRichTextHtml", () => {
     const clean = sanitizeRichTextHtml("<p><strong>Bold</strong></p>");
     expect(clean).toContain("<strong>Bold</strong>");
   });
+
+  it("keeps gallery images with safe src", () => {
+    const clean = sanitizeRichTextHtml('<p>Hi</p><img src="/gallery/test.png" alt="Normie" />');
+    expect(clean.toLowerCase()).toContain("<img");
+    expect(clean).toContain("/gallery/test.png");
+  });
+
+  it("strips images with unsafe src", () => {
+    const clean = sanitizeRichTextHtml('<img src="javascript:alert(1)" alt="x" />');
+    expect(clean.toLowerCase()).not.toContain("<img");
+  });
 });
 
 describe("sanitizeBlogBodyHtml", () => {

@@ -19,7 +19,10 @@ export type PlayerReminderContext = {
   isRegistered: boolean;
 };
 
-export type PlayerMatchedReminder = Pick<GameReminder, "id" | "name" | "displayType" | "messageHtml">;
+export type PlayerMatchedReminder = Pick<
+  GameReminder,
+  "id" | "name" | "displayType" | "appearance" | "messageHtml" | "metadata"
+>;
 
 export type ReminderMatchExplanation = {
   matched: boolean;
@@ -157,6 +160,8 @@ export function evaluatePlayerReminders(
       id: reminder.id,
       name: reminder.name,
       displayType: reminder.displayType,
-      messageHtml: reminder.messageHtml
+      appearance: reminder.appearance,
+      messageHtml: reminder.messageHtml,
+      metadata: reminder.metadata
     }));
 }

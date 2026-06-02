@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GAME_LEVEL_NAMES, gameLevelEventToClient, type GameLevelName } from "@/lib/game-admin";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { normalizeGameAudience } from "@/lib/game-audience";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 function safeText(value: unknown, maxLength = 2000) {
@@ -42,6 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     moduleId?: unknown;
     trigger?: unknown;
     isActive?: unknown;
+    audience?: unknown;
     metadata?: unknown;
   };
   const eventName = safeText(body.eventName, 255);
@@ -59,12 +61,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       sublevel_name: safeText(body.sublevelName, 160),
       module_id: safeText(body.moduleId, 80) || null,
       trigger: "game",
+      audience: normalizeGameAudience(body.audience),
       is_active: body.isActive !== false,
       metadata: safeMetadata(body.metadata),
       updated_at: new Date().toISOString()
     })
     .eq("id", id)
-    .select("id, event_name, level_name, sublevel_name, module_id, trigger, is_active, metadata, created_at, updated_at, builder_cell_modules(name)")
+    .select(
+      "id, event_name, level_name, sublevel_name, module_id, trigger, audience, is_active, metadata, created_at, updated_at, builder_cell_modules(name)"
+    )
     .single();
 
   if (error || !data) {

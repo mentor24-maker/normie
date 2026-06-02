@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { type CSSProperties, type DragEvent, useRef, useState } from "react";
+import type { RichTextGalleryBinding } from "@/components/builder/builder-types";
+import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import type { BackgroundSettings, BuilderProductRecord, BuilderTemplateModule, BuilderTemplateModuleType } from "@/lib/builder-template";
 import {
   createEmptyModule,
@@ -33,6 +35,7 @@ import { MerchModuleEditor } from "./builder-merch-module-editor";
 import { BuilderCodeEmbed } from "./builder-code-embed";
 import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
 import { BuilderSpeechBubbleModuleSettings } from "./builder-speech-bubble-module-settings";
+import { BuilderReminderModuleSettings } from "./builder-reminder-module-settings";
 import { SpeechBubblePreview } from "./speech-bubble-preview";
 import { getConfettiTrigger } from "@/lib/confetti-effect";
 import { getModuleTrigger } from "@/lib/module-trigger";
@@ -84,6 +87,8 @@ type BuilderModuleCardProps = {
   onMoveDown: () => void;
   onRemove: () => void;
   onOpenGallery: () => void;
+  onOpenRichTextGallery?: (anchor?: BuilderModalAnchor) => void;
+  onUploadRichTextGalleryImage?: (file: File) => Promise<string | null>;
   onOpenButtonBackgroundGallery?: () => void;
   onOpenSocialIconGallery: (itemId: string) => void;
   onUploadMedia: (file: File | null) => void;
@@ -209,6 +214,16 @@ function renderModulePreview(module: BuilderTemplateModule) {
 
   if (module.type === "speech-bubble") {
     return <SpeechBubblePreview classNamePrefix="builder-module-preview" module={module} />;
+  }
+
+  if (module.type === "reminder") {
+    return (
+      <div className="builder-module-preview-reminder">
+        <p>
+          <strong>Reminder</strong> — shows on the live site when visitor criteria match (not in the column layout).
+        </p>
+      </div>
+    );
   }
 
   if (module.type === "headline-rotator") {
@@ -1660,6 +1675,8 @@ export function BuilderModuleCard({
   onMoveDown,
   onRemove,
   onOpenGallery,
+  onOpenRichTextGallery,
+  onUploadRichTextGalleryImage,
   onOpenButtonBackgroundGallery,
   onOpenSocialIconGallery,
   onUploadMedia,
@@ -1672,11 +1689,16 @@ export function BuilderModuleCard({
   moduleClassOverride,
   onModuleDragStart
 }: BuilderModuleCardProps) {
+    const richTextGalleryProps: RichTextGalleryBinding = {
+      onOpenGallery: onOpenRichTextGallery,
+      onUploadGalleryImage: onUploadRichTextGalleryImage
+    };
     const moduleAlignment = getModuleAlignment(module.settings);
     const mobileAlignment = module.settings.mobileAlignment ?? "";
     const isVideoModule = module.type === "video" || (module.type === "image" && module.settings.variant === "video");
     const isStandardImage = module.type === "image" && !isVideoModule;
     const isFloatingImage = module.type === "floating-image";
+    const isReminderModule = module.type === "reminder";
     const isHeadingModule = module.type === "heading";
     const isCurrentPollModule = module.type === "current-poll";
     const isConfettiModule = module.type === "confetti";
@@ -1694,7 +1716,7 @@ export function BuilderModuleCard({
           ? getModuleMarginStyle(module.settings)
           : module.type === "button"
             ? getModuleOuterSpacingStyle(module.settings)
-            : isFloatingImage
+            : isFloatingImage || isReminderModule
               ? {}
               : getVerticalMarginStyle(module.settings.verticalMargin))
       }}
@@ -1878,7 +1900,7 @@ export function BuilderModuleCard({
                   />
                 </BuilderSettingRow>
               </div>
-            ) : isFloatingImage ? (
+            ) : isReminderModule ? null : isFloatingImage ? (
               <div className="builder-floating-image-module-chrome">
                 <BuilderBackgroundControls
                   background={getModuleBackgroundSettings(module.settings)}
@@ -2084,7 +2106,19 @@ export function BuilderModuleCard({
           ) : null}
 
           {module.type === "speech-bubble" ? (
-            <BuilderSpeechBubbleModuleSettings module={module} onUpdateModule={onUpdateModule} />
+            <BuilderSpeechBubbleModuleSettings
+              module={module}
+              onUpdateModule={onUpdateModule}
+              richTextGallery={richTextGalleryProps}
+            />
+          ) : null}
+
+          {module.type === "reminder" ? (
+            <BuilderReminderModuleSettings
+              module={module}
+              onUpdateModule={onUpdateModule}
+              richTextGallery={richTextGalleryProps}
+            />
           ) : null}
 
           {isStandardImage ? (
@@ -2135,6 +2169,8 @@ export function BuilderModuleCard({
                   <select value={module.settings.effect ?? "none"} onChange={(event) => onUpdateModule((current) => ({ ...current, settings: { ...current.settings, effect: event.target.value } }))}>
                     <option value="none">None</option>
                     <option value="bounce">Bounce</option>
+                    <option value="fast-bounce">Fast Bounce</option>
+                    <option value="big-bounce">Big Bounce</option>
                     <option value="spin">Spin</option>
                     <option value="cruise">Cruise</option>
                     <option value="tumbleweed">Tumbleweed</option>
@@ -2219,6 +2255,29 @@ export function BuilderModuleCard({
             </div>
           ) : null}
 
+          {module.type === "floating-image" ? (
+            <div className="builder-module-runtime-note">
+              <strong>Floating image</strong>
+              <p>
+                {getModuleTrigger(module.settings) === "game"
+                  ? "Game trigger: the image and translucent backdrop render in the full-screen overlay layer (not in the page row). Z-index on the module stacks above that backdrop."
+                  : getModuleTrigger(module.settings) === "on-load"
+                    ? "Page load trigger: fires in the overlay layer when this page loads on the live site."
+                    : "Decorative overlays stay in the page row. Use Test Floating Image in page preview for game-style triggers."}
+              </p>
+            </div>
+          ) : null}
+
+          {module.type === "reminder" ? (
+            <div className="builder-module-runtime-note">
+              <strong>Reminder</strong>
+              <p>
+                Criteria-based overlay on the live site and in page preview. No game trigger — add this module to each page
+                where the reminder should appear. Dismisses on the visitor&apos;s next click.
+              </p>
+            </div>
+          ) : null}
+
           {module.type !== "image" &&
           module.type !== "floating-image" &&
           module.type !== "contact-form" &&
@@ -2235,12 +2294,17 @@ export function BuilderModuleCard({
           module.type !== "current-poll" &&
           module.type !== "confetti" &&
           module.type !== "speech-bubble" &&
+          module.type !== "reminder" &&
           module.type !== "button" &&
           module.type !== "heading" ? (
             <label className="field">
               <span>Content</span>
               {module.type === "text" ? (
-                <BuilderRichTextEditor value={module.text} onChange={(value) => onUpdateModule((current) => ({ ...current, text: value }))} />
+                <BuilderRichTextEditor
+                  value={module.text}
+                  onChange={(value) => onUpdateModule((current) => ({ ...current, text: value }))}
+                  {...richTextGalleryProps}
+                />
               ) : (
                 <textarea className="builder-textarea" value={module.text} onChange={(event) => onUpdateModule((current) => ({ ...current, text: event.target.value }))} placeholder="Enter content" />
               )}

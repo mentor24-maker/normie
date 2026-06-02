@@ -51,13 +51,22 @@ export function PlayerGameSpeechBubbleHost() {
     };
   }, [activeModule]);
 
+  useEffect(() => {
+    if (!activeModule) {
+      return;
+    }
+
+    return () => {
+      window.dispatchEvent(new CustomEvent("normie-player-game-speech-bubble-end"));
+    };
+  }, [activeModule]);
+
   if (!activeModule) {
     return null;
   }
 
   return (
     <div aria-live="polite" className="player-game-speech-bubble-host">
-      <div aria-hidden="true" className="player-game-event-backdrop" />
       <SpeechBubblePreview classNamePrefix="builder-preview" layoutMode="overlay" module={activeModule} />
     </div>
   );

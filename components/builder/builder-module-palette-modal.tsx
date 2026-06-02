@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import type { BuilderCellModuleRecord } from "@/lib/builder-template";
@@ -34,6 +34,29 @@ const VIEWPORT_EDGE_PADDING_PX = 16;
 
 const MODULE_PALETTE_WIDTH_PX = 1200;
 const MODULE_PALETTE_HEIGHT_PX = 800;
+const MODULE_PALETTE_AZ_SORT_STORAGE_KEY = "normie-module-palette-sort-az";
+
+type ModulePaletteGroupEntry = (typeof modulePaletteGroups)[number];
+
+function sortModulePaletteGroups(groups: ModulePaletteGroupEntry[], sortAz: boolean): ModulePaletteGroupEntry[] {
+  if (!sortAz) {
+    return groups;
+  }
+
+  return [...groups].sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: "base" }));
+}
+
+function readAzSortPreference(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(MODULE_PALETTE_AZ_SORT_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function getAnchoredModulePaletteStyle(anchor: ModulePaletteAnchor): CSSProperties {
   const viewportWidth = window.innerWidth;
@@ -68,6 +91,11 @@ export function BuilderModulePaletteModal({
   onClose
 }: BuilderModulePaletteModalProps) {
   const [mounted, setMounted] = useState(false);
+  const [sortCategoriesAz, setSortCategoriesAz] = useState(false);
+  const displayGroups = useMemo(
+    () => sortModulePaletteGroups(modulePaletteGroups, sortCategoriesAz),
+    [sortCategoriesAz]
+  );
   const starterModules = activeGroup ? getStarterModulesForPaletteGroup(activeGroup) : [];
   const savedModulesForGroup = activeGroup ? getSavedModulesForPaletteGroup(cellModules, activeGroup) : [];
   const classOnlyGroup = activeGroup ? isSavedModuleOnlyPaletteGroup(activeGroup) : false;
@@ -77,6 +105,24 @@ export function BuilderModulePaletteModal({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setSortCategoriesAz(readAzSortPreference());
+  }, []);
+
+  function toggleSortCategoriesAz() {
+    setSortCategoriesAz((current) => {
+      const next = !current;
+
+      try {
+        window.sessionStorage.setItem(MODULE_PALETTE_AZ_SORT_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // Ignore private browsing storage errors.
+      }
+
+      return next;
+    });
+  }
 
   if (!mounted) {
     return null;
@@ -107,15 +153,27 @@ export function BuilderModulePaletteModal({
               </p>
             ) : null}
           </div>
-          <button className="secondary-button" onClick={onClose} type="button">
-            Close
-          </button>
+          <div className="builder-gallery-header-actions">
+            <button
+              aria-label={sortCategoriesAz ? "Use default category order" : "Sort categories A to Z"}
+              aria-pressed={sortCategoriesAz}
+              className={`secondary-button builder-module-palette-az-sort${sortCategoriesAz ? " is-active" : ""}`}
+              onClick={toggleSortCategoriesAz}
+              title={sortCategoriesAz ? "Default Order" : "Sort A–Z"}
+              type="button"
+            >
+              A–Z
+            </button>
+            <button className="secondary-button" onClick={onClose} type="button">
+              Close
+            </button>
+          </div>
         </div>
 
         {activeGroup ? (
           <>
             <div className="builder-module-group-tabs">
-              {modulePaletteGroups.map((group) => (
+              {displayGroups.map((group) => (
                 <button
                   className={`builder-module-group-tab ${activeGroup === group.value ? "is-active" : ""}`}
                   key={group.value}
@@ -181,7 +239,7 @@ export function BuilderModulePaletteModal({
           </>
         ) : (
           <div className="builder-module-group-grid">
-            {modulePaletteGroups.map((group) => (
+            {displayGroups.map((group) => (
               <button
                 className="builder-module-group-card"
                 key={group.value}

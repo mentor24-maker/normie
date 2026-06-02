@@ -1,12 +1,14 @@
 "use client";
 
+import { PlayerGameEventBackdrop } from "@/components/player-game-event-backdrop";
 import { PlayerGameFloatingImageHost } from "@/components/player-game-floating-image-host";
 import { PlayerGameSpeechBubbleHost } from "@/components/player-game-speech-bubble-host";
 
-/** Listens for game-layer overlay events (speech bubble, floating image) on any route. */
+/** Game overlays: shared wash, then floating images, then speech (see `lib/game-overlay-layer.ts`). */
 export function GameModuleOverlayHosts() {
   return (
     <>
+      <PlayerGameEventBackdrop />
       <PlayerGameFloatingImageHost />
       <PlayerGameSpeechBubbleHost />
     </>

@@ -7,14 +7,23 @@ import type {
   BuilderTemplateRecord
 } from "@/lib/builder-template";
 import type { BuilderEmailFunction } from "@/lib/builder-email-template";
+import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 
 export type ModulePaletteGroup = BuilderTemplateModuleType | "special-effects";
 
 export type GalleryTarget =
   | { kind: "module"; sectionId: string; moduleId: string }
+  | { kind: "rich-text"; sectionId: string; moduleId: string }
   | { kind: "button-background"; sectionId: string; moduleId: string }
   | { kind: "section-background"; sectionId: string }
   | { kind: "social-icon"; sectionId: string; moduleId: string; itemId: string };
+
+export type RichTextGalleryBinding = {
+  onOpenGallery?: (anchor?: BuilderModalAnchor) => void;
+  galleryImagePath?: string | null;
+  onGalleryImageConsumed?: () => void;
+  onUploadGalleryImage?: (file: File) => Promise<string | null>;
+};
 
 export type ModulePaletteItem = {
   id: string;
@@ -68,6 +77,12 @@ export const modulePaletteGroups: Array<{
     label: "Speech Bubble",
     icon: "💬",
     description: "Normie speech callouts with a tail pointing toward the character."
+  },
+  {
+    value: "reminder",
+    label: "Reminders",
+    icon: "🔔",
+    description: "Criteria-based speech bubbles or strips for anonymous and registered visitors."
   },
   { value: "button", label: "Buttons", icon: "B", description: "Calls to action and navigation links." },
   { value: "contact-form", label: "Contact Forms", icon: "CF", description: "Lead capture forms with simple presets." },
@@ -280,6 +295,34 @@ export const modulePaletteItems: ModulePaletteItem[] = [
       offsetX: "0",
       offsetY: "0",
       zIndex: "10"
+    }
+  },
+  {
+    id: "reminder-signup-nudge",
+    type: "reminder",
+    group: "reminder",
+    label: "Signup Nudge",
+    icon: "🔔",
+    description: "Speech bubble when a visitor has taken a poll but is not registered.",
+    name: "Signup Nudge",
+    text: "<p>Create a free account to save your picks and earn points.</p>",
+    settings: {
+      appearance: "speech_bubble",
+      gameAudience: "both",
+      isActive: "true",
+      sortOrder: "0",
+      backgroundColor: "#ffffff",
+      borderColor: "#4cbb17",
+      borderThickness: "2",
+      containerWidth: "520",
+      offsetX: "0",
+      offsetY: "0",
+      zIndex: "46",
+      criteriaLogic: "and",
+      reminderCriteriaJson: JSON.stringify([
+        { id: "polls-taken", type: "polls_taken", value: { operator: "gte", count: 1 } },
+        { id: "not-registered", type: "registered", value: { registered: false } }
+      ])
     }
   },
   {

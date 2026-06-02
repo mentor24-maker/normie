@@ -8,6 +8,13 @@ import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
+import {
+  applyPollTestModeCookies,
+  isPollTestModeRequest,
+  nextPollTestProgress,
+  readPollTestPin,
+  readPollTestProgress
+} from "@/lib/poll-test-mode";
 import { countPlayerProgressPollsFromDb, countSessionProgressPollsFromDb } from "@/lib/player-poll-stats";
 import { createAdminClient } from "@/lib/supabase-admin";
 const SESSION_RATE_LIMIT = 40;
@@ -20,9 +27,15 @@ const UNIQUE_VIOLATION_CODE = "23505";
 async function playerAnswerResponse(
   supabase: ReturnType<typeof createAdminClient>,
   playerId: string,
-  flags: Record<string, boolean> = {}
+  flags: Record<string, boolean | number> & {
+    testProgressOverride?: number;
+    pollTestMode?: boolean;
+  } = {}
 ) {
-  const answerCount = await countPlayerProgressPollsFromDb(supabase, playerId);
+  const answerCount =
+    typeof flags.testProgressOverride === "number"
+      ? flags.testProgressOverride
+      : await countPlayerProgressPollsFromDb(supabase, playerId);
   const levelUp = answerCount > 0 && answerCount % PLAYER_LEVEL_UP_INTERVAL === 0 && !flags.duplicate;
   console.info("[player-level-up] answer response", {
     playerId,
@@ -30,11 +43,14 @@ async function playerAnswerResponse(
     levelUp,
     flags
   });
+  const { testProgressOverride: _testProgressOverride, ...responseFlags } = flags;
   const response = NextResponse.json({
     ok: true,
-    ...flags,
+    ...responseFlags,
     playerAnswerCount: answerCount,
-    levelUp
+    progressPollsTaken: answerCount,
+    levelUp,
+    isRegistered: true
   });
 
   if (levelUp) {
@@ -83,6 +99,36 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
 
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: validation.status });
+  }
+
+  if (isPollTestModeRequest(request, cookieStore)) {
+    const activePin = readPollTestPin(cookieStore) ?? validation.pollId;
+    const supabase = createAdminClient();
+    const fallbackProgress = player
+      ? await countPlayerProgressPollsFromDb(supabase, player.authUser.id)
+      : await countSessionProgressPollsFromDb(supabase, sessionId);
+    const progressPollsTaken = nextPollTestProgress(readPollTestProgress(cookieStore), fallbackProgress);
+    const response = player
+      ? await playerAnswerResponse(supabase, player.authUser.id, {
+          duplicate: false,
+          pollTestMode: true,
+          testProgressOverride: progressPollsTaken
+        })
+      : NextResponse.json({
+          ok: true,
+          duplicate: false,
+          pollTestMode: true,
+          progressPollsTaken,
+          isRegistered: Boolean(player)
+        });
+
+    applyPollTestModeCookies(response, {
+      enabled: true,
+      pinPollId: activePin,
+      progress: progressPollsTaken
+    });
+
+    return response;
   }
 
   const supabase = createAdminClient();
@@ -165,7 +211,7 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
 
     if (existing) {
       const progressPollsTaken = await countSessionProgressPollsFromDb(supabase, sessionId);
-      return NextResponse.json({ ok: true, duplicate: true, progressPollsTaken });
+      return NextResponse.json({ ok: true, duplicate: true, progressPollsTaken, isRegistered: false });
     }
   }
 
@@ -212,5 +258,5 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
 
   const progressPollsTaken = await countSessionProgressPollsFromDb(supabase, sessionId);
 
-  return NextResponse.json({ ok: true, levelUp: false, progressPollsTaken });
+  return NextResponse.json({ ok: true, levelUp: false, progressPollsTaken, isRegistered: false });
 });

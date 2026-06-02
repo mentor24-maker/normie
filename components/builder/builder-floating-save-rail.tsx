@@ -24,6 +24,8 @@ const FALLBACK_POSITION: CSSProperties = {
 
 function readShellAnchorPosition(): CSSProperties {
   const shell =
+    document.querySelector<HTMLElement>(".builder-pages-details-shell") ??
+    document.querySelector<HTMLElement>(".builder-editor-layout-main") ??
     document.querySelector<HTMLElement>(".builder-editor-section") ??
     document.querySelector<HTMLElement>(".admin-page .admin-shell");
 
@@ -34,13 +36,15 @@ function readShellAnchorPosition(): CSSProperties {
   const rect = shell.getBoundingClientRect();
   const gap = 20;
   const buttonReserve = 200;
+  const anchorMid = rect.top + rect.height / 2;
+  const top = Math.min(Math.max(anchorMid, 96), window.innerHeight - 96);
   const preferredLeft = rect.right + gap;
   const maxLeft = window.innerWidth - buttonReserve;
 
-  if (preferredLeft > maxLeft) {
+  if (preferredLeft > maxLeft || rect.width >= window.innerWidth - 48) {
     return {
-      top: `${rect.top + rect.height / 2}px`,
-      right: "16px",
+      top: `${top}px`,
+      right: "20px",
       left: "auto",
       transform: "translateY(-50%)",
       visibility: "visible"
@@ -48,7 +52,7 @@ function readShellAnchorPosition(): CSSProperties {
   }
 
   return {
-    top: `${rect.top + rect.height / 2}px`,
+    top: `${top}px`,
     left: `${preferredLeft}px`,
     right: "auto",
     transform: "translateY(-50%)",
@@ -102,6 +106,7 @@ export function BuilderFloatingSaveRail({ actions, isSaving }: BuilderFloatingSa
     positionSignatureRef.current = "";
     applyPosition();
     window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("scroll", schedulePositionUpdate, true);
 
     return () => {
       if (frameId) {
@@ -109,6 +114,7 @@ export function BuilderFloatingSaveRail({ actions, isSaving }: BuilderFloatingSa
       }
 
       window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("scroll", schedulePositionUpdate, true);
       positionSignatureRef.current = "";
     };
   }, [actionKey, actions.length]);

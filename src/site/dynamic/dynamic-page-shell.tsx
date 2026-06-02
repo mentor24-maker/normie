@@ -11,7 +11,7 @@ export function DynamicPageShell({ page }: { page: BuilderPageRecord }) {
         <BuilderTemplatePreviewClient
           layoutSections={page.layoutSections}
           pageBackground={page.pageBackground}
-          showShell={false}
+          showShell
         />
       </Suspense>
     </SiteShell>

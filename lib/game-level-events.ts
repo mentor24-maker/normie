@@ -1,7 +1,5 @@
-import {
-  isGameEventPickableModule,
-  resolveSavedModuleClass
-} from "@/lib/module-class-triggers";
+import { normalizeGameAudience } from "@/lib/game-audience";
+import { isSupportedGameEventModuleType, resolveSavedModuleClass } from "@/lib/module-class-triggers";
 import type { PlayerPortalLevelEvent } from "@/lib/player-portal";
 import { normalizeBuilderModules, type BuilderTemplateModule } from "@/lib/builder-template";
 
@@ -11,6 +9,7 @@ export type GameLevelEventRow = {
   sublevel_name: string | null;
   module_id: string | null;
   trigger: string | null;
+  audience?: string | null;
   metadata: unknown;
   builder_cell_modules?:
     | {
@@ -53,16 +52,11 @@ export function buildLevelEventsFromRows(rows: GameLevelEventRow[]): PlayerPorta
     const moduleClass = resolveSavedModuleClass(savedModule?.module_class, modules);
     const moduleType = String(savedModuleDefinition?.type ?? "").trim();
 
-    if (
-      !savedModuleDefinition ||
-      !isGameEventPickableModule({
-        moduleClass,
-        settings: moduleSettings,
-        moduleType
-      })
-    ) {
+    if (!savedModuleDefinition || !isSupportedGameEventModuleType(moduleType)) {
       return [];
     }
+
+    const audience = normalizeGameAudience(row.audience ?? moduleSettings.gameAudience);
 
     return [
       {
@@ -75,6 +69,7 @@ export function buildLevelEventsFromRows(rows: GameLevelEventRow[]): PlayerPorta
         moduleSettings,
         gameModule: savedModuleDefinition as BuilderTemplateModule,
         trigger: row.trigger ?? "game",
+        audience,
         metadata: toRecord(row.metadata)
       }
     ];
@@ -82,4 +77,4 @@ export function buildLevelEventsFromRows(rows: GameLevelEventRow[]): PlayerPorta
 }
 
 export const ACTIVE_GAME_LEVEL_EVENTS_SELECT =
-  "event_name, level_name, sublevel_name, module_id, trigger, metadata, builder_cell_modules(id, name, module_class, modules)";
+  "event_name, level_name, sublevel_name, module_id, trigger, audience, metadata, builder_cell_modules(id, name, module_class, modules)";

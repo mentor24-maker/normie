@@ -1,8 +1,5 @@
 import { fireGameEventModule } from "@/lib/game-event-module-runtime";
-import {
-  moduleFiresForGameContext,
-  type ModuleGamePlayContext
-} from "@/lib/module-game-audience";
+import { gameAudienceFiresForContext, type GamePlayContext } from "@/lib/game-audience";
 import {
   eventTargetProgressPolls,
   readEventProgressionFromMetadata
@@ -30,13 +27,13 @@ function eventMatchesProgressPolls(event: PlayerPortalLevelEvent, progressPollsT
 export async function firePlayerLevelUpGameEvents(
   levelEvents: PlayerPortalLevelEvent[],
   progressPollsTaken?: number | null,
-  playContext: ModuleGamePlayContext = "portal"
+  playContext: GamePlayContext = "portal"
 ): Promise<void> {
   const gameTriggeredEvents = levelEvents.filter(
     (event) =>
       event.trigger === "game" &&
       isGameModuleTrigger(event.moduleSettings) &&
-      moduleFiresForGameContext(event.moduleSettings, playContext) &&
+      gameAudienceFiresForContext(event.audience, playContext) &&
       eventMatchesProgressPolls(event, progressPollsTaken)
   );
 

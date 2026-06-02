@@ -1,4 +1,5 @@
 import type DOMPurifyType from "dompurify";
+import { isAllowedRichTextImageSrc } from "@/lib/rich-text-image";
 
 const RICH_TEXT_ALLOWED_TAGS = [
   "p",
@@ -25,10 +26,23 @@ const RICH_TEXT_ALLOWED_TAGS = [
   "code",
   "a",
   "span",
-  "div"
+  "div",
+  "img"
 ] as const;
 
-const RICH_TEXT_ALLOWED_ATTR = ["href", "target", "rel", "style", "class", "id"] as const;
+const RICH_TEXT_ALLOWED_ATTR = [
+  "href",
+  "target",
+  "rel",
+  "style",
+  "class",
+  "id",
+  "src",
+  "alt",
+  "width",
+  "height",
+  "loading"
+] as const;
 
 const EMBED_EXTRA_TAGS = ["iframe"] as const;
 
@@ -76,6 +90,19 @@ function configureDomPurify() {
       }
       if (!node.getAttribute("tabindex")) {
         node.setAttribute("tabindex", "-1");
+      }
+    }
+
+    if (node.tagName === "IMG") {
+      const src = node.getAttribute("src") || "";
+
+      if (!isAllowedRichTextImageSrc(src)) {
+        node.remove();
+        return;
+      }
+
+      if (!node.getAttribute("loading")) {
+        node.setAttribute("loading", "lazy");
       }
     }
   });

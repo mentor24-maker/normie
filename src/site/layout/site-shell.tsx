@@ -1,7 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { GameModuleOverlayHosts } from "@/components/game-module-overlay-hosts";
-import { PlayerGameRemindersHost } from "@/components/player-game-reminders-host";
 
 export function SiteShell({
   children,
@@ -13,8 +11,6 @@ export function SiteShell({
   return (
     <main className={className}>
       <div className="site-shell">
-        <PlayerGameRemindersHost />
-        <GameModuleOverlayHosts />
         {children}
         <footer className="site-shell-footer">
           <span className="site-shell-footer-copy">© 2026 Normie</span>

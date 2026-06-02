@@ -1,5 +1,6 @@
 "use client";
 
+import type { RichTextGalleryBinding } from "@/components/builder/builder-types";
 import type { BuilderTemplateModule } from "@/lib/builder-template";
 import { normalizeSignedOffsetValue } from "@/lib/builder-template";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
@@ -10,11 +11,13 @@ import { BuilderSettingRow } from "./builder-setting-row";
 type BuilderSpeechBubbleModuleSettingsProps = {
   module: BuilderTemplateModule;
   onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+  richTextGallery?: RichTextGalleryBinding;
 };
 
 export function BuilderSpeechBubbleModuleSettings({
   module,
-  onUpdateModule
+  onUpdateModule,
+  richTextGallery
 }: BuilderSpeechBubbleModuleSettingsProps) {
   function updateSettings(updates: Record<string, string>) {
     onUpdateModule((current) => ({
@@ -29,6 +32,7 @@ export function BuilderSpeechBubbleModuleSettings({
         <BuilderRichTextEditor
           value={module.text}
           onChange={(value) => onUpdateModule((current) => ({ ...current, text: value }))}
+          {...richTextGallery}
         />
       </BuilderSettingRow>
       <BuilderSettingRow fullWidth label="Background Color">

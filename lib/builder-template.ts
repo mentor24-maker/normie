@@ -2,6 +2,13 @@ import type { CSSProperties } from "react";
 import { normalizeEmailFunction, type BuilderEmailFunction } from "@/lib/builder-email-template";
 import { CONFETTI_EFFECT_DEFAULTS, normalizeConfettiModuleSettings } from "@/lib/confetti-effect";
 import { normalizeCurrentPollModuleWidth } from "@/lib/current-poll-module";
+import {
+  defaultReminderModuleSettings,
+  parseReminderCriteriaFromModuleSettings,
+  REMINDER_APPEARANCE_SETTING_KEY,
+  serializeReminderCriteriaToModuleSettings
+} from "@/lib/builder-reminder-module";
+import { normalizeGameReminderAppearance } from "@/lib/game-reminder";
 import { MODULE_GAME_AUDIENCE_SETTING_KEY, normalizeModuleGameAudience } from "@/lib/module-game-audience";
 import { normalizeModuleTrigger, MODULE_TRIGGER_SETTING_KEY } from "@/lib/module-trigger";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
@@ -11,6 +18,7 @@ import {
   normalizeHeadlineRotatorHeadlinesJson
 } from "@/lib/headline-rotator";
 import { escapeHtmlText, sanitizeRichTextHtml } from "@/lib/sanitize-html";
+import { rewriteRichTextImageSrcInHtml } from "@/lib/rich-text-image";
 
 export type BuilderTemplateLayout =
   | "single"
@@ -35,6 +43,7 @@ export type BuilderTemplateModuleType =
   | "video"
   | "quote"
   | "speech-bubble"
+  | "reminder"
   | "button"
   | "contact-form"
   | "player-portal"
@@ -158,21 +167,43 @@ export function looksLikeHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value);
 }
 
-export function formatRichTextContent(value: unknown) {
+function buildRichTextHtmlFromValue(value: unknown) {
   const text = String(value ?? "").trim();
 
   if (!text) {
     return "";
   }
 
-  const html = looksLikeHtml(text)
+  return looksLikeHtml(text)
     ? text
     : text
         .split(/\n{2,}/)
         .map((paragraph) => `<p>${escapeHtmlText(paragraph).replace(/\n/g, "<br />")}</p>`)
         .join("");
+}
 
-  return sanitizeRichTextHtml(html);
+export function formatRichTextContent(value: unknown) {
+  const html = buildRichTextHtmlFromValue(value);
+
+  if (!html) {
+    return "";
+  }
+
+  return rewriteRichTextImageSrcInHtml(sanitizeRichTextHtml(html), "display");
+}
+
+export function prepareRichTextHtmlForEditor(value: unknown) {
+  const html = buildRichTextHtmlFromValue(value);
+
+  if (!html) {
+    return "";
+  }
+
+  return rewriteRichTextImageSrcInHtml(sanitizeRichTextHtml(html), "editor");
+}
+
+export function prepareRichTextHtmlForStorage(html: string) {
+  return rewriteRichTextImageSrcInHtml(sanitizeRichTextHtml(html), "storage");
 }
 
 export function normalizeBuilderAssetUrl(value: unknown): string {
@@ -568,6 +599,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "video" ||
     type === "quote" ||
     type === "speech-bubble" ||
+    type === "reminder" ||
     type === "button" ||
     type === "contact-form" ||
     type === "player-portal" ||
@@ -664,6 +696,17 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
     settings.horizontalOffset = normalizeSignedOffsetValue(settings.horizontalOffset, "0");
     settings.verticalOffset = normalizeSignedOffsetValue(settings.verticalOffset, "0");
     settings.zIndex = normalizeSpacingValue(settings.zIndex, "20", -999, 999999);
+
+    const trigger = normalizeModuleTrigger(settings[MODULE_TRIGGER_SETTING_KEY]);
+    const anchor = safeText(settings.overlayAnchor, 24) || "center";
+    const offsetY = Number.parseInt(settings.offsetY ?? "0", 10);
+
+    if (trigger === "button" && (anchor === "center" || anchor === "")) {
+      settings.overlayAnchor = "top-center";
+      if (Number.isFinite(offsetY) && offsetY > 120) {
+        settings.offsetY = "0";
+      }
+    }
   }
 
   if (type === "heading") {
@@ -680,6 +723,29 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
 
   if (type === "confetti") {
     return normalizeConfettiModuleSettings(settings);
+  }
+
+  if (type === "reminder") {
+    settings[REMINDER_APPEARANCE_SETTING_KEY] = normalizeGameReminderAppearance(
+      settings[REMINDER_APPEARANCE_SETTING_KEY] ?? "speech_bubble"
+    );
+    settings[MODULE_GAME_AUDIENCE_SETTING_KEY] = normalizeModuleGameAudience(
+      settings[MODULE_GAME_AUDIENCE_SETTING_KEY] ?? "both"
+    );
+    settings.isActive = settings.isActive === "false" ? "false" : "true";
+    settings.sortOrder = safeText(settings.sortOrder, 12) || "0";
+    settings.backgroundColor = normalizeBuilderHexColor(settings.backgroundColor || "#ffffff");
+    settings.borderColor = normalizeBuilderHexColor(settings.borderColor || "#4cbb17");
+    settings.borderThickness = normalizeSpacingValue(settings.borderThickness, "2", 0, 24);
+    settings.containerWidth = normalizeSpacingValue(settings.containerWidth ?? settings.width, "520", 200, 900);
+    delete settings.width;
+    settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
+    settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");
+    settings.zIndex = normalizeSpacingValue(settings.zIndex, "46", -999, 999999);
+    delete settings.alignment;
+    delete settings.verticalMargin;
+    const parsed = parseReminderCriteriaFromModuleSettings(settings);
+    Object.assign(settings, serializeReminderCriteriaToModuleSettings(parsed.config));
   }
 
   if (type === "speech-bubble") {
@@ -1006,6 +1072,8 @@ export function createEmptyModule(
           videoName: "",
           videoDescription: ""
         }
+      : type === "reminder"
+        ? defaultReminderModuleSettings()
       : type === "speech-bubble"
         ? {
             backgroundColor: "#ffffff",

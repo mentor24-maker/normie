@@ -26,6 +26,8 @@ import {
 import { getDefaultEmailTemplateName, type BuilderEmailFunction } from "@/lib/builder-email-template";
 import { inferModuleClassFromBuilderModules, resolveModuleClassForBuilderModule } from "@/lib/module-class-triggers";
 
+import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
+import { appendRichTextImageToHtml } from "@/lib/rich-text-image";
 import type { GalleryTarget, ModulePaletteGroup, ModulePaletteItem } from "./builder/builder-types";
 import { layoutOptions } from "./builder/builder-types";
 import {
@@ -108,6 +110,7 @@ export function AdminBuilderEditor() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isModulePaletteOpen, setIsModulePaletteOpen] = useState(false);
   const [galleryTarget, setGalleryTarget] = useState<GalleryTarget | null>(null);
+  const [galleryAnchor, setGalleryAnchor] = useState<BuilderModalAnchor | null>(null);
   const [modulePaletteTarget, setModulePaletteTarget] = useState<{ sectionId: string; column: string } | null>(null);
   const [modulePaletteAnchor, setModulePaletteAnchor] = useState<ModulePaletteAnchor | null>(null);
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModulePaletteGroup | null>(null);
@@ -1212,6 +1215,12 @@ export function AdminBuilderEditor() {
     setIsGalleryOpen(true);
   }
 
+  function openRichTextGallery(sectionId: string, moduleId: string, anchor?: BuilderModalAnchor) {
+    setGalleryAnchor(anchor ?? null);
+    setGalleryTarget({ kind: "rich-text", sectionId, moduleId });
+    setIsGalleryOpen(true);
+  }
+
   function openButtonBackgroundGallery(sectionId: string, moduleId: string) {
     setGalleryTarget({ kind: "button-background", sectionId, moduleId });
     setIsGalleryOpen(true);
@@ -1234,7 +1243,11 @@ export function AdminBuilderEditor() {
     setIsModulePaletteOpen(true);
   }
 
-  function closeGallery() { setIsGalleryOpen(false); setGalleryTarget(null); }
+  function closeGallery() {
+    setIsGalleryOpen(false);
+    setGalleryTarget(null);
+    setGalleryAnchor(null);
+  }
   function closeModulePalette() {
     setIsModulePaletteOpen(false);
     setModulePaletteTarget(null);
@@ -1244,6 +1257,14 @@ export function AdminBuilderEditor() {
 
   function selectGalleryImage(imagePath: string) {
     if (!galleryTarget) return;
+    if (galleryTarget.kind === "rich-text") {
+      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (module) => ({
+        ...module,
+        text: appendRichTextImageToHtml(module.text, normalizeBuilderAssetUrl(imagePath))
+      }));
+      closeGallery();
+      return;
+    }
     if (galleryTarget.kind === "module") {
       updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (c) => ({
         ...c, settings: { ...c.settings, url: normalizeBuilderAssetUrl(imagePath) }
@@ -1309,6 +1330,39 @@ export function AdminBuilderEditor() {
       setMessage(`Uploaded ${uploaded.name} to gallery.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to upload media.");
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  }
+
+  async function uploadRichTextGalleryImage(file: File): Promise<string | null> {
+    if (!file) {
+      return null;
+    }
+
+    setIsUploadingMedia(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
+      const data = await readAdminJson<{ media?: AdminMediaItem; error?: string }>(response, "Failed to upload media.");
+      if (!data.media) {
+        throw new Error(data.error ?? "Failed to upload media.");
+      }
+
+      const uploaded = data.media;
+      setGalleryMedia((current) =>
+        [...current.filter((item) => item.path !== uploaded.path), uploaded].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      );
+      setMessage(`Uploaded ${uploaded.name} to gallery.`);
+      return normalizeBuilderAssetUrl(uploaded.path);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload media.");
+      return null;
     } finally {
       setIsUploadingMedia(false);
     }
@@ -1696,6 +1750,7 @@ export function AdminBuilderEditor() {
           onPreviewDraft={openPreviewPage}
           onMakeTemplate={() => void makeTemplateFromPage()}
           onPageEditorFocus={setPageEditorFocused}
+          onSavePage={() => void savePage()}
         />
       )}
 
@@ -1807,6 +1862,10 @@ export function AdminBuilderEditor() {
                             onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
                             onInsertSavedModule={(col, cellModuleId) => insertSavedModule(section.id, col, cellModuleId)}
                             onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
+                            onOpenRichTextGallery={(moduleId, anchor) =>
+                              openRichTextGallery(section.id, moduleId, anchor)
+                            }
+                            onUploadRichTextGalleryImage={uploadRichTextGalleryImage}
                             onOpenButtonBackgroundGallery={(moduleId) => openButtonBackgroundGallery(section.id, moduleId)}
                             onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
                             onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
@@ -1863,6 +1922,10 @@ export function AdminBuilderEditor() {
                         onInsertCellModule={(col, cellModuleId) => insertCellModule(section.id, col, cellModuleId)}
                         onInsertSavedModule={(col, cellModuleId) => insertSavedModule(section.id, col, cellModuleId)}
                         onOpenGallery={(moduleId) => openGallery(section.id, moduleId)}
+                        onOpenRichTextGallery={(moduleId, anchor) =>
+                          openRichTextGallery(section.id, moduleId, anchor)
+                        }
+                        onUploadRichTextGalleryImage={uploadRichTextGalleryImage}
                         onOpenButtonBackgroundGallery={(moduleId) => openButtonBackgroundGallery(section.id, moduleId)}
                         onOpenSocialIconGallery={(moduleId, itemId) => openSocialIconGallery(section.id, moduleId, itemId)}
                         onUploadMediaForModule={(moduleId, file) => uploadMediaForModule(section.id, moduleId, file)}
@@ -1895,6 +1958,7 @@ export function AdminBuilderEditor() {
 
       {isGalleryOpen ? (
         <BuilderGalleryModal
+          anchor={galleryTarget?.kind === "rich-text" ? galleryAnchor : null}
           isUploading={isUploadingMedia}
           onSelectImage={selectGalleryImage}
           onClose={closeGallery}

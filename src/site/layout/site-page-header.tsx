@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import logoWide from "@/images/logo_normie_3_1600x500.png";
+import { SiteHeaderDevResetButton } from "@/components/site-header-dev-reset-button";
 import { SiteHeaderSocial } from "@/src/site/layout/site-header-social";
 
 type SitePageHeaderProps = {
@@ -20,7 +21,10 @@ export function SitePageHeader({ className }: SitePageHeaderProps) {
         <Link className="site-shell-logo-link" href="/">
           <Image alt="Normie" className="site-shell-logo" priority src={logoWide} />
         </Link>
-        <SiteHeaderSocial />
+        <div className="site-header-social-row">
+          <SiteHeaderSocial />
+          <SiteHeaderDevResetButton />
+        </div>
       </div>
     </header>
   );

@@ -7,9 +7,11 @@ import {
   getPollCategoryMeta,
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
-import { firePublicProgressGameEvents } from "@/lib/public-game-level-events-client";
+import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
+import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
 import { POLL_SKIP_FEATURE_KEY } from "@/lib/player-unlocked-features";
 import type { PollPayload } from "@/src/site/home/types";
 
@@ -17,14 +19,11 @@ type UsePollExperienceOptions = {
   onAnswered?: (result: PollAnswerResult) => void;
 };
 
-export type PollAnswerResult = {
+export type PollAnswerResult = PollAnswerClientPayload & {
   ok?: boolean;
   code?: string;
   error?: string;
-  duplicate?: boolean;
   claimed?: boolean;
-  playerAnswerCount?: number;
-  progressPollsTaken?: number;
   levelUp?: boolean;
 };
 
@@ -78,6 +77,15 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
     });
   }, [loadPolls]);
 
+  useEffect(() => {
+    const reloadForTestMode = () => {
+      void loadPolls({ reset: true });
+    };
+
+    window.addEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    return () => window.removeEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+  }, [loadPolls]);
+
   async function submitAnswer(optionId: string) {
     if (!payload?.currentPoll) {
       return;
@@ -109,12 +117,10 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
 
       stripStartPollFromBrowserUrl();
 
-      if (typeof data.progressPollsTaken === "number") {
-        void firePublicProgressGameEvents(data.progressPollsTaken, { duplicate: data.duplicate });
-      }
+      await runPollAnswerSideEffects(data);
 
       options?.onAnswered?.(data);
-      await loadPolls({ startPoll: "" });
+      await loadPolls({ startPoll: "", reset: true });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {

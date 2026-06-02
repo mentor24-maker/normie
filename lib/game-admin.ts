@@ -1,37 +1,8 @@
 import { createAdminClient } from "@/lib/supabase-admin";
-import { gameReminderToClient, type GameReminder } from "@/lib/game-reminder";
-import {
-  isGameEventPickableModule,
-  resolveSavedModuleClass
-} from "@/lib/module-class-triggers";
+import { normalizeGameAudience, type GameAudience } from "@/lib/game-audience";
+import { isSupportedGameEventModuleType, resolveSavedModuleClass } from "@/lib/module-class-triggers";
 import type { BuilderTemplateModule } from "@/lib/builder-template";
 import { normalizeBuilderModules } from "@/lib/builder-template";
-
-export type {
-  GameReminder,
-  GameReminderCriteriaLogic,
-  GameReminderCriterion,
-  GameReminderCriterionType,
-  GameReminderCriterionValue,
-  GameReminderDisplayType,
-  GameReminderNumericCriterion,
-  GameReminderOperator,
-  GameReminderPollCriterion,
-  GameReminderRegisteredCriterion
-} from "@/lib/game-reminder";
-export {
-  createDefaultReminderCriterion,
-  formatReminderCriteriaSummary,
-  formatReminderCriterionSummary,
-  GAME_REMINDER_CRITERIA_LOGIC_OPTIONS,
-  GAME_REMINDER_CRITERION_TYPES,
-  GAME_REMINDER_DISPLAY_TYPES,
-  GAME_REMINDER_OPERATORS,
-  reminderCriteriaLogicLabel,
-  reminderCriterionTypeLabel,
-  reminderDisplayTypeLabel,
-  reminderOperatorLabel
-} from "@/lib/game-reminder";
 
 export type GameRewardType = "merch" | "digital" | "access" | "feature" | "token" | "custom" | "badge";
 export type GameRewardStatus = "active" | "draft" | "archived";
@@ -152,6 +123,7 @@ export type GameLevelEvent = {
   moduleId: string;
   moduleName: string;
   trigger: string;
+  audience: GameAudience;
   isActive: boolean;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -238,6 +210,7 @@ type GameLevelEventRow = {
   sublevel_name: string | null;
   module_id: string | null;
   trigger: string | null;
+  audience?: string | null;
   is_active: boolean | null;
   metadata: unknown;
   created_at: string;
@@ -254,20 +227,6 @@ type GameEventModuleRow = {
   name: string;
   module_class?: string | null;
   modules: unknown;
-};
-
-type GameReminderRow = {
-  id: string;
-  name: string;
-  display_type: string | null;
-  message_html: string | null;
-  criterion_type: string | null;
-  criterion_value: unknown;
-  is_active: boolean | null;
-  sort_order: number | null;
-  metadata: unknown;
-  created_at: string;
-  updated_at: string;
 };
 
 export const GAME_REWARD_TYPES: GameRewardType[] = ["badge", "digital", "access", "feature", "merch", "token", "custom"];
@@ -490,6 +449,7 @@ export function gameLevelEventToClient(row: GameLevelEventRow): GameLevelEvent {
     moduleId: row.module_id ?? "",
     moduleName: joinedModule?.name ?? "",
     trigger: row.trigger ?? "game",
+    audience: normalizeGameAudience(row.audience),
     isActive: row.is_active ?? true,
     metadata: toRecord(row.metadata),
     createdAt: row.created_at,
@@ -533,7 +493,6 @@ export async function getAdminGameSnapshot() {
     progressiveFeaturesResult,
     levelEventsResult,
     eventModulesResult,
-    remindersResult
   ] =
     await Promise.all([
     supabase
@@ -566,19 +525,14 @@ export async function getAdminGameSnapshot() {
       .order("updated_at", { ascending: false }),
     supabase
       .from("game_level_events")
-      .select("id, event_name, level_name, sublevel_name, module_id, trigger, is_active, metadata, created_at, updated_at, builder_cell_modules(name)")
+      .select(
+        "id, event_name, level_name, sublevel_name, module_id, trigger, audience, is_active, metadata, created_at, updated_at, builder_cell_modules(name)"
+      )
       .order("updated_at", { ascending: false }),
     supabase
       .from("builder_cell_modules")
       .select("id, name, module_class, modules")
-      .order("name", { ascending: true }),
-    supabase
-      .from("game_reminders")
-      .select(
-        "id, name, display_type, message_html, criterion_type, criterion_value, is_active, sort_order, metadata, created_at, updated_at"
-      )
-      .order("sort_order", { ascending: true })
-      .order("updated_at", { ascending: false })
+      .order("name", { ascending: true })
   ]);
 
   if (gameLevelsResult.error) {
@@ -641,17 +595,12 @@ export async function getAdminGameSnapshot() {
     throw new Error(eventModulesResult.error.message);
   }
 
-  if (remindersResult.error) {
-    throw new Error(
-      remindersResult.error.message.includes("game_reminders")
-        ? "Missing game_reminders table. Apply migration 037_game_reminders.sql."
-        : remindersResult.error.message
-    );
-  }
-
   const eventModules = ((eventModulesResult.data ?? []) as GameEventModuleRow[])
     .map(gameEventModuleToClient)
-    .filter((module): module is GameEventModule => module !== null && isGameEventPickableModule(module));
+    .filter(
+      (module): module is GameEventModule =>
+        module !== null && isSupportedGameEventModuleType(module.moduleType)
+    );
   let levelEvents = ((levelEventsResult.data ?? []) as unknown as GameLevelEventRow[]).map(gameLevelEventToClient);
 
   if (levelEvents.length === 0 && eventModules.length > 0) {
@@ -686,7 +635,6 @@ export async function getAdminGameSnapshot() {
     levelUpRules: ((levelUpRulesResult.data ?? []) as GameLevelUpRuleRow[]).map(gameLevelUpRuleToClient),
     progressiveFeatures: ((progressiveFeaturesResult.data ?? []) as GameProgressiveFeatureRow[]).map(gameProgressiveFeatureToClient),
     levelEvents,
-    eventModules,
-    reminders: ((remindersResult.data ?? []) as GameReminderRow[]).map(gameReminderToClient)
+    eventModules
   };
 }

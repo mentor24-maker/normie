@@ -17,6 +17,12 @@ import {
 } from "@/lib/poll-response-eligibility";
 import { POLL_SESSION_COOKIE } from "@/lib/poll-session-cookie";
 import { jsonWithPollSession } from "@/lib/poll-session-response";
+import {
+  excludePinnedPollFromAnswered,
+  isPollTestModeRequest,
+  readPollTestPin,
+  readPollTestProgress
+} from "@/lib/poll-test-mode";
 import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll, shuffleForDisplay } from "@/lib/polls-next-session";
 
 function getPollResults(
@@ -154,6 +160,32 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     }
   }
 
+  const pollTestModeActive = isPollTestModeRequest(request, cookieStore);
+  let pollTestPin: string | null = null;
+  let pollTestProgress: number | null = null;
+
+  if (pollTestModeActive) {
+    const fallbackProgress = countProgressPolls(eligibleResponses);
+    pollTestProgress = readPollTestProgress(cookieStore) ?? fallbackProgress;
+    pollTestPin = readPollTestPin(cookieStore) ?? currentPoll?.id ?? null;
+
+    if (!pollTestPin && startPollParam && START_POLL_UUID.test(startPollParam)) {
+      pollTestPin = startPollParam;
+    }
+
+    if (pollTestPin) {
+      const pinned = orderedPolls.find((poll) => poll.id === pollTestPin);
+
+      if (pinned) {
+        currentPoll = pinned;
+      }
+    }
+
+    if (pollTestPin) {
+      excludePinnedPollFromAnswered(answeredPollIds, pollTestPin);
+    }
+  }
+
   let doneReason:
     | "all_answered"
     | "all_answered_in_category"
@@ -273,8 +305,18 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       },
       previousPoll: previousPollResults,
       settings: settingsPayload,
-      unlockedFeatures
+      unlockedFeatures,
+      pollTestMode: pollTestModeActive,
+      pollTestPin: pollTestPin ?? undefined
     },
-    sessionId
+    sessionId,
+    undefined,
+    pollTestModeActive
+      ? {
+          enabled: true,
+          pinPollId: pollTestPin ?? currentPoll.id,
+          progress: pollTestProgress
+        }
+      : undefined
   );
 });

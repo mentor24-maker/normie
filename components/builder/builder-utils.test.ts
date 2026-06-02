@@ -13,7 +13,11 @@ import {
   getSpeechBubbleModuleStyle,
   isFloatingImageModule,
   isOverlayImageModule,
-  sectionHasOnlyOverlayImageModules
+  sectionHasOnlyOverlayImageModules,
+  sectionHasOnlyPageOverlayImageModules,
+  sectionHasOnlySectionScopedOverlayModules,
+  isSectionScopedOverlayDecor,
+  resolveSectionScopedOverlaySectionZIndex
 } from "@/components/builder/builder-utils";
 
 describe("overlay flow collapse helpers", () => {
@@ -44,9 +48,28 @@ describe("overlay flow collapse helpers", () => {
     ).toBe(false);
   });
 
-  it("collapses section layout box for floating-only sections", () => {
+  it("resolves section z-index from module settings (floor 40)", () => {
     const section = {
-      modules: [{ type: "floating-image", settings: {} }]
+      modules: [{ type: "floating-image", settings: { trigger: "button", zIndex: "120" } }]
+    } as never;
+
+    expect(resolveSectionScopedOverlaySectionZIndex(section)).toBe(120);
+  });
+
+  it("treats button-trigger floating images as section-scoped decor", () => {
+    const decor = {
+      type: "floating-image",
+      settings: { effect: "bounce" }
+    } as never;
+
+    expect(isSectionScopedOverlayDecor(decor)).toBe(true);
+    expect(sectionHasOnlySectionScopedOverlayModules({ modules: [decor] } as never)).toBe(true);
+    expect(sectionHasOnlyPageOverlayImageModules({ modules: [decor] } as never)).toBe(false);
+  });
+
+  it("collapses section layout box for game-trigger full-page overlay sections", () => {
+    const section = {
+      modules: [{ type: "floating-image", settings: { trigger: "game" } }]
     } as never;
 
     expect(sectionHasOnlyOverlayImageModules(section)).toBe(true);
@@ -245,17 +268,19 @@ describe("getSpeechBubbleModuleStyle", () => {
 
 describe("getSpeechBubbleBodyStyle", () => {
   it("sets min-height when container height is configured", () => {
-    expect(getSpeechBubbleBodyStyle({ containerHeight: "180" })).toEqual({
+    expect(getSpeechBubbleBodyStyle({ containerHeight: "180" })).toMatchObject({
       width: "100%",
       minHeight: "180px",
-      boxSizing: "border-box"
+      boxSizing: "border-box",
+      "--speech-bubble-bg": "#ffffff"
     });
   });
 
   it("always spans the outer shell width", () => {
-    expect(getSpeechBubbleBodyStyle({ containerHeight: "0" })).toEqual({
+    expect(getSpeechBubbleBodyStyle({ containerHeight: "0", backgroundColor: "#f8fdff" })).toMatchObject({
       width: "100%",
-      boxSizing: "border-box"
+      boxSizing: "border-box",
+      "--speech-bubble-bg": "#f8fdff"
     });
   });
 });

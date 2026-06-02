@@ -1,3 +1,4 @@
+import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import type {
   BackgroundSettings,
   BuilderCellModuleRecord,
@@ -61,6 +62,8 @@ type BuilderSectionCardProps = {
   onInsertCellModule: (column: string, cellModuleId: string) => void;
   onInsertSavedModule: (column: string, cellModuleId: string) => void;
   onOpenGallery: (moduleId: string) => void;
+  onOpenRichTextGallery: (moduleId: string, anchor?: BuilderModalAnchor) => void;
+  onUploadRichTextGalleryImage?: (file: File) => Promise<string | null>;
   onOpenButtonBackgroundGallery: (moduleId: string) => void;
   onOpenSocialIconGallery: (moduleId: string, itemId: string) => void;
   onUploadMediaForModule: (moduleId: string, file: File | null) => void;
@@ -112,6 +115,8 @@ export function BuilderSectionCard({
   onInsertCellModule,
   onInsertSavedModule,
   onOpenGallery,
+  onOpenRichTextGallery,
+  onUploadRichTextGalleryImage,
   onOpenButtonBackgroundGallery,
   onOpenSocialIconGallery,
   onUploadMediaForModule,
@@ -447,6 +452,8 @@ export function BuilderSectionCard({
                                   onClone={() => onCloneModule(section.id, module.id)}
                                   onSaveModule={() => onSaveModule(module.id)}
                                   onOpenGallery={() => onOpenGallery(module.id)}
+                                  onOpenRichTextGallery={(anchor) => onOpenRichTextGallery(module.id, anchor)}
+                                  onUploadRichTextGalleryImage={onUploadRichTextGalleryImage}
                                   onOpenButtonBackgroundGallery={() => onOpenButtonBackgroundGallery(module.id)}
                                   onOpenSocialIconGallery={(itemId) => onOpenSocialIconGallery(module.id, itemId)}
                                   onUploadMedia={(file) => onUploadMediaForModule(module.id, file)}

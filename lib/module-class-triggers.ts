@@ -114,6 +114,10 @@ export function inferModuleClassFromBuilderModules(modules: BuilderTemplateModul
     return "Speech Bubble";
   }
 
+  if (moduleType === "reminder") {
+    return "Reminders";
+  }
+
   const paletteItem = modulePaletteItems.find((item) => item.type === moduleType);
   const paletteGroup = modulePaletteGroups.find((group) => group.value === (paletteItem?.group ?? moduleType));
 
@@ -190,7 +194,7 @@ export function isGameEventPickableModule(input: {
   settings: Record<string, string>;
   moduleType?: string;
 }): boolean {
-  return isGameLayerTriggeredModule(input.moduleClass, input.settings, input.moduleType);
+  return isSupportedGameEventModuleType(String(input.moduleType ?? ""));
 }
 
 /** @deprecated Use isGameEventPickableModule — kept for existing imports. */

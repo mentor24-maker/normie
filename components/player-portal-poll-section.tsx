@@ -7,7 +7,7 @@ import { PlayerPortalPollStage } from "@/src/site/home/partials/player-portal-po
 import { type PollAnswerResult, usePollExperience } from "@/src/site/home/use-poll-experience";
 import { PLAYER_PORTAL_POLLS_SECTION_ID } from "@/lib/player-portal-play-polls";
 import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
-import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
+import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/lib/player-reminder-events";
 import { firePlayerLevelUpGameEvents } from "@/lib/player-portal-confetti";
 
 export type PlayerPortalPollStats = {

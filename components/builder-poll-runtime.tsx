@@ -14,9 +14,11 @@ import { getModuleWidthShellStyle } from "@/components/builder/builder-utils";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
-import { firePublicProgressGameEvents } from "@/lib/public-game-level-events-client";
-import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/components/player-game-reminders-host";
+import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
+import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
+import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/lib/player-reminder-events";
 import type { PollPayload } from "@/src/site/home/types";
 import { SocialShareBar } from "@/components/social-share-module";
 
@@ -149,11 +151,7 @@ async function submitAnswer(optionId: string) {
       })
     });
 
-    const data = (await response.json()) as {
-      duplicate?: boolean;
-      error?: string;
-      progressPollsTaken?: number;
-    };
+    const data = (await response.json()) as PollAnswerClientPayload & { error?: string };
 
     if (!response.ok) {
       throw new Error(
@@ -162,12 +160,10 @@ async function submitAnswer(optionId: string) {
       );
     }
 
-    if (typeof data.progressPollsTaken === "number") {
-      void firePublicProgressGameEvents(data.progressPollsTaken, { duplicate: data.duplicate });
-    }
+    await runPollAnswerSideEffects(data);
 
     stripStartPollFromBrowserUrl();
-    await loadPolls(loadedCategoryKey ?? "", "");
+    await loadPolls(loadedCategoryKey ?? "", "", { force: true });
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
     }
@@ -176,6 +172,11 @@ async function submitAnswer(optionId: string) {
       ...runtimeState,
       isSubmitting: false,
       error: submitError instanceof Error ? submitError.message : "Failed to save your answer."
+    });
+  } finally {
+    setRuntimeState({
+      ...runtimeState,
+      isSubmitting: false
     });
   }
 }
@@ -201,6 +202,15 @@ function useSharedPollRuntime(categoryParam: string, startPollParam: string) {
     return subscribePlayerPreferencesUpdated(() => {
       void loadPolls(categoryParam, startPollParam, { force: true });
     });
+  }, [categoryParam, startPollParam]);
+
+  useEffect(() => {
+    const reloadForTestMode = () => {
+      void loadPolls(categoryParam, startPollParam, { force: true });
+    };
+
+    window.addEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    return () => window.removeEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
   }, [categoryParam, startPollParam]);
 
   return {

@@ -72,14 +72,23 @@ export function PlayerGameFloatingImageHost() {
     };
   }, [activeModule]);
 
+  useEffect(() => {
+    if (!activeModule) {
+      return;
+    }
+
+    return () => {
+      window.dispatchEvent(new CustomEvent("normie-player-game-floating-image-end"));
+    };
+  }, [activeModule]);
+
   if (!activeModule) {
     return null;
   }
 
   return (
     <div aria-live="polite" className="player-game-floating-image-host">
-      <div aria-hidden="true" className="player-game-event-backdrop" />
-      <BuilderImagePreview module={activeModule} />
+      <BuilderImagePreview gameOverlayHost module={activeModule} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
+import { RICH_TEXT_IMAGE_CLASS, resolveRichTextImageSrc } from "@/lib/rich-text-image";
 
 type BlogRichTextEditorProps = {
   value: string;
@@ -79,7 +80,7 @@ export function BlogRichTextEditor({
         openOnClick: false,
         HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" }
       }),
-      Image.configure({ HTMLAttributes: { class: "blog-editor-image" } }),
+      Image.configure({ HTMLAttributes: { class: `${RICH_TEXT_IMAGE_CLASS} blog-editor-image` } }),
       Table.configure({ resizable: false }),
       TableRow,
       TableHeader,
@@ -108,9 +109,13 @@ export function BlogRichTextEditor({
       return;
     }
 
-    const src = galleryImagePath.startsWith("/gallery/")
-      ? `/api/admin/media-file${galleryImagePath}`
-      : galleryImagePath;
+    const src = resolveRichTextImageSrc(galleryImagePath, "editor");
+
+    if (!src) {
+      onGalleryImageConsumed?.();
+      return;
+    }
+
     editor.chain().focus().setImage({ src, alt: "" }).run();
     onGalleryImageConsumed?.();
   }, [editor, galleryImagePath, onGalleryImageConsumed]);
@@ -274,7 +279,7 @@ export function BlogRichTextEditor({
         >
           Link
         </button>
-        <button onClick={onOpenGallery} type="button">
+        <button onClick={onOpenGallery} title="Image" type="button">
           Image
         </button>
         <button onClick={() => insertEmbed("youtube")} type="button">

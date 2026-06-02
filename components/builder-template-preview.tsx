@@ -14,6 +14,7 @@ import {
 } from "@/lib/builder-template";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
+import { SiteHeaderDevResetButton } from "@/components/site-header-dev-reset-button";
 import { BuilderConfettiRuntime } from "@/components/builder-confetti-runtime";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import {
@@ -29,12 +30,17 @@ import {
   getAlignmentClass,
   getButtonModuleStyle,
   getHeadingModuleStyle,
-  columnHasOnlyOverlayImageModules,
+  columnHasOnlySectionScopedOverlayModules,
   getOverlayFlowCollapsedColumnStyle,
   getOverlayFlowCollapsedModuleStyle,
   getOverlayFlowCollapsedSectionStyle,
+  getSectionScopedOverlayColumnStyle,
+  getSectionScopedOverlayModuleStyle,
   isOverlayImageModule,
-  sectionHasOnlyOverlayImageModules,
+  isSectionScopedOverlayDecor,
+  resolveSectionScopedOverlaySectionZIndex,
+  sectionHasOnlyPageOverlayImageModules,
+  sectionHasOnlySectionScopedOverlayModules,
   getModuleAlignment,
   getModuleBackgroundSettings,
   getSectionMarginStyle,
@@ -46,7 +52,15 @@ import {
 } from "@/components/builder/builder-utils";
 import { BuilderCodeEmbed } from "@/components/builder/builder-code-embed";
 import { BuilderImagePreview } from "@/components/builder/builder-image-preview";
+import {
+  BuilderFloatingImageRuntime,
+  shouldFloatingImageUseOverlayHost
+} from "@/components/builder-floating-image-runtime";
+import { getModuleTrigger } from "@/lib/module-trigger";
+import { GameModuleOverlayHosts } from "@/components/game-module-overlay-hosts";
+import { useSitePlayerRegistration } from "@/components/use-site-player-registration";
 import { BuilderSpeechBubbleRuntime } from "@/components/builder-speech-bubble-runtime";
+import { BuilderReminderRuntime } from "@/components/builder-reminder-runtime";
 import { SpeechBubblePreview } from "@/components/builder/speech-bubble-preview";
 import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
 import { resolveEmailMergeTokensForPreview } from "@/lib/builder-email-template";
@@ -206,17 +220,49 @@ export function BuilderTemplatePreview({
   previewMode = false
 }: BuilderTemplatePreviewProps) {
   const pageStyle = getBuilderBackgroundStyle(pageBackground);
+  const sitePlayerRegistered = useSitePlayerRegistration();
+
+  /** Live and builder previews need the shell so overlay-flow rows stack above the game wash. */
+  const shellClassName = !emailPreview ? "builder-preview-shell" : undefined;
+  const pageOverlaySections = layoutSections.filter(sectionHasOnlyPageOverlayImageModules);
 
   return (
-    <div className={showShell ? "builder-preview-shell" : undefined} style={pageStyle}>
-      {layoutSections.map((section) => (
-        <BuilderSectionPreview
-          emailPreview={emailPreview}
-          key={section.id}
-          previewMode={previewMode}
-          section={section}
-        />
-      ))}
+    <div
+      className={
+        shellClassName
+          ? pageOverlaySections.length > 0
+            ? `${shellClassName} builder-preview-shell-has-overlay`
+            : shellClassName
+          : undefined
+      }
+      style={pageStyle}
+    >
+      {pageOverlaySections.length > 0 ? (
+        <div className="builder-preview-overlay-layer" aria-hidden={false}>
+          {pageOverlaySections.map((section) => (
+            <BuilderSectionPreview
+              emailPreview={emailPreview}
+              key={section.id}
+              previewMode={previewMode}
+              section={section}
+              sitePlayerRegistered={sitePlayerRegistered}
+            />
+          ))}
+        </div>
+      ) : null}
+      {layoutSections
+        .filter((section) => !sectionHasOnlyPageOverlayImageModules(section))
+        .map((section) => (
+          <BuilderSectionPreview
+            emailPreview={emailPreview}
+            key={section.id}
+            previewMode={previewMode}
+            section={section}
+            sitePlayerRegistered={sitePlayerRegistered}
+          />
+        ))}
+      {shellClassName ? <GameModuleOverlayHosts /> : null}
+      {shellClassName ? <BuilderReminderRuntime layoutSections={layoutSections} /> : null}
     </div>
   );
 }
@@ -224,26 +270,33 @@ export function BuilderTemplatePreview({
 function BuilderSectionPreview({
   section,
   emailPreview = false,
-  previewMode = false
+  previewMode = false,
+  sitePlayerRegistered = false
 }: {
   section: BuilderTemplateSection;
   emailPreview?: boolean;
   previewMode?: boolean;
+  sitePlayerRegistered?: boolean;
 }) {
   const sectionStyle = getBuilderBackgroundStyle(section.background);
   const columnKeys = getLayoutColumns(section.layout);
   const isNavigationSection = section.modules.length > 0 && section.modules.every((module) => module.type === "navigation");
-  const isOverlayFlowSection = sectionHasOnlyOverlayImageModules(section);
+  const isPageOverlayFlowSection = sectionHasOnlyPageOverlayImageModules(section);
+  const isSectionOverlaySlot = sectionHasOnlySectionScopedOverlayModules(section);
+  const isOverlayLayoutCollapsed = isPageOverlayFlowSection || isSectionOverlaySlot;
   const hasPollModules = section.modules.some(
     (module) => module.type === "current-poll" || module.type === "previous-results"
   );
   const gridStyle: CSSProperties = {
     ...(isNavigationSection ? {} : sectionStyle),
-    ...(isOverlayFlowSection ? {} : getSectionMarginStyle(section)),
-    ...getOverlayFlowCollapsedSectionStyle(isOverlayFlowSection),
+    ...(isOverlayLayoutCollapsed ? {} : getSectionMarginStyle(section)),
+    ...getOverlayFlowCollapsedSectionStyle(isOverlayLayoutCollapsed),
+    ...(isSectionOverlaySlot
+      ? { position: "relative", zIndex: resolveSectionScopedOverlaySectionZIndex(section) }
+      : {}),
     display: "grid",
     gridTemplateColumns: getLayoutGridTemplate(section.layout),
-    gap: isOverlayFlowSection ? 0 : "16px",
+    gap: isOverlayLayoutCollapsed ? 0 : "16px",
     "--builder-layout-grid": getLayoutGridTemplate(section.layout)
   } as CSSProperties;
 
@@ -251,9 +304,9 @@ function BuilderSectionPreview({
     <section
       className={`builder-preview-section builder-preview-section-layout-${section.layout || "single"} builder-preview-section-mobile-${section.mobileLayout || "stack"} ${
         isNavigationSection ? "builder-preview-section-navigation" : ""
-      }${isOverlayFlowSection ? " builder-preview-section-overlay-flow" : ""}${
-        hasPollModules ? " builder-preview-section-poll-row" : ""
-      }`}
+      }${isPageOverlayFlowSection ? " builder-preview-section-overlay-flow" : ""}${
+        isSectionOverlaySlot ? " builder-preview-section-overlay-slot" : ""
+      }${hasPollModules ? " builder-preview-section-poll-row" : ""}`}
       style={gridStyle}
     >
       {hasPollModules ? <BuilderPollCategoryBanner /> : null}
@@ -266,17 +319,21 @@ function BuilderSectionPreview({
         const borderWidth = section.cellBorderWidth?.[columnKey] ?? "0";
         const borderColor = section.cellBorderColor?.[columnKey] ?? "#d9e4ef";
         const borderRadius = section.cellBorderRadius?.[columnKey] ?? "0";
-        const isOverlayFlowColumn = columnHasOnlyOverlayImageModules(columnModules);
+        const isPageOverlayFlowColumn =
+          columnModules.length > 0 &&
+          columnModules.every((module) => isOverlayImageModule(module) && !isSectionScopedOverlayDecor(module));
+        const isSectionOverlayColumn = columnHasOnlySectionScopedOverlayModules(columnModules);
         const columnStyle: CSSProperties = {
           ...(isNavigationColumn || !columnBackground ? {} : getBuilderBackgroundStyle(columnBackground)),
-          ...(isOverlayFlowColumn ? {} : getVerticalMarginStyle(verticalMargin)),
-          ...getOverlayFlowCollapsedColumnStyle(isOverlayFlowColumn),
-          padding: isNavigationColumn || isOverlayFlowColumn ? 0 : `${padding}px`,
+          ...(isPageOverlayFlowColumn || isSectionOverlayColumn ? {} : getVerticalMarginStyle(verticalMargin)),
+          ...getOverlayFlowCollapsedColumnStyle(isPageOverlayFlowColumn),
+          ...getSectionScopedOverlayColumnStyle(isSectionOverlayColumn),
+          padding: isNavigationColumn || isPageOverlayFlowColumn || isSectionOverlayColumn ? 0 : `${padding}px`,
           border:
-            isNavigationColumn || isOverlayFlowColumn || Number(borderWidth) <= 0
+            isNavigationColumn || isPageOverlayFlowColumn || isSectionOverlayColumn || Number(borderWidth) <= 0
               ? undefined
               : `${borderWidth}px solid ${borderColor}`,
-          borderRadius: isNavigationColumn || isOverlayFlowColumn ? 0 : `${borderRadius}px`,
+          borderRadius: isNavigationColumn || isPageOverlayFlowColumn || isSectionOverlayColumn ? 0 : `${borderRadius}px`,
           position: "relative"
         };
 
@@ -286,12 +343,14 @@ function BuilderSectionPreview({
             className={`builder-preview-column ${
               section.cellMobileHidden?.[columnKey] === "true" ? "builder-preview-column-mobile-hidden" : ""
             } ${isNavigationColumn ? "builder-preview-column-navigation" : ""}${
-              isOverlayFlowColumn ? " builder-preview-column-overlay-flow" : ""
-            }`}
+              isPageOverlayFlowColumn ? " builder-preview-column-overlay-flow" : ""
+            } ${isSectionOverlayColumn ? " builder-preview-column-overlay-slot" : ""}`}
             style={columnStyle}
           >
             {columnModules.map((module) => {
-              const isOverlayFlowModule = isOverlayImageModule(module);
+              const isPageOverlayFlowModule =
+                isOverlayImageModule(module) && !isSectionScopedOverlayDecor(module);
+              const isSectionOverlayModule = isSectionScopedOverlayDecor(module);
               const isCurrentPollModule = module.type === "current-poll";
 
               return (
@@ -303,30 +362,38 @@ function BuilderSectionPreview({
                     module.settings.mobileAlignment ? `builder-preview-module-mobile-align-${module.settings.mobileAlignment}` : ""
                   } ${
                     module.settings.mobileFontSize ? "builder-preview-module-mobile-font-size" : ""
-                  }${isOverlayFlowModule ? " builder-preview-module-overlay-flow" : ""}${
-                    isCurrentPollModule ? " builder-preview-module-current-poll" : ""
-                  }`}
+                  }${isPageOverlayFlowModule ? " builder-preview-module-overlay-flow" : ""}${
+                    isSectionOverlayModule ? " builder-preview-module-overlay-slot" : ""
+                  }${isCurrentPollModule ? " builder-preview-module-current-poll" : ""}`}
                   style={{
                     ...(module.type === "navigation" ||
-                    isOverlayFlowModule ||
+                    isPageOverlayFlowModule ||
+                    isSectionOverlayModule ||
                     module.type === "button" ||
                     isCurrentPollModule
                       ? {}
                       : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-                    ...(isOverlayFlowModule || isCurrentPollModule
+                    ...(isPageOverlayFlowModule || isSectionOverlayModule || isCurrentPollModule
                       ? {}
                       : module.type === "heading"
                         ? getModuleMarginStyle(module.settings)
                         : module.type === "button"
                           ? getModuleOuterSpacingStyle(module.settings)
                           : getVerticalMarginStyle(module.settings.verticalMargin)),
-                    ...getOverlayFlowCollapsedModuleStyle(isOverlayFlowModule),
+                    ...getOverlayFlowCollapsedModuleStyle(isPageOverlayFlowModule),
+                    ...getSectionScopedOverlayModuleStyle(isSectionOverlayModule),
                     "--builder-mobile-font-size": module.settings.mobileFontSize
                       ? `${module.settings.mobileFontSize}px`
                       : undefined
                   } as CSSProperties}
                 >
-                  <BuilderModulePreview emailPreview={emailPreview} module={module} previewMode={previewMode} />
+                  <BuilderModulePreview
+                    emailPreview={emailPreview}
+                    module={module}
+                    overlayFlowDecor={isPageOverlayFlowModule || isSectionOverlayModule}
+                    previewMode={previewMode}
+                    sitePlayerRegistered={sitePlayerRegistered}
+                  />
                 </div>
               );
             })}
@@ -340,11 +407,16 @@ function BuilderSectionPreview({
 function BuilderModulePreview({
   module,
   emailPreview = false,
-  previewMode = false
+  overlayFlowDecor = false,
+  previewMode = false,
+  sitePlayerRegistered = false
 }: {
   module: import("@/lib/builder-template").BuilderTemplateModule;
   emailPreview?: boolean;
+  /** Floating image in a full-page overlay row — always visible on the live site. */
+  overlayFlowDecor?: boolean;
   previewMode?: boolean;
+  sitePlayerRegistered?: boolean;
 }) {
   const variant = module.settings.variant ?? "";
 
@@ -406,7 +478,12 @@ function BuilderModulePreview({
     }
 
     return (
-      <BuilderSpeechBubbleRuntime gamePlayContext="public" module={module} previewMode={previewMode} />
+      <BuilderSpeechBubbleRuntime
+        gamePlayContext="public"
+        module={module}
+        previewMode={previewMode}
+        sitePlayerRegistered={sitePlayerRegistered}
+      />
     );
   }
 
@@ -478,13 +555,47 @@ function BuilderModulePreview({
     );
   }
 
-  if (module.type === "image" || module.type === "floating-image") {
+  if (module.type === "floating-image") {
+    if (emailPreview) {
+      return (
+        <BuilderImagePreview
+          module={module}
+          variant={variant}
+          placeholder="Choose a floating image"
+        />
+      );
+    }
+
+    const trigger = getModuleTrigger(module.settings);
+    const usesOverlayHost = shouldFloatingImageUseOverlayHost(trigger);
+    const showInlineDecor = !usesOverlayHost || overlayFlowDecor;
+
     return (
-      <BuilderImagePreview
-        module={module}
-        variant={variant}
-        placeholder={module.type === "floating-image" ? "Choose a floating image" : "Choose an image"}
-      />
+      <>
+        {showInlineDecor ? (
+          <BuilderImagePreview
+            module={module}
+            sectionScopedDecor={isSectionScopedOverlayDecor(module)}
+            variant={variant}
+            placeholder="Choose a floating image"
+          />
+        ) : null}
+        {usesOverlayHost ? (
+          <BuilderFloatingImageRuntime
+            gamePlayContext="public"
+            module={module}
+            overlayFlowDecor={overlayFlowDecor}
+            previewMode={previewMode}
+            sitePlayerRegistered={sitePlayerRegistered}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  if (module.type === "image") {
+    return (
+      <BuilderImagePreview module={module} variant={variant} placeholder="Choose an image" />
     );
   }
 
@@ -948,30 +1059,33 @@ function SocialModulePreview({ module }: { module: import("@/lib/builder-templat
   const showLabels = module.settings.socialShowLabels !== "false";
 
   return (
-    <div className="builder-preview-social" style={{ gap: `${gap}px` }}>
-      {items.map((item) => (
-        <div key={item.id} className="builder-preview-social-entry">
-          <a
-            className="builder-preview-social-item"
-            href={item.href || "#"}
-            rel="noopener noreferrer"
-            target="_blank"
-            aria-label={item.label || "Social link"}
-            style={{
-              width: `${iconSize}px`,
-              height: `${iconSize}px`,
-              background: item.backgroundColor
-            }}
-          >
-            {item.iconUrl ? (
-              <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
-            ) : (
-              <span className="builder-preview-social-fallback">{item.label.slice(0, 1) || "@"}</span>
-            )}
-          </a>
-          {showLabels ? <span className="builder-preview-social-label">{item.label}</span> : null}
-        </div>
-      ))}
+    <div className="builder-preview-social-row">
+      <div className="builder-preview-social" style={{ gap: `${gap}px` }}>
+        {items.map((item) => (
+          <div key={item.id} className="builder-preview-social-entry">
+            <a
+              className="builder-preview-social-item"
+              href={item.href || "#"}
+              rel="noopener noreferrer"
+              target="_blank"
+              aria-label={item.label || "Social link"}
+              style={{
+                width: `${iconSize}px`,
+                height: `${iconSize}px`,
+                background: item.backgroundColor
+              }}
+            >
+              {item.iconUrl ? (
+                <Image alt={item.label || "Social icon"} fill sizes={`${iconSize}px`} src={item.iconUrl} unoptimized />
+              ) : (
+                <span className="builder-preview-social-fallback">{item.label.slice(0, 1) || "@"}</span>
+              )}
+            </a>
+            {showLabels ? <span className="builder-preview-social-label">{item.label}</span> : null}
+          </div>
+        ))}
+      </div>
+      <SiteHeaderDevResetButton />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import type { GameAudience } from "@/lib/game-audience";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import {
   ACTIVE_GAME_LEVEL_EVENTS_SELECT,
@@ -75,6 +76,7 @@ export type PlayerPortalLevelEvent = {
   moduleSettings: Record<string, string>;
   gameModule: BuilderTemplateModule | null;
   trigger: string;
+  audience: GameAudience;
   metadata: Record<string, unknown>;
 };
 
