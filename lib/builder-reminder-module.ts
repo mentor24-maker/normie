@@ -332,7 +332,7 @@ export function serializeReminderRecords(
   const sortedRecords = sortReminderRecordsByQuestionNumber(records, pollOrderById);
 
   return JSON.stringify(
-    sortedRecords.map((record, index) => {
+    sortedRecords.map((record) => {
       const { config } = parseReminderCriteriaInput({
         criteriaLogic: record.criteriaLogic,
         criteria: record.criteria

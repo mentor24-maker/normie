@@ -28,13 +28,13 @@ function buildReminderModule(
 describe("parseReminderRecordsFromModule", () => {
   it("reads records from reminderRecordsJson", () => {
     const record = createSignupNudgeReminderRecord("record-a");
-    const module = buildReminderModule({
+    const reminderModule = buildReminderModule({
       settings: {
         [REMINDER_RECORDS_JSON_SETTING_KEY]: serializeReminderRecords([record])
       }
     });
 
-    const records = parseReminderRecordsFromModule(module);
+    const records = parseReminderRecordsFromModule(reminderModule);
     expect(records).toHaveLength(1);
     expect(records[0]?.id).toBe("record-a");
     expect(records[0]?.name).toBe("Signup Nudge");
@@ -43,31 +43,31 @@ describe("parseReminderRecordsFromModule", () => {
   it("preserves interior spaces in reminder names", () => {
     const record = createSignupNudgeReminderRecord("record-spaces");
     record.name = "Signup Nudge";
-    const module = buildReminderModule({
+    const reminderModule = buildReminderModule({
       settings: {
         [REMINDER_RECORDS_JSON_SETTING_KEY]: serializeReminderRecords([record])
       }
     });
 
-    const records = parseReminderRecordsFromModule(module);
+    const records = parseReminderRecordsFromModule(reminderModule);
     expect(records[0]?.name).toBe("Signup Nudge");
   });
 
   it("keeps a trailing space while the name is being edited", () => {
     const record = createSignupNudgeReminderRecord("record-spaces");
     record.name = "Signup ";
-    const module = buildReminderModule({
+    const reminderModule = buildReminderModule({
       settings: {
         [REMINDER_RECORDS_JSON_SETTING_KEY]: serializeReminderRecords([record])
       }
     });
 
-    const records = parseReminderRecordsFromModule(module);
+    const records = parseReminderRecordsFromModule(reminderModule);
     expect(records[0]?.name).toBe("Signup ");
   });
 
   it("migrates legacy flat module settings into one record", () => {
-    const module = buildReminderModule({
+    const reminderModule = buildReminderModule({
       id: "legacy-module-id",
       name: "Poll Five Nudge",
       text: "<p>Take poll five!</p>",
@@ -83,7 +83,7 @@ describe("parseReminderRecordsFromModule", () => {
       }
     });
 
-    const records = parseReminderRecordsFromModule(module);
+    const records = parseReminderRecordsFromModule(reminderModule);
     expect(records).toHaveLength(1);
     expect(records[0]?.id).toBe("legacy-module-id");
     expect(records[0]?.name).toBe("Poll Five Nudge");
@@ -130,7 +130,7 @@ describe("sortReminderRecordsByQuestionNumber", () => {
 
 describe("collectEvaluableRemindersFromLayout", () => {
   it("flattens multiple records from one module", () => {
-    const module = buildReminderModule({
+    const reminderModule = buildReminderModule({
       settings: {
         [REMINDER_RECORDS_JSON_SETTING_KEY]: serializeReminderRecords([
           createSignupNudgeReminderRecord("record-a"),
@@ -150,7 +150,7 @@ describe("collectEvaluableRemindersFromLayout", () => {
       {
         id: "section-1",
         layout: "single",
-        modules: [module],
+        modules: [reminderModule],
         columns: {},
         background: { mode: "color", color: "#ffffff" },
         settings: {}

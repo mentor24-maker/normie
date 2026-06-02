@@ -30,7 +30,6 @@ import {
   sortReminderRecordsByQuestionNumber,
   type BuilderReminderRecord
 } from "@/lib/builder-reminder-module";
-import type { GameAudience } from "@/lib/game-audience";
 import { readAdminJson } from "@/lib/admin-fetch";
 
 type BuilderReminderModuleSettingsProps = {
