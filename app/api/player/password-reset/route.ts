@@ -25,16 +25,42 @@ export async function POST(request: Request) {
 
   const redirectTo = getPlayerPasswordResetUrl(request);
   const adminClient = createAdminClient();
-  const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000
-  });
 
-  if (listError) {
-    return NextResponse.json({ error: listError.message }, { status: 500 });
+  async function findExistingUser(): Promise<boolean> {
+    const perPage = 1000;
+    let page = 1;
+
+    for (;;) {
+      const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const users = data.users ?? [];
+      const found = users.some((user) => user.email?.toLowerCase() === email);
+
+      if (found) {
+        return true;
+      }
+
+      if (users.length < perPage) {
+        return false;
+      }
+
+      page += 1;
+    }
   }
 
-  const existingUser = existingUsers.users.find((user) => user.email?.toLowerCase() === email);
+  let existingUser = false;
+  try {
+    existingUser = await findExistingUser();
+  } catch (listError) {
+    return NextResponse.json(
+      { error: listError instanceof Error ? listError.message : "Failed to list users." },
+      { status: 500 }
+    );
+  }
 
   if (existingUser) {
     try {

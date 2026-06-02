@@ -298,30 +298,37 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     }
   },
   {
-    id: "reminder-signup-nudge",
+    id: "reminder-module",
     type: "reminder",
     group: "reminder",
-    label: "Signup Nudge",
+    label: "Reminders",
     icon: "🔔",
-    description: "Speech bubble when a visitor has taken a poll but is not registered.",
-    name: "Signup Nudge",
-    text: "<p>Create a free account to save your picks and earn points.</p>",
+    description: "Criteria-based overlays — add many reminders in one module.",
+    name: "Reminders",
+    text: "",
     settings: {
-      appearance: "speech_bubble",
-      gameAudience: "both",
-      isActive: "true",
-      sortOrder: "0",
-      backgroundColor: "#ffffff",
-      borderColor: "#4cbb17",
-      borderThickness: "2",
-      containerWidth: "520",
-      offsetX: "0",
-      offsetY: "0",
-      zIndex: "46",
-      criteriaLogic: "and",
-      reminderCriteriaJson: JSON.stringify([
-        { id: "polls-taken", type: "polls_taken", value: { operator: "gte", count: 1 } },
-        { id: "not-registered", type: "registered", value: { registered: false } }
+      reminderRecordsJson: JSON.stringify([
+        {
+          id: "signup-nudge",
+          name: "Signup Nudge",
+          messageHtml: "<p>Create a free account to save your picks and earn points.</p>",
+          appearance: "speech_bubble",
+          gameAudience: "both",
+          isActive: true,
+          sortOrder: 0,
+          criteriaLogic: "and",
+          criteria: [
+            { id: "polls-taken", type: "polls_taken", value: { operator: "gte", count: 1 } },
+            { id: "not-registered", type: "registered", value: { registered: false } }
+          ],
+          backgroundColor: "#ffffff",
+          borderColor: "#4cbb17",
+          borderThickness: "2",
+          containerWidth: "520",
+          offsetX: "0",
+          offsetY: "0",
+          zIndex: "46"
+        }
       ])
     }
   },

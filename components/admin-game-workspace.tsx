@@ -93,6 +93,7 @@ type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "po
 type LevelEventSortKey = "eventName" | "milestone" | "poll" | "moduleName" | "status" | "updatedAt";
 type RewardTierType = "levelTier" | "gradeTier" | "classTier";
 type RewardBulkAction = RewardTierType | "pollSize" | "levelSize" | "color";
+type LevelEventModuleCategory = string;
 
 function isRewardTierBulkAction(action: RewardBulkAction): action is RewardTierType {
   return action === "levelTier" || action === "gradeTier" || action === "classTier";
@@ -202,6 +203,28 @@ const LEVEL_EVENT_TABLE_COLUMNS: Array<{ key: LevelEventSortKey; label: string }
   { key: "status", label: "Status" },
   { key: "updatedAt", label: "Updated" }
 ];
+
+function getEventModuleCategory(module: Pick<GameEventModule, "moduleType" | "moduleClass" | "name"> | undefined): { value: LevelEventModuleCategory; label: string } {
+  const moduleType = String(module?.moduleType ?? "").trim();
+
+  if (moduleType === "speech-bubble") {
+    return { value: moduleType, label: "Speech Bubble" };
+  }
+
+  if (moduleType === "confetti") {
+    return { value: moduleType, label: "Effect" };
+  }
+
+  if (moduleType === "floating-image") {
+    return { value: moduleType, label: "Bouncing Normie" };
+  }
+
+  const moduleClass = String(module?.moduleClass ?? "").trim();
+  const moduleName = String(module?.name ?? "").trim();
+  const fallback = moduleClass || moduleName || moduleType;
+
+  return { value: fallback, label: fallback || "Module category" };
+}
 
 const GAME_SECTION_TILES: Array<{ key: GameSection; label: string; description: string }> = [
   { key: "levels", label: "Progression Tracks", description: "Tracks, sublevels, and order." },
@@ -1363,6 +1386,19 @@ function LevelEventEditor({
 
   return (
     <div className="builder-product-editor admin-game-editor admin-game-level-event-editor">
+      <div className="admin-game-editor-header">
+        <strong>{draft.id ? "Edit Event" : "New Event"}</strong>
+        <button
+          aria-label="Close event editor"
+          className="polls-icon-button polls-icon-button-view admin-game-editor-close"
+          disabled={isSaving}
+          onClick={onCancel}
+          title="Close"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
       <div className="admin-game-reward-grid">
         <BuilderSettingRow fullWidth label="Event Name">
           <input
@@ -2077,7 +2113,7 @@ export function AdminGameWorkspace() {
   const [levelEventGradeFilter, setLevelEventGradeFilter] = useState("");
   const [levelEventLevelFilter, setLevelEventLevelFilter] = useState("");
   const [levelEventStatusFilter, setLevelEventStatusFilter] = useState<"" | "active" | "draft">("");
-  const [levelEventModuleFilter, setLevelEventModuleFilter] = useState("");
+  const [levelEventModuleCategoryFilter, setLevelEventModuleCategoryFilter] = useState<LevelEventModuleCategory>("");
   const [levelEventSortKey, setLevelEventSortKey] = useState<LevelEventSortKey>("updatedAt");
   const [levelEventSortDirection, setLevelEventSortDirection] = useState<SortDirection>("desc");
 
@@ -2229,6 +2265,24 @@ export function AdminGameWorkspace() {
     [levelEvents]
   );
 
+  const eventModulesById = useMemo(
+    () => new Map(eventModules.map((module) => [module.id, module])),
+    [eventModules]
+  );
+
+  const levelEventModuleCategoryOptions = useMemo(() => {
+    const optionsByValue = new Map<LevelEventModuleCategory, string>();
+
+    for (const eventModule of eventModules) {
+      const option = getEventModuleCategory(eventModule);
+      optionsByValue.set(option.value, option.label);
+    }
+
+    return Array.from(optionsByValue, ([value, label]) => ({ value, label })).sort((left, right) =>
+      left.label.localeCompare(right.label)
+    );
+  }, [eventModules]);
+
   const filteredLevelEvents = useMemo(() => {
     const query = levelEventQuery.trim().toLowerCase();
     const gradeFilterValue = Number.parseInt(levelEventGradeFilter, 10);
@@ -2255,8 +2309,12 @@ export function AdminGameWorkspace() {
         return false;
       }
 
-      if (levelEventModuleFilter && event.moduleId !== levelEventModuleFilter) {
-        return false;
+      if (levelEventModuleCategoryFilter) {
+        const eventModule = eventModulesById.get(event.moduleId);
+
+        if (getEventModuleCategory(eventModule).value !== levelEventModuleCategoryFilter) {
+          return false;
+        }
       }
 
       if (query) {
@@ -2284,7 +2342,8 @@ export function AdminGameWorkspace() {
   }, [
     levelEventGradeFilter,
     levelEventLevelFilter,
-    levelEventModuleFilter,
+    eventModulesById,
+    levelEventModuleCategoryFilter,
     levelEventQuery,
     levelEventStatusFilter,
     levelEvents
@@ -2319,7 +2378,7 @@ export function AdminGameWorkspace() {
     levelEventGradeFilter ||
     levelEventLevelFilter ||
     levelEventStatusFilter ||
-    levelEventModuleFilter
+    levelEventModuleCategoryFilter
   );
 
   function handleGameLevelSort(nextKey: GameLevelSortKey) {
@@ -3727,15 +3786,15 @@ export function AdminGameWorkspace() {
             </select>
           </label>
           <label className="field">
-            <span>Module</span>
+            <span>Module category</span>
             <select
-              value={levelEventModuleFilter}
-              onChange={(event) => setLevelEventModuleFilter(event.target.value)}
+              value={levelEventModuleCategoryFilter}
+              onChange={(event) => setLevelEventModuleCategoryFilter(event.target.value)}
             >
-              <option value="">All modules</option>
-              {eventModules.map((module) => (
-                <option key={module.id} value={module.id}>
-                  {module.name}
+              <option value="">All categories</option>
+              {levelEventModuleCategoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -3766,72 +3825,88 @@ export function AdminGameWorkspace() {
             </thead>
             <tbody>
               {sortedLevelEvents.map((event) => (
-                <tr key={event.id}>
-                  <td><strong>{event.eventName}</strong></td>
-                  <td>
-                    <strong>{formatLevelEventMilestoneCompact(event)}</strong>
-                  </td>
-                  <td className="admin-game-level-event-poll-cell">{levelEventProgressPolls(event)}</td>
-                  <td>{event.moduleName || "No module selected"}</td>
-                  <td>{event.isActive ? "Active" : "Draft"}</td>
-                  <td>{formatTemplateTimestamp(event.updatedAt)}</td>
-                  <td className="crud-actions-cell">
-                    <div className="table-actions">
-                      <button
-                        aria-label={
-                          event.isActive
-                            ? "Hide event from players"
-                            : "Show event to players"
-                        }
-                        className="polls-icon-button polls-icon-button-view"
-                        disabled={isSaving}
-                        onClick={() => void toggleLevelEventPlayerVisibility(event)}
-                        title={event.isActive ? "Hide on Site" : "Show on Site"}
-                        type="button"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={
-                            event.isActive ? "polls-icon-glyph-eye-hidden" : "polls-icon-glyph-eye"
+                <Fragment key={event.id}>
+                  <tr className={editingLevelEventId === event.id ? "admin-game-inline-editor-source-row" : undefined}>
+                    <td><strong>{event.eventName}</strong></td>
+                    <td>
+                      <strong>{formatLevelEventMilestoneCompact(event)}</strong>
+                    </td>
+                    <td className="admin-game-level-event-poll-cell">{levelEventProgressPolls(event)}</td>
+                    <td>{event.moduleName || "No module selected"}</td>
+                    <td>{event.isActive ? "Active" : "Draft"}</td>
+                    <td>{formatTemplateTimestamp(event.updatedAt)}</td>
+                    <td className="crud-actions-cell">
+                      <div className="table-actions">
+                        <button
+                          aria-label={
+                            event.isActive
+                              ? "Hide event from players"
+                              : "Show event to players"
                           }
+                          className="polls-icon-button polls-icon-button-view"
+                          disabled={isSaving}
+                          onClick={() => void toggleLevelEventPlayerVisibility(event)}
+                          title={event.isActive ? "Hide on Site" : "Show on Site"}
+                          type="button"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={
+                              event.isActive ? "polls-icon-glyph-eye-hidden" : "polls-icon-glyph-eye"
+                            }
+                          />
+                        </button>
+                        <button
+                          aria-label="Edit level event"
+                          className="polls-icon-button polls-icon-button-edit"
+                          disabled={isSaving}
+                          onClick={() => {
+                            setEditingLevelEventId(event.id);
+                            setLevelEventDraft(levelEventToDraft(event));
+                          }}
+                          title="Edit"
+                          type="button"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          aria-label="Clone event"
+                          className="polls-icon-button polls-icon-button-view"
+                          disabled={isSaving}
+                          onClick={() => void cloneLevelEvent(event)}
+                          title="Clone"
+                          type="button"
+                        >
+                          ⧉
+                        </button>
+                        <button
+                          aria-label="Delete level event"
+                          className="polls-icon-button polls-icon-button-danger"
+                          disabled={isSaving}
+                          onClick={() => void deleteLevelEvent(event)}
+                          title="Delete"
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingLevelEventId === event.id ? (
+                    <tr className="admin-game-inline-editor-row">
+                      <td colSpan={LEVEL_EVENT_TABLE_COLUMNS.length + 1}>
+                        <LevelEventEditor
+                          draft={levelEventDraft}
+                          eventModules={eventModules}
+                          isSaving={isSaving}
+                          onCancel={() => setEditingLevelEventId("")}
+                          onChange={setLevelEventDraft}
+                          onSave={() => void saveLevelEvent()}
                         />
-                      </button>
-                      <button
-                        aria-label="Edit level event"
-                        className="polls-icon-button polls-icon-button-edit"
-                        disabled={isSaving}
-                        onClick={() => {
-                          setEditingLevelEventId(event.id);
-                          setLevelEventDraft(levelEventToDraft(event));
-                        }}
-                        title="Edit"
-                        type="button"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        aria-label="Clone event"
-                        className="polls-icon-button polls-icon-button-view"
-                        disabled={isSaving}
-                        onClick={() => void cloneLevelEvent(event)}
-                        title="Clone"
-                        type="button"
-                      >
-                        ⧉
-                      </button>
-                      <button
-                        aria-label="Delete level event"
-                        className="polls-icon-button polls-icon-button-danger"
-                        disabled={isSaving}
-                        onClick={() => void deleteLevelEvent(event)}
-                        title="Delete"
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
               {sortedLevelEvents.length === 0 ? (
                 <tr>
@@ -3849,16 +3924,6 @@ export function AdminGameWorkspace() {
             </tbody>
           </table>
         </div>
-        {editingLevelEventId && editingLevelEventId !== "new" ? (
-          <LevelEventEditor
-            draft={levelEventDraft}
-            eventModules={eventModules}
-            isSaving={isSaving}
-            onCancel={() => setEditingLevelEventId("")}
-            onChange={setLevelEventDraft}
-            onSave={() => void saveLevelEvent()}
-          />
-        ) : null}
         <button
           aria-label="Add event"
           className="polls-icon-button polls-icon-button-success admin-game-add-after-list"

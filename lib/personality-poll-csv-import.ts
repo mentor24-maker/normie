@@ -45,25 +45,58 @@ export function normalizeCsvValue(value: string | undefined | null) {
   return (value ?? "").trim();
 }
 
-function expectedFieldKeys(fields: PersonalityFieldMap) {
-  const keys = [
-    fields.category,
-    fields.personalitySystem,
-    fields.traitDimension,
-    fields.option1,
-    fields.optionB,
-    fields.question,
-    fields.optionAScoreCode,
-    fields.optionBScoreCode,
-    fields.scoringLogic,
-    fields.weight,
-    fields.reverseScored,
-    fields.aiInterpretationTag,
-    fields.questionFallback,
-    fields.sourceQuestionId
-  ].filter((key): key is string => Boolean(key));
+type ExpectedFieldEntry = {
+  label: string;
+  keys: string[];
+};
 
-  return [...new Set(keys)];
+function buildExpectedFieldEntries(fields: PersonalityFieldMap): ExpectedFieldEntry[] {
+  const entries: ExpectedFieldEntry[] = [];
+  const pushSingle = (key: string | undefined) => {
+    if (!key) {
+      return;
+    }
+
+    entries.push({ label: key, keys: [key] });
+  };
+
+  pushSingle(fields.category);
+  pushSingle(fields.personalitySystem);
+  pushSingle(fields.traitDimension);
+  pushSingle(fields.option1);
+  pushSingle(fields.optionB);
+
+  if (fields.questionFallback) {
+    entries.push({
+      label: `${fields.question} (or ${fields.questionFallback})`,
+      keys: [fields.question, fields.questionFallback]
+    });
+  } else {
+    pushSingle(fields.question);
+  }
+
+  pushSingle(fields.optionAScoreCode);
+  pushSingle(fields.optionBScoreCode);
+  pushSingle(fields.scoringLogic);
+  pushSingle(fields.weight);
+  pushSingle(fields.reverseScored);
+  pushSingle(fields.aiInterpretationTag);
+  pushSingle(fields.sourceQuestionId);
+
+  const deduped = new Map<string, ExpectedFieldEntry>();
+
+  for (const entry of entries) {
+    const signature = [...new Set(entry.keys)].sort().join("|");
+
+    if (!deduped.has(signature)) {
+      deduped.set(signature, {
+        label: entry.label,
+        keys: [...new Set(entry.keys)]
+      });
+    }
+  }
+
+  return [...deduped.values()];
 }
 
 export function buildPersonalityImportDiagnostics(
@@ -75,7 +108,7 @@ export function buildPersonalityImportDiagnostics(
   parsedRowCount: number,
   importableRowCount: number
 ): PersonalityImportDiagnostics {
-  const expected = expectedFieldKeys(fieldMap);
+  const expectedEntries = buildExpectedFieldEntries(fieldMap);
 
   return {
     importType: importType.trim() || "(none)",
@@ -85,8 +118,10 @@ export function buildPersonalityImportDiagnostics(
     personalityKind: fieldMap === PERSONALITY_TYPE_B_FIELDS ? "b" : "a",
     isPersonalityTypeA: isPersonalityTypeACsv(normalizedHeaders),
     isPersonalityTypeB: isPersonalityTypeBCsv(normalizedHeaders),
-    expectedFields: expected,
-    missingFields: expected.filter((field) => !normalizedHeaders.includes(field)),
+    expectedFields: expectedEntries.map((entry) => entry.label),
+    missingFields: expectedEntries
+      .filter((entry) => !entry.keys.some((key) => normalizedHeaders.includes(key)))
+      .map((entry) => entry.label),
     parsedRowCount,
     importableRowCount
   };

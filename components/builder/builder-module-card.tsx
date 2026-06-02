@@ -36,6 +36,7 @@ import { BuilderCodeEmbed } from "./builder-code-embed";
 import { BuilderFloatingImageModuleSettings } from "./builder-floating-image-module-settings";
 import { BuilderSpeechBubbleModuleSettings } from "./builder-speech-bubble-module-settings";
 import { BuilderReminderModuleSettings } from "./builder-reminder-module-settings";
+import { parseReminderRecordsFromModule } from "@/lib/builder-reminder-module";
 import { SpeechBubblePreview } from "./speech-bubble-preview";
 import { getConfettiTrigger } from "@/lib/confetti-effect";
 import { getModuleTrigger } from "@/lib/module-trigger";
@@ -217,10 +218,12 @@ function renderModulePreview(module: BuilderTemplateModule) {
   }
 
   if (module.type === "reminder") {
+    const recordCount = parseReminderRecordsFromModule(module).length;
     return (
       <div className="builder-module-preview-reminder">
         <p>
-          <strong>Reminder</strong> — shows on the live site when visitor criteria match (not in the column layout).
+          <strong>Reminders</strong> — {recordCount} configured; live overlays when visitor criteria match (not in the
+          column layout).
         </p>
       </div>
     );
@@ -2270,10 +2273,11 @@ export function BuilderModuleCard({
 
           {module.type === "reminder" ? (
             <div className="builder-module-runtime-note">
-              <strong>Reminder</strong>
+              <strong>Reminders</strong>
               <p>
-                Criteria-based overlay on the live site and in page preview. No game trigger — add this module to each page
-                where the reminder should appear. Dismisses on the visitor&apos;s next click.
+                One module per page holds every reminder. Records sort by question number (poll order or polls-taken count).
+                Overlays appear on the live site and in page preview when criteria match. Dismisses on the visitor&apos;s
+                next click.
               </p>
             </div>
           ) : null}

@@ -2,6 +2,7 @@ import { POLL_COLLECTION_PERSONALITY_TYPE_A, type PollCollection } from "@/lib/p
 
 export const PERSONALITY_TYPE_A_IMPORT_TYPE = "personality_type_a";
 export const PERSONALITY_TYPE_B_IMPORT_TYPE = "personality_type_b";
+export const PERSONALITY_TYPE_C_IMPORT_TYPE = "personality_type_c";
 
 /** @deprecated Use PERSONALITY_TYPE_A_IMPORT_TYPE */
 export const STARCASTER_IMPORT_TYPE = PERSONALITY_TYPE_A_IMPORT_TYPE;
@@ -19,10 +20,10 @@ export type PersonalityFieldMap = {
   traitDimension: string;
   optionAScoreCode: string;
   optionBScoreCode: string;
-  scoringLogic: string;
+  scoringLogic?: string;
   weight?: string;
   reverseScored?: string;
-  aiInterpretationTag: string;
+  aiInterpretationTag?: string;
 };
 
 export const PERSONALITY_TYPE_A_COLUMNS = [
@@ -48,6 +49,18 @@ export const PERSONALITY_TYPE_B_COLUMNS = [
   "Option B Maps To",
   "Scoring Logic",
   "AI Interpretation Tag"
+] as const;
+
+export const PERSONALITY_TYPE_C_COLUMNS = [
+  "question_id",
+  "category",
+  "personality_system",
+  "trait_dimension",
+  "option_a",
+  "option_b",
+  "one_line_question",
+  "weight",
+  "reverse_scored"
 ] as const;
 
 export const PERSONALITY_TYPE_A_FIELDS: PersonalityFieldMap = {
@@ -76,6 +89,21 @@ export const PERSONALITY_TYPE_B_FIELDS: PersonalityFieldMap = {
   scoringLogic: "scoring_logic",
   aiInterpretationTag: "ai_interpretation_tag",
   usePersonalitySystemAsCategory: true
+};
+
+export const PERSONALITY_TYPE_C_FIELDS: PersonalityFieldMap = {
+  category: "category",
+  question: "question",
+  questionFallback: "one_line_question",
+  option1: "option_a",
+  optionB: "option_b",
+  sourceQuestionId: "question_id",
+  personalitySystem: "personality_system",
+  traitDimension: "trait_dimension",
+  optionAScoreCode: "option_a",
+  optionBScoreCode: "option_b",
+  weight: "weight",
+  reverseScored: "reverse_scored"
 };
 
 /** @deprecated Use PERSONALITY_TYPE_A_COLUMNS */
@@ -189,12 +217,12 @@ export function mapPersonalityPollRow(
     traitDimension: (row[fields.traitDimension] ?? "").trim(),
     optionAScoreCode: resolveScoreCode(row, fields.optionAScoreCode, optionA),
     optionBScoreCode: resolveScoreCode(row, fields.optionBScoreCode, optionB),
-    scoringLogic: (row[fields.scoringLogic] ?? "").trim(),
+    scoringLogic: fields.scoringLogic ? (row[fields.scoringLogic] ?? "").trim() : "",
     scoringWeight: fields.weight ? parsePersonalityWeight(row[fields.weight] ?? "") : 1,
     reverseScored: fields.reverseScored
       ? parsePersonalityBoolean(row[fields.reverseScored] ?? "")
       : false,
-    aiInterpretationTag: (row[fields.aiInterpretationTag] ?? "").trim()
+    aiInterpretationTag: fields.aiInterpretationTag ? (row[fields.aiInterpretationTag] ?? "").trim() : ""
   };
 }
 
@@ -264,6 +292,13 @@ export function resolvePersonalityImportKind(
     normalizedType === "personality_type_b"
   ) {
     return "b";
+  }
+
+  if (
+    normalizedType === PERSONALITY_TYPE_C_IMPORT_TYPE ||
+    normalizedType === "personality_type_c"
+  ) {
+    return "a";
   }
 
   if (

@@ -7,10 +7,7 @@ import {
   PlayerGameRemindersStrip
 } from "@/components/player-game-reminder-displays";
 import { PlayerGameReminderDiagnosticsGate } from "@/components/player-game-reminder-diagnostics-gate";
-import {
-  builderReminderModuleToEvaluable,
-  collectReminderModulesFromLayout
-} from "@/lib/builder-reminder-module";
+import { collectEvaluableRemindersFromLayout } from "@/lib/builder-reminder-module";
 import { evaluatePlayerReminders, explainReminderMatch, type PlayerMatchedReminder } from "@/lib/game-reminder-eval";
 import { gameAudienceFiresForContext, type GamePlayContext } from "@/lib/game-audience";
 import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
@@ -80,10 +77,7 @@ export function BuilderReminderRuntime({ layoutSections }: BuilderReminderRuntim
     };
   }, [refreshContext]);
 
-  const pageReminders = useMemo(
-    () => collectReminderModulesFromLayout(layoutSections).map(builderReminderModuleToEvaluable),
-    [layoutSections]
-  );
+  const pageReminders = useMemo(() => collectEvaluableRemindersFromLayout(layoutSections), [layoutSections]);
 
   const playContext: GamePlayContext =
     contextPayload?.evaluationSource === "authenticated" ? "portal" : "public";

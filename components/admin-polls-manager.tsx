@@ -14,7 +14,8 @@ import { CsvImportForm } from "@/components/csv-import-form";
 import { PersonalityCsvImportForm } from "@/components/personality-csv-import-form";
 import {
   PERSONALITY_TYPE_A_COLUMNS,
-  PERSONALITY_TYPE_B_COLUMNS
+  PERSONALITY_TYPE_B_COLUMNS,
+  PERSONALITY_TYPE_C_COLUMNS
 } from "@/lib/personality-poll-import";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 import { POLL_COLLECTIONS, type PollCollection } from "@/lib/poll-collections";
@@ -364,6 +365,14 @@ export function AdminPollsManager() {
             <AdminPollUploadPod title="Personality Type B" columns={[...PERSONALITY_TYPE_B_COLUMNS]}>
               <PersonalityCsvImportForm
                 endpoint="/api/admin/polls/import-personality-type-b"
+                onImported={async () => {
+                  await loadPolls();
+                }}
+              />
+            </AdminPollUploadPod>
+            <AdminPollUploadPod title="Personality Type C" columns={[...PERSONALITY_TYPE_C_COLUMNS]}>
+              <PersonalityCsvImportForm
+                endpoint="/api/admin/polls/import-personality-type-c"
                 onImported={async () => {
                   await loadPolls();
                 }}

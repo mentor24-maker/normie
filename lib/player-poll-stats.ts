@@ -29,7 +29,7 @@ export async function countPlayerProgressPollsFromDb(
     .from("poll_response")
     .select("id", { count: "exact", head: true })
     .eq("user_id", playerId)
-    .eq("is_skipped", false);
+    .or("is_skipped.is.null,is_skipped.eq.false");
 
   if (error) {
     throw error;
@@ -48,7 +48,7 @@ export async function countSessionProgressPollsFromDb(
     .select("id", { count: "exact", head: true })
     .eq("session_id", sessionId)
     .is("user_id", null)
-    .eq("is_skipped", false);
+    .or("is_skipped.is.null,is_skipped.eq.false");
 
   if (error) {
     throw error;

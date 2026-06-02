@@ -18,6 +18,7 @@ import { BuilderSettingRow } from "@/components/builder/builder-setting-row";
 export type ReminderPollOption = {
   id: string;
   question: string;
+  orderIndex: number;
   isPublished?: boolean;
 };
 
@@ -99,7 +100,7 @@ function ReminderCriterionFields({
           <option value="">Select a poll</option>
           {pollOptions.map((poll) => (
             <option key={poll.id} value={poll.id}>
-              {poll.question}
+              Q{poll.orderIndex} — {poll.question}
               {poll.isPublished ? "" : " (Draft)"}
             </option>
           ))}

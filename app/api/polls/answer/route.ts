@@ -176,7 +176,8 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
         .from("poll_response")
         .update({
           user_id: player.authUser.id,
-          tokens_earned: TOKENS_PER_ANSWER
+          tokens_earned: TOKENS_PER_ANSWER,
+          is_skipped: false
         })
         .eq("id", anonymousSessionAnswer.id);
 
@@ -220,7 +221,8 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     user_id: player?.authUser.id ?? null,
     poll_id: validation.pollId,
     option_id: validation.optionId,
-    tokens_earned: player ? TOKENS_PER_ANSWER : 0
+    tokens_earned: player ? TOKENS_PER_ANSWER : 0,
+    is_skipped: false
   });
 
   if (error) {
@@ -230,7 +232,8 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
         .update({
           user_id: player.authUser.id,
           option_id: validation.optionId,
-          tokens_earned: TOKENS_PER_ANSWER
+          tokens_earned: TOKENS_PER_ANSWER,
+          is_skipped: false
         })
         .eq("poll_id", validation.pollId)
         .eq("session_id", sessionId);

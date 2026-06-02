@@ -19,6 +19,7 @@ import {
   RICH_TEXT_IMAGE_CLASS,
   resolveRichTextImageSrc
 } from "@/lib/rich-text-image";
+import { RichTextEmojiPicker } from "@/components/builder/rich-text-emoji-picker";
 import {
   RichTextAlignCenterIcon,
   RichTextAlignLeftIcon,
@@ -38,6 +39,7 @@ type BuilderRichTextEditorProps = RichTextGalleryBinding & {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  enableEmojiPicker?: boolean;
 };
 
 const FontSizeStyle = Extension.create({
@@ -156,6 +158,7 @@ export function BuilderRichTextEditor({
   value,
   onChange,
   placeholder = "Enter content",
+  enableEmojiPicker = false,
   onOpenGallery,
   galleryImagePath,
   onGalleryImageConsumed,
@@ -467,6 +470,16 @@ export function BuilderRichTextEditor({
     editor.chain().focus().setImage({ src: resolved, alt: "" }).run();
   }
 
+  function insertEmoji(emoji: string) {
+    const chain = chainWithSelection();
+
+    if (!chain) {
+      return;
+    }
+
+    chain.insertContent(emoji).run();
+  }
+
   function getGalleryAnchor(): BuilderModalAnchor | undefined {
     const rect = shellRef.current?.getBoundingClientRect();
 
@@ -602,6 +615,9 @@ export function BuilderRichTextEditor({
         >
           <RichTextLinkIcon />
         </button>
+        {enableEmojiPicker ? (
+          <RichTextEmojiPicker disabled={isCodeView} onSelect={insertEmoji} />
+        ) : null}
         <button
           className={editor.isActive("image") ? "is-active" : undefined}
           disabled={isUploadingImage}

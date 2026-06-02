@@ -4,11 +4,8 @@ import { CONFETTI_EFFECT_DEFAULTS, normalizeConfettiModuleSettings } from "@/lib
 import { normalizeCurrentPollModuleWidth } from "@/lib/current-poll-module";
 import {
   defaultReminderModuleSettings,
-  parseReminderCriteriaFromModuleSettings,
-  REMINDER_APPEARANCE_SETTING_KEY,
-  serializeReminderCriteriaToModuleSettings
+  normalizeReminderModuleSettings
 } from "@/lib/builder-reminder-module";
-import { normalizeGameReminderAppearance } from "@/lib/game-reminder";
 import { MODULE_GAME_AUDIENCE_SETTING_KEY, normalizeModuleGameAudience } from "@/lib/module-game-audience";
 import { normalizeModuleTrigger, MODULE_TRIGGER_SETTING_KEY } from "@/lib/module-trigger";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
@@ -674,7 +671,11 @@ export function resolveBuilderModuleType(
   return type;
 }
 
-export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModuleType, value: unknown) {
+export function normalizeBuilderModuleSettingsForType(
+  type: BuilderTemplateModuleType,
+  value: unknown,
+  moduleContext?: Pick<BuilderTemplateModule, "id" | "name" | "text">
+) {
   const settings = normalizeModuleSettings(value);
 
   if (type === "navigation") {
@@ -726,26 +727,10 @@ export function normalizeBuilderModuleSettingsForType(type: BuilderTemplateModul
   }
 
   if (type === "reminder") {
-    settings[REMINDER_APPEARANCE_SETTING_KEY] = normalizeGameReminderAppearance(
-      settings[REMINDER_APPEARANCE_SETTING_KEY] ?? "speech_bubble"
-    );
-    settings[MODULE_GAME_AUDIENCE_SETTING_KEY] = normalizeModuleGameAudience(
-      settings[MODULE_GAME_AUDIENCE_SETTING_KEY] ?? "both"
-    );
-    settings.isActive = settings.isActive === "false" ? "false" : "true";
-    settings.sortOrder = safeText(settings.sortOrder, 12) || "0";
-    settings.backgroundColor = normalizeBuilderHexColor(settings.backgroundColor || "#ffffff");
-    settings.borderColor = normalizeBuilderHexColor(settings.borderColor || "#4cbb17");
-    settings.borderThickness = normalizeSpacingValue(settings.borderThickness, "2", 0, 24);
-    settings.containerWidth = normalizeSpacingValue(settings.containerWidth ?? settings.width, "520", 200, 900);
-    delete settings.width;
-    settings.offsetX = normalizeSignedOffsetValue(settings.offsetX, "0");
-    settings.offsetY = normalizeSignedOffsetValue(settings.offsetY, "0");
-    settings.zIndex = normalizeSpacingValue(settings.zIndex, "46", -999, 999999);
     delete settings.alignment;
     delete settings.verticalMargin;
-    const parsed = parseReminderCriteriaFromModuleSettings(settings);
-    Object.assign(settings, serializeReminderCriteriaToModuleSettings(parsed.config));
+    delete settings.width;
+    return normalizeReminderModuleSettings(settings, moduleContext);
   }
 
   if (type === "speech-bubble") {
@@ -800,7 +785,11 @@ function normalizeBuilderModuleFromRecord(
     column: safeText(module.column, 40) || fallbackColumn,
     name: safeText(module.name, 255),
     text: safeText(module.text, 10000),
-    settings: normalizeBuilderModuleSettingsForType(type, rawSettings)
+    settings: normalizeBuilderModuleSettingsForType(type, rawSettings, {
+      id: safeText(module.id, 120) || fallbackId,
+      name: safeText(module.name, 255),
+      text: safeText(module.text, 10000)
+    })
   };
 }
 

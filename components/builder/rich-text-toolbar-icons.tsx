@@ -159,3 +159,19 @@ export function RichTextImageIcon(props: RichTextToolbarIconProps) {
     </IconShell>
   );
 }
+
+export function RichTextEmojiIcon(props: RichTextToolbarIconProps) {
+  return (
+    <IconShell {...props}>
+      <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.25" />
+      <circle cx="6.15" cy="7.1" fill="currentColor" r="0.75" />
+      <circle cx="9.85" cy="7.1" fill="currentColor" r="0.75" />
+      <path
+        d="M6.1 10.1c.55.75 1.35 1.15 1.9 1.15s1.35-.4 1.9-1.15"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.15"
+      />
+    </IconShell>
+  );
+}

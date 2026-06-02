@@ -156,7 +156,7 @@ export async function POST(request: Request) {
   if (!questionField || !categoryField || optionFields.length < 2) {
     return importFailure(
       auth,
-      "This file looks like a personality import CSV. Use Personality Type A or B in Poll Manager, or Standard Upload for Category / Question / Option_A / Option_B only.",
+      "This file looks like a personality import CSV. Use Personality Type A, B, or C in Poll Manager, or Standard Upload for Category / Question / Option_A / Option_B only.",
       diagnostics
     );
   }

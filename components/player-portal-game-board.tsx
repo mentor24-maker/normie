@@ -4,6 +4,8 @@ import Link from "next/link";
 import { RewardDiscPreview } from "@/components/reward-disc-preview";
 import type { PlayerPortalRewardTrack } from "@/lib/player-portal";
 
+export const PLAYER_PORTAL_HOME_BASE_ID = "player-portal-home-base";
+
 export type PlayerPortalGameBoardStats = {
   pollsTaken: number;
   tokensEarned: number;
@@ -59,10 +61,14 @@ export function PlayerPortalGameBoard({
   stats: PlayerPortalGameBoardStats;
 }) {
   return (
-    <section aria-label="Game board" className="player-portal-game-board">
+    <section
+      aria-label="Game board"
+      className="player-portal-game-board"
+      id={PLAYER_PORTAL_HOME_BASE_ID}
+    >
       <header className="player-portal-polls-bar">
         <div className="player-portal-polls-bar-copy">
-          <p className="panel-label">Game Board</p>
+          <p className="panel-label">Home Base</p>
         </div>
         <div className="player-portal-polls-header-side">
           <div className="player-portal-reward-top-row">
