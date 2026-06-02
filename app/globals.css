@@ -9609,7 +9609,64 @@ select.builder-number-select-control,
 }
 
 .builder-reminder-module-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   margin-top: 12px;
+  padding: 12px 0 4px;
+  border-top: 1px solid rgba(23, 122, 167, 0.18);
+  background: linear-gradient(180deg, rgba(117, 193, 231, 0.72) 0%, var(--builder-bg-module) 28%);
+}
+
+.builder-reminder-add-button {
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.admin-legacy-reminders-import-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-legacy-reminders-import-title {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.admin-legacy-reminders-import-copy {
+  margin: 0;
+}
+
+.admin-legacy-reminders-import-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.admin-legacy-reminders-import-stats dt {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.admin-legacy-reminders-import-stats dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.admin-legacy-reminders-import-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-legacy-reminders-import-hint {
+  margin: 0;
+  color: var(--muted);
 }
 
 .admin-game-reward-grid {

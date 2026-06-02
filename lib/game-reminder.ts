@@ -127,8 +127,12 @@ export function resolveReminderPersistenceFields(input: {
   };
 }
 
+/** Columns from migration 037 — safe on DBs that have not run 043 (audience) or 044 (appearance). */
 export const GAME_REMINDER_SELECT_COLUMNS =
-  "id, name, display_type, appearance, message_html, criterion_type, criterion_value, audience, is_active, sort_order, metadata, created_at, updated_at";
+  "id, name, display_type, message_html, criterion_type, criterion_value, is_active, sort_order, metadata, created_at, updated_at";
+
+/** After migrations 043_game_audience.sql and 044_game_reminder_appearance.sql. */
+export const GAME_REMINDER_EXTENDED_SELECT_COLUMNS = `${GAME_REMINDER_SELECT_COLUMNS}, audience, appearance`;
 
 function normalizeCriterionType(value: unknown): GameReminderCriterionType {
   const criterionType = String(value ?? "").trim();

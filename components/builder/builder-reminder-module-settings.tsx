@@ -388,7 +388,7 @@ export function BuilderReminderModuleSettings({
       </div>
 
       <div className="builder-reminder-module-actions">
-        <button className="secondary-button" onClick={addRecord} type="button">
+        <button className="secondary-button builder-reminder-add-button" onClick={addRecord} type="button">
           Add Reminder
         </button>
       </div>

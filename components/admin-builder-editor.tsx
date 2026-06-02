@@ -55,6 +55,7 @@ import {
   BuilderModulePaletteModal,
   type ModulePaletteAnchor
 } from "./builder/builder-module-palette-modal";
+import { AdminLegacyRemindersImportPanel } from "@/components/admin-legacy-reminders-import-panel";
 
 type AdminApiPayload = {
   error?: string;
@@ -1681,6 +1682,41 @@ export function AdminBuilderEditor() {
 
       {message ? <div className="notice success admin-notice">{message}</div> : null}
       {error ? <div className="notice error admin-notice">{error}</div> : null}
+
+      {builderMode === "pages" ? (
+        <AdminLegacyRemindersImportPanel
+          pageSlug={pageSlug}
+          selectedPageId={selectedPageId}
+          onPageImported={(page) => {
+            setPages((current) => {
+              const index = current.findIndex((entry) => entry.id === page.id);
+
+              if (index < 0) {
+                return [...current, page];
+              }
+
+              const next = [...current];
+              next[index] = page;
+              return next;
+            });
+
+            if (selectedPageId === page.id) {
+              setDraft((current) => ({
+                ...current,
+                name: page.name,
+                pageBackground: page.pageBackground,
+                layoutSections: page.layoutSections
+              }));
+              setPageSlug(page.slug);
+              setIsPublishedPage(page.isPublished);
+              setPageTemplateId(page.templateId ?? "");
+            }
+
+            setMessage("Legacy reminders imported into the home page layout. Review the Reminders module, then Save Page.");
+            setError(null);
+          }}
+        />
+      ) : null}
 
       {builderMode === "templates" ? (
         <BuilderTemplateList

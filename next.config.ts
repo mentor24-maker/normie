@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
-  // Next.js 15.2+ route/compile chip at the bottom-left in dev (not app UI).
+  // Disables the legacy __NEXT_DEV_INDICATOR env flag. The App Router devtools overlay
+  // (building/rendering bar) is turned off via scripts/ensure-devtools-config.mjs and
+  // components/dev-indicator-suppressor.tsx.
   devIndicators: false,
   images: {
     remotePatterns: [

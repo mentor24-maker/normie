@@ -18,5 +18,8 @@ done
 echo "Removing .next cache"
 rm -rf .next
 
+echo "Writing Next devtools config (disable bottom indicator)"
+node scripts/ensure-devtools-config.mjs
+
 echo "Starting Next dev server on port 3000"
 exec npm run dev

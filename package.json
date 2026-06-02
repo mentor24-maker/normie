@@ -7,7 +7,7 @@
     "npm": ">=10"
   },
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "node scripts/ensure-devtools-config.mjs && next dev -p 3000",
     "dev:reset": "bash ./scripts/dev-reset.sh",
     "build": "next build",
     "start": "next start",
