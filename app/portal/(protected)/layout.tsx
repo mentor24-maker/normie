@@ -8,6 +8,7 @@ import { PlayerLogoutButton } from "@/components/player-logout-button";
 import { PlayerPortalNav } from "@/components/player-portal-nav";
 import { PlayerPortalPlayCta } from "@/components/player-portal-play-cta";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
+import { SiteCopyrightFooter } from "@/src/site/layout/site-copyright-footer";
 import logoSquare from "@/images/logo_normie_3_1000x1000.png";
 
 export default async function ProtectedPortalLayout({
@@ -83,6 +84,7 @@ export default async function ProtectedPortalLayout({
           <GameModuleOverlayHosts />
           {children}
         </div>
+        <SiteCopyrightFooter className="site-shell-footer player-portal-footer" showLinks={false} />
       </div>
     </main>
   );

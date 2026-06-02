@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { SiteCopyrightFooter } from "@/src/site/layout/site-copyright-footer";
 
 export function SiteShell({
   children,
@@ -12,12 +12,7 @@ export function SiteShell({
     <main className={className}>
       <div className="site-shell">
         {children}
-        <footer className="site-shell-footer">
-          <span className="site-shell-footer-copy">© 2026 Normie</span>
-          <Link className="site-shell-footer-link" href="/blog">Blog</Link>
-          <Link className="site-shell-footer-link" href="/privacy">Privacy Policy</Link>
-          <Link className="site-shell-footer-link" href="/terms">Terms of Service</Link>
-        </footer>
+        <SiteCopyrightFooter />
       </div>
     </main>
   );
