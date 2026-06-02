@@ -13,4 +13,11 @@ describe("buildContentSecurityPolicy", () => {
     expect(policy).toContain("https://dexscreener.com");
     expect(policy).toContain("https://www.geckoterminal.com");
   });
+
+  it("allows Google Analytics in script-src and connect-src", () => {
+    const policy = buildContentSecurityPolicy();
+
+    expect(policy).toContain("https://www.googletagmanager.com");
+    expect(policy).toContain("https://www.google-analytics.com");
+  });
 });

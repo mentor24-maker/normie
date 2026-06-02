@@ -17,7 +17,14 @@ function getSupabaseOrigins() {
 
 export function buildContentSecurityPolicy() {
   const supabaseOrigins = getSupabaseOrigins();
-  const connectSources = ["'self'", ...supabaseOrigins];
+  const connectSources = [
+    "'self'",
+    "https://www.google-analytics.com",
+    "https://analytics.google.com",
+    "https://region1.google-analytics.com",
+    "https://www.googletagmanager.com",
+    ...supabaseOrigins
+  ];
   const imageSources = ["'self'", "data:", "blob:", "https:"];
   const frameSources = [
     "'self'",
@@ -36,7 +43,7 @@ export function buildContentSecurityPolicy() {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src ${imageSources.join(" ")}`,
     `font-src 'self' data:`,

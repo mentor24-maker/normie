@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AdminAuthHashRedirect } from "@/components/admin-auth-hash-redirect";
 import { DevIndicatorSuppressor } from "@/components/dev-indicator-suppressor";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { buildAuthHashBootstrapScript } from "@/lib/admin-auth-hash-redirect";
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
         />
       </head>
       <body className={plusJakartaSans.variable} suppressHydrationWarning>
+        <GoogleAnalytics />
         <AdminAuthHashRedirect />
         {process.env.NODE_ENV === "development" ? <DevIndicatorSuppressor /> : null}
         {children}
