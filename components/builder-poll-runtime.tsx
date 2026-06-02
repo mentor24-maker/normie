@@ -83,9 +83,11 @@ async function loadPolls(
   loadedStartPollKey = startKey;
 
   isLoadingPromise = (async () => {
+    const showLoading = options?.force || !runtimeState.payload;
+
     setRuntimeState({
       ...runtimeState,
-      isLoading: true,
+      isLoading: showLoading,
       error: null,
       ...(options?.force ? { payload: null } : {})
     });
@@ -108,9 +110,6 @@ async function loadPolls(
         isSubmitting: false,
         error: null
       });
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
-      }
     } catch (loadError) {
       setRuntimeState({
         ...runtimeState,

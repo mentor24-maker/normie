@@ -12,7 +12,6 @@ import { evaluatePlayerReminders, explainReminderMatch, type PlayerMatchedRemind
 import { gameAudienceFiresForContext, type GamePlayContext } from "@/lib/game-audience";
 import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
 import type { PlayerReminderContext } from "@/lib/game-reminder-eval";
-import { PublicPageDiagnosticsHud } from "@/components/public-page-diagnostics-hud";
 import type { PlayerGameReminderDiagnostics } from "@/lib/player-game-reminders";
 import { formatReminderCriteriaSummary } from "@/lib/game-reminder";
 import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/lib/player-reminder-events";
@@ -40,8 +39,10 @@ export function BuilderReminderRuntime({ layoutSections }: BuilderReminderRuntim
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshContext = useCallback(async () => {
-    setIsLoading(true);
+  const refreshContext = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     setFetchError(null);
 
     try {
@@ -66,7 +67,7 @@ export function BuilderReminderRuntime({ layoutSections }: BuilderReminderRuntim
 
   useEffect(() => {
     const handleRefresh = () => {
-      void refreshContext();
+      void refreshContext({ silent: true });
     };
 
     window.addEventListener(PLAYER_GAME_REMINDERS_REFRESH_EVENT, handleRefresh);
@@ -181,7 +182,6 @@ export function BuilderReminderRuntime({ layoutSections }: BuilderReminderRuntim
 
   return (
     <>
-      <PublicPageDiagnosticsHud diagnostics={diagnostics} isLoading={isLoading} />
       <PlayerGameRemindersSpeechBubble reminders={speechBubbleReminders} />
       <PlayerGameRemindersStrip reminders={stripReminders} />
       <PlayerGameReminderDiagnosticsGate diagnostics={diagnostics} isLoading={isLoading} />

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { BuilderTemplateSection } from "@/lib/builder-template";
 import {
   formatRichTextContent,
@@ -309,7 +309,11 @@ function BuilderSectionPreview({
       }${hasPollModules ? " builder-preview-section-poll-row" : ""}`}
       style={gridStyle}
     >
-      {hasPollModules ? <BuilderPollCategoryBanner /> : null}
+      {hasPollModules ? (
+        <Suspense fallback={null}>
+          <BuilderPollCategoryBanner />
+        </Suspense>
+      ) : null}
       {columnKeys.map((columnKey) => {
         const columnModules = section.modules.filter((module) => module.column === columnKey);
         const isNavigationColumn = columnModules.length > 0 && columnModules.every((module) => module.type === "navigation");
@@ -612,11 +616,19 @@ function BuilderModulePreview({
   }
 
   if (module.type === "previous-results" || module.type === "current-poll") {
-    return <BuilderPollModuleRuntime kind={module.type} settings={module.settings} />;
+    return (
+      <Suspense fallback={null}>
+        <BuilderPollModuleRuntime kind={module.type} settings={module.settings} />
+      </Suspense>
+    );
   }
 
   if (module.type === "social-share") {
-    return <BuilderSocialShareRuntime settings={module.settings} />;
+    return (
+      <Suspense fallback={null}>
+        <BuilderSocialShareRuntime settings={module.settings} />
+      </Suspense>
+    );
   }
 
   if (module.type === "confetti") {

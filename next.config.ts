@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  // Next.js 15.2+ route/compile chip at the bottom-left in dev (not app UI).
+  devIndicators: false,
   images: {
     remotePatterns: [
       {

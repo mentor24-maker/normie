@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
 import { getPollCategoryMeta, resolvePollCategoryName } from "@/lib/poll-categories";
 import { loadPollDeepDiveContent } from "@/lib/load-poll-deep-dive-content";
 import { getPublicPollSettings, pollSettingsToClientPayload } from "@/lib/poll-settings";
@@ -248,7 +247,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       .from("poll_response")
       .select("option_id")
       .eq("poll_id", previousPoll.id)
-      .eq("is_skipped", false);
+      .or("is_skipped.is.null,is_skipped.eq.false");
 
     if (totalsError) {
       return publicErrorResponse(request, {

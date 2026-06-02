@@ -43,7 +43,8 @@ async function playerAnswerResponse(
     levelUp,
     flags
   });
-  const { testProgressOverride: _testProgressOverride, ...responseFlags } = flags;
+  const { testProgressOverride, ...responseFlags } = flags;
+  void testProgressOverride;
   const response = NextResponse.json({
     ok: true,
     ...responseFlags,

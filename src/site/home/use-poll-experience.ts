@@ -38,9 +38,26 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
 
   const loadPolls = useCallback(
     async (options?: { category?: string; startPoll?: string; reset?: boolean }) => {
-      setIsLoading(true);
       setError(null);
-      setPayload((current) => (current?.done || options?.reset ? null : current));
+
+      let showLoading = false;
+
+      setPayload((current) => {
+        if (options?.reset || current?.done) {
+          showLoading = true;
+          return null;
+        }
+
+        if (!current) {
+          showLoading = true;
+        }
+
+        return current;
+      });
+
+      if (showLoading) {
+        setIsLoading(true);
+      }
 
       const category = (options?.category ?? categoryParam).trim();
       const startPoll = (options?.startPoll ?? startPollParam).trim();
