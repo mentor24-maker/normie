@@ -21,6 +21,11 @@ export function getImageEffectClassName(effect: string | undefined) {
   return "";
 }
 
+/** Cruise / tumbleweed keyframes move ±100vw and can force a horizontal scrollbar that reads like a bottom progress bar. */
+export function usesHorizontalMotionClip(effect: string | undefined): boolean {
+  return effect === "cruise" || effect === "tumbleweed";
+}
+
 type BuilderImagePreviewProps = {
   module: BuilderTemplateModule;
   variant?: string;
@@ -50,42 +55,48 @@ export function BuilderImagePreview({
       : getFloatingImageModuleShellStyle(module.settings, { sectionScopedDecor })
     : getImageModuleShellStyle(module.settings);
   const opensInNewTab = module.settings.newTab === "true";
-  const effectClass = getImageEffectClassName(module.settings.effect);
+  const effect = module.settings.effect;
+  const effectClass = getImageEffectClassName(effect);
+  const motionClip = usesHorizontalMotionClip(effect);
   const resolvedVariant = variant ?? module.settings.variant ?? "default";
+
+  const figure = (
+    <figure
+      className={`${imageClassName} builder-preview-image-${resolvedVariant}${effectClass}`}
+      style={imageStyle}
+    >
+      {mediaUrl ? (
+        isVideoMedia(mediaUrl) ? (
+          <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
+        ) : linkUrl ? (
+          <a href={linkUrl} rel={opensInNewTab ? "noopener noreferrer" : undefined} target={opensInNewTab ? "_blank" : undefined}>
+            <img
+              alt={module.settings.alt || module.text || ""}
+              src={mediaUrl}
+              suppressHydrationWarning
+              style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
+            />
+          </a>
+        ) : (
+          <img
+            alt={module.settings.alt || module.text || ""}
+            src={mediaUrl}
+            suppressHydrationWarning
+            style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" } as CSSProperties}
+          />
+        )
+      ) : (
+        <div className="builder-module-preview-placeholder">{placeholder}</div>
+      )}
+    </figure>
+  );
 
   return (
     <div
       className={`builder-preview-image-shell${floating ? " builder-preview-image-shell-overlay" : ""}`}
       style={shellStyle}
     >
-      <figure
-        className={`${imageClassName} builder-preview-image-${resolvedVariant}${effectClass}`}
-        style={imageStyle}
-      >
-        {mediaUrl ? (
-          isVideoMedia(mediaUrl) ? (
-            <video className="builder-preview-video" controls preload="metadata" src={mediaUrl} />
-          ) : linkUrl ? (
-            <a href={linkUrl} rel={opensInNewTab ? "noopener noreferrer" : undefined} target={opensInNewTab ? "_blank" : undefined}>
-              <img
-                alt={module.settings.alt || module.text || ""}
-                src={mediaUrl}
-                suppressHydrationWarning
-                style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" }}
-              />
-            </a>
-          ) : (
-            <img
-              alt={module.settings.alt || module.text || ""}
-              src={mediaUrl}
-              suppressHydrationWarning
-              style={{ width: "100%", height: "auto", display: "block", borderRadius: "inherit" } as CSSProperties}
-            />
-          )
-        ) : (
-          <div className="builder-module-preview-placeholder">{placeholder}</div>
-        )}
-      </figure>
+      {motionClip ? <div className="normie-effect-motion-clip">{figure}</div> : figure}
     </div>
   );
 }

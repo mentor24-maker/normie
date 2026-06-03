@@ -71,83 +71,101 @@ export function PlayerPortalGameBoard({
           <p className="panel-label">Home Base</p>
         </div>
         <div className="player-portal-polls-header-side">
-          <div className="player-portal-reward-top-row">
-            <div className="player-portal-polls-mini-stats" aria-label="Player stats">
-              <Link
-                aria-label={`Polls taken: ${stats.pollsTaken}. View My Polls`}
-                className="player-portal-polls-mini-stat player-portal-polls-mini-stat-sky"
-                href="/portal/polls"
-              >
-                <span>Polls</span>
-                <strong>{stats.pollsTaken}</strong>
-              </Link>
-              <Link
-                aria-label={`Points earned: ${stats.tokensEarned}. View Points`}
-                className="player-portal-polls-mini-stat player-portal-polls-mini-stat-gold"
-                href="/portal/points"
-              >
-                <span>Points</span>
-                <strong>{stats.tokensEarned}</strong>
-              </Link>
-              <Link
-                aria-label={`Leaderboard rank: ${stats.playerRank ? `#${stats.playerRank}` : "New"}. View Leaderboard`}
-                className="player-portal-polls-mini-stat player-portal-polls-mini-stat-mint"
-                href="/portal/leaderboard"
-              >
-                <span>Rank</span>
-                <strong>{stats.playerRank ? `#${stats.playerRank}` : "New"}</strong>
-              </Link>
-            </div>
-            <div
-              className="player-portal-grade-reward-strip"
-              aria-label={`Grade ${rewardTrack.currentGrade} reward progress`}
-            >
-              {rewardTrack.completedGradeCoins.length > 0 ? (
-                <div
-                  className="player-portal-grade-coin-row"
-                  aria-label={`Completed ${rewardTrack.levelName} coins`}
+          <div
+            className="player-portal-home-base-layout"
+            aria-label={`Class ${rewardTrack.currentClass}, grade ${rewardTrack.currentGrade} reward progress`}
+          >
+            <div className="player-portal-home-base-left">
+              <div className="player-portal-polls-mini-stats" aria-label="Player stats">
+                <Link
+                  aria-label={`Polls taken: ${stats.pollsTaken}. View My Polls`}
+                  className="player-portal-polls-mini-stat player-portal-polls-mini-stat-sky"
+                  href="/portal/polls"
                 >
-                  {rewardTrack.completedGradeCoins.map((gradeCoin, gradeIndex) => (
-                    <RewardDiscPreview
-                      ariaLabel={`${rewardTrack.levelName} ${gradeIndex + 1} graduation coin`}
-                      className="player-portal-level-coin player-portal-grade-coin"
-                      isEarned
-                      key={`grade-coin-${gradeIndex}`}
-                      title={`${rewardTrack.levelName} ${gradeIndex + 1} Coin`}
-                      visual={gradeCoin}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {rewardTrack.completedLevelRewardsInGrade.length > 0 ? (
-                <div
-                  className="player-portal-level-reward-stack"
-                  aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} completed level coins`}
+                  <span>Polls</span>
+                  <strong>{stats.pollsTaken}</strong>
+                </Link>
+                <Link
+                  aria-label={`Points earned: ${stats.tokensEarned}. View Points`}
+                  className="player-portal-polls-mini-stat player-portal-polls-mini-stat-gold"
+                  href="/portal/points"
                 >
-                  {renderLevelRewardColumns(
-                    rewardTrack.completedLevelRewardsInGrade,
-                    `${rewardTrack.levelName} ${rewardTrack.currentGrade}`,
-                    rewardTrack.levelReward
-                  )}
-                </div>
-              ) : null}
+                  <span>Points</span>
+                  <strong>{stats.tokensEarned}</strong>
+                </Link>
+                <Link
+                  aria-label={`Leaderboard rank: ${stats.playerRank ? `#${stats.playerRank}` : "New"}. View Leaderboard`}
+                  className="player-portal-polls-mini-stat player-portal-polls-mini-stat-mint"
+                  href="/portal/leaderboard"
+                >
+                  <span>Rank</span>
+                  <strong>{stats.playerRank ? `#${stats.playerRank}` : "New"}</strong>
+                </Link>
+              </div>
+              <div
+                className="player-portal-reward-track"
+                aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} level ${rewardTrack.currentLevel} poll progress`}
+              >
+                {Array.from({ length: rewardTrack.totalSlots }, (_, index) => (
+                  <RewardDiscPreview
+                    ariaLabel={index < rewardTrack.earnedSlots ? "Earned reward" : "Unearned reward"}
+                    className="player-portal-reward-disk"
+                    isEarned={index < rewardTrack.earnedSlots}
+                    key={index}
+                    visual={rewardTrack.pollReward}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="player-portal-reward-track-row">
-            <div
-              className="player-portal-reward-track"
-              aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} level ${rewardTrack.currentLevel} poll progress`}
-            >
-              {Array.from({ length: rewardTrack.totalSlots }, (_, index) => (
-                <RewardDiscPreview
-                  ariaLabel={index < rewardTrack.earnedSlots ? "Earned reward" : "Unearned reward"}
-                  className="player-portal-reward-disk"
-                  isEarned={index < rewardTrack.earnedSlots}
-                  key={index}
-                  visual={rewardTrack.pollReward}
-                />
-              ))}
-            </div>
+            {rewardTrack.completedLevelRewardsInGrade.length > 0 ||
+            rewardTrack.completedGradeCoins.length > 0 ||
+            rewardTrack.completedClassCoins.length > 0 ? (
+              <div className="player-portal-grade-reward-strip">
+                {rewardTrack.completedLevelRewardsInGrade.length > 0 ? (
+                  <div
+                    className="player-portal-level-reward-stack"
+                    aria-label={`${rewardTrack.levelName} ${rewardTrack.currentGrade} completed level coins`}
+                  >
+                    {renderLevelRewardColumns(
+                      rewardTrack.completedLevelRewardsInGrade,
+                      `${rewardTrack.levelName} ${rewardTrack.currentGrade}`,
+                      rewardTrack.levelReward
+                    )}
+                  </div>
+                ) : null}
+                {rewardTrack.completedGradeCoins.length > 0 ? (
+                  <div
+                    className="player-portal-grade-coin-row"
+                    aria-label={`Completed ${rewardTrack.levelName} coins`}
+                  >
+                    {rewardTrack.completedGradeCoins.map((gradeCoin, gradeIndex) => (
+                      <RewardDiscPreview
+                        ariaLabel={`${rewardTrack.levelName} ${gradeIndex + 1} graduation coin`}
+                        className="player-portal-level-coin player-portal-grade-coin"
+                        isEarned
+                        key={`grade-coin-${gradeIndex}`}
+                        title={`${rewardTrack.levelName} ${gradeIndex + 1} Coin`}
+                        visual={gradeCoin}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                {rewardTrack.completedClassCoins.length > 0 ? (
+                  <div className="player-portal-class-coin-row" aria-label="Completed class coins">
+                    {rewardTrack.completedClassCoins.map((classCoin, classIndex) => (
+                      <RewardDiscPreview
+                        ariaLabel={`Class ${classIndex + 1} graduation coin`}
+                        className="player-portal-level-coin player-portal-class-coin"
+                        isEarned
+                        key={`class-coin-${classIndex}`}
+                        title={`Class ${classIndex + 1} Coin`}
+                        visual={classCoin}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           {onClose ? (
             <button

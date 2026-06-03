@@ -33,6 +33,7 @@ async function getSharePoll(pollId: string) {
     .select("id, category, question, image_url, is_published, poll_options(id, label, sort_order)")
     .eq("id", pollId)
     .eq("is_published", true)
+    .eq("is_hidden", false)
     .maybeSingle();
 
   if (error || !data) {

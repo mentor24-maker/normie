@@ -42,6 +42,7 @@ create table if not exists public.polls (
   image_url text not null default '',
   order_index integer not null unique,
   is_published boolean not null default true,
+  is_hidden boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -501,7 +502,7 @@ create policy "published polls are readable"
 on public.polls
 for select
 to anon, authenticated
-using (is_published = true);
+using (is_published = true and is_hidden = false);
 
 drop policy if exists "published poll options are readable" on public.poll_options;
 create policy "published poll options are readable"
@@ -514,6 +515,7 @@ using (
     from public.polls
     where public.polls.id = public.poll_options.poll_id
       and public.polls.is_published = true
+      and public.polls.is_hidden = false
   )
 );
 
@@ -528,6 +530,7 @@ using (
     from public.polls
     where public.polls.id = public.poll_response.poll_id
       and public.polls.is_published = true
+      and public.polls.is_hidden = false
   )
 );
 
@@ -542,6 +545,7 @@ with check (
     from public.polls
     where public.polls.id = poll_id
       and public.polls.is_published = true
+      and public.polls.is_hidden = false
   )
   and exists (
     select 1

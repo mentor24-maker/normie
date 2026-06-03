@@ -128,6 +128,7 @@ export const POST = withObservedRoute("polls.skip", async (request) => {
     .select("id, poll_options(id, sort_order)")
     .eq("id", pollId)
     .eq("is_published", true)
+    .eq("is_hidden", false)
     .maybeSingle();
 
   if (pollError) {

@@ -1750,13 +1750,12 @@ h2 {
     56px
     minmax(148px, 1.05fr)
     minmax(192px, 1.56fr)
-    minmax(120px, 1.35fr)
-    minmax(160px, 1.1fr)
+    minmax(160px, 1.75fr)
     88px
     88px
     minmax(72px, 0.48fr)
     minmax(88px, 0.58fr)
-    minmax(52px, 0.28fr);
+    minmax(132px, 0.72fr);
 }
 
 .admin-polls-filter-bar .polls-filter-field {
@@ -3899,10 +3898,9 @@ h2 {
 .player-portal-polls-bar {
   --player-game-board-stats-width: minmax(360px, 520px);
   display: grid;
-  grid-template-columns: var(--player-game-board-stats-width) minmax(42px, 1fr);
+  grid-template-columns: 1fr;
   align-items: flex-start;
   justify-content: stretch;
-  column-gap: 18px;
   row-gap: 28px;
   padding: 34px 56px 18px 20px;
   position: relative;
@@ -3925,55 +3923,61 @@ h2 {
 }
 
 .player-portal-polls-header-side {
-  display: grid;
-  grid-template-columns: var(--player-game-board-stats-width) minmax(42px, 1fr);
-  grid-template-rows: auto auto;
-  align-items: start;
-  align-self: flex-start;
-  justify-items: stretch;
-  column-gap: 18px;
-  row-gap: 12px;
+  display: block;
   grid-column: 1 / -1;
   min-width: 0;
+}
+
+.player-portal-home-base-layout {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 20px 28px;
+  width: 100%;
+  min-width: 0;
+}
+
+.player-portal-home-base-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 0 1 var(--player-game-board-stats-width);
+  min-width: 0;
+  max-width: var(--player-game-board-stats-width);
 }
 
 .player-portal-polls-mini-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(129px, 1fr));
-  grid-column: 1;
-  grid-row: 1;
   gap: 14px;
   width: 100%;
   min-width: 0;
-}
-
-.player-portal-reward-top-row {
-  display: contents;
 }
 
 .player-portal-grade-reward-strip {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  justify-content: flex-end;
-  grid-column: 2;
-  grid-row: 1 / 3;
-  align-self: end;
-  justify-self: end;
+  justify-content: flex-start;
   gap: 10px;
   min-height: 20px;
-  min-width: 42px;
-  padding-bottom: 0;
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
+.player-portal-class-coin-row,
 .player-portal-grade-coin-row {
   display: flex;
   flex-direction: column-reverse;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 6px;
   flex-shrink: 0;
 }
 
+.player-portal-class-coin,
 .player-portal-grade-coin {
   flex-shrink: 0;
 }
@@ -3982,7 +3986,7 @@ h2 {
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
   min-height: 20px;
   min-width: 20px;
@@ -4007,17 +4011,10 @@ h2 {
 
 .player-portal-reward-track {
   display: flex;
-  grid-column: 1;
-  grid-row: 2;
-  justify-content: center;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
   gap: 8px;
-  width: 100%;
   min-height: 20px;
-}
-
-.player-portal-reward-track-row {
-  display: contents;
 }
 
 .player-portal-reward-disc-shell {
@@ -4912,14 +4909,12 @@ h2 {
     56px
     minmax(56px, 0.42fr)
     minmax(192px, 1.56fr)
-    minmax(120px, 1.35fr)
-    minmax(80px, 0.58fr)
-    minmax(160px, 1.1fr)
+    minmax(120px, 1.75fr)
     88px
     88px
     minmax(72px, 0.48fr)
     minmax(88px, 0.58fr)
-    minmax(52px, 0.28fr);
+    minmax(132px, 0.72fr);
   gap: 14px;
   margin: 18px 0 20px;
   align-items: end;
@@ -4939,6 +4934,37 @@ h2 {
 
 .polls-filter-spacer {
   min-width: 0;
+}
+
+.polls-filter-bulk-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.polls-filter-bulk-actions-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.polls-filter-bulk-actions .secondary-button,
+.polls-filter-bulk-actions .danger-button {
+  white-space: nowrap;
+}
+
+.admin-polls-filter-bar .polls-filter-bulk-actions {
+  display: grid;
+  grid-template-rows: var(--polls-filter-label-height) var(--polls-filter-control-height);
+  align-items: center;
+  justify-items: end;
+  height: 100%;
+}
+
+.admin-polls-filter-bar .polls-filter-bulk-actions-inner {
+  grid-row: 2;
 }
 
 .polls-filter-checkbox-field .polls-filter-checkbox-wrap {
@@ -6441,8 +6467,11 @@ a.polls-icon-button {
 }
 
 .builder-preview-section {
+  --builder-section-padding-block: 18px;
+  --builder-section-padding-inline: 0px;
   border-radius: 24px;
-  padding: 18px;
+  padding-block: var(--builder-section-padding-block);
+  padding-inline: var(--builder-section-padding-inline);
   overflow: visible;
 }
 
@@ -6461,6 +6490,7 @@ a.polls-icon-button {
 .builder-preview-device-frame .builder-preview-shell,
 .builder-preview-shell-has-overlay {
   display: block;
+  overflow-x: clip;
 }
 
 /* Decorative floating images: one full-page layer (not a grid row at document order). */
@@ -6472,6 +6502,8 @@ a.polls-icon-button {
   min-height: 100%;
   margin: 0;
   padding: 0;
+  overflow-x: clip;
+  overflow-y: visible;
   pointer-events: none;
 }
 
@@ -6546,6 +6578,8 @@ a.polls-icon-button {
   z-index: 40;
   margin: 0 !important;
   padding: 0 !important;
+  --builder-section-padding-block: 0px;
+  --builder-section-padding-inline: 0px;
   min-height: 0;
   overflow: visible;
   pointer-events: none;
@@ -6576,9 +6610,24 @@ a.polls-icon-button {
   z-index: 40;
 }
 
+.builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed),
+.builder-preview-module-overlay-slot:has(.normie-effect-cruise) {
+  min-height: 220px;
+}
+
+/*
+ * Mascots share a column with padded content (slider, etc.). Bleed past optional cell padding only.
+ */
+.builder-preview-column:not(.builder-preview-column-overlay-slot) > .builder-preview-module-overlay-slot {
+  width: calc(100% + 2 * var(--builder-cell-padding, 0px));
+  margin-inline: calc(-1 * var(--builder-cell-padding, 0px));
+}
+
 /* Builder home header row: keep top inset at 10px (page shell + section only). */
 .page-shell .builder-preview-section:first-of-type {
-  padding: 10px 18px 18px;
+  padding-block-start: 10px;
+  padding-block-end: var(--builder-section-padding-block);
+  padding-inline: 0;
 }
 
 .page-shell .builder-preview-section:first-of-type > .builder-preview-column {
@@ -10995,32 +11044,25 @@ code {
     border-radius: 24px;
   }
 
-  .player-portal-polls-header-side {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
+  .player-portal-home-base-layout {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .player-portal-home-base-left {
+    flex-basis: auto;
+    max-width: 100%;
     width: 100%;
-    justify-content: stretch;
   }
 
   .player-portal-polls-mini-stats {
-    flex: 1 1 auto;
-    grid-column: 1;
-    grid-row: 1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
-    min-width: 0;
   }
 
   .player-portal-grade-reward-strip {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: end;
     flex-wrap: wrap;
-  }
-
-  .player-portal-reward-track {
-    grid-column: 1;
-    grid-row: 3;
   }
 
   .player-portal-polls.is-open > :not(.player-portal-polls-bar) {
@@ -11701,6 +11743,63 @@ code {
 
 .normie-effect-tumbleweed {
   animation: normie-tumbleweed 8s linear infinite;
+}
+
+/*
+ * Tumbleweed / cruise use ±100vw translateX (scrollbar) and ±80px translateY (bounce).
+ * Clip horizontal overflow only — overflow: hidden here was cutting off the top of the roll.
+ */
+.normie-effect-motion-clip {
+  overflow-x: clip;
+  overflow-y: visible;
+  width: 100%;
+  min-height: 1px;
+}
+
+.builder-preview-module-overlay-flow .normie-effect-motion-clip,
+.builder-preview-overlay-layer .normie-effect-motion-clip,
+.player-game-floating-image-host .normie-effect-motion-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Tumbleweed rolls across the row: stage must span the column, with headroom for translateY(-80px).
+ * Inline shell anchors (bottom-right + %) shrink the clip and cut off the top of the roll.
+ */
+.builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed) > .builder-preview-image-shell-overlay,
+.builder-preview-module-overlay-slot:has(.normie-effect-cruise) > .builder-preview-image-shell-overlay {
+  inset: 0 auto auto 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 220px;
+  transform: none !important;
+}
+
+.builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed) .normie-effect-motion-clip,
+.builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-cruise) .normie-effect-motion-clip,
+.builder-preview-section-overlay-slot:has(.normie-effect-tumbleweed) .normie-effect-motion-clip,
+.builder-preview-section-overlay-slot:has(.normie-effect-cruise) .normie-effect-motion-clip {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  padding-top: 96px;
+  margin-top: -96px;
+  overflow-x: clip;
+  overflow-y: visible;
+  box-sizing: border-box;
+}
+
+.builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed) .normie-effect-tumbleweed,
+.builder-preview-module-overlay-slot:has(.normie-effect-cruise) .normie-effect-cruise {
+  width: auto;
+  max-width: none;
 }
 
 .builder-section-title-edit-hint {

@@ -31,7 +31,8 @@ async function loadPollRefs(
     .from("polls")
     .select("id, question, category")
     .in("id", pollIds)
-    .eq("is_published", true);
+    .eq("is_published", true)
+    .eq("is_hidden", false);
 
   if (error) {
     throw new Error(error.message);
@@ -93,6 +94,7 @@ async function loadCategoryPeerPolls(
     .from("polls")
     .select("id, question, category, order_index")
     .eq("is_published", true)
+    .eq("is_hidden", false)
     .eq("category", category)
     .neq("id", poll.id)
     .order("order_index", { ascending: true })

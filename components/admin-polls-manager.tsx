@@ -19,6 +19,7 @@ import {
 } from "@/lib/personality-poll-import";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 import { POLL_COLLECTIONS, type PollCollection } from "@/lib/poll-collections";
+import { pollStatusLabel } from "@/lib/poll-visibility";
 
 const STANDARD_UPLOAD_COLUMNS = ["Category", "Question", "Option_A", "Option_B"];
 
@@ -41,6 +42,7 @@ type AdminPoll = {
   order_index: number;
   created_at: string;
   is_published: boolean;
+  is_hidden?: boolean;
   poll_options: PollOption[];
 };
 
@@ -53,8 +55,7 @@ type PollFilterState = {
   collection: "" | PollCollection;
   category: string;
   question: string;
-  options: string;
-  status: "all" | "published" | "draft";
+  status: "all" | "published" | "draft" | "hidden";
   requireYoutube: boolean;
   requireBlogPost: boolean;
 };
@@ -76,7 +77,6 @@ const emptyFilters: PollFilterState = {
   collection: "",
   category: "",
   question: "",
-  options: "",
   status: "all",
   requireYoutube: false,
   requireBlogPost: false
@@ -108,6 +108,7 @@ export function AdminPollsManager() {
   const [filters, setFilters] = useState<PollFilterState>(emptyFilters);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isHiding, setIsHiding] = useState(false);
   const [blogPosts, setBlogPosts] = useState<AdminBlogPostOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -187,8 +188,7 @@ export function AdminPollsManager() {
 
   const filteredPolls = useMemo(() => {
     return polls.filter((poll) => {
-      const optionsText = poll.poll_options.map((option) => option.label).join(" ");
-      const statusText = poll.is_published ? "published" : "draft";
+      const statusText = pollStatusLabel(poll).toLowerCase();
       const hasYoutube = (poll.deep_dive_youtube_url ?? "").trim().length > 0;
       const hasBlogPost = Boolean((poll.deep_dive_blog_post_id ?? "").toString().trim());
 
@@ -196,7 +196,6 @@ export function AdminPollsManager() {
         (!filters.collection || formatPollCollection(poll.collection) === filters.collection) &&
         (!filters.category || (poll.category ?? "") === filters.category) &&
         matchesFilter(poll.question, filters.question) &&
-        matchesFilter(optionsText, filters.options) &&
         (filters.status === "all" || statusText === filters.status) &&
         (!filters.requireYoutube || hasYoutube) &&
         (!filters.requireBlogPost || hasBlogPost)
@@ -279,8 +278,51 @@ export function AdminPollsManager() {
     }
   }
 
-  async function handleBulkDelete() {
-    await deletePolls(selectedPollIds);
+  async function hideSelectedPolls() {
+    if (selectedPollIds.length === 0) {
+      return;
+    }
+
+    const hideIds = selectedPollIds.filter((id) => {
+      const poll = polls.find((entry) => entry.id === id);
+      return poll && !poll.is_hidden;
+    });
+
+    if (hideIds.length === 0) {
+      setMessage("Selected polls are already hidden.");
+      return;
+    }
+
+    setIsHiding(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/polls/hide", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          pollIds: hideIds
+        })
+      });
+
+      const data = (await response.json()) as { hiddenCount?: number; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to hide polls.");
+      }
+
+      setMessage(`Hidden ${data.hiddenCount ?? hideIds.length} poll(s) from the public site and player portal.`);
+      setPolls((current) =>
+        current.map((poll) => (hideIds.includes(poll.id) ? { ...poll, is_hidden: true } : poll))
+      );
+    } catch (hideError) {
+      setError(hideError instanceof Error ? hideError.message : "Failed to hide polls.");
+    } finally {
+      setIsHiding(false);
+    }
   }
 
   return (
@@ -313,14 +355,6 @@ export function AdminPollsManager() {
                 <Link className="secondary-button admin-polls-settings-button" href="/admin/polls/settings">
                   Settings
                 </Link>
-                <button
-                  className="danger-button"
-                  onClick={() => void handleBulkDelete()}
-                  type="button"
-                  disabled={isDeleting || selectedPollIds.length === 0}
-                >
-                  {isDeleting ? "Deleting..." : `Delete Selected (${selectedPollIds.length})`}
-                </button>
               </div>
 
               <div className="admin-polls-metrics" aria-label="Key poll metrics">
@@ -426,14 +460,6 @@ export function AdminPollsManager() {
               onChange={(event) => setFilters((current) => ({ ...current, question: event.target.value }))}
             />
           </label>
-          <label className="field polls-filter-field">
-            <span>Options</span>
-            <input
-              type="text"
-              value={filters.options}
-              onChange={(event) => setFilters((current) => ({ ...current, options: event.target.value }))}
-            />
-          </label>
           <label className="field polls-filter-field polls-filter-checkbox-field">
             <span>YouTube</span>
             <div className="polls-filter-checkbox-wrap">
@@ -473,9 +499,29 @@ export function AdminPollsManager() {
               <option value="all">All</option>
               <option value="published">Published</option>
               <option value="draft">Draft</option>
+              <option value="hidden">Hidden</option>
             </select>
           </label>
-          <div className="polls-filter-spacer polls-filter-spacer-actions" aria-hidden />
+          <div className="polls-filter-bulk-actions">
+            <div className="polls-filter-bulk-actions-inner">
+              <button
+                className="secondary-button"
+                disabled={isHiding || selectedPollIds.length === 0}
+                onClick={() => void hideSelectedPolls()}
+                type="button"
+              >
+                {isHiding ? "Hiding..." : "Hide"}
+              </button>
+              <button
+                className="danger-button"
+                disabled={isDeleting || selectedPollIds.length === 0}
+                onClick={() => void deletePolls(selectedPollIds)}
+                type="button"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="table-shell">
@@ -486,7 +532,6 @@ export function AdminPollsManager() {
                 <th>Collection</th>
                 <th>Category</th>
                 <th>Question</th>
-                <th>Options</th>
                 <th>YouTube</th>
                 <th>Blog Post</th>
                 <th>Related Polls</th>
@@ -507,7 +552,6 @@ export function AdminPollsManager() {
                   <td>{formatPollCollection(poll.collection)}</td>
                   <td>{poll.category ?? "Uncategorized"}</td>
                   <td>{poll.question}</td>
-                  <td>{poll.poll_options.map((option) => option.label).join(" / ")}</td>
                   <td className="polls-summary-cell">{summarizeYoutube(poll.deep_dive_youtube_url ?? "")}</td>
                   <td className="polls-summary-cell">
                     {summarizeDeepDiveBlogPost(poll.deep_dive_blog_post_id ?? "", blogPosts)}
@@ -517,18 +561,20 @@ export function AdminPollsManager() {
                       normalizeDeepDiveRelatedPollIds(poll.deep_dive_related_poll_ids).length
                     )}
                   </td>
-                  <td>{poll.is_published ? "Published" : "Draft"}</td>
+                  <td>{pollStatusLabel(poll)}</td>
                   <td className="polls-actions-cell">
                     <div className="polls-row-actions">
-                      <Link
-                        className="polls-icon-button polls-icon-button-view"
-                        href={buildPublicPollViewPath(poll)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="View poll on site"
-                      >
-                        <span aria-hidden="true" className="polls-icon-glyph-eye" />
-                      </Link>
+                      {!poll.is_hidden ? (
+                        <Link
+                          className="polls-icon-button polls-icon-button-view"
+                          href={buildPublicPollViewPath(poll)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="View poll on site"
+                        >
+                          <span aria-hidden="true" className="polls-icon-glyph-eye" />
+                        </Link>
+                      ) : null}
                       <Link
                         className="polls-icon-button polls-icon-button-edit"
                         href={`/admin/polls/${poll.id}/edit`}
@@ -551,7 +597,7 @@ export function AdminPollsManager() {
               ))}
               {filteredPolls.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={10}>
+                  <td className="empty-cell" colSpan={9}>
                     No polls found.
                   </td>
                 </tr>

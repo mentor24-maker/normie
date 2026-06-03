@@ -49,15 +49,18 @@ export type PlayerPortalRewardVisual = {
 export type PlayerPortalRewardTrack = {
   levelName: string;
   sublevelName: string;
+  currentClass: number;
   currentGrade: number;
   currentLevel: number;
   pollsPerLevel: number;
   levelsPerGrade: number;
+  completedClasses: number;
   completedGrades: number;
   totalSlots: number;
   earnedSlots: number;
   isComplete: boolean;
   completedLevelRewards: number;
+  completedClassCoins: PlayerPortalRewardVisual[];
   completedGradeCoins: PlayerPortalRewardVisual[];
   completedLevelRewardsInGrade: PlayerPortalRewardVisual[];
   /** @deprecated Use completedLevelRewardsInGrade */
@@ -145,10 +148,18 @@ export const PLAYER_POLLS_PER_LEVEL = 10;
 /** 10 levels per grade × 10 polls per level = 100 polls to graduate a grade. */
 export const PLAYER_LEVELS_PER_GRADE = 10;
 export const PLAYER_POLLS_PER_GRADE = PLAYER_POLLS_PER_LEVEL * PLAYER_LEVELS_PER_GRADE;
+/** 10 grades per class × 100 polls per grade = 1000 polls to graduate a class. */
+export const PLAYER_GRADES_PER_CLASS = 10;
+export const PLAYER_POLLS_PER_CLASS = PLAYER_POLLS_PER_GRADE * PLAYER_GRADES_PER_CLASS;
+
+export const PLAYER_PORTAL_LEVEL_COIN_SIZE_PX = 30;
+export const PLAYER_PORTAL_GRADE_COIN_SIZE_PX = 60;
+export const PLAYER_PORTAL_CLASS_COIN_SIZE_PX = 90;
+
 const DEFAULT_POLL_REWARD_VISUAL: PlayerPortalRewardVisual = {
   visualType: "coin",
   visualColor: "#d8212d",
-  visualSize: "10px",
+  visualSize: "20px",
   visualBorderColor: "",
   visualBorderWidth: "",
   visualSymbolUrl: ""
@@ -156,10 +167,18 @@ const DEFAULT_POLL_REWARD_VISUAL: PlayerPortalRewardVisual = {
 const DEFAULT_LEVEL_REWARD_VISUAL: PlayerPortalRewardVisual = {
   visualType: "coin",
   visualColor: "#d8212d",
-  visualSize: "42px",
+  visualSize: `${PLAYER_PORTAL_LEVEL_COIN_SIZE_PX}px`,
   visualBorderColor: "",
   visualBorderWidth: "",
   visualSymbolUrl: ""
+};
+const DEFAULT_GRADE_REWARD_VISUAL: PlayerPortalRewardVisual = {
+  ...DEFAULT_LEVEL_REWARD_VISUAL,
+  visualSize: `${PLAYER_PORTAL_GRADE_COIN_SIZE_PX}px`
+};
+const DEFAULT_CLASS_REWARD_VISUAL: PlayerPortalRewardVisual = {
+  ...DEFAULT_LEVEL_REWARD_VISUAL,
+  visualSize: `${PLAYER_PORTAL_CLASS_COIN_SIZE_PX}px`
 };
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
@@ -201,10 +220,23 @@ function getRewardVisualSource(metadata: Record<string, unknown>, key: "pollRewa
   return key === "levelReward" ? metadata : nested;
 }
 
-function parseVisualSizePx(value: string) {
+export function parseRewardVisualSizePx(value: string) {
   const parsed = Number.parseFloat(String(value).replace(/px$/i, "").trim());
 
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function rewardLevelRewardSizePx(reward: GameRewardRow | null) {
+  if (!reward) {
+    return 0;
+  }
+
+  const visual = buildRewardVisual(toRecord(reward.metadata), "levelReward", DEFAULT_LEVEL_REWARD_VISUAL);
+  return parseRewardVisualSizePx(visual.visualSize);
+}
+
+function isRewardVisualSizePx(reward: GameRewardRow | null, targetPx: number) {
+  return rewardLevelRewardSizePx(reward) === targetPx;
 }
 
 function buildRewardVisual(
@@ -227,14 +259,85 @@ function buildRewardVisual(
   };
 }
 
+function withCanonicalRewardSize(visual: PlayerPortalRewardVisual, sizePx: number): PlayerPortalRewardVisual {
+  return {
+    ...visual,
+    visualSize: `${sizePx}px`
+  };
+}
+
+function findRewardWithLevelRewardSize(rewards: GameRewardRow[], targetPx: number) {
+  return rewards.find((reward) => isRewardVisualSizePx(reward, targetPx)) ?? null;
+}
+
+/** Grade graduation art lives on the first row of the grade the player enters (admin Grade N+1, Level 1). */
+function gradeGraduationSourceReward(gradeRewards: GameRewardRow[]) {
+  const levelOneReward = rewardAtLevelTier(gradeRewards, 1);
+
+  if (levelOneReward && isRewardVisualSizePx(levelOneReward, PLAYER_PORTAL_GRADE_COIN_SIZE_PX)) {
+    return levelOneReward;
+  }
+
+  return (
+    findRewardWithLevelRewardSize(gradeRewards, PLAYER_PORTAL_GRADE_COIN_SIZE_PX) ?? gradeGraduationReward(gradeRewards)
+  );
+}
+
 function buildGradeCoinVisual(
-  sourceGradeRewards: GameRewardRow[],
-  levelTier: number,
-  fallbackReward: GameRewardRow | null
+  rewards: GameRewardRow[],
+  completedGradeNumber: number,
+  classTier: number
 ): PlayerPortalRewardVisual {
-  const sourceReward = rewardAtLevelTier(sourceGradeRewards, levelTier) ?? fallbackReward;
+  const graduationGradeTier = completedGradeNumber + 1;
+  const gradeRewards = getRewardsForGrade(rewards, graduationGradeTier, classTier);
+  const sourceReward = gradeGraduationSourceReward(gradeRewards);
   const sourceMetadata = sourceReward ? toRecord(sourceReward.metadata) : {};
-  return buildRewardVisual(sourceMetadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL);
+
+  return withCanonicalRewardSize(
+    buildRewardVisual(sourceMetadata, "levelReward", DEFAULT_GRADE_REWARD_VISUAL),
+    PLAYER_PORTAL_GRADE_COIN_SIZE_PX
+  );
+}
+
+function buildClassCoinVisual(classRewards: GameRewardRow[]): PlayerPortalRewardVisual {
+  const sourceReward = findRewardWithLevelRewardSize(classRewards, PLAYER_PORTAL_CLASS_COIN_SIZE_PX);
+  const sourceMetadata = sourceReward ? toRecord(sourceReward.metadata) : {};
+
+  return withCanonicalRewardSize(
+    buildRewardVisual(sourceMetadata, "levelReward", DEFAULT_CLASS_REWARD_VISUAL),
+    PLAYER_PORTAL_CLASS_COIN_SIZE_PX
+  );
+}
+
+function buildLevelStackVisual(gradeRewards: GameRewardRow[], levelTier: number): PlayerPortalRewardVisual {
+  const levelReward = rewardAtLevelTier(gradeRewards, levelTier);
+  const levelMetadata = levelReward ? toRecord(levelReward.metadata) : {};
+  const levelVisual = buildRewardVisual(levelMetadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL);
+
+  if (parseRewardVisualSizePx(levelVisual.visualSize) === PLAYER_PORTAL_LEVEL_COIN_SIZE_PX) {
+    return withCanonicalRewardSize(levelVisual, PLAYER_PORTAL_LEVEL_COIN_SIZE_PX);
+  }
+
+  const templateReward = findRewardWithLevelRewardSize(gradeRewards, PLAYER_PORTAL_LEVEL_COIN_SIZE_PX);
+  const templateVisual = templateReward
+    ? buildRewardVisual(toRecord(templateReward.metadata), "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
+    : DEFAULT_LEVEL_REWARD_VISUAL;
+  const pollVisual = buildRewardVisual(levelMetadata, "pollReward", DEFAULT_POLL_REWARD_VISUAL);
+  const usesPollIdentity = parseRewardVisualSizePx(levelVisual.visualSize) >= PLAYER_PORTAL_GRADE_COIN_SIZE_PX;
+  const colorSource = usesPollIdentity ? pollVisual : levelVisual;
+
+  return withCanonicalRewardSize(
+    {
+      ...templateVisual,
+      visualColor: colorSource.visualColor,
+      visualBorderColor: colorSource.visualBorderColor || templateVisual.visualBorderColor,
+      visualBorderWidth: colorSource.visualBorderWidth || templateVisual.visualBorderWidth,
+      visualSymbolUrl: usesPollIdentity
+        ? pollVisual.visualSymbolUrl || templateVisual.visualSymbolUrl
+        : levelVisual.visualSymbolUrl || templateVisual.visualSymbolUrl
+    },
+    PLAYER_PORTAL_LEVEL_COIN_SIZE_PX
+  );
 }
 
 function rewardProgressionOrder(reward: GameRewardRow, index: number) {
@@ -272,11 +375,18 @@ function getRewardTierValue(metadata: Record<string, unknown>, key: "levelTier" 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function getRewardsForGrade(rewards: GameRewardRow[], gradeTier: number) {
+function getRewardsForClass(rewards: GameRewardRow[], classTier: number) {
+  return rewards.filter((reward) => getRewardTierValue(toRecord(reward.metadata), "classTier") === classTier);
+}
+
+function getRewardsForGrade(rewards: GameRewardRow[], gradeTier: number, classTier = 1) {
   return rewards
     .filter((reward) => {
       const metadata = toRecord(reward.metadata);
-      return getRewardTierValue(metadata, "gradeTier") === gradeTier && getRewardTierValue(metadata, "classTier") === 1;
+      return (
+        getRewardTierValue(metadata, "gradeTier") === gradeTier &&
+        getRewardTierValue(metadata, "classTier") === classTier
+      );
     })
     .map((reward, index) => {
       const metadata = toRecord(reward.metadata);
@@ -311,57 +421,60 @@ function gradeGraduationReward(gradeRewards: GameRewardRow[]) {
 
 export function buildRewardTrack(rewards: GameRewardRow[], pollsTaken: number): PlayerPortalRewardTrack {
   const normalizedPollsTaken = Math.max(pollsTaken, 0);
-  const completedGrades = Math.floor(normalizedPollsTaken / PLAYER_POLLS_PER_GRADE);
-  const pollsInCurrentGrade = normalizedPollsTaken % PLAYER_POLLS_PER_GRADE;
+  const completedClasses = Math.floor(normalizedPollsTaken / PLAYER_POLLS_PER_CLASS);
+  const pollsInCurrentClass = normalizedPollsTaken % PLAYER_POLLS_PER_CLASS;
+  const completedGrades = Math.floor(pollsInCurrentClass / PLAYER_POLLS_PER_GRADE);
+  const pollsInCurrentGrade = pollsInCurrentClass % PLAYER_POLLS_PER_GRADE;
   const completedLevelsInCurrentGrade = Math.min(
     PLAYER_LEVELS_PER_GRADE,
     Math.floor(pollsInCurrentGrade / PLAYER_POLLS_PER_LEVEL)
   );
   const earnedSlots = pollsInCurrentGrade % PLAYER_POLLS_PER_LEVEL;
+  const currentClass = completedClasses + 1;
   const currentGrade = completedGrades + 1;
   const currentLevel = Math.min(PLAYER_LEVELS_PER_GRADE, completedLevelsInCurrentGrade + 1);
   const completedLevelRewards = Math.floor(normalizedPollsTaken / PLAYER_POLLS_PER_LEVEL);
-  const currentGradeRewards = getRewardsForGrade(rewards, currentGrade);
-  const previousGradeRewards = getRewardsForGrade(rewards, Math.max(1, currentGrade - 1));
-  const previousGradeGraduationReward = gradeGraduationReward(previousGradeRewards);
+  const currentGradeRewards = getRewardsForGrade(rewards, currentGrade, currentClass);
   const activeProgressionReward = rewardAtLevelTier(currentGradeRewards, currentLevel);
   const activeMetadata = toRecord(activeProgressionReward?.metadata);
 
+  const completedClassCoins = Array.from({ length: completedClasses }, (_, index) => {
+    const classTier = index + 1;
+    return buildClassCoinVisual(getRewardsForClass(rewards, classTier));
+  });
+
   const completedGradeCoins = Array.from({ length: completedGrades }, (_, index) => {
-    const levelTier = index + 1;
-    return buildGradeCoinVisual(previousGradeRewards, levelTier, previousGradeGraduationReward);
+    const completedGradeNumber = index + 1;
+    return buildGradeCoinVisual(rewards, completedGradeNumber, currentClass);
   });
 
   const completedLevelRewardsInGrade = Array.from({ length: completedLevelsInCurrentGrade }, (_, index) => {
     const levelTier = index + 1;
-    const completedReward = rewardAtLevelTier(currentGradeRewards, levelTier);
-
-    return completedReward
-      ? buildRewardVisual(toRecord(completedReward.metadata), "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
-      : DEFAULT_LEVEL_REWARD_VISUAL;
+    return buildLevelStackVisual(currentGradeRewards, levelTier);
   });
 
   return {
     levelName: "Grade",
     sublevelName: String(currentGrade),
+    currentClass,
     currentGrade,
     currentLevel,
     pollsPerLevel: PLAYER_POLLS_PER_LEVEL,
     levelsPerGrade: PLAYER_LEVELS_PER_GRADE,
+    completedClasses,
     completedGrades,
     totalSlots: PLAYER_POLLS_PER_LEVEL,
     earnedSlots,
     isComplete: normalizedPollsTaken > 0 && earnedSlots === 0,
     completedLevelRewards,
+    completedClassCoins,
     completedGradeCoins,
     completedLevelRewardsInGrade,
     completedRewards: completedLevelRewardsInGrade,
     pollReward: activeProgressionReward
       ? buildRewardVisual(activeMetadata, "pollReward", DEFAULT_POLL_REWARD_VISUAL)
       : DEFAULT_POLL_REWARD_VISUAL,
-    levelReward: activeProgressionReward
-      ? buildRewardVisual(activeMetadata, "levelReward", DEFAULT_LEVEL_REWARD_VISUAL)
-      : DEFAULT_LEVEL_REWARD_VISUAL
+    levelReward: buildLevelStackVisual(currentGradeRewards, currentLevel)
   };
 }
 

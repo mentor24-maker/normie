@@ -86,27 +86,27 @@ function updateReminderModule(
 
   return sections.map((section) => ({
     ...section,
-    modules: section.modules.map((module) =>
-      module.id === moduleId
+    modules: section.modules.map((sectionModule) =>
+      sectionModule.id === moduleId
         ? {
-            ...module,
-            name: module.name.trim() || "Reminders",
+            ...sectionModule,
+            name: sectionModule.name.trim() || "Reminders",
             text: "",
             settings: {
-              ...module.settings,
+              ...sectionModule.settings,
               [REMINDER_RECORDS_JSON_SETTING_KEY]: serialized
             }
           }
-        : module
+        : sectionModule
     )
   }));
 }
 
 function insertReminderModule(sections: BuilderTemplateSection[]): {
   sections: BuilderTemplateSection[];
-  module: BuilderTemplateModule;
+  reminderModule: BuilderTemplateModule;
 } {
-  const module = {
+  const reminderModule = {
     ...createEmptyModule("reminder", "main"),
     id: crypto.randomUUID(),
     name: "Reminders"
@@ -114,8 +114,8 @@ function insertReminderModule(sections: BuilderTemplateSection[]): {
 
   if (sections.length === 0) {
     return {
-      sections: [{ ...createEmptySection("single"), modules: [module] }],
-      module
+      sections: [{ ...createEmptySection("single"), modules: [reminderModule] }],
+      reminderModule
     };
   }
 
@@ -123,12 +123,12 @@ function insertReminderModule(sections: BuilderTemplateSection[]): {
     index === 0
       ? {
           ...section,
-          modules: [...section.modules, module]
+          modules: [...section.modules, reminderModule]
         }
       : section
   );
 
-  return { sections: nextSections, module };
+  return { sections: nextSections, reminderModule };
 }
 
 export function importLegacyGameRemindersIntoPageLayout(
@@ -144,9 +144,9 @@ export function importLegacyGameRemindersIntoPageLayout(
   if (reminderModules.length === 0) {
     const inserted = insertReminderModule(sections);
     sections = inserted.sections;
-    reminderModuleId = inserted.module.id;
+    reminderModuleId = inserted.reminderModule.id;
     createdReminderModule = true;
-    reminderModules = [inserted.module];
+    reminderModules = [inserted.reminderModule];
   } else {
     reminderModuleId = reminderModules[0].id;
   }
@@ -168,7 +168,7 @@ export function importLegacyGameRemindersIntoPageLayout(
 
 export function countReminderRecordsInLayout(layoutSections: BuilderTemplateSection[]): number {
   return collectReminderModulesFromLayout(layoutSections).reduce(
-    (total, module) => total + parseReminderRecordsFromModule(module).length,
+    (total, layoutModule) => total + parseReminderRecordsFromModule(layoutModule).length,
     0
   );
 }

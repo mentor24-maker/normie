@@ -21,7 +21,7 @@ function safeInteger(value: unknown, fallback = 0) {
 }
 
 const POLL_SELECT =
-  "id, category, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, image_url, order_index, created_at, is_published, poll_options(id, label, sort_order)";
+  "id, category, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, image_url, order_index, created_at, is_published, is_hidden, poll_options(id, label, sort_order)";
 
 export async function GET(
   _request: Request,

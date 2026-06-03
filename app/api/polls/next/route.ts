@@ -69,6 +69,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       "id, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, category, image_url, order_index, is_published, poll_options(id, label, sort_order)"
     )
     .eq("is_published", true)
+    .eq("is_hidden", false)
     .order("order_index", { ascending: true });
 
   if (categoryParam) {

@@ -19,6 +19,7 @@ export async function validatePollAnswerSubmission(
     .select("id, is_published, poll_options(id)")
     .eq("id", pollId)
     .eq("is_published", true)
+    .eq("is_hidden", false)
     .maybeSingle();
 
   if (error) {

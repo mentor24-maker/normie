@@ -76,10 +76,10 @@ describe("importLegacyGameRemindersIntoPageLayout", () => {
 
   it("stores imported records on the reminder module", () => {
     const result = importLegacyGameRemindersIntoPageLayout([], [sampleLegacyReminder({ id: "x1" })]);
-    const module = result.layoutSections[0]?.modules.find((entry) => entry.type === "reminder");
+    const reminderModule = result.layoutSections[0]?.modules.find((entry) => entry.type === "reminder");
 
-    expect(module).toBeTruthy();
-    const records = module ? parseReminderRecordsFromModule(module) : [];
+    expect(reminderModule).toBeTruthy();
+    const records = reminderModule ? parseReminderRecordsFromModule(reminderModule) : [];
     expect(records.some((record) => record.id === "x1")).toBe(true);
   });
 });

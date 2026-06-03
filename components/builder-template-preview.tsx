@@ -332,6 +332,9 @@ function BuilderSectionPreview({
           ...(isPageOverlayFlowColumn || isSectionOverlayColumn ? {} : getVerticalMarginStyle(verticalMargin)),
           ...getOverlayFlowCollapsedColumnStyle(isPageOverlayFlowColumn),
           ...getSectionScopedOverlayColumnStyle(isSectionOverlayColumn),
+          ...(Number(padding) > 0 && !isPageOverlayFlowColumn && !isSectionOverlayColumn
+            ? { "--builder-cell-padding": `${padding}px` }
+            : {}),
           padding: isNavigationColumn || isPageOverlayFlowColumn || isSectionOverlayColumn ? 0 : `${padding}px`,
           border:
             isNavigationColumn || isPageOverlayFlowColumn || isSectionOverlayColumn || Number(borderWidth) <= 0
