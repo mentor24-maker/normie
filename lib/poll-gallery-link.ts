@@ -9,7 +9,7 @@ import {
   normalizePollImageUrlForSave,
   resolvePollGalleryStorageName
 } from "@/lib/poll-gallery-link-core";
-import { loadAllPollRows } from "@/lib/poll-rows-pagination";
+import { loadAllPollIdImageUrlRows, loadAllPollImageUrlRows } from "@/lib/poll-rows-pagination";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export {
@@ -39,7 +39,7 @@ export type SyncPollGalleryImageLinksResult = {
 /** Canonicalize legacy poll image URLs and index gallery_media for filter parity. */
 export async function syncPollGalleryImageLinks(): Promise<SyncPollGalleryImageLinksResult> {
   const supabase = createAdminClient();
-  const rows = await loadAllPollRows("id, image_url");
+  const rows = await loadAllPollIdImageUrlRows();
   const names = new Set<string>();
   let updated = 0;
 
@@ -123,7 +123,7 @@ export async function pollHasGalleryFileInStorage(
 
 /** Every gallery `storage_name` referenced by a poll `image_url` (no Storage/index pre-filter). */
 export async function loadGalleryStorageNamesReferencedByPolls(): Promise<string[]> {
-  const rows = await loadAllPollRows("image_url");
+  const rows = await loadAllPollImageUrlRows();
   const names = new Set<string>();
 
   for (const row of rows) {

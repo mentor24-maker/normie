@@ -45,7 +45,6 @@ function matchesGalleryMediaQuery(item: AdminMediaItem, params: GalleryMediaQuer
   }
 
   if (params.extension) {
-    const pattern = `%${params.extension}`;
     const matches = storageName.toLowerCase().endsWith(params.extension.toLowerCase());
 
     if (params.notExtension ? matches : !matches) {

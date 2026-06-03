@@ -45,10 +45,10 @@ import {
   resolvePollGalleryStorageName
 } from "../lib/poll-gallery-link-core";
 import { loadGalleryStorageNamesReferencedByPolls } from "../lib/poll-gallery-link";
-import { loadAllPollRows } from "../lib/poll-rows-pagination";
+import { loadAllPollIdQuestionImageUrlRows } from "../lib/poll-rows-pagination";
 
 async function main() {
-  const rows = await loadAllPollRows("id, question, image_url");
+  const rows = await loadAllPollIdQuestionImageUrlRows();
   const pollFilterNames = await loadGalleryStorageNamesReferencedByPolls();
   const withImage = rows.filter((row) => String(row.image_url ?? "").trim().length > 0);
   const linked = withImage.filter((row) => pollHasGalleryImageLink(row.image_url));

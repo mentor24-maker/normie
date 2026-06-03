@@ -1,11 +1,4 @@
 import { createAdminClient } from "@/lib/supabase-admin";
-import {
-  GALLERY_MEDIA_RECORD_SELECT_FULL,
-  GALLERY_MEDIA_RECORD_SELECT_LEGACY,
-  isMissingGalleryMediaColumnError,
-  normalizeGalleryMediaRecordRow,
-  type GalleryMediaRecordRow
-} from "@/lib/gallery-media-record";
 
 const GALLERY_MEDIA_IN_CHUNK_SIZE = 100;
 
@@ -33,25 +26,21 @@ export async function loadGalleryMediaIndexStorageNamesForNames(
   const found = new Set<string>();
 
   for (const chunk of chunkStorageNames(uniqueNames)) {
-    let result = await supabase
+    const { data, error } = await supabase
       .from("gallery_media")
-      .select(GALLERY_MEDIA_RECORD_SELECT_FULL)
+      .select("storage_name")
       .in("storage_name", chunk);
 
-    if (result.error && isMissingGalleryMediaColumnError(result.error.message)) {
-      result = await supabase
-        .from("gallery_media")
-        .select(GALLERY_MEDIA_RECORD_SELECT_LEGACY)
-        .in("storage_name", chunk);
+    if (error) {
+      throw new Error(error.message);
     }
 
-    if (result.error) {
-      throw new Error(result.error.message);
-    }
+    for (const row of data ?? []) {
+      const storageName = String(row.storage_name ?? "").trim();
 
-    for (const row of (result.data as GalleryMediaRecordRow[] | null) ?? []) {
-      const normalized = normalizeGalleryMediaRecordRow(row);
-      found.add(normalized.storage_name);
+      if (storageName) {
+        found.add(storageName);
+      }
     }
   }
 
