@@ -7,6 +7,7 @@ import { deleteGalleryMediaFiles, updateGalleryMediaMetadata } from "@/lib/galle
 
 type BulkPatchBody = {
   storageNames?: unknown;
+  badge?: unknown;
   media_category?: unknown;
   media_type?: unknown;
   aspect?: unknown;

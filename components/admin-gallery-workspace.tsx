@@ -698,7 +698,7 @@ export function AdminGalleryWorkspace() {
           item={detailItem}
           onClose={() => setDetailItem(null)}
           onError={setError}
-          onPatch={(patch, successMessage) => void patchGalleryMetadata(detailItem, patch, successMessage)}
+          onPatch={(patch, successMessage) => patchGalleryMetadata(detailItem, patch, successMessage)}
         />
       ) : null}
     </section>

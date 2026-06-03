@@ -185,7 +185,7 @@ export async function queryGalleryMediaLibrary(
   }
 
   const supabase = createAdminClient();
-  const rows = ((result.data as GalleryMediaRecordRow[] | null) ?? []).map((row) => {
+  const rows = ((result.data as unknown as GalleryMediaRecordRow[] | null) ?? []).map((row) => {
     const normalized = normalizeGalleryMediaRecordRow(row);
 
     return {
