@@ -57,12 +57,8 @@ export function PreviousResultsPanel({ previousPoll, settings }: PreviousResults
       <PollCategoryHeadline category={previousPoll?.category} />
       <div className="poll-question-area">
         {previousPoll ? (
-          <>
+          <div className="poll-previous-results-question-pod">
             <h2 className="poll-question">{previousPoll.question}</h2>
-            <p className="panel-copy">
-              {formatDisplayCount(previousPoll.totalResponses)} total response
-              {previousPoll.totalResponses === 1 ? "" : "s"}
-            </p>
             <div className="result-list">
               {previousPoll.options.map((option) => (
                 <div className="result-row" key={option.id}>
@@ -78,7 +74,7 @@ export function PreviousResultsPanel({ previousPoll, settings }: PreviousResults
                 </div>
               ))}
             </div>
-          </>
+          </div>
         ) : initialContent ? (
           <>
             {initialContent.headerLabel.trim() ? (

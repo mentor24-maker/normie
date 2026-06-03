@@ -60,6 +60,14 @@
     rgba(255, 255, 255, 0.88) 0%,
     rgba(235, 248, 255, 0.82) 100%
   );
+  --poll-previous-results-question-border: #c96a52;
+  --poll-previous-results-question-surface: linear-gradient(
+    135deg,
+    #ffe0e8 0%,
+    #ffd4c2 48%,
+    #ffe8cc 100%
+  );
+  --poll-previous-results-question-ink: #7a3b2e;
   /* Deep dive overlay on Previous Results — must be fully opaque (matches previous poll card fill). */
   --poll-deep-dive-overlay-fill: #fefac7;
   --poll-deep-dive-trigger-bg: #006699;
@@ -926,6 +934,22 @@ h2 {
   background: linear-gradient(135deg, #e7f2ff 0%, #b6a0ff 45%, #8e5cff 100%);
 }
 
+/* Previous results module: question + chart pod */
+.poll-previous-results-panel .poll-previous-results-question-pod {
+  display: grid;
+  gap: 14px;
+  margin-block: 18px;
+  padding: 28px 30px;
+  border-radius: 25px;
+  border: 2px solid var(--poll-previous-results-question-border);
+  background: var(--poll-previous-results-question-surface);
+}
+
+.poll-previous-results-panel .poll-previous-results-question-pod .result-row {
+  padding: 10px;
+  box-sizing: border-box;
+}
+
 .poll-previous-results-panel {
   position: relative;
   overflow: hidden;
@@ -1523,6 +1547,15 @@ h2 {
 .poll-module-panel.action-panel .poll-question {
   font-family: var(--font-poll-question), system-ui, sans-serif;
   color: #240251;
+}
+
+.poll-previous-results-panel .poll-question {
+  font-family: var(--font-poll-question), system-ui, sans-serif;
+  color: var(--poll-previous-results-question-ink);
+}
+
+.poll-previous-results-panel .panel-copy {
+  color: var(--poll-previous-results-question-ink);
 }
 
 .admin-stack {
