@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getGalleryStorageName, mergeGalleryMediaBadges } from "@/lib/gallery-media";
+import { mergeGalleryMediaBadges } from "@/lib/gallery-media";
+import { getGalleryStorageName } from "@/lib/gallery-storage-name";
 import type { AdminMediaItem } from "@/lib/admin-media";
 
 describe("getGalleryStorageName", () => {
@@ -9,6 +10,7 @@ describe("getGalleryStorageName", () => {
     );
     expect(getGalleryStorageName("/gallery/wave.png")).toBe("wave.png");
     expect(getGalleryStorageName("gallery/wave.png")).toBe("wave.png");
+    expect(getGalleryStorageName("wave.png")).toBe("");
   });
 });
 

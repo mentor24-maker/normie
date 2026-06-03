@@ -28,6 +28,7 @@ export type GalleryMediaFilters = {
   mediaCategory: string;
   mediaType: string;
   aspect: "" | GalleryMediaAspect;
+  requirePoll: boolean;
   sort: GalleryMediaSort;
   not: GalleryMediaFilterNegation;
 };
@@ -39,6 +40,7 @@ export const DEFAULT_GALLERY_MEDIA_FILTERS: GalleryMediaFilters = {
   mediaCategory: "",
   mediaType: "",
   aspect: "",
+  requirePoll: false,
   sort: "name_asc",
   not: DEFAULT_GALLERY_MEDIA_FILTER_NEGATION
 };
@@ -70,6 +72,7 @@ export function hasActiveGalleryMediaFilters(filters: GalleryMediaFilters): bool
     filters.mediaCategory.length > 0 ||
     filters.mediaType.length > 0 ||
     filters.aspect.length > 0 ||
+    filters.requirePoll ||
     filters.sort !== DEFAULT_GALLERY_MEDIA_FILTERS.sort ||
     (Object.keys(filters.not) as (keyof GalleryMediaFilterNegation)[]).some(
       (key) => filters.not[key] && filterValueActive(filters, key)
@@ -88,6 +91,7 @@ export function galleryFiltersToQueryParams(
     mediaCategory: filters.mediaCategory,
     mediaType: filters.mediaType,
     aspect: filters.aspect,
+    hasPoll: filters.requirePoll ? "yes" : "",
     sort: filters.sort,
     notFilename: filters.not.filename,
     notExtension: filters.not.extension,

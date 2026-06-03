@@ -1,6 +1,9 @@
 import { getBlogPostPath } from "@/lib/blog";
-import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import { normalizeBuilderAssetUrl } from "@/lib/builder-asset-url";
+import { DEEP_DIVE_RELATED_LIMIT } from "@/lib/poll-deep-dive-constants";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
+
+export { DEEP_DIVE_RELATED_LIMIT };
 
 export type DeepDiveSource = {
   question: string;
@@ -26,8 +29,6 @@ export type PollDeepDiveContent =
   | { kind: "youtube"; embedUrl: string }
   | { kind: "related"; polls: DeepDivePollRef[] }
   | { kind: "empty" };
-
-export const DEEP_DIVE_RELATED_LIMIT = 6;
 
 /** Blue pod-style pill label for the deep dive overlay header (by content kind). */
 export function getPollDeepDiveOverlayPillLabel(content: PollDeepDiveContent): string {

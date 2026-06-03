@@ -50,6 +50,7 @@ export function useGalleryMediaLibrary(options?: {
         mediaCategory: querySource.mediaCategory,
         mediaType: querySource.mediaType,
         aspect: querySource.aspect,
+        requirePoll: filters.requirePoll,
         sort: querySource.sort,
         not: querySource.not
       };
@@ -92,6 +93,7 @@ export function useGalleryMediaLibrary(options?: {
       filters.kind,
       filters.mediaCategory,
       filters.mediaType,
+      filters.requirePoll,
       filters.sort,
       filters.not,
       options?.listQueryFilters
@@ -122,6 +124,7 @@ export function useGalleryMediaLibrary(options?: {
     filters.kind,
     filters.mediaCategory,
     filters.mediaType,
+    filters.requirePoll,
     filters.sort,
     filters.not,
     loadMedia,

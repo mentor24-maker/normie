@@ -17,7 +17,10 @@ import {
   type GalleryMediaRecordRow
 } from "@/lib/gallery-media-record";
 import { normalizeGalleryMediaType } from "@/lib/gallery-media-type";
+import { getGalleryStorageName } from "@/lib/gallery-storage-name";
 import { createAdminClient } from "@/lib/supabase-admin";
+
+export { getGalleryStorageName } from "@/lib/gallery-storage-name";
 
 export type GalleryMediaRecord = {
   storage_name: string;
@@ -36,43 +39,6 @@ export type GalleryMediaMetadataPatch = {
   aspect?: GalleryMediaAspect;
 };
 
-export function getGalleryStorageName(value: string): string {
-  const text = value.trim();
-
-  if (!text) {
-    return "";
-  }
-
-  try {
-    const url = new URL(text);
-    const parts = url.pathname.split("/").filter(Boolean);
-    const galleryIndex = parts.findIndex((part) => part === "gallery");
-
-    if (galleryIndex >= 0) {
-      const storageName = parts.slice(galleryIndex + 1).join("/");
-
-      if (storageName) {
-        return decodeURIComponent(storageName);
-      }
-    }
-  } catch {
-    // Fall through for relative paths.
-  }
-
-  const galleryMarker = "/gallery/";
-  const markerIndex = text.indexOf(galleryMarker);
-
-  if (markerIndex >= 0) {
-    return text.slice(markerIndex + galleryMarker.length).split("?")[0]?.split("#")[0] ?? "";
-  }
-
-  if (text.startsWith("gallery/")) {
-    return text.slice("gallery/".length).split("?")[0]?.split("#")[0] ?? "";
-  }
-
-  return text.split("/").filter(Boolean).pop()?.split("?")[0]?.split("#")[0] ?? "";
-}
-
 export function mergeGalleryMediaBadges(
   items: AdminMediaItem[],
   records: GalleryMediaRecord[]
@@ -86,7 +52,7 @@ export function mergeGalleryMediaBadges(
 
     return {
       ...item,
-      storageName,
+      storageName: storageName || item.name,
       badge: record?.badge ?? false,
       mediaCategory: record?.media_category ?? defaults.media_category,
       mediaType: record?.media_type ?? defaults.media_type,
@@ -199,6 +165,18 @@ export async function loadGalleryMediaRecords(): Promise<GalleryMediaRecord[]> {
 export async function listGalleryMediaLibrary(): Promise<AdminMediaItem[]> {
   const [storageMedia, records] = await Promise.all([listGalleryStorageMedia(), loadGalleryMediaRecords()]);
   return mergeGalleryMediaBadges(storageMedia, records);
+}
+
+/** All object names currently in the Supabase `gallery` bucket. */
+export async function listGalleryStorageFileNameSet(): Promise<Set<string>> {
+  const media = await listGalleryStorageMedia();
+  return new Set(media.map((item) => item.name).filter(Boolean));
+}
+
+/** All `storage_name` rows in `gallery_media` (same index the Gallery grid uses when `indexed=1`). */
+export async function listGalleryMediaIndexNameSet(): Promise<Set<string>> {
+  const records = await loadGalleryMediaRecords();
+  return new Set(records.map((record) => record.storage_name).filter(Boolean));
 }
 
 export async function updateGalleryMediaMetadata(

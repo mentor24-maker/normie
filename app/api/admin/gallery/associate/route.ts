@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
-import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { linkPollToGalleryStorage } from "@/lib/poll-gallery-link";
 
 function safeText(value: unknown, max = 500) {
   return String(value ?? "").trim().slice(0, max);
@@ -27,29 +26,9 @@ export async function POST(request: Request) {
       return auth.finish(NextResponse.json({ error: "A gallery file name is required." }, { status: 400 }));
     }
 
-    const imageUrl = normalizeBuilderAssetUrl(`/gallery/${storageName.replace(/^\/+/, "")}`);
+    const poll = await linkPollToGalleryStorage(pollId, storageName);
 
-    if (!imageUrl) {
-      return auth.finish(NextResponse.json({ error: "Could not resolve a gallery image path." }, { status: 400 }));
-    }
-
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("polls")
-      .update({ image_url: imageUrl })
-      .eq("id", pollId)
-      .select("id, category, question, image_url")
-      .maybeSingle();
-
-    if (error) {
-      return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));
-    }
-
-    if (!data) {
-      return auth.finish(NextResponse.json({ error: "Poll not found." }, { status: 404 }));
-    }
-
-    return auth.finish(NextResponse.json({ poll: data }));
+    return auth.finish(NextResponse.json({ poll }));
   } catch (error) {
     return auth.finish(
       NextResponse.json(

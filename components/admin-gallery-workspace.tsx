@@ -39,12 +39,19 @@ function mapMetadataPatch(patch: {
 }
 
 function storageNameForItem(item: AdminMediaItem): string {
-  return item.storageName ?? item.name;
+  const name = item.name.trim();
+
+  if (name) {
+    return name;
+  }
+
+  return (item.storageName ?? "").trim();
 }
 
 export function AdminGalleryWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedStorageNames, setSelectedStorageNames] = useState<Set<string>>(() => new Set());
   const [associateStorageName, setAssociateStorageName] = useState<string | null>(null);
@@ -416,36 +423,52 @@ export function AdminGalleryWorkspace() {
   return (
     <section className="admin-stack">
       <section className="admin-section">
-        <div className="panel-label">Gallery</div>
-        <h2>Gallery Media Library</h2>
+        <div className="admin-gallery-page-header">
+          <div className="admin-gallery-page-heading">
+            <div className="panel-label">Gallery</div>
+            <h2>Gallery Media Library</h2>
+          </div>
+          <div className="admin-actions">
+            <button
+              className={`secondary-button admin-gallery-upload-toggle${isUploadOpen ? " admin-gallery-upload-toggle-is-open" : ""}`}
+              onClick={() => setIsUploadOpen((current) => !current)}
+              type="button"
+              aria-expanded={isUploadOpen}
+            >
+              {isUploadOpen ? "Close" : "Upload Media"}
+            </button>
+          </div>
+        </div>
         <p className="page-copy admin-copy">
           Files live in the Supabase Storage <code>gallery</code> bucket. Set Type to Badge on an image to include it in
           reward badge symbol pickers.
         </p>
-        <div className="gallery-controls">
-          <div className="gallery-upload-card">
-            <div className="gallery-upload-copy">
-              <strong>Upload to Gallery</strong>
-              <span>Supports images and videos. You can select multiple files at once.</span>
+        {isUploadOpen ? (
+          <div className="gallery-controls">
+            <div className="gallery-upload-card">
+              <div className="gallery-upload-copy">
+                <strong>Upload to Gallery</strong>
+                <span>Supports images and videos. You can select multiple files at once.</span>
+              </div>
+              <input
+                ref={fileInputRef}
+                className="gallery-file-input"
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                onChange={(event) => void handleUpload(event.target.files)}
+              />
+              <button
+                className="secondary-button"
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+                disabled={isUploading}
+              >
+                {isUploading ? "Uploading..." : "Choose Files"}
+              </button>
             </div>
-            <input
-              ref={fileInputRef}
-              className="gallery-file-input"
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              onChange={(event) => void handleUpload(event.target.files)}
-            />
-            <button
-              className="secondary-button"
-              onClick={() => fileInputRef.current?.click()}
-              type="button"
-              disabled={isUploading}
-            >
-              {isUploading ? "Uploading..." : "Upload Media"}
-            </button>
           </div>
-        </div>
+        ) : null}
 
         {message ? <div className="notice success admin-notice">{message}</div> : null}
         {displayError ? <div className="notice error admin-notice">{displayError}</div> : null}
@@ -621,6 +644,7 @@ export function AdminGalleryWorkspace() {
                               setMessage(text);
                               setError(null);
                               setAssociateStorageName(null);
+                              void loadMedia();
                             }}
                             onClose={() => setAssociateStorageName(null)}
                             onError={setError}

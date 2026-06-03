@@ -19,6 +19,7 @@ import {
   POLL_COLLECTION_PERSONALITY_TYPE_B,
   POLL_COLLECTION_STANDARD
 } from "@/lib/poll-collections";
+import { getNextPollOrderIndex } from "@/lib/poll-order-index";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
@@ -163,18 +164,18 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  const { data: lastPoll, error: lastPollError } = await supabase
-    .from("polls")
-    .select("order_index")
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let nextOrderIndex: number;
 
-  if (lastPollError) {
-    return importFailure(auth, lastPollError.message, diagnostics, 500);
+  try {
+    nextOrderIndex = await getNextPollOrderIndex(supabase);
+  } catch (orderError) {
+    return importFailure(
+      auth,
+      orderError instanceof Error ? orderError.message : "Failed to resolve poll order.",
+      diagnostics,
+      500
+    );
   }
-
-  let nextOrderIndex = (lastPoll?.order_index ?? 0) + 1;
   let createdCount = 0;
 
   for (const row of rows) {

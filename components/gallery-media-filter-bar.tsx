@@ -209,24 +209,40 @@ export function GalleryMediaFilterBar({
       <div
         className={`admin-gallery-filter-bar${showBulkControls ? " has-bulk-controls" : ""}${showFilterActions ? " has-filter-actions" : ""}`}
       >
-      {showBulkControls ? (
-        <label className="admin-gallery-filter-check-all admin-gallery-filter-field-stacked">
-          <span className="admin-gallery-filter-label admin-gallery-filter-check-all-label">
-            <span className="admin-gallery-filter-check-all-label-line">Check</span>
-            <span className="admin-gallery-filter-check-all-label-line">All</span>
-          </span>
-          <span className="admin-gallery-filter-check-all-control">
+      <div className="admin-gallery-filter-selection-column">
+        <label className="admin-gallery-filter-poll-toggle admin-gallery-filter-field-stacked admin-gallery-filter-checkbox-field">
+          <span className="admin-gallery-filter-label admin-gallery-filter-poll-label">Poll</span>
+          <span className="admin-gallery-filter-checkbox-wrap">
             <input
-              ref={checkAllRef}
-              aria-label="Check all filtered media"
-              checked={checkAllChecked}
-              disabled={checkAllDisabled}
-              onChange={(event) => onCheckAllChange(event.target.checked)}
+              aria-label="Show only gallery files linked to a poll"
+              checked={filters.requirePoll}
+              disabled={bulkEditActive}
+              onChange={(event) =>
+                onChange((current) => ({ ...current, requirePoll: event.target.checked }))
+              }
               type="checkbox"
             />
           </span>
         </label>
-      ) : null}
+        {showBulkControls ? (
+          <label className="admin-gallery-filter-check-all admin-gallery-filter-field-stacked">
+            <span className="admin-gallery-filter-label admin-gallery-filter-check-all-label">
+              <span className="admin-gallery-filter-check-all-label-line">Check</span>
+              <span className="admin-gallery-filter-check-all-label-line">All</span>
+            </span>
+            <span className="admin-gallery-filter-check-all-control">
+              <input
+                ref={checkAllRef}
+                aria-label="Check all filtered media"
+                checked={checkAllChecked}
+                disabled={checkAllDisabled}
+                onChange={(event) => onCheckAllChange(event.target.checked)}
+                type="checkbox"
+              />
+            </span>
+          </label>
+        ) : null}
+      </div>
       <GalleryFilterField
         bulkEditActive={bulkEditActive}
         filters={filters}

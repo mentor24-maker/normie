@@ -99,15 +99,10 @@ export function buildPublicPollCategoryPath(category: Pick<PollCategorySeed, "sl
   return `/?${params.toString()}`;
 }
 
-/** Path + query to open the site with a specific published poll as the current question (see `/api/polls/next?startPoll=`). */
-export function buildPublicPollViewPath(poll: { id: string; category: string | null }): string {
+/** Home page URL that opens a specific published poll as the current question (`startPoll` only). */
+export function buildPublicPollViewPath(poll: { id: string }): string {
   const params = new URLSearchParams();
   params.set("startPoll", poll.id);
-  const cat = poll.category?.trim();
-  if (cat) {
-    const seeded = POLL_CATEGORY_SEEDS.find((c) => c.name === cat);
-    params.set("category", seeded?.slug ?? slugifyPollCategory(cat));
-  }
   return `/?${params.toString()}`;
 }
 

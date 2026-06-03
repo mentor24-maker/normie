@@ -5,7 +5,7 @@ import {
   PollRelatedPickerModal,
   type PollRelatedPickerItem
 } from "@/components/poll-related-picker-modal";
-import { DEEP_DIVE_RELATED_LIMIT } from "@/lib/poll-deep-dive";
+import { DEEP_DIVE_RELATED_LIMIT } from "@/lib/poll-deep-dive-constants";
 
 export type AdminBlogPostOption = {
   id: string;

@@ -39,7 +39,7 @@ export function AdminPollResponsePurgePanel() {
   }
 
   return (
-    <section className="admin-section">
+    <section className="admin-section admin-polls-purge-panel">
       <div className="panel-label">Player Data Cleanup</div>
       <h2>Stale Poll Responses</h2>
       <p className="page-copy admin-copy">
@@ -48,8 +48,8 @@ export function AdminPollResponsePurgePanel() {
         published poll.
       </p>
 
-      {error ? <div className="notice error">{error}</div> : null}
-      {message ? <div className="notice success">{message}</div> : null}
+      {error ? <div className="notice error admin-notice">{error}</div> : null}
+      {message ? <div className="notice success admin-notice">{message}</div> : null}
 
       <button
         className="secondary-button"

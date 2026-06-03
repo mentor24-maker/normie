@@ -13,6 +13,10 @@ import {
   type GalleryMediaRecordRow
 } from "@/lib/gallery-media-record";
 import type { GalleryMediaRecord } from "@/lib/gallery-media";
+import { loadGalleryMediaIndexStorageNamesForNames } from "@/lib/gallery-media-index-lookup";
+import { listGalleryMediaLinkedToPolls } from "@/lib/gallery-poll-linked-media";
+import { resolveGalleryIndexStorageNamesForPollLinks } from "@/lib/gallery-storage-match";
+import { loadGalleryStorageNamesReferencedByPolls } from "@/lib/poll-gallery-link";
 import {
   escapeIlikePattern,
   type GalleryMediaQueryParams,
@@ -88,10 +92,15 @@ function mapGalleryRowToMediaItem(row: GalleryMediaRow, publicPath: string): Adm
 
 async function executeGalleryMediaQuery(
   params: GalleryMediaQueryParams,
-  selectColumns: string
+  selectColumns: string,
+  pollLinkedStorageNames?: string[]
 ) {
   const supabase = createAdminClient();
   let query = supabase.from("gallery_media").select(selectColumns, { count: "exact" });
+
+  if (pollLinkedStorageNames) {
+    query = query.in("storage_name", pollLinkedStorageNames);
+  }
 
   const filename = params.filename.trim();
 
@@ -174,10 +183,82 @@ export async function queryGalleryMediaLibrary(
     await options.syncIndex();
   }
 
-  let result = await executeGalleryMediaQuery(params, GALLERY_MEDIA_RECORD_SELECT_FULL);
+  let pollLinkedStorageNames: string[] | undefined;
+
+  if (params.hasPoll === "yes") {
+    pollLinkedStorageNames = await loadGalleryStorageNamesReferencedByPolls();
+
+    if (pollLinkedStorageNames.length === 0) {
+      return {
+        media: [],
+        total: 0,
+        limit: params.limit,
+        offset: params.offset
+      };
+    }
+
+    const indexStorageNames = resolveGalleryIndexStorageNamesForPollLinks(
+      pollLinkedStorageNames,
+      await loadGalleryMediaIndexStorageNamesForNames(pollLinkedStorageNames)
+    );
+
+    let result = await executeGalleryMediaQuery(
+      params,
+      GALLERY_MEDIA_RECORD_SELECT_FULL,
+      indexStorageNames
+    );
+
+    if (result.error && isMissingGalleryMediaColumnError(result.error.message)) {
+      result = await executeGalleryMediaQuery(
+        params,
+        GALLERY_MEDIA_RECORD_SELECT_LEGACY,
+        indexStorageNames
+      );
+    }
+
+    if (!result.error) {
+      const supabase = createAdminClient();
+      const rows = ((result.data as unknown as GalleryMediaRecordRow[] | null) ?? []).map((row) => {
+        const normalized = normalizeGalleryMediaRecordRow(row);
+
+        return {
+          ...normalized,
+          created_at: row.created_at ?? normalized.created_at ?? new Date(0).toISOString()
+        } satisfies GalleryMediaRow;
+      });
+
+      const media = rows
+        .map((row) => {
+          const { data: urlData } = supabase.storage.from("gallery").getPublicUrl(row.storage_name);
+          return mapGalleryRowToMediaItem(row, urlData.publicUrl);
+        })
+        .filter((item): item is AdminMediaItem => Boolean(item));
+
+      if (media.length > 0 || (result.count ?? 0) > 0) {
+        return {
+          media,
+          total: result.count ?? media.length,
+          limit: params.limit,
+          offset: params.offset
+        };
+      }
+    }
+
+    return listGalleryMediaLinkedToPolls(params, pollLinkedStorageNames);
+  }
+
+  let result = await executeGalleryMediaQuery(
+    params,
+    GALLERY_MEDIA_RECORD_SELECT_FULL,
+    pollLinkedStorageNames
+  );
 
   if (result.error && isMissingGalleryMediaColumnError(result.error.message)) {
-    result = await executeGalleryMediaQuery(params, GALLERY_MEDIA_RECORD_SELECT_LEGACY);
+    result = await executeGalleryMediaQuery(
+      params,
+      GALLERY_MEDIA_RECORD_SELECT_LEGACY,
+      pollLinkedStorageNames
+    );
   }
 
   if (result.error) {

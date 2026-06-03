@@ -57,8 +57,9 @@ export function GalleryPollAssociateMenu({
   const [questionFilter, setQuestionFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [polls, setPolls] = useState<PollPickerRow[]>([]);
+  const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [associatingPollId, setAssociatingPollId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isAssociatingAll, setIsAssociatingAll] = useState(false);
   const { catalog: pollCategoryCatalog } = usePollCategoryCatalog();
   const pickerCategories = useMemo(
@@ -148,25 +149,36 @@ export function GalleryPollAssociateMenu({
     return () => window.clearTimeout(handle);
   }, [questionFilter]);
 
-  async function associatePoll(poll: PollPickerRow) {
+  useEffect(() => {
+    if (selectedPollId && !polls.some((poll) => poll.id === selectedPollId)) {
+      setSelectedPollId(null);
+    }
+  }, [polls, selectedPollId]);
+
+  const selectedPoll = useMemo(
+    () => polls.find((poll) => poll.id === selectedPollId) ?? null,
+    [polls, selectedPollId]
+  );
+
+  async function saveAssociation() {
     const storageName = storageNames[0];
 
-    if (!storageName) {
+    if (!storageName || !selectedPoll || isBulk) {
       return;
     }
 
-    setAssociatingPollId(poll.id);
+    setIsSaving(true);
 
     try {
-      await associateStorageWithPoll(storageName, poll.id);
-      onAssociated(`Associated ${storageName} with “${poll.question}”.`);
+      await associateStorageWithPoll(storageName, selectedPoll.id);
+      onAssociated(`Associated ${storageName} with “${selectedPoll.question}”.`);
       onClose();
     } catch (associateError) {
       onError(
         associateError instanceof Error ? associateError.message : "Failed to associate gallery media with poll."
       );
     } finally {
-      setAssociatingPollId(null);
+      setIsSaving(false);
     }
   }
 
@@ -243,8 +255,9 @@ export function GalleryPollAssociateMenu({
     }
   }
 
+  const saveDisabled = !selectedPoll || isLoading || isSaving || isAssociatingAll;
   const bulkAssociateDisabled =
-    !categoryFilter.trim() || polls.length === 0 || isLoading || Boolean(associatingPollId);
+    !categoryFilter.trim() || polls.length === 0 || isLoading || isSaving || isAssociatingAll;
 
   return (
     <div className="admin-gallery-associate-menu admin-gallery-popup-panel" role="dialog" aria-label="Associate with poll">
@@ -287,9 +300,16 @@ export function GalleryPollAssociateMenu({
           Choose a category, then associate {storageNames.length} selected file
           {storageNames.length === 1 ? "" : "s"} with polls in that category (in list order).
         </p>
-      ) : null}
+      ) : (
+        <p className="admin-gallery-associate-hint">Select a poll, then click Save Association.</p>
+      )}
 
-      <div className="admin-gallery-associate-list" role="listbox" aria-label="Polls">
+      <div
+        className="admin-gallery-associate-list"
+        role="listbox"
+        aria-label="Polls"
+        aria-activedescendant={selectedPollId ? `associate-poll-${selectedPollId}` : undefined}
+      >
         {isLoading && polls.length === 0 ? (
           <p className="admin-gallery-associate-empty">Loading polls...</p>
         ) : null}
@@ -297,39 +317,60 @@ export function GalleryPollAssociateMenu({
           <p className="admin-gallery-associate-empty">No polls match these filters.</p>
         ) : null}
         {polls.map((poll) => {
-          const isAssociating = associatingPollId === poll.id;
+          const isSelected = selectedPollId === poll.id;
 
           return (
             <button
-              className="admin-gallery-associate-option"
-              disabled={Boolean(associatingPollId) || isAssociatingAll || isBulk}
+              aria-selected={isSelected}
+              className={
+                isSelected
+                  ? "admin-gallery-associate-option is-selected"
+                  : "admin-gallery-associate-option"
+              }
+              disabled={isSaving || isAssociatingAll || isBulk}
+              id={`associate-poll-${poll.id}`}
               key={poll.id}
-              onClick={() => void associatePoll(poll)}
+              onClick={() => setSelectedPollId(poll.id)}
+              role="option"
               title={isBulk ? "Use Associate All for multiple files" : undefined}
               type="button"
             >
               <span className="admin-gallery-associate-option-question">{poll.question}</span>
               <span className="admin-gallery-associate-option-meta">
                 {poll.category ?? "Uncategorized"} · #{poll.order_index}
-                {isAssociating ? " · Saving..." : ""}
               </span>
             </button>
           );
         })}
       </div>
 
-      {isBulk ? (
-        <div className="admin-gallery-associate-footer">
+      <div className="admin-gallery-associate-footer">
+        {isBulk ? (
           <button
             className="submit-button admin-blog-add-button"
-            disabled={bulkAssociateDisabled || isAssociatingAll}
+            disabled={bulkAssociateDisabled}
             onClick={() => void associateAllWithCategory()}
             type="button"
           >
             {isAssociatingAll ? "Associating..." : `Associate All (${storageNames.length})`}
           </button>
-        </div>
-      ) : null}
+        ) : (
+          <div className="admin-gallery-associate-footer-actions">
+            <button className="secondary-button" disabled={isSaving} onClick={onClose} type="button">
+              Cancel
+            </button>
+            <button
+              aria-label="Save gallery association to selected poll"
+              className="submit-button admin-blog-add-button"
+              disabled={saveDisabled}
+              onClick={() => void saveAssociation()}
+              type="button"
+            >
+              {isSaving ? "Saving..." : "Save Association"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

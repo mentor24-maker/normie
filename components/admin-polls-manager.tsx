@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useId, useMemo, useState } from "react";
 import {
   summarizeDeepDiveBlogPost,
-  summarizeDeepDiveRelatedPolls,
   summarizeYoutube,
   type AdminBlogPostOption
 } from "@/components/admin-poll-deep-dive-editor";
 import { buildPublicPollViewPath } from "@/lib/poll-categories";
 import { sortPollCategoryNames } from "@/lib/load-poll-category-catalog";
 import { usePollCategoryCatalog } from "@/lib/use-poll-category-catalog";
+import { AdminPollResponsePurgePanel } from "@/components/admin-poll-response-purge-panel";
 import { AdminPollUploadPod } from "@/components/admin-poll-upload-pod";
 import { CsvImportForm } from "@/components/csv-import-form";
 import { PersonalityCsvImportForm } from "@/components/personality-csv-import-form";
@@ -19,8 +19,8 @@ import {
   PERSONALITY_TYPE_B_COLUMNS,
   PERSONALITY_TYPE_C_COLUMNS
 } from "@/lib/personality-poll-import";
-import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 import { POLL_COLLECTIONS, type PollCollection } from "@/lib/poll-collections";
+import { POLL_TABLE_THUMB_WIDTH, resolvePollTableThumbnailSrc } from "@/lib/poll-table-thumbnail";
 import { pollStatusLabel } from "@/lib/poll-visibility";
 
 const STANDARD_UPLOAD_COLUMNS = ["Category", "Question", "Option_A", "Option_B"];
@@ -41,6 +41,7 @@ type AdminPoll = {
   deep_dive_blog_post_id?: string | null;
   deep_dive_related_poll_ids?: unknown;
   image_url: string;
+  gallery_linked?: boolean;
   order_index: number;
   created_at: string;
   is_published: boolean;
@@ -58,7 +59,9 @@ type PollFilterState = {
   category: string;
   question: string;
   status: "all" | "published" | "draft" | "hidden";
+  not: boolean;
   requireYoutube: boolean;
+  requireImage: boolean;
   requireBlogPost: boolean;
 };
 
@@ -67,13 +70,55 @@ const emptyFilters: PollFilterState = {
   category: "",
   question: "",
   status: "all",
+  not: false,
   requireYoutube: false,
+  requireImage: false,
   requireBlogPost: false
 };
+
+function matchesPollAttributeFilter(require: boolean, hasValue: boolean, invert: boolean): boolean {
+  if (!require) {
+    return true;
+  }
+
+  return invert ? !hasValue : hasValue;
+}
+
+function normalizePollFilters(filters: PollFilterState): PollFilterState {
+  return {
+    collection: filters.collection ?? "",
+    category: filters.category ?? "",
+    question: filters.question ?? "",
+    status: filters.status ?? "all",
+    not: filters.not === true,
+    requireYoutube: filters.requireYoutube === true,
+    requireImage: filters.requireImage === true,
+    requireBlogPost: filters.requireBlogPost === true
+  };
+}
 
 function formatPollCollection(value: string | null | undefined) {
   const normalized = String(value ?? "").trim();
   return POLL_COLLECTIONS.includes(normalized as PollCollection) ? normalized : "Standard";
+}
+
+function PollTableImageCell({ imageUrl }: { imageUrl: string }) {
+  const src = resolvePollTableThumbnailSrc(imageUrl);
+
+  if (!src) {
+    return <span className="polls-table-image-empty">—</span>;
+  }
+
+  return (
+    <img
+      alt=""
+      className="polls-table-image-thumb"
+      height={POLL_TABLE_THUMB_WIDTH}
+      loading="lazy"
+      src={src}
+      width={POLL_TABLE_THUMB_WIDTH}
+    />
+  );
 }
 
 function matchesFilter(value: string | number | null | undefined, filter: string) {
@@ -93,6 +138,7 @@ export function AdminPollsManager() {
     totalAnswers: 0
   });
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isPurgeOpen, setIsPurgeOpen] = useState(false);
   const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<PollFilterState>(emptyFilters);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,7 +154,7 @@ export function AdminPollsManager() {
     setMessage(null);
 
     try {
-      const response = await fetch("/api/admin/polls", {
+      const response = await fetch("/api/admin/polls?sync_gallery_links=1", {
         cache: "no-store"
       });
 
@@ -173,22 +219,26 @@ export function AdminPollsManager() {
     return sortPollCategoryNames(pollCategoryCatalog.map((category) => category.name));
   }, [pollCategoryCatalog]);
 
+  const activeFilters = useMemo(() => normalizePollFilters(filters), [filters]);
+
   const filteredPolls = useMemo(() => {
     return polls.filter((poll) => {
       const statusText = pollStatusLabel(poll).toLowerCase();
       const hasYoutube = (poll.deep_dive_youtube_url ?? "").trim().length > 0;
+      const hasImage = poll.gallery_linked === true;
       const hasBlogPost = Boolean((poll.deep_dive_blog_post_id ?? "").toString().trim());
 
       return (
-        (!filters.collection || formatPollCollection(poll.collection) === filters.collection) &&
-        (!filters.category || (poll.category ?? "") === filters.category) &&
-        matchesFilter(poll.question, filters.question) &&
-        (filters.status === "all" || statusText === filters.status) &&
-        (!filters.requireYoutube || hasYoutube) &&
-        (!filters.requireBlogPost || hasBlogPost)
+        (!activeFilters.collection || formatPollCollection(poll.collection) === activeFilters.collection) &&
+        (!activeFilters.category || (poll.category ?? "") === activeFilters.category) &&
+        matchesFilter(poll.question, activeFilters.question) &&
+        (activeFilters.status === "all" || statusText === activeFilters.status) &&
+        matchesPollAttributeFilter(activeFilters.requireYoutube, hasYoutube, activeFilters.not) &&
+        matchesPollAttributeFilter(activeFilters.requireImage, hasImage, activeFilters.not) &&
+        matchesPollAttributeFilter(activeFilters.requireBlogPost, hasBlogPost, activeFilters.not)
       );
     });
-  }, [filters, polls]);
+  }, [activeFilters, polls]);
 
   const allSelected =
     filteredPolls.length > 0 && filteredPolls.every((poll) => selectedPollIds.includes(poll.id));
@@ -339,6 +389,14 @@ export function AdminPollsManager() {
                 >
                   {isImportOpen ? "Hide Import" : "Import"}
                 </button>
+                <button
+                  className={`secondary-button admin-polls-purge-button${isPurgeOpen ? " admin-polls-purge-button-is-open" : ""}`}
+                  onClick={() => setIsPurgeOpen((current) => !current)}
+                  type="button"
+                  aria-expanded={isPurgeOpen}
+                >
+                  {isPurgeOpen ? "Close" : "Purge"}
+                </button>
                 <Link className="secondary-button admin-polls-settings-button" href="/admin/polls/settings">
                   Settings
                 </Link>
@@ -364,6 +422,12 @@ export function AdminPollsManager() {
 
         {message ? <div className="notice success admin-notice">{message}</div> : null}
         {error ? <div className="notice error admin-notice">{error}</div> : null}
+
+        {isPurgeOpen ? (
+          <section className="admin-polls-purge-shell" aria-label="Stale poll response purge">
+            <AdminPollResponsePurgePanel />
+          </section>
+        ) : null}
 
         {isImportOpen ? (
           <section className="admin-polls-import-shell" aria-label="Poll CSV import">
@@ -406,10 +470,11 @@ export function AdminPollsManager() {
           <label className="polls-filter-select-all" aria-label="Select all visible polls">
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={filteredPolls.length === 0} />
           </label>
+          <div className="polls-filter-spacer polls-filter-spacer-image" aria-hidden />
           <label className="field polls-filter-field">
             <span>Collection</span>
             <select
-              value={filters.collection}
+              value={activeFilters.collection}
               onChange={(event) =>
                 setFilters((current) => ({
                   ...current,
@@ -433,7 +498,7 @@ export function AdminPollsManager() {
               onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
               placeholder="All categories"
               type="text"
-              value={filters.category}
+              value={activeFilters.category}
             />
             <datalist id={categoryFilterListId}>
               {availableCategories.map((category) => (
@@ -445,18 +510,42 @@ export function AdminPollsManager() {
             <span>Question</span>
             <input
               type="text"
-              value={filters.question}
+              value={activeFilters.question}
               onChange={(event) => setFilters((current) => ({ ...current, question: event.target.value }))}
             />
+          </label>
+          <label className="field polls-filter-field polls-filter-checkbox-field">
+            <span>NOT</span>
+            <div className="polls-filter-checkbox-wrap">
+              <input
+                type="checkbox"
+                checked={activeFilters.not}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, not: event.target.checked }))
+                }
+              />
+            </div>
           </label>
           <label className="field polls-filter-field polls-filter-checkbox-field">
             <span>YouTube</span>
             <div className="polls-filter-checkbox-wrap">
               <input
                 type="checkbox"
-                checked={filters.requireYoutube}
+                checked={activeFilters.requireYoutube}
                 onChange={(event) =>
                   setFilters((current) => ({ ...current, requireYoutube: event.target.checked }))
+                }
+              />
+            </div>
+          </label>
+          <label className="field polls-filter-field polls-filter-checkbox-field">
+            <span>Image</span>
+            <div className="polls-filter-checkbox-wrap">
+              <input
+                type="checkbox"
+                checked={activeFilters.requireImage}
+                onChange={(event) =>
+                  setFilters((current) => ({ ...current, requireImage: event.target.checked }))
                 }
               />
             </div>
@@ -466,18 +555,17 @@ export function AdminPollsManager() {
             <div className="polls-filter-checkbox-wrap">
               <input
                 type="checkbox"
-                checked={filters.requireBlogPost}
+                checked={activeFilters.requireBlogPost}
                 onChange={(event) =>
                   setFilters((current) => ({ ...current, requireBlogPost: event.target.checked }))
                 }
               />
             </div>
           </label>
-          <div className="polls-filter-spacer polls-filter-spacer-related" aria-hidden />
           <label className="field polls-filter-field">
             <span>Status</span>
             <select
-              value={filters.status}
+              value={activeFilters.status}
               onChange={(event) =>
                 setFilters((current) => ({
                   ...current,
@@ -491,26 +579,25 @@ export function AdminPollsManager() {
               <option value="hidden">Hidden</option>
             </select>
           </label>
-          <div className="polls-filter-bulk-actions">
-            <div className="polls-filter-bulk-actions-inner">
-              <button
-                className="secondary-button"
-                disabled={isHiding || selectedPollIds.length === 0}
-                onClick={() => void hideSelectedPolls()}
-                type="button"
-              >
-                {isHiding ? "Hiding..." : "Hide"}
-              </button>
-              <button
-                className="danger-button"
-                disabled={isDeleting || selectedPollIds.length === 0}
-                onClick={() => void deletePolls(selectedPollIds)}
-                type="button"
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
+        </div>
+
+        <div className="admin-polls-bulk-actions-bar">
+          <button
+            className="secondary-button"
+            disabled={isHiding || selectedPollIds.length === 0}
+            onClick={() => void hideSelectedPolls()}
+            type="button"
+          >
+            {isHiding ? "Hiding..." : "Hide Selected"}
+          </button>
+          <button
+            className="danger-button"
+            disabled={isDeleting || selectedPollIds.length === 0}
+            onClick={() => void deletePolls(selectedPollIds)}
+            type="button"
+          >
+            {isDeleting ? "Deleting..." : "Delete Selected"}
+          </button>
         </div>
 
         <div className="table-shell">
@@ -518,12 +605,12 @@ export function AdminPollsManager() {
             <thead>
               <tr>
                 <th className="checkbox-cell" aria-label="Select rows" />
+                <th className="polls-table-image-cell">Image</th>
                 <th>Collection</th>
                 <th>Category</th>
                 <th>Question</th>
                 <th>YouTube</th>
                 <th>Blog Post</th>
-                <th>Related Polls</th>
                 <th>Status</th>
                 <th className="polls-actions-cell">Actions</th>
               </tr>
@@ -538,17 +625,15 @@ export function AdminPollsManager() {
                       onChange={() => togglePollSelection(poll.id)}
                     />
                   </td>
+                  <td className="polls-table-image-cell">
+                    <PollTableImageCell imageUrl={poll.image_url} />
+                  </td>
                   <td>{formatPollCollection(poll.collection)}</td>
                   <td>{poll.category ?? "Uncategorized"}</td>
                   <td>{poll.question}</td>
                   <td className="polls-summary-cell">{summarizeYoutube(poll.deep_dive_youtube_url ?? "")}</td>
                   <td className="polls-summary-cell">
                     {summarizeDeepDiveBlogPost(poll.deep_dive_blog_post_id ?? "", blogPosts)}
-                  </td>
-                  <td className="polls-summary-cell">
-                    {summarizeDeepDiveRelatedPolls(
-                      normalizeDeepDiveRelatedPollIds(poll.deep_dive_related_poll_ids).length
-                    )}
                   </td>
                   <td>{pollStatusLabel(poll)}</td>
                   <td className="polls-actions-cell">

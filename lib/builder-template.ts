@@ -14,8 +14,11 @@ import {
   HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
   normalizeHeadlineRotatorHeadlinesJson
 } from "@/lib/headline-rotator";
+import { normalizeBuilderAssetUrl, safeText } from "@/lib/builder-asset-url";
 import { escapeHtmlText, sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { rewriteRichTextImageSrcInHtml } from "@/lib/rich-text-image";
+
+export { normalizeBuilderAssetUrl, safeText } from "@/lib/builder-asset-url";
 
 export type BuilderTemplateLayout =
   | "single"
@@ -157,10 +160,6 @@ export const BACKGROUND_STYLE_PRESETS: Array<{ value: BackgroundStylePreset; lab
   { value: "blue-yellow-circles", label: "blue-yellow-circles" }
 ];
 
-export function safeText(value: unknown, max = 10000) {
-  return String(value ?? "").trim().slice(0, max);
-}
-
 export function looksLikeHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value);
 }
@@ -202,47 +201,6 @@ export function prepareRichTextHtmlForEditor(value: unknown) {
 
 export function prepareRichTextHtmlForStorage(html: string) {
   return rewriteRichTextImageSrcInHtml(sanitizeRichTextHtml(html), "storage");
-}
-
-export function normalizeBuilderAssetUrl(value: unknown): string {
-  const text = safeText(value, 4000);
-
-  if (!text) {
-    return "";
-  }
-
-  if (text.startsWith("gallery/")) {
-    return `/${text}`;
-  }
-
-  if (text.startsWith("api/admin/media-file/gallery/")) {
-    return `/${text.replace("api/admin/media-file/gallery/", "gallery/")}`;
-  }
-
-  if (text.startsWith("/api/admin/media-file/gallery/")) {
-    return text.replace("/api/admin/media-file/gallery/", "/gallery/");
-  }
-
-  try {
-    const url = new URL(text);
-
-    if (url.pathname === "/_next/image") {
-      const nested = url.searchParams.get("url");
-      return nested ? normalizeBuilderAssetUrl(nested) : "";
-    }
-
-    if (url.pathname.startsWith("/api/admin/media-file/gallery/")) {
-      return url.pathname.replace("/api/admin/media-file/gallery/", "/gallery/") + url.search;
-    }
-
-    if (url.origin === "http://localhost:3000" || url.origin === "https://www.normie.one") {
-      return `${url.pathname}${url.search}`;
-    }
-  } catch {
-    // Keep relative URLs and other non-URL strings as-is.
-  }
-
-  return text;
 }
 
 export function createLocalId(prefix: string) {

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getAuthorizedAdminFromCookieStore } from "@/lib/admin-auth";
+import { readSupabaseGalleryFile } from "@/lib/gallery-storage-file";
 import { getPublicMediaContentType, readPublicGalleryFile } from "@/lib/public-media";
 
 export async function GET(
@@ -19,7 +20,8 @@ export async function GET(
   const safeParts = slug.filter((part) => part !== ".." && part !== ".");
 
   if (safeParts[0] === "gallery") {
-    const galleryAsset = await readPublicGalleryFile(safeParts.slice(1));
+    const slug = safeParts.slice(1);
+    const galleryAsset = (await readPublicGalleryFile(slug)) ?? (await readSupabaseGalleryFile(slug));
 
     if (!galleryAsset) {
       return new Response("Not found", { status: 404 });

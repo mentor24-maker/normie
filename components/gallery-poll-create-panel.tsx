@@ -101,7 +101,10 @@ export function GalleryPollCreatePanel({
         }
 
         const polls = data.polls ?? [];
-        const nextOrder = Math.max(0, ...polls.map((poll) => poll.order_index)) + 1;
+        const orderIndexes = polls
+          .map((poll) => poll.order_index)
+          .filter((value): value is number => Number.isFinite(value));
+        const nextOrder = (orderIndexes.length > 0 ? Math.max(...orderIndexes) : 0) + 1;
         const questionHint = galleryFileNameToQuestionHint(fileName);
 
         setExtraCategories(
@@ -191,7 +194,7 @@ export function GalleryPollCreatePanel({
           category: draft.category,
           question: draft.question,
           image_url: draft.image_url,
-          order_index: Number.parseInt(draft.order_index, 10),
+          order_index: Number.parseInt(draft.order_index, 10) || undefined,
           is_published: draft.is_published,
           deep_dive: "",
           deep_dive_youtube_url: "",

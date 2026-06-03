@@ -16,6 +16,7 @@ export const GALLERY_MEDIA_SORT_OPTIONS = [
 export type GalleryMediaSort = (typeof GALLERY_MEDIA_SORT_OPTIONS)[number]["value"];
 
 export type GalleryMediaBadgeFilter = "" | "yes" | "no";
+export type GalleryMediaPollFilter = "" | "yes";
 export type GalleryMediaKindFilter = "" | AdminMediaKind;
 
 export type GalleryMediaQueryParams = {
@@ -23,6 +24,7 @@ export type GalleryMediaQueryParams = {
   extension: string;
   kind: GalleryMediaKindFilter;
   badge: GalleryMediaBadgeFilter;
+  hasPoll: GalleryMediaPollFilter;
   mediaCategory: string;
   mediaType: string;
   aspect: "" | GalleryMediaAspect;
@@ -81,6 +83,9 @@ export function parseGalleryMediaQueryParams(searchParams: URLSearchParams): Gal
   const badge: GalleryMediaBadgeFilter =
     badgeParam === "yes" || badgeParam === "no" ? badgeParam : "";
 
+  const hasPollParam = searchParams.get("has_poll")?.trim().toLowerCase() ?? "";
+  const hasPoll: GalleryMediaPollFilter = hasPollParam === "yes" ? "yes" : "";
+
   const limitRaw = Number.parseInt(searchParams.get("limit") ?? "", 10);
   const offsetRaw = Number.parseInt(searchParams.get("offset") ?? "", 10);
   const limit = Number.isFinite(limitRaw)
@@ -99,6 +104,7 @@ export function parseGalleryMediaQueryParams(searchParams: URLSearchParams): Gal
     extension: normalizeGalleryExtensionFilter(searchParams.get("extension") ?? ""),
     kind,
     badge,
+    hasPoll,
     mediaCategory: searchParams.get("media_category")?.trim() ?? "",
     mediaType,
     aspect,
@@ -123,6 +129,7 @@ export function galleryMediaQueryUsesServerFilters(params: GalleryMediaQueryPara
     params.extension.length > 0 ||
     params.kind.length > 0 ||
     params.badge.length > 0 ||
+    params.hasPoll.length > 0 ||
     params.mediaCategory.length > 0 ||
     params.mediaType.length > 0 ||
     params.aspect.length > 0 ||
@@ -159,6 +166,10 @@ export function buildGalleryMediaSearchParams(
 
   if (params.badge) {
     search.set("badge", params.badge);
+  }
+
+  if (params.hasPoll) {
+    search.set("has_poll", params.hasPoll);
   }
 
   if (params.mediaCategory) {

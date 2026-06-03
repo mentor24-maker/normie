@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
-import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import { applyPollGalleryImageUrlOnSave } from "@/lib/poll-gallery-link";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -79,7 +79,7 @@ export async function PATCH(
 
   const category = safeText(body.category, 255);
   const question = safeText(body.question, 4000);
-  const imageUrl = normalizeBuilderAssetUrl(body.image_url);
+  const imageUrl = await applyPollGalleryImageUrlOnSave(body.image_url);
   const orderIndex = safeInteger(body.order_index, NaN);
   const isPublished = Boolean(body.is_published);
   const deepDive = sanitizeRichTextHtml(safeText(body.deep_dive, 100000));
