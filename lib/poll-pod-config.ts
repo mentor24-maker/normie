@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { normalizeBuilderAssetUrl, safeText } from "@/lib/builder-template";
+import { normalizeBuilderAssetUrl, resolvePublicBuilderAssetUrl, safeText } from "@/lib/builder-template";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 
 export const POLL_POD_BACKGROUND_MODES = ["none", "color", "gradient", "image"] as const;
@@ -343,7 +343,7 @@ export function buildPollPodBackgroundStyle(layout: PollPodLayout): CSSPropertie
   }
 
   if (layout.podBackgroundMode === "image" && layout.backgroundImageUrl) {
-    const imageUrl = normalizeBuilderAssetUrl(layout.backgroundImageUrl);
+    const imageUrl = resolvePublicBuilderAssetUrl(layout.backgroundImageUrl);
 
     return {
       backgroundColor: layout.podBackgroundColor === "transparent" ? "transparent" : layout.podBackgroundColor,

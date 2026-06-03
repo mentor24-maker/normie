@@ -19,6 +19,7 @@ import {
   getBuilderBackgroundStyle,
   normalizeBackgroundMode,
   normalizeBuilderAssetUrl,
+  resolvePublicBuilderAssetUrl,
   normalizeSignedOffsetValue,
   normalizeSpacingValue
 } from "@/lib/builder-template";
@@ -579,7 +580,7 @@ export function getModuleBackgroundSettings(settings: Record<string, string>): B
     mode: normalizeBackgroundMode(settings.backgroundMode),
     color: settings.backgroundColor || "#ffffff",
     color2: settings.backgroundColor2 || "#eaf4ff",
-    imageUrl: normalizeBuilderAssetUrl(settings.backgroundImageUrl),
+    imageUrl: resolvePublicBuilderAssetUrl(settings.backgroundImageUrl),
     styleKey: settings.backgroundStyleKey === "blue-yellow-circles" ? "blue-yellow-circles" : ""
   };
 }
@@ -617,7 +618,7 @@ export function getButtonBackgroundSettings(settings: Record<string, string>): B
       mode,
       color: settings.buttonBackgroundColor || settings.buttonColor || "#214c71",
       color2: settings.buttonBackgroundColor2 || "#eaf4ff",
-      imageUrl: normalizeBuilderAssetUrl(settings.buttonBackgroundImageUrl),
+      imageUrl: resolvePublicBuilderAssetUrl(settings.buttonBackgroundImageUrl),
       styleKey: settings.buttonBackgroundStyleKey === "blue-yellow-circles" ? "blue-yellow-circles" : ""
     };
   }

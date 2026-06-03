@@ -6,7 +6,12 @@ import {
   type AuthorizedPlayer,
   type PlayerProfileRow
 } from "@/lib/player-auth";
-import { POLL_CATEGORY_SEEDS, resolvePollCategoryName } from "@/lib/poll-categories";
+import {
+  POLL_CATEGORY_SEEDS,
+  pollCategoryMatchesAny,
+  pollCategoriesEqual,
+  resolvePollCategoryName
+} from "@/lib/poll-categories";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 const PREFERENCE_PROFILE_SELECT =
@@ -43,7 +48,7 @@ export function normalizePreferredPollCategories(value: unknown): string[] {
       continue;
     }
 
-    if (!CANONICAL_CATEGORY_NAMES.includes(resolved)) {
+    if (!CANONICAL_CATEGORY_NAMES.some((name) => pollCategoriesEqual(name, resolved))) {
       continue;
     }
 
@@ -70,11 +75,13 @@ export function normalizeDefaultPlayPollCategory(
     return "";
   }
 
-  if (preferredPollCategories.length > 0 && !preferredPollCategories.includes(resolved)) {
+  if (preferredPollCategories.length > 0 && !pollCategoryMatchesAny(resolved, preferredPollCategories)) {
     return "";
   }
 
-  return CANONICAL_CATEGORY_NAMES.includes(resolved) ? resolved : "";
+  const canonical = CANONICAL_CATEGORY_NAMES.find((name) => pollCategoriesEqual(name, resolved));
+
+  return canonical ?? "";
 }
 
 export function buildPlayerPreferences(profile: PlayerProfileRow): PlayerPreferences {

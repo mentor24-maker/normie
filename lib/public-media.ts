@@ -54,3 +54,40 @@ export async function readPublicGalleryFile(slug: string[]) {
     return null;
   }
 }
+
+export function resolvePublicSiteMediaFile(slug: string[]) {
+  const safeParts = slug.filter((part) => part && part !== "." && part !== "..");
+
+  if (safeParts.length === 0 || safeParts[0] === "gallery") {
+    return null;
+  }
+
+  const imagesRoot = path.join(process.cwd(), "images");
+  const filePath = path.join(imagesRoot, ...safeParts);
+  const resolvedPath = path.resolve(filePath);
+
+  if (!resolvedPath.startsWith(`${imagesRoot}${path.sep}`) && resolvedPath !== imagesRoot) {
+    return null;
+  }
+
+  return resolvedPath;
+}
+
+/** Site assets under `images/` outside the gallery bucket (logos, icons, WYR art, etc.). */
+export async function readPublicSiteMediaFile(slug: string[]) {
+  const filePath = resolvePublicSiteMediaFile(slug);
+
+  if (!filePath) {
+    return null;
+  }
+
+  try {
+    const file = await fs.readFile(filePath);
+    return {
+      file,
+      contentType: getPublicMediaContentType(filePath)
+    };
+  } catch {
+    return null;
+  }
+}

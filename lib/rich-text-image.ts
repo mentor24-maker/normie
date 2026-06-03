@@ -92,11 +92,13 @@ export function resolveRichTextImageSrc(src: string, mode: RichTextImageSrcMode)
   }
 
   if (galleryPath) {
-    return `/api/admin/media-file${galleryPath}`;
+    return mode === "display" ? galleryPath : `/api/admin/media-file${galleryPath}`;
   }
 
   if (normalized.startsWith("/api/admin/media-file/")) {
-    return normalized;
+    return mode === "display"
+      ? normalized.replace("/api/admin/media-file/", "/media/")
+      : normalized;
   }
 
   return "";

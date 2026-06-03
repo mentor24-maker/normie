@@ -10,7 +10,7 @@ import {
   getBuilderBackgroundStyle,
   getLayoutColumns,
   getLayoutGridTemplate,
-  normalizeBuilderAssetUrl
+  resolvePublicBuilderAssetUrl
 } from "@/lib/builder-template";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
@@ -196,8 +196,8 @@ function ContactFormPreview({ settings }: { settings: Record<string, string> }) 
 
 function MerchProductCard({ settings }: { settings: Record<string, string> }) {
   const productName = settings.productName || "Merch product";
-  const imageUrl = normalizeBuilderAssetUrl(settings.imageUrl);
-  const productUrl = normalizeBuilderAssetUrl(settings.productUrl);
+  const imageUrl = resolvePublicBuilderAssetUrl(settings.imageUrl);
+  const productUrl = resolvePublicBuilderAssetUrl(settings.productUrl);
   const buttonLabel = settings.buttonLabel || "Buy on Redbubble";
 
   return (
@@ -979,7 +979,7 @@ function parseSliderItems(settings: Record<string, string>): SliderItem[] {
         id: String(raw.id || `slide-${index + 1}`),
         title: String(raw.title || ""),
         body: String(raw.body || ""),
-        imageUrl: normalizeBuilderAssetUrl(raw.imageUrl),
+        imageUrl: resolvePublicBuilderAssetUrl(raw.imageUrl),
         linkUrl: String(raw.linkUrl || "")
       };
     });
@@ -1068,7 +1068,7 @@ function parseSocialItems(settings: Record<string, string>): SocialItem[] {
         id: String(raw.id || `social-${index + 1}`),
         label: String(raw.label || ""),
         href: String(raw.href || ""),
-        iconUrl: normalizeBuilderAssetUrl(raw.iconUrl),
+        iconUrl: resolvePublicBuilderAssetUrl(raw.iconUrl),
         backgroundColor: normalizeSocialIconBackgroundColor(raw.backgroundColor)
       };
     });

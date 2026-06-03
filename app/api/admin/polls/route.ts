@@ -14,6 +14,7 @@ import {
 } from "@/lib/poll-order-index";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { POLL_COLLECTION_STANDARD } from "@/lib/poll-collections";
+import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionInput = {
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
     poll_options?: PollOptionInput[];
   };
 
-  const category = safeText(body.category, 255);
+  const category = normalizePollCategoryForStorage(body.category);
   const question = safeText(body.question, 4000);
   const imageUrl = await applyPollGalleryImageUrlOnSave(body.image_url);
   const requestedOrder = safeInteger(body.order_index, NaN);
@@ -153,7 +154,7 @@ export async function POST(request: Request) {
     const result = await supabase
       .from("polls")
       .insert({
-        category: category || null,
+        category,
         collection: POLL_COLLECTION_STANDARD,
         question,
         image_url: imageUrl,

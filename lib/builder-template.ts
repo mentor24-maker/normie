@@ -18,7 +18,7 @@ import { normalizeBuilderAssetUrl, safeText } from "@/lib/builder-asset-url";
 import { escapeHtmlText, sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { rewriteRichTextImageSrcInHtml } from "@/lib/rich-text-image";
 
-export { normalizeBuilderAssetUrl, safeText } from "@/lib/builder-asset-url";
+export { normalizeBuilderAssetUrl, resolvePublicBuilderAssetUrl, safeText } from "@/lib/builder-asset-url";
 
 export type BuilderTemplateLayout =
   | "single"

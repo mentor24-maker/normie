@@ -1,4 +1,4 @@
-import { normalizeBuilderAssetUrl } from "@/lib/builder-asset-url";
+import { normalizeBuilderAssetUrl, resolvePublicBuilderAssetUrl } from "@/lib/builder-asset-url";
 import { buildSupabaseGalleryPublicUrl } from "@/lib/gallery-public-url";
 import { getGalleryMediaThumbnailUrl } from "@/lib/gallery-media-thumbnail";
 import {
@@ -29,16 +29,24 @@ export function resolvePollTableThumbnailSrc(
       return getGalleryMediaThumbnailUrl(publicUrl, width);
     }
 
-    return resolveRichTextImageSrc(buildPollGalleryImageUrl(storageName), "display");
+    const publicPath = resolvePublicBuilderAssetUrl(buildPollGalleryImageUrl(storageName));
+
+    if (publicPath.startsWith("/gallery/")) {
+      const publicUrl = buildSupabaseGalleryPublicUrl(storageName);
+
+      if (publicUrl) {
+        return getGalleryMediaThumbnailUrl(publicUrl, width);
+      }
+    }
+
+    return publicPath;
   }
 
   if (/^https?:\/\//i.test(normalized)) {
     return getGalleryMediaThumbnailUrl(normalized, width);
   }
 
-  if (normalized.startsWith("/api/admin/media-file/")) {
-    return normalized;
-  }
+  return resolvePublicBuilderAssetUrl(normalized);
 
   return "";
 }

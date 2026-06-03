@@ -5,6 +5,8 @@ import {
   buildPublicPollCategoryPath,
   buildPublicPollViewPath,
   getPollCategoryMeta,
+  normalizePollCategoryForStorage,
+  pollCategoriesEqual,
   POLL_CATEGORY_SEEDS,
   POLL_MANAGER_CATEGORY_NAMES,
   resolvePollCategoryName
@@ -18,6 +20,13 @@ describe("poll category URL params", () => {
 
   it("accepts canonical category names in the URL", () => {
     expect(resolvePollCategoryName("Self-Perception")).toBe("Self-Perception");
+  });
+
+  it("resolves uppercase and lowercase labels to the same canonical name", () => {
+    expect(resolvePollCategoryName("SELF-PERCEPTION")).toBe("Self-Perception");
+    expect(resolvePollCategoryName("identity & psychology")).toBe("Identity & Psychology");
+    expect(pollCategoriesEqual("SELF-PERCEPTION", "self-perception")).toBe(true);
+    expect(normalizePollCategoryForStorage("IDENTITY & PSYCHOLOGY")).toBe("Identity & Psychology");
   });
 
   it("maps known aliases used in navigation", () => {

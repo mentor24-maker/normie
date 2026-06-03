@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { applyPollGalleryImageUrlOnSave } from "@/lib/poll-gallery-link";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
+import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -77,7 +78,7 @@ export async function PATCH(
     poll_options?: PollOptionInput[];
   };
 
-  const category = safeText(body.category, 255);
+  const category = normalizePollCategoryForStorage(body.category);
   const question = safeText(body.question, 4000);
   const imageUrl = await applyPollGalleryImageUrlOnSave(body.image_url);
   const orderIndex = safeInteger(body.order_index, NaN);
@@ -112,7 +113,7 @@ export async function PATCH(
   const { error: pollError } = await supabase
     .from("polls")
     .update({
-      category: category || null,
+      category,
       question,
       image_url: imageUrl,
       deep_dive: deepDive,

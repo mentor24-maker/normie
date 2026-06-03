@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
+import { resolvePublicBuilderAssetUrl } from "@/lib/builder-template";
 import type { BuilderTemplateModule } from "@/lib/builder-template";
 import {
   getFloatingImageModuleShellStyle,
@@ -45,8 +45,8 @@ export function BuilderImagePreview({
   gameOverlayHost = false,
   sectionScopedDecor = false
 }: BuilderImagePreviewProps) {
-  const mediaUrl = normalizeBuilderAssetUrl(module.settings.url);
-  const linkUrl = isFloatingImageModule(module) ? "" : normalizeBuilderAssetUrl(module.settings.linkUrl);
+  const mediaUrl = resolvePublicBuilderAssetUrl(module.settings.url);
+  const linkUrl = isFloatingImageModule(module) ? "" : resolvePublicBuilderAssetUrl(module.settings.linkUrl);
   const floating = isFloatingImageModule(module);
   const imageStyle = floating ? getFloatingImageModuleStyle(module.settings) : getImageModuleStyle(module.settings);
   const shellStyle = floating

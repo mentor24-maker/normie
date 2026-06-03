@@ -6,6 +6,7 @@ import {
   type PollDeepDiveContent
 } from "@/lib/poll-deep-dive";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { escapePollCategoryIlikeExact } from "@/lib/poll-categories";
 
 type PollDeepDiveRow = {
   id: string;
@@ -95,7 +96,7 @@ async function loadCategoryPeerPolls(
     .select("id, question, category, order_index")
     .eq("is_published", true)
     .eq("is_hidden", false)
-    .eq("category", category)
+    .ilike("category", escapePollCategoryIlikeExact(category))
     .neq("id", poll.id)
     .order("order_index", { ascending: true })
     .limit(CATEGORY_FETCH_BUFFER + excludeIds.size);

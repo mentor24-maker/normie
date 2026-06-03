@@ -7,7 +7,7 @@ import {
   summarizeYoutube,
   type AdminBlogPostOption
 } from "@/components/admin-poll-deep-dive-editor";
-import { buildPublicPollViewPath } from "@/lib/poll-categories";
+import { buildPublicPollViewPath, pollCategoriesEqual } from "@/lib/poll-categories";
 import { sortPollCategoryNames } from "@/lib/load-poll-category-catalog";
 import { usePollCategoryCatalog } from "@/lib/use-poll-category-catalog";
 import { AdminPollResponsePurgePanel } from "@/components/admin-poll-response-purge-panel";
@@ -230,7 +230,7 @@ export function AdminPollsManager() {
 
       return (
         (!activeFilters.collection || formatPollCollection(poll.collection) === activeFilters.collection) &&
-        (!activeFilters.category || (poll.category ?? "") === activeFilters.category) &&
+        (!activeFilters.category || pollCategoriesEqual(poll.category, activeFilters.category)) &&
         matchesFilter(poll.question, activeFilters.question) &&
         (activeFilters.status === "all" || statusText === activeFilters.status) &&
         matchesPollAttributeFilter(activeFilters.requireYoutube, hasYoutube, activeFilters.not) &&

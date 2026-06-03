@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { escapePollCategoryIlikeExact, resolvePollCategoryName } from "@/lib/poll-categories";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 const POLL_PICKER_SELECT = "id, category, question, image_url, order_index";
@@ -23,7 +24,8 @@ export async function GET(request: Request) {
   let query = supabase.from("polls").select(POLL_PICKER_SELECT).order("order_index", { ascending: true });
 
   if (category) {
-    query = query.eq("category", category);
+    const categoryFilter = resolvePollCategoryName(category) ?? category;
+    query = query.ilike("category", escapePollCategoryIlikeExact(categoryFilter));
   }
 
   if (question) {

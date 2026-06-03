@@ -1,7 +1,13 @@
-import { buildPollCategoryCatalog } from "@/lib/poll-categories";
+import { buildPollCategoryCatalog, normalizePollCategoryForStorage } from "@/lib/poll-categories";
 
 export function normalizeGalleryMediaCategory(value: unknown): string {
-  return String(value ?? "").trim().slice(0, 255);
+  const text = String(value ?? "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  return normalizePollCategoryForStorage(text) ?? text.slice(0, 255);
 }
 
 export function buildGalleryMediaCategoryOptions(extraCategories: string[] = []): string[] {

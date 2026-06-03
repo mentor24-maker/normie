@@ -97,3 +97,33 @@ export function normalizeBuilderAssetUrl(value: unknown): string {
 
   return text;
 }
+
+/**
+ * URL for `<img src>` on the public site and builder preview (not admin-only proxies).
+ * Gallery files → `/gallery/…` (local disk + Supabase). Other uploaded assets → `/media/…`.
+ */
+export function resolvePublicBuilderAssetUrl(value: unknown): string {
+  const normalized = normalizeBuilderAssetUrl(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.startsWith("/gallery/")) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("/api/admin/media-file/gallery/")) {
+    return normalized.replace("/api/admin/media-file/gallery/", "/gallery/");
+  }
+
+  if (normalized.startsWith("/api/admin/media-file/")) {
+    return normalized.replace("/api/admin/media-file/", "/media/");
+  }
+
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  return normalized;
+}

@@ -1,5 +1,10 @@
 import { cookies } from "next/headers";
-import { getPollCategoryMeta, resolvePollCategoryName } from "@/lib/poll-categories";
+import {
+  escapePollCategoryIlikeExact,
+  getPollCategoryMeta,
+  pollCategoryMatchesAny,
+  resolvePollCategoryName
+} from "@/lib/poll-categories";
 import { loadPollDeepDiveContent } from "@/lib/load-poll-deep-dive-content";
 import { getPublicPollSettings, pollSettingsToClientPayload } from "@/lib/poll-settings";
 import { publicErrorResponse } from "@/lib/observability/report-error";
@@ -88,7 +93,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       );
     }
 
-    pollsQuery = pollsQuery.eq("category", categoryFilter);
+    pollsQuery = pollsQuery.ilike("category", escapePollCategoryIlikeExact(categoryFilter));
   }
 
   const responsesQuery = supabase
@@ -128,8 +133,9 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   const usesPreferenceFilter = Boolean(preferences && preferences.preferredPollCategories.length > 0);
 
   if (usesPreferenceFilter && preferences) {
-    const allowed = new Set(preferences.preferredPollCategories);
-    orderedPolls = orderedPolls.filter((poll) => allowed.has(poll.category?.trim() ?? ""));
+    orderedPolls = orderedPolls.filter((poll) =>
+      pollCategoryMatchesAny(poll.category, preferences.preferredPollCategories)
+    );
   }
 
   const eligiblePollIds = new Set(orderedPolls.map((poll) => poll.id));

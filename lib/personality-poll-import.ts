@@ -1,4 +1,5 @@
 import { POLL_COLLECTION_PERSONALITY_TYPE_A, type PollCollection } from "@/lib/poll-collections";
+import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
 
 export const PERSONALITY_TYPE_A_IMPORT_TYPE = "personality_type_a";
 export const PERSONALITY_TYPE_B_IMPORT_TYPE = "personality_type_b";
@@ -246,7 +247,7 @@ export function isStarcasterPollCsv(fields: string[]) {
 
 export function personalityRowToPollInsert(row: PersonalityPollRow, collection: PollCollection) {
   return {
-    category: row.category,
+    category: normalizePollCategoryForStorage(row.category) ?? row.category.trim().slice(0, 255),
     question: row.question,
     collection,
     source_question_id: row.sourceQuestionId,

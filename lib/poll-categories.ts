@@ -49,6 +49,53 @@ function normalizePollCategoryKey(value: string) {
   return slugifyPollCategory(value);
 }
 
+/** Escape a category label for case-insensitive exact `ilike` filters in Postgres. */
+export function escapePollCategoryIlikeExact(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+/** Canonical label for `polls.category` on write (seed name when recognized, else trimmed input). */
+export function normalizePollCategoryForStorage(value: unknown): string | null {
+  const resolved = resolvePollCategoryName(String(value ?? ""));
+
+  if (!resolved) {
+    return null;
+  }
+
+  return resolved.slice(0, 255);
+}
+
+/** Case-insensitive equality for poll category labels (URL params, DB rows, preferences). */
+export function pollCategoriesEqual(
+  left: string | null | undefined,
+  right: string | null | undefined
+): boolean {
+  const a = String(left ?? "").trim();
+  const b = String(right ?? "").trim();
+
+  if (!a || !b) {
+    return false;
+  }
+
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/** True when a poll row's category matches any allowed label (case-insensitive). */
+export function pollCategoryMatchesAny(
+  pollCategory: string | null | undefined,
+  allowedCategories: readonly string[]
+): boolean {
+  const poll = String(pollCategory ?? "").trim();
+
+  if (!poll) {
+    return false;
+  }
+
+  const pollLower = poll.toLowerCase();
+
+  return allowedCategories.some((allowed) => allowed.trim().toLowerCase() === pollLower);
+}
+
 export function resolvePollCategoryName(param: string | null | undefined): string | null {
   const raw = param?.trim();
   if (!raw) {
@@ -159,7 +206,7 @@ export function getPollCategoryMeta(param: string | null | undefined): PollCateg
     return null;
   }
 
-  const seeded = POLL_CATEGORY_SEEDS.find((category) => category.name === name);
+  const seeded = POLL_CATEGORY_SEEDS.find((category) => pollCategoriesEqual(category.name, name));
   if (seeded) {
     return seeded;
   }

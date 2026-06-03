@@ -6,13 +6,11 @@ import {
 } from "@/lib/rich-text-image";
 
 describe("resolveRichTextImageSrc", () => {
-  it("maps gallery paths to media-file URLs for editor and display", () => {
+  it("maps gallery paths to admin URLs in the editor and public gallery paths on the site", () => {
     expect(resolveRichTextImageSrc("/gallery/normie.png", "editor")).toBe(
       "/api/admin/media-file/gallery/normie.png"
     );
-    expect(resolveRichTextImageSrc("/gallery/normie.png", "display")).toBe(
-      "/api/admin/media-file/gallery/normie.png"
-    );
+    expect(resolveRichTextImageSrc("/gallery/normie.png", "display")).toBe("/gallery/normie.png");
   });
 
   it("stores canonical gallery paths", () => {
@@ -47,7 +45,7 @@ describe("rewriteRichTextImageSrcInHtml", () => {
       "display"
     );
 
-    expect(html).toContain('src="/api/admin/media-file/gallery/test.png"');
+    expect(html).toContain('src="/gallery/test.png"');
     expect(html).toContain('class="rich-text-editor-image"');
   });
 });

@@ -20,6 +20,7 @@ import {
   POLL_COLLECTION_STANDARD
 } from "@/lib/poll-collections";
 import { getNextPollOrderIndex } from "@/lib/poll-order-index";
+import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
@@ -179,7 +180,9 @@ export async function POST(request: Request) {
   let createdCount = 0;
 
   for (const row of rows) {
-    const category = normalizeCsvValue(row[categoryField]);
+    const category =
+      normalizePollCategoryForStorage(normalizeCsvValue(row[categoryField])) ??
+      normalizeCsvValue(row[categoryField]);
     const question = normalizeCsvValue(row[questionField]);
     const options = optionFields.map((field) => normalizeCsvValue(row[field])).filter(Boolean);
 

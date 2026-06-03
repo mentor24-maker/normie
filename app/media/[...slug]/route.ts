@@ -1,12 +1,11 @@
-import { readSupabaseGalleryFile } from "@/lib/gallery-storage-file";
-import { readPublicGalleryFile } from "@/lib/public-media";
+import { getPublicMediaContentType, readPublicSiteMediaFile } from "@/lib/public-media";
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ slug: string[] }> }
 ) {
   const { slug } = await context.params;
-  const asset = (await readPublicGalleryFile(slug)) ?? (await readSupabaseGalleryFile(slug));
+  const asset = await readPublicSiteMediaFile(slug);
 
   if (!asset) {
     return new Response("Not found", { status: 404 });

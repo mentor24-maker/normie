@@ -14,12 +14,10 @@ describe("resolvePollTableThumbnailSrc", () => {
     );
   });
 
-  it("falls back to admin media-file when Supabase env is missing", () => {
+  it("falls back to public gallery path when Supabase env is missing", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
 
-    expect(resolvePollTableThumbnailSrc("/gallery/wyr-poster.png")).toBe(
-      "/api/admin/media-file/gallery/wyr-poster.png"
-    );
+    expect(resolvePollTableThumbnailSrc("/gallery/wyr-poster.png")).toBe("/gallery/wyr-poster.png");
   });
 
   it("returns empty string when image url is missing", () => {

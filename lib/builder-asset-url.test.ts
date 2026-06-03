@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { galleryAssetPathFromUrl, normalizeBuilderAssetUrl } from "@/lib/builder-asset-url";
+import {
+  galleryAssetPathFromUrl,
+  normalizeBuilderAssetUrl,
+  resolvePublicBuilderAssetUrl
+} from "@/lib/builder-asset-url";
 
 describe("normalizeBuilderAssetUrl", () => {
   it("normalizes Supabase gallery object URLs to /gallery paths", () => {
@@ -21,6 +25,17 @@ describe("normalizeBuilderAssetUrl", () => {
   it("keeps normie site gallery paths", () => {
     expect(normalizeBuilderAssetUrl("https://www.normie.one/gallery/wave.png")).toBe("/gallery/wave.png");
     expect(normalizeBuilderAssetUrl("https://normie.one/gallery/wave.png")).toBe("/gallery/wave.png");
+  });
+});
+
+describe("resolvePublicBuilderAssetUrl", () => {
+  it("maps gallery and site assets to public routes", () => {
+    expect(resolvePublicBuilderAssetUrl("/api/admin/media-file/gallery/social-x.svg")).toBe(
+      "/gallery/social-x.svg"
+    );
+    expect(resolvePublicBuilderAssetUrl("/api/admin/media-file/logo_normie_3_600x200.png")).toBe(
+      "/media/logo_normie_3_600x200.png"
+    );
   });
 });
 
