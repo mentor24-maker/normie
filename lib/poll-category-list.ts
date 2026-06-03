@@ -1,8 +1,4 @@
-import {
-  buildPublicPollCategoryPath,
-  buildPollCategoryCatalog,
-  type PollCategorySeed
-} from "@/lib/poll-categories";
+import { buildPublicPollCategoryPath, type PollCategorySeed } from "@/lib/poll-categories";
 
 export type PollCategoryListSort = "alphabetical" | "canonical";
 
@@ -82,9 +78,4 @@ export function getPollCategoryListEntries(
 ): PollCategoryListEntry[] {
   const entries = buildPollCategoryListEntries(catalog, sort);
   return orderPollCategoryListForGrid(entries, flow, columnCount);
-}
-
-/** Same category union as Polls Manager: seeds plus distinct poll category strings. */
-export function buildPollCategoryListCatalog(extraCategoryNames: readonly string[] = []): PollCategorySeed[] {
-  return buildPollCategoryCatalog(extraCategoryNames);
 }

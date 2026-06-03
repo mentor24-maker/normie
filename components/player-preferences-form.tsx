@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { PlayerSettingRow } from "@/components/player-setting-row";
 import { dispatchPlayerPreferencesUpdated } from "@/lib/player-preferences-events";
-import { POLL_CATEGORY_SEEDS } from "@/lib/poll-categories";
+import { usePollCategoryCatalog } from "@/lib/use-poll-category-catalog";
 import type { PlayerPreferencesDetails } from "@/lib/player-preferences-details";
 
 type PlayerPreferencesFormProps = {
@@ -14,6 +14,7 @@ type PlayerPreferencesFormProps = {
 
 export function PlayerPreferencesForm({ initialPreferences }: PlayerPreferencesFormProps) {
   const router = useRouter();
+  const { catalog: pollCategoryCatalog } = usePollCategoryCatalog();
   const [preferredPollCategories, setPreferredPollCategories] = useState(
     initialPreferences.preferredPollCategories
   );
@@ -24,20 +25,23 @@ export function PlayerPreferencesForm({ initialPreferences }: PlayerPreferencesF
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const categoryOptions = useMemo(() => POLL_CATEGORY_SEEDS.map((category) => category.name), []);
+  const categoryOptions = useMemo(
+    () => pollCategoryCatalog.map((category) => ({ slug: category.slug, name: category.name })),
+    [pollCategoryCatalog]
+  );
 
   const defaultCategoryOptions = useMemo(() => {
     if (preferredPollCategories.length === 0) {
       return categoryOptions;
     }
 
-    return preferredPollCategories;
+    return categoryOptions.filter((category) => preferredPollCategories.includes(category.slug));
   }, [categoryOptions, preferredPollCategories]);
 
-  function toggleCategory(categoryName: string) {
+  function toggleCategory(categorySlug: string) {
     setPreferredPollCategories((current) => {
-      if (current.includes(categoryName)) {
-        const next = current.filter((name) => name !== categoryName);
+      if (current.includes(categorySlug)) {
+        const next = current.filter((slug) => slug !== categorySlug);
 
         if (defaultPlayPollCategory && !next.includes(defaultPlayPollCategory)) {
           setDefaultPlayPollCategory("");
@@ -46,12 +50,12 @@ export function PlayerPreferencesForm({ initialPreferences }: PlayerPreferencesF
         return next;
       }
 
-      return [...current, categoryName];
+      return [...current, categorySlug];
     });
   }
 
   function selectAllCategories() {
-    setPreferredPollCategories([...categoryOptions]);
+    setPreferredPollCategories(categoryOptions.map((category) => category.slug));
   }
 
   function clearCategories() {
@@ -78,59 +82,51 @@ export function PlayerPreferencesForm({ initialPreferences }: PlayerPreferencesF
       });
       const data = (await response.json()) as {
         error?: string;
-        data?: PlayerPreferencesDetails;
+        preferences?: PlayerPreferencesDetails;
       };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Preferences could not be saved.");
       }
 
-      if (data.data) {
-        setPreferredPollCategories(data.data.preferredPollCategories);
-        setDefaultPlayPollCategory(data.data.defaultPlayPollCategory);
+      if (data.preferences) {
+        setPreferredPollCategories(data.preferences.preferredPollCategories);
+        setDefaultPlayPollCategory(data.preferences.defaultPlayPollCategory);
       }
 
-      setNotice("Preferences saved.");
       dispatchPlayerPreferencesUpdated();
+      setNotice("Preferences saved.");
       router.refresh();
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : "Preferences could not be saved."
-      );
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Preferences could not be saved.");
     } finally {
       setIsSaving(false);
     }
   }
 
   return (
-    <form className="player-preferences-form" onSubmit={handleSubmit}>
-      <section className="panel player-panel player-preferences-section" aria-labelledby="player-preferences-polls-heading">
-        <div className="panel-label">Poll Experience</div>
-        <h2 id="player-preferences-polls-heading">Categories You Want to See</h2>
-        <p className="panel-copy">
-          Choose which poll categories appear when you play. Leave all unchecked to see every published
-          category. Profile and privacy settings stay on your{" "}
-          <Link href="/portal/profile">Profile</Link> page.
-        </p>
+    <form className="player-preferences-form" onSubmit={(event) => void handleSubmit(event)}>
+      {error ? <div className="notice error admin-notice">{error}</div> : null}
+      {notice ? <div className="notice success admin-notice">{notice}</div> : null}
 
+      <PlayerSettingRow label="Preferred Poll Categories">
         <div className="player-preferences-category-toolbar">
           <button className="secondary-button" onClick={selectAllCategories} type="button">
             Select All
           </button>
           <button className="secondary-button" onClick={clearCategories} type="button">
-            Clear All
+            Clear
           </button>
         </div>
-
-        <div className="player-preferences-category-grid" role="group" aria-label="Preferred poll categories">
-          {POLL_CATEGORY_SEEDS.map((category) => {
-            const isChecked = preferredPollCategories.includes(category.name);
+        <div className="player-preferences-category-grid">
+          {categoryOptions.map((category) => {
+            const checked = preferredPollCategories.includes(category.slug);
 
             return (
               <label className="player-preferences-category-option" key={category.slug}>
                 <input
-                  checked={isChecked}
-                  onChange={() => toggleCategory(category.name)}
+                  checked={checked}
+                  onChange={() => toggleCategory(category.slug)}
                   type="checkbox"
                 />
                 <span>{category.name}</span>
@@ -138,47 +134,29 @@ export function PlayerPreferencesForm({ initialPreferences }: PlayerPreferencesF
             );
           })}
         </div>
+      </PlayerSettingRow>
 
-        <div className="player-profile-fields player-preferences-fields">
-          <PlayerSettingRow
-            hint={
-              preferredPollCategories.length === 0
-                ? "Applies across all categories until you narrow the list above."
-                : "Must be one of your selected categories."
-            }
-            label="Default Category"
-          >
-            <select
-              className="player-form-control"
-              onChange={(event) => setDefaultPlayPollCategory(event.target.value)}
-              value={defaultPlayPollCategory}
-            >
-              <option value="">First Available</option>
-              {defaultCategoryOptions.map((categoryName) => (
-                <option key={categoryName} value={categoryName}>
-                  {categoryName}
-                </option>
-              ))}
-            </select>
-          </PlayerSettingRow>
-        </div>
-      </section>
+      <PlayerSettingRow label="Default Play Poll Category">
+        <select
+          onChange={(event) => setDefaultPlayPollCategory(event.target.value)}
+          value={defaultPlayPollCategory}
+        >
+          <option value="">Any Preferred Category</option>
+          {defaultCategoryOptions.map((category) => (
+            <option key={category.slug} value={category.slug}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </PlayerSettingRow>
 
-      <section className="panel player-panel player-preferences-section" aria-labelledby="player-preferences-future-heading">
-        <div className="panel-label">Coming Soon</div>
-        <h2 id="player-preferences-future-heading">More Controls on the Way</h2>
-        <p className="panel-copy">
-          We plan to add email digests for new polls in your categories, notification timing, and
-          leaderboard visibility options. Tell us what you want next.
-        </p>
-      </section>
-
-      <div className="player-profile-actions">
-        <button className="submit-button player-profile-save-button" disabled={isSaving} type="submit">
-          {isSaving ? "Saving Preferences..." : "Save Preferences"}
+      <div className="player-preferences-actions">
+        <button className="submit-button admin-blog-add-button" disabled={isSaving} type="submit">
+          Save Preferences
         </button>
-        {notice ? <div className="notice success player-inline-notice">{notice}</div> : null}
-        {error ? <div className="notice error player-inline-notice">{error}</div> : null}
+        <Link className="secondary-button" href="/portal/dashboard">
+          Back to Dashboard
+        </Link>
       </div>
     </form>
   );

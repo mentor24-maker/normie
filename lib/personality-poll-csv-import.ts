@@ -14,6 +14,7 @@ import {
   STARCASTER_IMPORT_TYPE
 } from "@/lib/personality-poll-import";
 import type { PollCollection } from "@/lib/poll-collections";
+import { resolvePollCategoryIdForWrite } from "@/lib/poll-category-store";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ImportRow = Record<string, string>;
@@ -177,10 +178,15 @@ export async function importPersonalityPollRows(
   let createdCount = 0;
 
   for (const mapped of importableRows) {
+    const insertPayload = personalityRowToPollInsert(mapped, collection);
+    const categoryId = await resolvePollCategoryIdForWrite(supabase, insertPayload.category);
+    const { category: _category, ...pollFields } = insertPayload;
+
     const { data: poll, error: pollError } = await supabase
       .from("polls")
       .insert({
-        ...personalityRowToPollInsert(mapped, collection),
+        ...pollFields,
+        category_id: categoryId,
         order_index: nextOrderIndex,
         is_published: true
       })

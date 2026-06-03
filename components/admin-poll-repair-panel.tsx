@@ -92,7 +92,7 @@ export function AdminPollRepairPanel({ onRepaired }: { onRepaired?: () => Promis
       <div className="panel-label">Legacy Data Check</div>
       <h2>Poll structure repair</h2>
       <p className="page-copy admin-copy">
-        The intended model is `category` in `polls.category`, the actual prompt in
+        The intended model is a linked poll category, with the actual prompt in
         `polls.question`, and only answer choices in `poll_options`. This tool detects the older
         malformed shape where the category landed in `question` and the real prompt became the first
         option.

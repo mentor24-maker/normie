@@ -1,19 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { buildPublicPollCategoryPath } from "@/lib/poll-categories";
 import {
-  buildPublicPollCategoryPath,
-  POLL_CATEGORY_SEEDS
-} from "@/lib/poll-categories";
-import {
-  buildPollCategoryListCatalog,
   buildPollCategoryListEntries,
   getPollCategoryListEntries,
   orderPollCategoryListForGrid,
   sortPollCategoriesForList
 } from "@/lib/poll-category-list";
 
+const SAMPLE_CATALOG = [
+  { name: "Absurd but Revealing", slug: "absurd-but-revealing" },
+  { name: "Identity & Psychology", slug: "identity-psychology" },
+  { name: "Money & Success", slug: "money-success" }
+];
+
 describe("poll category list", () => {
   it("sorts categories alphabetically by display name", () => {
-    const sorted = sortPollCategoriesForList(POLL_CATEGORY_SEEDS, "alphabetical");
+    const sorted = sortPollCategoriesForList(SAMPLE_CATALOG, "alphabetical");
     const names = sorted.map((category) => category.name);
 
     expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })));
@@ -21,11 +23,11 @@ describe("poll category list", () => {
   });
 
   it("keeps canonical seed order when requested", () => {
-    expect(sortPollCategoriesForList(POLL_CATEGORY_SEEDS, "canonical")).toEqual([...POLL_CATEGORY_SEEDS]);
+    expect(sortPollCategoriesForList(SAMPLE_CATALOG, "canonical")).toEqual([...SAMPLE_CATALOG]);
   });
 
   it("links each category to the home page with a category query", () => {
-    const entry = getPollCategoryListEntries("canonical", POLL_CATEGORY_SEEDS).find(
+    const entry = getPollCategoryListEntries("canonical", SAMPLE_CATALOG).find(
       (category) => category.slug === "identity-psychology"
     );
 
@@ -54,13 +56,5 @@ describe("poll category list", () => {
       "Epsilon",
       "Zeta"
     ]);
-  });
-
-  it("includes poll-only categories in the catalog", () => {
-    const catalog = buildPollCategoryListCatalog(["Archetype Drill"]);
-    const names = getPollCategoryListEntries("alphabetical", catalog).map((entry) => entry.name);
-
-    expect(names).toContain("Archetype Drill");
-    expect(names.length).toBe(POLL_CATEGORY_SEEDS.length + 1);
   });
 });

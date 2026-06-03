@@ -7,6 +7,7 @@ import {
 } from "@/lib/game-level-events";
 import { normalizeAvatarUrl } from "@/lib/player-profile";
 import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
+import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
 import type { BuilderTemplateModule } from "./builder-template";
@@ -113,12 +114,12 @@ type ResponseRow = {
   polls:
     | {
         question: string | null;
-        category: string | null;
+        poll_categories?: { name?: string | null } | { name?: string | null }[] | null;
         poll_options: PollOptionRow[] | PollOptionRow | null;
       }
     | Array<{
         question: string | null;
-        category: string | null;
+        poll_categories?: { name?: string | null } | { name?: string | null }[] | null;
         poll_options: PollOptionRow[] | PollOptionRow | null;
       }>
     | null;
@@ -523,7 +524,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
       supabase
         .from("poll_response")
         .select(
-          "id, poll_id, option_id, user_id, tokens_earned, is_skipped, created_at, polls(question, category, poll_options(id, label, sort_order))"
+          "id, poll_id, option_id, user_id, tokens_earned, is_skipped, created_at, polls(question, poll_categories(name), poll_options(id, label, sort_order))"
         )
         .eq("user_id", player.authUser.id)
         .order("created_at", { ascending: false }),
@@ -581,7 +582,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
       optionId: row.option_id,
       question: poll?.question ?? "Untitled poll",
       answer: selectedOption?.label ?? "Unknown answer",
-      category: poll?.category ?? "General",
+      category: readPollCategoryNameFromJoin(poll) ?? "General",
       tokensEarned: row.tokens_earned ?? 0,
       answeredAt: row.created_at,
       options

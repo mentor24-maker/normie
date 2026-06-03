@@ -14,7 +14,8 @@ import {
 } from "@/lib/poll-order-index";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { POLL_COLLECTION_STANDARD } from "@/lib/poll-collections";
-import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
+import { mapPollRowWithCategory, resolvePollCategoryIdForWrite } from "@/lib/poll-category-store";
+import { POLL_ADMIN_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionInput = {
@@ -31,8 +32,7 @@ function safeInteger(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-const POLL_SELECT =
-  "id, category, collection, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, image_url, order_index, created_at, is_published, is_hidden, poll_options(id, label, sort_order)";
+const POLL_SELECT = POLL_ADMIN_SELECT;
 
 export async function GET(request: Request) {
   const auth = await requireAdminRoute();
@@ -70,11 +70,17 @@ export async function GET(request: Request) {
     return auth.finish(NextResponse.json({ error: pollsResult.error.message }, { status: 500 }));
   }
 
-  const polls = (pollsResult.data ?? []).map((poll) => ({
-    ...poll,
-    poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order),
-    gallery_linked: pollHasGalleryFileInStorageWithSets(poll.image_url, galleryExistence)
-  }));
+  const polls = (pollsResult.data ?? []).map((poll) => {
+    const mapped = mapPollRowWithCategory({
+      ...poll,
+      poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+    });
+
+    return {
+      ...mapped,
+      gallery_linked: pollHasGalleryFileInStorageWithSets(poll.image_url, galleryExistence)
+    };
+  });
 
   const { count: totalAnswers, error: responsesError } = await supabase
     .from("poll_response")
@@ -115,7 +121,8 @@ export async function POST(request: Request) {
     poll_options?: PollOptionInput[];
   };
 
-  const category = normalizePollCategoryForStorage(body.category);
+  const supabase = createAdminClient();
+  const categoryId = await resolvePollCategoryIdForWrite(supabase, body.category);
   const question = safeText(body.question, 4000);
   const imageUrl = await applyPollGalleryImageUrlOnSave(body.image_url);
   const requestedOrder = safeInteger(body.order_index, NaN);
@@ -141,7 +148,6 @@ export async function POST(request: Request) {
     return auth.finish(NextResponse.json({ error: "At least two poll options are required." }, { status: 400 }));
   }
 
-  const supabase = createAdminClient();
   let orderIndex = await allocatePollOrderIndexWithRetry(
     supabase,
     Number.isFinite(requestedOrder) ? requestedOrder : undefined
@@ -154,7 +160,7 @@ export async function POST(request: Request) {
     const result = await supabase
       .from("polls")
       .insert({
-        category,
+        category_id: categoryId,
         collection: POLL_COLLECTION_STANDARD,
         question,
         image_url: imageUrl,
@@ -213,10 +219,10 @@ export async function POST(request: Request) {
   return auth.finish(
     NextResponse.json(
       {
-        poll: {
+        poll: mapPollRowWithCategory({
           ...data,
           poll_options: [...(data.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-        }
+        })
       },
       { status: 201 }
     )

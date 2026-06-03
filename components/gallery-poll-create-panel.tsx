@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { readAdminJson } from "@/lib/admin-fetch";
 import { galleryFileNameToQuestionHint } from "@/lib/gallery-display-filename";
 import { getGalleryMediaThumbnailUrl } from "@/lib/gallery-media-thumbnail";
-import { buildPollCategoryCatalog } from "@/lib/poll-categories";
 import { sortPollCategoryNames } from "@/lib/load-poll-category-catalog";
 import { usePollCategoryCatalog } from "@/lib/use-poll-category-catalog";
 
@@ -58,11 +57,11 @@ export function GalleryPollCreatePanel({
 
   const { catalog: pollCategoryCatalog } = usePollCategoryCatalog();
   const categories = useMemo(() => {
-    const merged = buildPollCategoryCatalog([
+    const names = [
       ...pollCategoryCatalog.map((category) => category.name),
-      ...extraCategories
-    ]);
-    return sortPollCategoryNames(merged.map((category) => category.name));
+      ...extraCategories.map((entry) => entry.trim()).filter(Boolean)
+    ];
+    return sortPollCategoryNames(names);
   }, [extraCategories, pollCategoryCatalog]);
 
   useEffect(() => {

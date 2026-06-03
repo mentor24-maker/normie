@@ -7,11 +7,11 @@ import {
   type PlayerProfileRow
 } from "@/lib/player-auth";
 import {
-  POLL_CATEGORY_SEEDS,
-  pollCategoryMatchesAny,
   pollCategoriesEqual,
-  resolvePollCategoryName
+  pollCategorySlugMatchesAny,
+  slugifyPollCategory
 } from "@/lib/poll-categories";
+import { listPollCategories } from "@/lib/poll-category-store";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 const PREFERENCE_PROFILE_SELECT =
@@ -31,9 +31,26 @@ export type UpdatePlayerPreferencesResult =
   | { ok: true; preferences: PlayerPreferences }
   | { ok: false; error: string; status: number };
 
-const CANONICAL_CATEGORY_NAMES = POLL_CATEGORY_SEEDS.map((category) => category.name);
+function normalizePreferredSlug(value: unknown, validSlugs: ReadonlySet<string>): string | null {
+  const raw = safePlayerText(value, 255);
 
-export function normalizePreferredPollCategories(value: unknown): string[] {
+  if (!raw) {
+    return null;
+  }
+
+  const slug = slugifyPollCategory(raw);
+
+  if (!slug || !validSlugs.has(slug)) {
+    return null;
+  }
+
+  return slug;
+}
+
+export function normalizePreferredPollCategories(
+  value: unknown,
+  validSlugs: ReadonlySet<string> = new Set()
+): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -42,18 +59,14 @@ export function normalizePreferredPollCategories(value: unknown): string[] {
   const normalized: string[] = [];
 
   for (const entry of value) {
-    const resolved = resolvePollCategoryName(String(entry ?? ""));
+    const slug = normalizePreferredSlug(entry, validSlugs);
 
-    if (!resolved || seen.has(resolved)) {
+    if (!slug || seen.has(slug)) {
       continue;
     }
 
-    if (!CANONICAL_CATEGORY_NAMES.some((name) => pollCategoriesEqual(name, resolved))) {
-      continue;
-    }
-
-    seen.add(resolved);
-    normalized.push(resolved);
+    seen.add(slug);
+    normalized.push(slug);
   }
 
   return normalized;
@@ -61,34 +74,31 @@ export function normalizePreferredPollCategories(value: unknown): string[] {
 
 export function normalizeDefaultPlayPollCategory(
   value: unknown,
-  preferredPollCategories: string[]
+  preferredPollCategories: string[],
+  validSlugs: ReadonlySet<string> = new Set()
 ): string {
-  const raw = safePlayerText(value, 255);
+  const slug = normalizePreferredSlug(value, validSlugs);
 
-  if (!raw) {
+  if (!slug) {
     return "";
   }
 
-  const resolved = resolvePollCategoryName(raw);
-
-  if (!resolved) {
+  if (preferredPollCategories.length > 0 && !pollCategorySlugMatchesAny(slug, preferredPollCategories)) {
     return "";
   }
 
-  if (preferredPollCategories.length > 0 && !pollCategoryMatchesAny(resolved, preferredPollCategories)) {
-    return "";
-  }
-
-  const canonical = CANONICAL_CATEGORY_NAMES.find((name) => pollCategoriesEqual(name, resolved));
-
-  return canonical ?? "";
+  return slug;
 }
 
-export function buildPlayerPreferences(profile: PlayerProfileRow): PlayerPreferences {
-  const preferredPollCategories = normalizePreferredPollCategories(profile.preferred_poll_categories);
+export async function buildPlayerPreferences(profile: PlayerProfileRow): Promise<PlayerPreferences> {
+  const supabase = createAdminClient();
+  const categories = await listPollCategories(supabase);
+  const validSlugs = new Set(categories.map((category) => category.slug));
+  const preferredPollCategories = normalizePreferredPollCategories(profile.preferred_poll_categories, validSlugs);
   const defaultPlayPollCategory = normalizeDefaultPlayPollCategory(
     profile.default_play_poll_category,
-    preferredPollCategories
+    preferredPollCategories,
+    validSlugs
   );
 
   return {
@@ -119,17 +129,19 @@ export async function updatePlayerPreferences(
     return { ok: false, error: "Profile could not be loaded.", status: 404 };
   }
 
-  const existing = buildPlayerPreferences(existingProfile);
+  const existing = await buildPlayerPreferences(existingProfile);
+  const supabase = createAdminClient();
+  const categories = await listPollCategories(supabase);
+  const validSlugs = new Set(categories.map((category) => category.slug));
   const preferredPollCategories =
     input.preferredPollCategories !== undefined
-      ? normalizePreferredPollCategories(input.preferredPollCategories)
+      ? normalizePreferredPollCategories(input.preferredPollCategories, validSlugs)
       : existing.preferredPollCategories;
   const defaultPlayPollCategory =
     input.defaultPlayPollCategory !== undefined
-      ? normalizeDefaultPlayPollCategory(input.defaultPlayPollCategory, preferredPollCategories)
+      ? normalizeDefaultPlayPollCategory(input.defaultPlayPollCategory, preferredPollCategories, validSlugs)
       : existing.defaultPlayPollCategory;
 
-  const supabase = createAdminClient();
   const updatedAt = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -165,7 +177,6 @@ export async function updatePlayerPreferences(
 
   return {
     ok: true,
-    preferences: buildPlayerPreferences(data as PlayerProfileRow)
+    preferences: await buildPlayerPreferences(data as PlayerProfileRow)
   };
 }
-

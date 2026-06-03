@@ -1439,21 +1439,14 @@ h2 {
   gap: 14px;
 }
 
-.poll-category-headline {
+.poll-panel-category {
   margin: 0 0 12px;
-  font-size: clamp(1rem, 1.8vw, 1.35rem);
+  font-size: 1.1rem;
   font-weight: 800;
   line-height: 1.2;
   color: #18324a;
-}
-
-.poll-grid-category-row,
-.builder-preview-section-poll-row > .builder-preview-poll-category-row {
-  grid-column: 1 / -1;
-}
-
-.builder-preview-poll-category-row .poll-category-headline {
-  margin-bottom: 0;
+  text-align: center;
+  width: 100%;
 }
 
 .poll-grid-current {
@@ -4346,12 +4339,6 @@ h2 {
   width: 100%;
   margin: 0;
   position: relative;
-}
-
-.player-portal-poll-grid .poll-grid-category-row {
-  grid-column: 1 / -1;
-  width: 100%;
-  min-width: 0;
 }
 
 .player-portal-poll-current,
@@ -12049,7 +12036,6 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .player-portal-poll-grid .poll-grid-category-row,
   .player-portal-poll-current,
   .player-portal-poll-previous {
     grid-column: 1 / -1;

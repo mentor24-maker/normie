@@ -9,6 +9,7 @@ export type PollOption = {
 export type CurrentPoll = {
   id: string;
   question: string;
+  category?: string | null;
   imageUrl?: string;
   options: PollOption[];
 };
@@ -26,6 +27,7 @@ export type { PollPodsSnapshot, PollSettingsSnapshot } from "@/lib/poll-pod-conf
 export type PreviousPoll = {
   id: string;
   question: string;
+  category?: string | null;
   totalResponses: number;
   options: PreviousPollOption[];
   deepDive: PollDeepDiveContent;

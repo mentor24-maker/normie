@@ -9,6 +9,7 @@ export { getPublicPlayerProfilePath } from "@/lib/public-player-profile-path";
 import { normalizeAvatarUrl, parsePlayerSocialLinks, type PlayerSocialLinks } from "@/lib/player-profile";
 import { PLAYER_SOCIAL_FIELD_CONFIG, type PlayerSocialFieldKey } from "@/lib/player-social-handles";
 import { countProgressPolls, sumPointsEarned } from "@/lib/player-poll-stats";
+import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export type PublicPlayerAnswer = {
@@ -53,12 +54,12 @@ type ResponseRow = {
   polls:
     | {
         question: string | null;
-        category: string | null;
+        poll_categories?: { name?: string | null } | { name?: string | null }[] | null;
         poll_options: PollOptionRow[] | PollOptionRow | null;
       }
     | Array<{
         question: string | null;
-        category: string | null;
+        poll_categories?: { name?: string | null } | { name?: string | null }[] | null;
         poll_options: PollOptionRow[] | PollOptionRow | null;
       }>
     | null;
@@ -102,7 +103,7 @@ function mapResponseRows(rows: ResponseRow[]): PublicPlayerAnswer[] {
       id: row.id,
       question: poll?.question?.trim() || "Untitled poll",
       answer: selectedOption?.label?.trim() || "Unknown answer",
-      category: poll?.category?.trim() || "General"
+      category: readPollCategoryNameFromJoin(poll) ?? "General"
     };
   });
 }
@@ -222,7 +223,7 @@ async function loadRecentPlayerAnswers(userId: string, limit = 50): Promise<Publ
   const { data, error } = await supabase
     .from("poll_response")
     .select(
-      "id, poll_id, option_id, tokens_earned, polls(question, category, poll_options(id, label))"
+      "id, poll_id, option_id, tokens_earned, polls(question, poll_categories(name), poll_options(id, label))"
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })

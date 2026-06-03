@@ -1,5 +1,15 @@
-import type { PollCategoryFilter } from "@/src/site/home/types";
+import { formatPollCategoryDisplayName } from "@/lib/poll-categories";
 
-export function PollCategoryHeadline({ category }: { category: PollCategoryFilter }) {
-  return <h2 className="poll-category-headline">Category: {category.name}</h2>;
+type PollCategoryHeadlineProps = {
+  category?: string | null;
+};
+
+export function PollCategoryHeadline({ category }: PollCategoryHeadlineProps) {
+  const label = formatPollCategoryDisplayName(String(category ?? ""));
+
+  if (!label) {
+    return null;
+  }
+
+  return <p className="poll-panel-category">Category: {label}</p>;
 }

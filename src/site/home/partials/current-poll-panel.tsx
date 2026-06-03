@@ -1,5 +1,6 @@
 import { getCurrentPollPanelStyle } from "@/lib/current-poll-module";
 import type { CurrentPoll, PollSettingsSnapshot } from "@/src/site/home/types";
+import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 
 type CurrentPollPanelProps = {
   currentPoll: CurrentPoll;
@@ -30,6 +31,7 @@ export function CurrentPollPanel({
       style={getCurrentPollPanelStyle(moduleSettings, settings)}
     >
       <div className="panel-label">Current Question</div>
+      <PollCategoryHeadline category={currentPoll.category} />
       {isAwaitingNextPoll ? (
         <div
           aria-busy="true"

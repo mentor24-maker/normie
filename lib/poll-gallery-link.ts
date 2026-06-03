@@ -10,6 +10,8 @@ import {
   resolvePollGalleryStorageName
 } from "@/lib/poll-gallery-link-core";
 import { loadAllPollIdImageUrlRows, loadAllPollImageUrlRows } from "@/lib/poll-rows-pagination";
+import { mapPollRowWithCategory } from "@/lib/poll-category-store";
+import { POLL_GALLERY_LINK_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export {
@@ -159,7 +161,7 @@ export async function linkPollToGalleryStorage(
     .from("polls")
     .update({ image_url: imageUrl })
     .eq("id", pollId)
-    .select("id, category, question, image_url")
+    .select(POLL_GALLERY_LINK_SELECT)
     .maybeSingle();
 
   if (error) {
@@ -170,7 +172,7 @@ export async function linkPollToGalleryStorage(
     throw new Error("Poll not found.");
   }
 
-  return data;
+  return mapPollRowWithCategory(data);
 }
 
 export async function applyPollGalleryImageUrlOnSave(imageUrl: unknown): Promise<string> {

@@ -5,13 +5,14 @@ import {
   normalizeDeepDiveRelatedPollIds,
   type PollDeepDiveContent
 } from "@/lib/poll-deep-dive";
+import { mapPollRowWithCategory, POLL_CATEGORY_JOIN } from "@/lib/poll-category-store";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { escapePollCategoryIlikeExact } from "@/lib/poll-categories";
 
 type PollDeepDiveRow = {
   id: string;
   question: string;
-  category: string | null;
+  category_id?: string | null;
+  category?: string | null;
   deep_dive: string | null;
   deep_dive_youtube_url: string | null;
   deep_dive_blog_post_id: string | null;
@@ -19,6 +20,7 @@ type PollDeepDiveRow = {
 };
 
 const CATEGORY_FETCH_BUFFER = 32;
+const POLL_REF_SELECT = `id, question, category_id, ${POLL_CATEGORY_JOIN}`;
 
 async function loadPollRefs(
   supabase: SupabaseClient,
@@ -30,7 +32,7 @@ async function loadPollRefs(
 
   const { data, error } = await supabase
     .from("polls")
-    .select("id, question, category")
+    .select(POLL_REF_SELECT)
     .in("id", pollIds)
     .eq("is_published", true)
     .eq("is_hidden", false);
@@ -39,15 +41,20 @@ async function loadPollRefs(
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => ({
-    id: String(row.id),
-    question: String(row.question),
-    category: row.category ? String(row.category) : null
-  }));
+  return (data ?? []).map((row) => {
+    const mapped = mapPollRowWithCategory(row);
+
+    return {
+      id: String(mapped.id),
+      question: String(mapped.question),
+      category: mapped.category
+    };
+  });
 }
 
 async function loadBlogPostCard(supabase: SupabaseClient, postId: string | null | undefined) {
   const id = (postId ?? "").trim();
+
   if (!id) {
     return null;
   }
@@ -86,17 +93,18 @@ async function loadCategoryPeerPolls(
   poll: PollDeepDiveRow,
   excludeIds: Set<string>
 ) {
-  const category = (poll.category ?? "").trim();
-  if (!category) {
+  const categoryId = poll.category_id?.trim();
+
+  if (!categoryId) {
     return [];
   }
 
   const { data, error } = await supabase
     .from("polls")
-    .select("id, question, category, order_index")
+    .select(POLL_REF_SELECT)
     .eq("is_published", true)
     .eq("is_hidden", false)
-    .ilike("category", escapePollCategoryIlikeExact(category))
+    .eq("category_id", categoryId)
     .neq("id", poll.id)
     .order("order_index", { ascending: true })
     .limit(CATEGORY_FETCH_BUFFER + excludeIds.size);
@@ -108,11 +116,15 @@ async function loadCategoryPeerPolls(
   return (data ?? [])
     .filter((row) => !excludeIds.has(String(row.id)))
     .slice(0, CATEGORY_FETCH_BUFFER)
-    .map((row) => ({
-      id: String(row.id),
-      question: String(row.question),
-      category: row.category ? String(row.category) : null
-    }));
+    .map((row) => {
+      const mapped = mapPollRowWithCategory(row);
+
+      return {
+        id: mapped.id,
+        question: mapped.question,
+        category: mapped.category
+      };
+    });
 }
 
 export async function loadPollDeepDiveContent(

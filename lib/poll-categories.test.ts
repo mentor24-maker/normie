@@ -1,32 +1,42 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildPollCategoryCatalog,
   buildPollsNextRequestUrl,
   buildPublicPollCategoryPath,
   buildPublicPollViewPath,
+  formatPollCategoryDisplayName,
   getPollCategoryMeta,
-  normalizePollCategoryForStorage,
   pollCategoriesEqual,
-  POLL_CATEGORY_SEEDS,
-  POLL_MANAGER_CATEGORY_NAMES,
-  resolvePollCategoryName
+  pollCategorySlugMatchesAny,
+  resolvePollCategoryName,
+  slugifyPollCategory
 } from "@/lib/poll-categories";
 
-describe("poll category URL params", () => {
-  it("resolves category slugs to stored poll category names", () => {
-    expect(resolvePollCategoryName("self-perception")).toBe("Self-Perception");
-    expect(resolvePollCategoryName("identity-psychology")).toBe("Identity & Psychology");
+const SAMPLE_CATALOG = [
+  { name: "Identity & Psychology", slug: "identity-psychology" },
+  { name: "Self-Perception", slug: "self-perception" },
+  { name: "Future / Power", slug: "future-power" }
+];
+
+describe("poll category helpers", () => {
+  it("resolves category slugs to display names from catalog", () => {
+    expect(resolvePollCategoryName("self-perception", SAMPLE_CATALOG)).toBe("Self-Perception");
+    expect(resolvePollCategoryName("identity-psychology", SAMPLE_CATALOG)).toBe("Identity & Psychology");
   });
 
   it("accepts canonical category names in the URL", () => {
-    expect(resolvePollCategoryName("Self-Perception")).toBe("Self-Perception");
+    expect(resolvePollCategoryName("Self-Perception", SAMPLE_CATALOG)).toBe("Self-Perception");
+  });
+
+  it("formats slug-style categories for headlines", () => {
+    expect(formatPollCategoryDisplayName("core-personality")).toBe("Core Personality");
+    expect(formatPollCategoryDisplayName("identity-psychology")).toBe("Identity Psychology");
   });
 
   it("resolves uppercase and lowercase labels to the same canonical name", () => {
-    expect(resolvePollCategoryName("SELF-PERCEPTION")).toBe("Self-Perception");
-    expect(resolvePollCategoryName("identity & psychology")).toBe("Identity & Psychology");
+    expect(resolvePollCategoryName("SELF-PERCEPTION", SAMPLE_CATALOG)).toBe("Self-Perception");
+    expect(resolvePollCategoryName("identity & psychology", SAMPLE_CATALOG)).toBe("Identity & Psychology");
     expect(pollCategoriesEqual("SELF-PERCEPTION", "self-perception")).toBe(true);
-    expect(normalizePollCategoryForStorage("IDENTITY & PSYCHOLOGY")).toBe("Identity & Psychology");
+    expect(slugifyPollCategory("IDENTITY & PSYCHOLOGY")).toBe("identity-psychology");
   });
 
   it("maps known aliases used in navigation", () => {
@@ -34,10 +44,17 @@ describe("poll category URL params", () => {
   });
 
   it("returns category meta for headlines and API responses", () => {
-    expect(getPollCategoryMeta("self-perception")).toEqual({
+    expect(getPollCategoryMeta("self-perception", SAMPLE_CATALOG)).toEqual({
       name: "Self-Perception",
       slug: "self-perception"
     });
+  });
+
+  it("matches preferred category slugs", () => {
+    expect(pollCategorySlugMatchesAny("endurance-athletics", ["endurance-athletics"])).toBe(true);
+    expect(pollCategorySlugMatchesAny("Endurance Athletics", ["endurance-athletics"])).toBe(true);
+    expect(slugifyPollCategory("scenario")).toBe("scenario");
+    expect(slugifyPollCategory("Scenarios")).toBe("scenarios");
   });
 
   it("builds polls/next URL with category and startPoll", () => {
@@ -47,19 +64,6 @@ describe("poll category URL params", () => {
     expect(buildPollsNextRequestUrl("identity-psychology", "550e8400-e29b-41d4-a716-446655440000")).toBe(
       "/api/polls/next?category=identity-psychology&startPoll=550e8400-e29b-41d4-a716-446655440000"
     );
-  });
-
-  it("keeps poll manager seed names aligned with category seeds", () => {
-    expect(POLL_CATEGORY_SEEDS.map((category) => category.name)).toEqual([...POLL_MANAGER_CATEGORY_NAMES]);
-  });
-
-  it("builds poll manager catalog with seeds first then poll-only names", () => {
-    const catalog = buildPollCategoryCatalog(["Personality System B", "Money & Success"]);
-
-    expect(catalog.map((category) => category.name)).toEqual([
-      ...POLL_MANAGER_CATEGORY_NAMES,
-      "Personality System B"
-    ]);
   });
 
   it("builds home page path for a category filter", () => {

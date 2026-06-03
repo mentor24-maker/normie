@@ -17,11 +17,27 @@
 create extension if not exists pgcrypto;
 
 -- ---------------------------------------------------------------------------
+-- Poll categories
+-- ---------------------------------------------------------------------------
+create table if not exists public.poll_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null,
+  sort_order integer not null default 1000,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint poll_categories_slug_format check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$')
+);
+
+create unique index if not exists poll_categories_slug_unique_idx on public.poll_categories (slug);
+create unique index if not exists poll_categories_name_lower_unique_idx on public.poll_categories (lower(name));
+
+-- ---------------------------------------------------------------------------
 -- Polls
 -- ---------------------------------------------------------------------------
 create table if not exists public.polls (
   id uuid primary key default gen_random_uuid(),
-  category varchar,
+  category_id uuid references public.poll_categories(id) on delete set null,
   source_question_id text not null default '',
   personality_system text not null default '',
   trait_dimension text not null default '',
@@ -445,6 +461,7 @@ create index if not exists game_level_events_updated_at_idx on public.game_level
 create unique index if not exists blog_topics_slug_unique_idx on public.blog_topics (slug);
 create unique index if not exists blog_tags_slug_unique_idx on public.blog_tags (slug);
 create unique index if not exists blog_categories_slug_unique_idx on public.blog_categories (slug);
+create index if not exists polls_category_id_idx on public.polls (category_id);
 create unique index if not exists blog_posts_slug_unique_idx on public.blog_posts (slug);
 create index if not exists blog_posts_status_published_at_idx on public.blog_posts (status, published_at desc);
 create index if not exists blog_posts_primary_topic_id_idx on public.blog_posts (primary_topic_id);
@@ -460,6 +477,7 @@ create index if not exists player_profiles_handle_idx on public.player_profiles 
 -- Row level security
 -- ---------------------------------------------------------------------------
 alter table public.polls enable row level security;
+alter table public.poll_categories enable row level security;
 alter table public.poll_options enable row level security;
 alter table public.poll_response enable row level security;
 alter table public.player_profiles enable row level security;
@@ -492,6 +510,13 @@ alter table public.api_rate_limits enable row level security;
 drop policy if exists "poll settings are readable" on public.poll_settings;
 create policy "poll settings are readable"
 on public.poll_settings
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "poll categories are readable" on public.poll_categories;
+create policy "poll categories are readable"
+on public.poll_categories
 for select
 to anon, authenticated
 using (true);

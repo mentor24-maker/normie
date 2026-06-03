@@ -9,7 +9,8 @@ import {
 } from "@/components/admin-poll-deep-dive-editor";
 import type { PollRelatedPickerItem } from "@/components/poll-related-picker-modal";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
-import { buildPollCategoryCatalog } from "@/lib/poll-categories";
+import { sortPollCategoryNames } from "@/lib/load-poll-category-catalog";
+import { usePollCategoryCatalog } from "@/lib/use-poll-category-catalog";
 
 type PollOption = {
   id: string;
@@ -93,6 +94,7 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const { catalog: pollCategoryCatalog } = usePollCategoryCatalog();
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -157,10 +159,12 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
   }, [load]);
 
   const availableCategories = useMemo(() => {
-    return buildPollCategoryCatalog(allPolls.map((poll) => poll.category ?? "").filter(Boolean)).map(
-      (category) => category.name
-    );
-  }, [allPolls]);
+    const names = [
+      ...pollCategoryCatalog.map((category) => category.name),
+      ...allPolls.map((poll) => poll.category ?? "").filter(Boolean)
+    ];
+    return sortPollCategoryNames(names);
+  }, [allPolls, pollCategoryCatalog]);
 
   const pickerPolls: PollRelatedPickerItem[] = useMemo(
     () =>

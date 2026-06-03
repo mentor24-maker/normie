@@ -8,6 +8,7 @@ import {
   resolvePollPod
 } from "@/lib/poll-pod-config";
 import type { PollSettingsSnapshot, PreviousPoll } from "@/src/site/home/types";
+import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 
 type PreviousResultsPanelProps = {
   previousPoll: PreviousPoll | null;
@@ -53,6 +54,7 @@ export function PreviousResultsPanel({ previousPoll, settings }: PreviousResults
       style={panelPodAppearanceStyle}
     >
       <div className="panel-label">Previous Results</div>
+      <PollCategoryHeadline category={previousPoll?.category} />
       <div className="poll-question-area">
         {previousPoll ? (
           <>

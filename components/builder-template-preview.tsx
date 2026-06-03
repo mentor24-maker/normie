@@ -63,7 +63,6 @@ import { useSitePlayerRegistration } from "@/components/use-site-player-registra
 import { BuilderSpeechBubbleRuntime } from "@/components/builder-speech-bubble-runtime";
 import { BuilderReminderRuntime } from "@/components/builder-reminder-runtime";
 import { SpeechBubblePreview } from "@/components/builder/speech-bubble-preview";
-import { BuilderPollCategoryBanner } from "@/components/builder/builder-poll-category-banner";
 import { resolveEmailMergeTokensForPreview } from "@/lib/builder-email-template";
 import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/player-portal-auth-form";
 
@@ -310,11 +309,6 @@ function BuilderSectionPreview({
       }${hasPollModules ? " builder-preview-section-poll-row" : ""}`}
       style={gridStyle}
     >
-      {hasPollModules ? (
-        <Suspense fallback={null}>
-          <BuilderPollCategoryBanner />
-        </Suspense>
-      ) : null}
       {columnKeys.map((columnKey) => {
         const columnModules = section.modules.filter((module) => module.column === columnKey);
         const isNavigationColumn = columnModules.length > 0 && columnModules.every((module) => module.type === "navigation");

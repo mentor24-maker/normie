@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { ensurePollCategory, mapPollRowWithCategory } from "@/lib/poll-category-store";
+import { POLL_REPAIR_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionRow = {
@@ -11,6 +13,7 @@ type PollOptionRow = {
 type PollRow = {
   id: string;
   category: string | null;
+  category_id: string | null;
   question: string;
   order_index: number;
   poll_options: PollOptionRow[];
@@ -26,7 +29,7 @@ function getRepairCandidate(poll: PollRow) {
   const options = [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const firstOption = options[0];
 
-  if (category) {
+  if (poll.category_id || category) {
     return null;
   }
 
@@ -49,18 +52,20 @@ async function listRepairCandidates() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("polls")
-    .select("id, category, question, order_index, poll_options(id, label, sort_order)")
+    .select(POLL_REPAIR_SELECT)
     .order("order_index", { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as PollRow[])
-    .map((poll) => ({
-      ...poll,
-      poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-    }))
+  return ((data ?? []) as unknown as PollRow[])
+    .map((poll) =>
+      mapPollRowWithCategory({
+        ...poll,
+        poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+      })
+    )
     .map(getRepairCandidate)
     .filter((candidate): candidate is NonNullable<ReturnType<typeof getRepairCandidate>> => Boolean(candidate));
 }
@@ -95,17 +100,19 @@ export async function POST() {
   try {
     const { data, error } = await supabase
       .from("polls")
-      .select("id, category, question, order_index, poll_options(id, label, sort_order)")
+      .select(POLL_REPAIR_SELECT)
       .order("order_index", { ascending: true });
 
     if (error) {
       throw new Error(error.message);
     }
 
-    const polls = ((data ?? []) as PollRow[]).map((poll) => ({
-      ...poll,
-      poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-    }));
+    const polls = ((data ?? []) as unknown as PollRow[]).map((poll) =>
+      mapPollRowWithCategory({
+        ...poll,
+        poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+      })
+    );
 
     let repairedCount = 0;
 
@@ -117,11 +124,12 @@ export async function POST() {
       }
 
       const [questionOption, ...answerOptions] = poll.poll_options;
+      const categoryRecord = await ensurePollCategory(supabase, candidate.derivedCategory);
 
       const { error: pollUpdateError } = await supabase
         .from("polls")
         .update({
-          category: candidate.derivedCategory,
+          category_id: categoryRecord?.id ?? null,
           question: candidate.derivedQuestion
         })
         .eq("id", poll.id);

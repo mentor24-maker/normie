@@ -1,12 +1,10 @@
 import { getPollDoneMessage } from "@/lib/poll-done-copy";
-import type { PollCategoryFilter, PollPayload } from "@/src/site/home/types";
+import type { PollPayload } from "@/src/site/home/types";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
-import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { getPollGridStyle } from "@/lib/poll-pod-config";
 
 type PlayerPortalPollStageProps = {
-  activeCategory?: PollCategoryFilter | null;
   isLoading: boolean;
   isSubmitting: boolean;
   payload: PollPayload | null;
@@ -16,7 +14,6 @@ type PlayerPortalPollStageProps = {
 };
 
 export function PlayerPortalPollStage({
-  activeCategory,
   isLoading,
   isSubmitting,
   payload,
@@ -49,11 +46,6 @@ export function PlayerPortalPollStage({
         className={`poll-grid player-portal-poll-grid${isAwaitingNextPoll ? " player-portal-poll-grid-awaiting-next" : ""}`}
         style={getPollGridStyle(payload.settings)}
       >
-        {activeCategory ? (
-          <div className="poll-grid-category-row">
-            <PollCategoryHeadline category={activeCategory} />
-          </div>
-        ) : null}
         <div className="poll-grid-current player-portal-poll-current">
           <CurrentPollPanel
             currentPoll={payload.currentPoll}

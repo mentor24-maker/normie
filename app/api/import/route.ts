@@ -20,7 +20,7 @@ import {
   POLL_COLLECTION_STANDARD
 } from "@/lib/poll-collections";
 import { getNextPollOrderIndex } from "@/lib/poll-order-index";
-import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
+import { resolvePollCategoryIdForWrite } from "@/lib/poll-category-store";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ImportRow = Record<string, string>;
@@ -180,13 +180,11 @@ export async function POST(request: Request) {
   let createdCount = 0;
 
   for (const row of rows) {
-    const category =
-      normalizePollCategoryForStorage(normalizeCsvValue(row[categoryField])) ??
-      normalizeCsvValue(row[categoryField]);
+    const categoryRaw = normalizeCsvValue(row[categoryField]);
     const question = normalizeCsvValue(row[questionField]);
     const options = optionFields.map((field) => normalizeCsvValue(row[field])).filter(Boolean);
 
-    if (!category || !question || options.length < 2) {
+    if (!categoryRaw || !question || options.length < 2) {
       return importFailure(
         auth,
         `Each row needs a category, a question, and at least two options. Problem row: ${JSON.stringify(row)}`,
@@ -194,10 +192,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const categoryId = await resolvePollCategoryIdForWrite(supabase, categoryRaw);
+
     const { data: poll, error: pollError } = await supabase
       .from("polls")
       .insert({
-        category,
+        category_id: categoryId,
         question,
         collection: POLL_COLLECTION_STANDARD,
         order_index: nextOrderIndex,

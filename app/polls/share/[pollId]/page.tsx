@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import { getSiteUrl, toAbsoluteSiteUrl } from "@/lib/site-url";
+import { mapPollRowWithCategory } from "@/lib/poll-category-store";
+import { POLL_SHARE_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollSharePageProps = {
@@ -30,7 +32,7 @@ async function getSharePoll(pollId: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("polls")
-    .select("id, category, question, image_url, is_published, poll_options(id, label, sort_order)")
+    .select(POLL_SHARE_SELECT)
     .eq("id", pollId)
     .eq("is_published", true)
     .eq("is_hidden", false)
@@ -40,8 +42,10 @@ async function getSharePoll(pollId: string) {
     return null;
   }
 
+  const mapped = mapPollRowWithCategory(data);
+
   return {
-    ...data,
+    ...mapped,
     poll_options: [...(data.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   } as SharePoll;
 }

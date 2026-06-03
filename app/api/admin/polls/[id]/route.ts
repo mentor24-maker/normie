@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { applyPollGalleryImageUrlOnSave } from "@/lib/poll-gallery-link";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
-import { normalizePollCategoryForStorage } from "@/lib/poll-categories";
+import { mapPollRowWithCategory, resolvePollCategoryIdForWrite } from "@/lib/poll-category-store";
+import { POLL_ADMIN_SELECT } from "@/lib/poll-select";
 import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -21,8 +22,7 @@ function safeInteger(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-const POLL_SELECT =
-  "id, category, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, image_url, order_index, created_at, is_published, is_hidden, poll_options(id, label, sort_order)";
+const POLL_SELECT = POLL_ADMIN_SELECT;
 
 export async function GET(
   _request: Request,
@@ -46,10 +46,10 @@ export async function GET(
     return auth.finish(NextResponse.json({ error: "Poll not found." }, { status: 404 }));
   }
 
-  const poll = {
+  const poll = mapPollRowWithCategory({
     ...data,
     poll_options: [...(data.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-  };
+  });
 
   return auth.finish(NextResponse.json({ poll }));
 }
@@ -78,7 +78,8 @@ export async function PATCH(
     poll_options?: PollOptionInput[];
   };
 
-  const category = normalizePollCategoryForStorage(body.category);
+  const supabase = createAdminClient();
+  const categoryId = await resolvePollCategoryIdForWrite(supabase, body.category);
   const question = safeText(body.question, 4000);
   const imageUrl = await applyPollGalleryImageUrlOnSave(body.image_url);
   const orderIndex = safeInteger(body.order_index, NaN);
@@ -109,11 +110,10 @@ export async function PATCH(
     return auth.finish(NextResponse.json({ error: "Each poll option must have text." }, { status: 400 }));
   }
 
-  const supabase = createAdminClient();
   const { error: pollError } = await supabase
     .from("polls")
     .update({
-      category,
+      category_id: categoryId,
       question,
       image_url: imageUrl,
       deep_dive: deepDive,
@@ -153,10 +153,10 @@ export async function PATCH(
 
   return auth.finish(
     NextResponse.json({
-      poll: {
+      poll: mapPollRowWithCategory({
         ...data,
         poll_options: [...(data.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-      }
+      })
     })
   );
 }

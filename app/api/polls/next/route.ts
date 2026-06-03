@@ -1,10 +1,6 @@
 import { cookies } from "next/headers";
-import {
-  escapePollCategoryIlikeExact,
-  getPollCategoryMeta,
-  pollCategoryMatchesAny,
-  resolvePollCategoryName
-} from "@/lib/poll-categories";
+import { getPollCategoryMeta, pollCategorySlugMatchesAny } from "@/lib/poll-categories";
+import { findPollCategoryByParam } from "@/lib/poll-category-store";
 import { loadPollDeepDiveContent } from "@/lib/load-poll-deep-dive-content";
 import { getPublicPollSettings, pollSettingsToClientPayload } from "@/lib/poll-settings";
 import { publicErrorResponse } from "@/lib/observability/report-error";
@@ -13,6 +9,7 @@ import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPreferences } from "@/lib/player-preferences";
 import { getUnlockedFeatureKeys } from "@/lib/player-unlocked-features";
 import { countProgressPolls } from "@/lib/player-poll-stats";
+import { POLL_PUBLIC_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
 import {
@@ -28,6 +25,7 @@ import {
   readPollTestProgress
 } from "@/lib/poll-test-mode";
 import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll, shuffleForDisplay } from "@/lib/polls-next-session";
+import { mapPollRowWithCategory } from "@/lib/poll-category-store";
 
 function getPollResults(
   options: Array<{ id: string; label: string }>,
@@ -59,26 +57,29 @@ export const GET = withObservedRoute("polls.next", async (request) => {
 
   const categoryParam = new URL(request.url).searchParams.get("category")?.trim() || "";
   const startPollParam = new URL(request.url).searchParams.get("startPoll")?.trim() || "";
-  const categoryFilter = categoryParam ? resolvePollCategoryName(categoryParam) : null;
-  const activeCategory = categoryParam ? getPollCategoryMeta(categoryParam) : null;
+
+  const supabase = createPublicClient();
+  const supabaseAdmin = createAdminClient();
+  const settingsPromise = getPublicPollSettings();
+  const categoryRecord = categoryParam ? await findPollCategoryByParam(supabaseAdmin, categoryParam) : null;
+  const activeCategory = categoryRecord
+    ? getPollCategoryMeta(categoryRecord.slug, [categoryRecord])
+    : categoryParam
+      ? null
+      : null;
 
   const START_POLL_UUID =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  const supabase = createPublicClient();
-  const settingsPromise = getPublicPollSettings();
-
   let pollsQuery = supabase
     .from("polls")
-    .select(
-      "id, question, deep_dive, deep_dive_youtube_url, deep_dive_blog_post_id, deep_dive_related_poll_ids, category, image_url, order_index, is_published, poll_options(id, label, sort_order)"
-    )
+    .select(POLL_PUBLIC_SELECT)
     .eq("is_published", true)
     .eq("is_hidden", false)
     .order("order_index", { ascending: true });
 
   if (categoryParam) {
-    if (!categoryFilter) {
+    if (!categoryRecord) {
       const settings = await settingsPromise;
       return jsonWithPollSession(
         {
@@ -93,7 +94,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       );
     }
 
-    pollsQuery = pollsQuery.ilike("category", escapePollCategoryIlikeExact(categoryFilter));
+    pollsQuery = pollsQuery.eq("category_id", categoryRecord.id);
   }
 
   const responsesQuery = supabase
@@ -120,21 +121,25 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       logEvent: "polls.next.load_failed",
       error: pollsError ?? responseError,
       message: "Failed to load polls.",
-      context: { category: categoryFilter || null }
+      context: { category: categoryRecord?.slug ?? null }
     });
   }
 
-  let orderedPolls = (polls ?? []).map((poll) => ({
-    ...poll,
-    poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-  }));
+  let orderedPolls = (polls ?? []).map((poll) => {
+    const mapped = mapPollRowWithCategory(poll);
+
+    return {
+      ...mapped,
+      poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+    };
+  });
 
   const preferences = player && !categoryParam ? await getPlayerPreferences(player) : null;
   const usesPreferenceFilter = Boolean(preferences && preferences.preferredPollCategories.length > 0);
 
   if (usesPreferenceFilter && preferences) {
     orderedPolls = orderedPolls.filter((poll) =>
-      pollCategoryMatchesAny(poll.category, preferences.preferredPollCategories)
+      pollCategorySlugMatchesAny(poll.category_slug, preferences.preferredPollCategories)
     );
   }
 
@@ -145,7 +150,6 @@ export const GET = withObservedRoute("polls.next", async (request) => {
   let unlockedFeatures: string[] = [];
 
   if (player) {
-    const supabaseAdmin = createAdminClient();
     const [{ data: rewards, error: rewardsError }, { data: features, error: featuresError }] = await Promise.all([
       supabaseAdmin.from("game_rewards").select("reward_type, status, metadata").eq("status", "active"),
       supabaseAdmin.from("game_progressive_features").select("feature_key, is_active").eq("is_active", true)
@@ -203,7 +207,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     | null = null;
 
   if (!currentPoll) {
-    if (categoryParam && !categoryFilter) {
+    if (categoryParam && !categoryRecord) {
       doneReason = "invalid_category";
     } else if (orderedPolls.length === 0) {
       doneReason = usesPreferenceFilter
@@ -278,6 +282,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       {
         id: previousPoll.id,
         question: previousPoll.question,
+        category_id: previousPoll.category_id,
         category: previousPoll.category,
         deep_dive: previousPoll.deep_dive,
         deep_dive_youtube_url: previousPoll.deep_dive_youtube_url,
@@ -290,6 +295,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     previousPollResults = {
       id: previousPoll.id,
       question: previousPoll.question,
+      category: previousPoll.category,
       totalResponses: pollResults.totalResponses,
       options: pollResults.options,
       deepDive
@@ -303,6 +309,7 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       currentPoll: {
         id: currentPoll.id,
         question: currentPoll.question,
+        category: currentPoll.category,
         imageUrl: currentPoll.image_url ?? "",
         options: shuffleForDisplay(currentPoll.poll_options).map((option) => ({
           id: option.id,

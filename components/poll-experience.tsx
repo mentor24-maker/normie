@@ -3,11 +3,9 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   buildPollsNextRequestUrl,
-  getPollCategoryMeta,
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
-import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
 import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
@@ -26,7 +24,6 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const activeCategory = payload?.activeCategory ?? getPollCategoryMeta(categoryParam);
 
   const loadPolls = useCallback(
     async (options?: { category?: string; startPoll?: string }) => {
@@ -121,11 +118,6 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
       ) : payload?.currentPoll ? (
         <>
           <section className="poll-grid" style={getPollGridStyle(payload.settings)}>
-            {activeCategory ? (
-              <div className="poll-grid-category-row">
-                <PollCategoryHeadline category={activeCategory} />
-              </div>
-            ) : null}
             <CurrentPollPanel
               currentPoll={payload.currentPoll}
               isAwaitingNextPoll={isLoading}
