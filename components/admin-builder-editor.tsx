@@ -404,15 +404,17 @@ export function AdminBuilderEditor() {
   function updateModuleBackground(sectionId: string, moduleId: string, updater: (bg: BackgroundSettings) => BackgroundSettings) {
     updateModule(sectionId, moduleId, (current) => {
       const next = updater(getModuleBackgroundSettings(current.settings));
+      const isClear = next.mode === "none";
+
       return {
         ...current,
         settings: {
           ...current.settings,
           backgroundMode: next.mode,
-          backgroundColor: next.color,
-          backgroundColor2: next.color2,
-          backgroundImageUrl: next.imageUrl,
-          backgroundStyleKey: next.styleKey
+          backgroundColor: isClear ? "" : next.color,
+          backgroundColor2: isClear ? "" : next.color2,
+          backgroundImageUrl: isClear ? "" : next.imageUrl,
+          backgroundStyleKey: isClear ? "" : next.styleKey
         }
       };
     });

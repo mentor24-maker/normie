@@ -9,6 +9,7 @@ import {
 } from "@/components/admin-poll-deep-dive-editor";
 import type { PollRelatedPickerItem } from "@/components/poll-related-picker-modal";
 import { normalizeDeepDiveRelatedPollIds } from "@/lib/poll-deep-dive";
+import { buildPollCategoryCatalog } from "@/lib/poll-categories";
 
 type PollOption = {
   id: string;
@@ -43,19 +44,6 @@ type PollDraft = {
   is_published: boolean;
   poll_options: PollOption[];
 };
-
-const POLL_CATEGORIES = [
-  "Identity & Psychology",
-  "Money & Success",
-  "Dark / Truth",
-  "Social & Relationships",
-  "Life Tradeoffs",
-  "Future / Power",
-  "Self-Perception",
-  "Behavior & Habits",
-  "Modern Life / Digital",
-  "Absurd but Revealing"
-] as const;
 
 function createDraftFromPoll(poll: AdminPoll): PollDraft {
   return {
@@ -169,12 +157,9 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
   }, [load]);
 
   const availableCategories = useMemo(() => {
-    return [
-      ...new Set([
-        ...POLL_CATEGORIES,
-        ...allPolls.map((p) => p.category ?? "").filter(Boolean)
-      ])
-    ];
+    return buildPollCategoryCatalog(allPolls.map((poll) => poll.category ?? "").filter(Boolean)).map(
+      (category) => category.name
+    );
   }, [allPolls]);
 
   const pickerPolls: PollRelatedPickerItem[] = useMemo(

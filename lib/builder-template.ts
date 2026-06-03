@@ -8,7 +8,7 @@ import {
 } from "@/lib/builder-reminder-module";
 import { MODULE_GAME_AUDIENCE_SETTING_KEY, normalizeModuleGameAudience } from "@/lib/module-game-audience";
 import { normalizeModuleTrigger, MODULE_TRIGGER_SETTING_KEY } from "@/lib/module-trigger";
-import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
+import { isTransparentBuilderColor, normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
   HEADLINE_ROTATOR_DEFAULT_MIN_HEIGHT,
@@ -50,6 +50,7 @@ export type BuilderTemplateModuleType =
   | "social-share"
   | "previous-results"
   | "current-poll"
+  | "poll-category-list"
   | "confetti";
 
 export type BuilderTemplateModule = {
@@ -417,6 +418,13 @@ export function getBuilderBackgroundStyle(background: BackgroundSettings | undef
   }
 
   if (background.mode === "color") {
+    if (isTransparentBuilderColor(background.color)) {
+      return {
+        background: "transparent",
+        backgroundColor: "transparent"
+      };
+    }
+
     return {
       background: background.color
     };
@@ -606,6 +614,7 @@ export function normalizeModuleType(value: unknown): BuilderTemplateModuleType {
     type === "social-share" ||
     type === "previous-results" ||
     type === "current-poll" ||
+    type === "poll-category-list" ||
     type === "confetti"
   ) {
     return type;
@@ -766,6 +775,59 @@ export function normalizeBuilderModuleSettingsForType(
     if (!settings.verticalAlignment) {
       settings.verticalAlignment = "top";
     }
+  }
+
+  if (type === "poll-category-list") {
+    settings.color = normalizeBuilderHexColor(settings.color || "#18324a");
+    settings.fontSize = normalizeSpacingValue(
+      settings.fontSize,
+      "18",
+      10,
+      120
+    );
+    settings.itemGap = normalizeSpacingValue(settings.itemGap, "8", 0, 48);
+    if (settings.categorySort !== "canonical") {
+      settings.categorySort = "alphabetical";
+    }
+    if (settings.categoryListFlow !== "columns") {
+      settings.categoryListFlow = "rows";
+    }
+    settings.listTitle = safeText(settings.listTitle, 120) || "Categories";
+    if (!settings.bold) {
+      settings.bold = "true";
+    }
+
+    const rawBackgroundMode = safeText(settings.backgroundMode, 20);
+    const panelBackground = normalizeBackgroundSettings({
+      mode: rawBackgroundMode || "color",
+      color: settings.backgroundColor,
+      color2: settings.backgroundColor2,
+      imageUrl: settings.backgroundImageUrl,
+      styleKey: settings.backgroundStyleKey
+    });
+
+    if (!rawBackgroundMode) {
+      settings.backgroundMode = "color";
+      settings.backgroundColor = normalizeBuilderHexColor(settings.backgroundColor, "#e8f6fc");
+      settings.backgroundColor2 = panelBackground.color2;
+      settings.backgroundImageUrl = "";
+      settings.backgroundStyleKey = "";
+    } else {
+      settings.backgroundMode = panelBackground.mode;
+      if (panelBackground.mode === "none") {
+        settings.backgroundColor = "";
+        settings.backgroundColor2 = "";
+        settings.backgroundImageUrl = "";
+        settings.backgroundStyleKey = "";
+      } else {
+        settings.backgroundColor = normalizeBuilderHexColor(settings.backgroundColor, "#e8f6fc");
+        settings.backgroundColor2 = panelBackground.color2;
+        settings.backgroundImageUrl = panelBackground.imageUrl;
+        settings.backgroundStyleKey = panelBackground.styleKey;
+      }
+    }
+
+    settings.panelBorderColor = normalizeBuilderHexColor(settings.panelBorderColor || "#c6e8f5", "#c6e8f5");
   }
 
   return settings;
@@ -1137,6 +1199,23 @@ export function createEmptyModule(
                       showPromptCopy: "true",
                       size: "100"
                     }
+                  : type === "poll-category-list"
+                    ? {
+                        listTitle: "Categories",
+                        categorySort: "alphabetical",
+                        categoryListFlow: "rows",
+                        fontSize: "18",
+                        color: "#18324a",
+                        bold: "true",
+                        alignment: "left",
+                        itemGap: "8",
+                        backgroundMode: "color",
+                        backgroundColor: "#e8f6fc",
+                        backgroundColor2: "#eaf4ff",
+                        backgroundImageUrl: "",
+                        backgroundStyleKey: "",
+                        panelBorderColor: "#c6e8f5"
+                      }
                   : type === "social-share"
                     ? {
                         shareLabel: "Share this poll",

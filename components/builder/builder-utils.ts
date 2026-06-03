@@ -17,6 +17,7 @@ import {
 import {
   createDefaultBackgroundSettings,
   getBuilderBackgroundStyle,
+  normalizeBackgroundMode,
   normalizeBuilderAssetUrl,
   normalizeSignedOffsetValue,
   normalizeSpacingValue
@@ -575,12 +576,37 @@ export function getImageModuleShellStyle(settings: Record<string, string>): CSSP
 
 export function getModuleBackgroundSettings(settings: Record<string, string>): BackgroundSettings {
   return {
-    mode: (settings.backgroundMode as BackgroundSettings["mode"]) || "none",
+    mode: normalizeBackgroundMode(settings.backgroundMode),
     color: settings.backgroundColor || "#ffffff",
     color2: settings.backgroundColor2 || "#eaf4ff",
     imageUrl: normalizeBuilderAssetUrl(settings.backgroundImageUrl),
     styleKey: settings.backgroundStyleKey === "blue-yellow-circles" ? "blue-yellow-circles" : ""
   };
+}
+
+export function getPollCategoryListPanelStyle(settings: Record<string, string>): CSSProperties {
+  const panelBackground = getModuleBackgroundSettings(settings);
+
+  if (panelBackground.mode === "none") {
+    return {
+      background: "transparent",
+      backgroundColor: "transparent",
+      backgroundImage: "none",
+      boxShadow: "none",
+      border: "none",
+      borderRadius: undefined
+    };
+  }
+
+  return {
+    ...(getBuilderBackgroundStyle(panelBackground) ?? {}),
+    borderRadius: "12px",
+    border: `1px solid ${normalizeBuilderHexColor(settings.panelBorderColor, "#c6e8f5")}`
+  };
+}
+
+export function isPollCategoryListPanelTransparent(settings: Record<string, string>): boolean {
+  return getModuleBackgroundSettings(settings).mode === "none";
 }
 
 export function getButtonBackgroundSettings(settings: Record<string, string>): BackgroundSettings {

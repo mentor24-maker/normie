@@ -17,6 +17,7 @@ import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background
 import { SiteHeaderDevResetButton } from "@/components/site-header-dev-reset-button";
 import { BuilderConfettiRuntime } from "@/components/builder-confetti-runtime";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
+import { PollCategoryListPreview } from "@/components/builder/poll-category-list-preview";
 import {
   HEADLINE_ROTATOR_DEFAULT_FONT_SIZE,
   computeHeadlineRotatorFadeInDelay,
@@ -359,6 +360,7 @@ function BuilderSectionPreview({
                 isOverlayImageModule(module) && !isSectionScopedOverlayDecor(module);
               const isSectionOverlayModule = isSectionScopedOverlayDecor(module);
               const isCurrentPollModule = module.type === "current-poll";
+              const isPollCategoryListModule = module.type === "poll-category-list";
 
               return (
                 <div
@@ -377,10 +379,14 @@ function BuilderSectionPreview({
                     isPageOverlayFlowModule ||
                     isSectionOverlayModule ||
                     module.type === "button" ||
-                    isCurrentPollModule
+                    isCurrentPollModule ||
+                    isPollCategoryListModule
                       ? {}
                       : getBuilderBackgroundStyle(getModuleBackgroundSettings(module.settings)) ?? {}),
-                    ...(isPageOverlayFlowModule || isSectionOverlayModule || isCurrentPollModule
+                    ...(isPageOverlayFlowModule ||
+                    isSectionOverlayModule ||
+                    isCurrentPollModule ||
+                    isPollCategoryListModule
                       ? {}
                       : module.type === "heading"
                         ? getModuleMarginStyle(module.settings)
@@ -445,6 +451,10 @@ function BuilderModulePreview({
 
   if (module.type === "headline-rotator") {
     return <HeadlineRotatorPreview module={module} />;
+  }
+
+  if (module.type === "poll-category-list") {
+    return <PollCategoryListPreview module={module} />;
   }
 
   if (module.type === "text") {

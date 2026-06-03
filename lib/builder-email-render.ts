@@ -58,6 +58,7 @@ function renderEmailModule(module: BuilderTemplateModule): string {
     module.type === "previous-results" ||
     module.type === "confetti" ||
     module.type === "headline-rotator" ||
+    module.type === "poll-category-list" ||
     module.type === "slider" ||
     module.type === "social" ||
     module.type === "social-share" ||

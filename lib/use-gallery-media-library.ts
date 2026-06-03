@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_GALLERY_MEDIA_FILTERS,
+  galleryFiltersToQueryParams,
   type GalleryMediaFilters
 } from "@/lib/gallery-media-filters";
 import { readAdminJson } from "@/lib/admin-fetch";
 import type { AdminMediaItem } from "@/lib/admin-media-shared";
-import {
-  buildGalleryMediaSearchParams,
-  GALLERY_MEDIA_PAGE_SIZE_DEFAULT,
-  type GalleryMediaQueryParams
-} from "@/lib/gallery-media-query-params";
+import { buildGalleryMediaSearchParams } from "@/lib/gallery-media-query-params";
 
 type GalleryMediaListResponse = {
   media?: AdminMediaItem[];
@@ -21,21 +18,12 @@ type GalleryMediaListResponse = {
   error?: string;
 };
 
-function filtersToQueryParams(filters: GalleryMediaFilters, offset: number): GalleryMediaQueryParams {
-  return {
-    filename: filters.filename,
-    extension: filters.extension,
-    kind: filters.kind,
-    sort: filters.sort,
-    badge: "",
-    limit: GALLERY_MEDIA_PAGE_SIZE_DEFAULT,
-    offset,
-    sync: false,
-    indexed: true
-  };
-}
-
-export function useGalleryMediaLibrary(options?: { enabled?: boolean; syncOnFirstLoad?: boolean }) {
+export function useGalleryMediaLibrary(options?: {
+  enabled?: boolean;
+  syncOnFirstLoad?: boolean;
+  /** When set (e.g. bulk edit), list queries use these filters instead of live category/type/aspect. */
+  listQueryFilters?: GalleryMediaFilters | null;
+}) {
   const enabled = options?.enabled ?? true;
   const [media, setMedia] = useState<AdminMediaItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -54,14 +42,19 @@ export function useGalleryMediaLibrary(options?: { enabled?: boolean; syncOnFirs
         return;
       }
 
+      const querySource = options?.listQueryFilters ?? filters;
       const activeFilters: GalleryMediaFilters = {
-        filename: debouncedFilename,
-        extension: filters.extension,
-        kind: filters.kind,
-        sort: filters.sort
+        filename: options?.listQueryFilters ? querySource.filename : debouncedFilename,
+        extension: querySource.extension,
+        kind: querySource.kind,
+        mediaCategory: querySource.mediaCategory,
+        mediaType: querySource.mediaType,
+        aspect: querySource.aspect,
+        sort: querySource.sort,
+        not: querySource.not
       };
       const offset = loadOptions?.append ? mediaRef.current.length : 0;
-      const query = filtersToQueryParams(activeFilters, offset);
+      const query = galleryFiltersToQueryParams(activeFilters, { offset });
       const search = buildGalleryMediaSearchParams(query, { sync: loadOptions?.sync });
 
       setIsLoading(true);
@@ -91,7 +84,18 @@ export function useGalleryMediaLibrary(options?: { enabled?: boolean; syncOnFirs
         setIsLoading(false);
       }
     },
-    [debouncedFilename, enabled, filters.extension, filters.kind, filters.sort]
+    [
+      debouncedFilename,
+      enabled,
+      filters.aspect,
+      filters.extension,
+      filters.kind,
+      filters.mediaCategory,
+      filters.mediaType,
+      filters.sort,
+      filters.not,
+      options?.listQueryFilters
+    ]
   );
 
   useEffect(() => {
@@ -113,10 +117,15 @@ export function useGalleryMediaLibrary(options?: { enabled?: boolean; syncOnFirs
   }, [
     debouncedFilename,
     enabled,
+    filters.aspect,
     filters.extension,
     filters.kind,
+    filters.mediaCategory,
+    filters.mediaType,
     filters.sort,
+    filters.not,
     loadMedia,
+    options?.listQueryFilters,
     options?.syncOnFirstLoad
   ]);
 
@@ -134,6 +143,7 @@ export function useGalleryMediaLibrary(options?: { enabled?: boolean; syncOnFirs
     total,
     isLoading,
     filters,
+    debouncedFilename,
     setFilters,
     loadMedia,
     clearFilters,

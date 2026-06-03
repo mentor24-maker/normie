@@ -1,13 +1,39 @@
 import path from "node:path";
 import type { AdminMediaItem } from "@/lib/admin-media-shared";
 import { getMediaKind } from "@/lib/admin-media-shared";
+import { galleryBadgeFlagForMediaType } from "@/lib/gallery-media-badge-type";
+import { normalizeGalleryMediaAspect, type GalleryMediaAspect } from "@/lib/gallery-media-aspect";
+import {
+  fetchGalleryMediaRecordByName,
+  galleryMetadataMigrationHint,
+  selectGalleryMediaRecords
+} from "@/lib/gallery-media-db";
+import { normalizeGalleryMediaCategory } from "@/lib/gallery-media-category";
+import {
+  defaultGalleryMediaMetadata,
+  GALLERY_MEDIA_RECORD_SELECT_FULL,
+  isMissingGalleryMediaColumnError,
+  normalizeGalleryMediaRecordRow,
+  type GalleryMediaRecordRow
+} from "@/lib/gallery-media-record";
+import { normalizeGalleryMediaType } from "@/lib/gallery-media-type";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export type GalleryMediaRecord = {
   storage_name: string;
   badge: boolean;
+  media_category: string;
+  media_type: string;
+  aspect: GalleryMediaAspect;
   created_at?: string;
   updated_at: string;
+};
+
+export type GalleryMediaMetadataPatch = {
+  badge?: boolean;
+  media_category?: string;
+  media_type?: string;
+  aspect?: GalleryMediaAspect;
 };
 
 export function getGalleryStorageName(value: string): string {
@@ -51,15 +77,20 @@ export function mergeGalleryMediaBadges(
   items: AdminMediaItem[],
   records: GalleryMediaRecord[]
 ): AdminMediaItem[] {
-  const badgeByStorageName = new Map(records.map((record) => [record.storage_name, record.badge]));
+  const recordByStorageName = new Map(records.map((record) => [record.storage_name, record]));
 
   return items.map((item) => {
     const storageName = getGalleryStorageName(item.path);
+    const record = recordByStorageName.get(storageName);
+    const defaults = defaultGalleryMediaMetadata();
 
     return {
       ...item,
       storageName,
-      badge: badgeByStorageName.get(storageName) ?? false
+      badge: record?.badge ?? false,
+      mediaCategory: record?.media_category ?? defaults.media_category,
+      mediaType: record?.media_type ?? defaults.media_type,
+      aspect: record?.aspect ?? defaults.aspect
     };
   });
 }
@@ -88,7 +119,7 @@ export async function syncGalleryStorageIndex(): Promise<number> {
     );
 
     if (files.length > 0) {
-      await Promise.all(files.map((file) => createGalleryMediaRecord(file.name, false)));
+      await Promise.all(files.map((file) => createGalleryMediaRecord(file.name, { badge: false })));
       synced += files.length;
     }
 
@@ -106,6 +137,7 @@ export async function listGalleryStorageMedia(): Promise<AdminMediaItem[]> {
   const supabase = createAdminClient();
   const items: AdminMediaItem[] = [];
   let offset = 0;
+  const defaults = defaultGalleryMediaMetadata();
 
   while (true) {
     const { data, error } = await supabase.storage.from("gallery").list("", {
@@ -141,7 +173,10 @@ export async function listGalleryStorageMedia(): Promise<AdminMediaItem[]> {
         kind,
         extension,
         storageName: item.name,
-        badge: false
+        badge: false,
+        mediaCategory: defaults.media_category,
+        mediaType: defaults.media_type,
+        aspect: defaults.aspect
       });
     }
 
@@ -157,15 +192,8 @@ export async function listGalleryStorageMedia(): Promise<AdminMediaItem[]> {
 
 export async function loadGalleryMediaRecords(): Promise<GalleryMediaRecord[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("gallery_media")
-    .select("storage_name, badge, created_at, updated_at");
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []) as GalleryMediaRecord[];
+  const { records } = await selectGalleryMediaRecords(supabase);
+  return records;
 }
 
 export async function listGalleryMediaLibrary(): Promise<AdminMediaItem[]> {
@@ -173,7 +201,10 @@ export async function listGalleryMediaLibrary(): Promise<AdminMediaItem[]> {
   return mergeGalleryMediaBadges(storageMedia, records);
 }
 
-export async function setGalleryMediaBadge(storageName: string, badge: boolean): Promise<GalleryMediaRecord> {
+export async function updateGalleryMediaMetadata(
+  storageName: string,
+  patch: GalleryMediaMetadataPatch
+): Promise<GalleryMediaRecord> {
   const normalizedName = storageName.trim();
 
   if (!normalizedName) {
@@ -181,45 +212,160 @@ export async function setGalleryMediaBadge(storageName: string, badge: boolean):
   }
 
   const supabase = createAdminClient();
-  const updatedAt = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("gallery_media")
-    .upsert(
-      {
-        storage_name: normalizedName,
-        badge,
-        updated_at: updatedAt
-      },
-      { onConflict: "storage_name" }
-    )
-    .select("storage_name, badge, updated_at")
-    .single();
+  const existing = await fetchGalleryMediaRecordByName(supabase, normalizedName);
 
-  if (error || !data) {
-    throw new Error(error?.message ?? "Gallery media could not be updated.");
+  const mediaType = normalizeGalleryMediaType(
+    patch.media_type !== undefined ? patch.media_type : existing?.media_type
+  );
+  let badge = patch.badge ?? existing?.badge ?? false;
+
+  if (patch.media_type !== undefined) {
+    const badgeFromType = galleryBadgeFlagForMediaType(mediaType);
+
+    if (badgeFromType !== undefined) {
+      badge = badgeFromType;
+    }
   }
 
-  return data as GalleryMediaRecord;
+  const record = {
+    storage_name: normalizedName,
+    badge,
+    media_category: normalizeGalleryMediaCategory(
+      patch.media_category !== undefined ? patch.media_category : existing?.media_category
+    ),
+    media_type: mediaType,
+    aspect: normalizeGalleryMediaAspect(patch.aspect !== undefined ? patch.aspect : existing?.aspect),
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from("gallery_media")
+    .upsert(record, { onConflict: "storage_name" })
+    .select(GALLERY_MEDIA_RECORD_SELECT_FULL)
+    .single();
+
+  if (error) {
+    if (isMissingGalleryMediaColumnError(error.message)) {
+      throw new Error(galleryMetadataMigrationHint());
+    }
+
+    throw new Error(error.message ?? "Gallery media could not be updated.");
+  }
+
+  if (!data) {
+    throw new Error("Gallery media could not be updated.");
+  }
+
+  return normalizeGalleryMediaRecordRow(data as GalleryMediaRecordRow);
 }
 
-export async function createGalleryMediaRecord(storageName: string, badge = false): Promise<void> {
+export async function setGalleryMediaBadge(storageName: string, badge: boolean): Promise<GalleryMediaRecord> {
+  return updateGalleryMediaMetadata(storageName, { badge });
+}
+
+export async function createGalleryMediaRecord(
+  storageName: string,
+  options: {
+    badge?: boolean;
+    media_category?: string;
+    media_type?: string;
+    aspect?: GalleryMediaAspect;
+  } = {}
+): Promise<void> {
   const normalizedName = storageName.trim();
 
   if (!normalizedName) {
     return;
   }
 
+  const defaults = defaultGalleryMediaMetadata();
   const supabase = createAdminClient();
-  const { error } = await supabase.from("gallery_media").upsert(
-    {
-      storage_name: normalizedName,
-      badge,
-      updated_at: new Date().toISOString()
-    },
-    { onConflict: "storage_name", ignoreDuplicates: true }
-  );
+  const payload = {
+    storage_name: normalizedName,
+    badge: options.badge ?? false,
+    media_category: normalizeGalleryMediaCategory(options.media_category ?? defaults.media_category),
+    media_type: normalizeGalleryMediaType(options.media_type ?? defaults.media_type),
+    aspect: normalizeGalleryMediaAspect(options.aspect ?? defaults.aspect),
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabase.from("gallery_media").upsert(payload, {
+    onConflict: "storage_name",
+    ignoreDuplicates: true
+  });
+
+  if (error && isMissingGalleryMediaColumnError(error.message)) {
+    const { error: legacyError } = await supabase.from("gallery_media").upsert(
+      {
+        storage_name: normalizedName,
+        badge: options.badge ?? false,
+        updated_at: payload.updated_at
+      },
+      { onConflict: "storage_name", ignoreDuplicates: true }
+    );
+
+    if (legacyError) {
+      throw legacyError;
+    }
+
+    return;
+  }
 
   if (error) {
     throw error;
   }
+}
+
+export async function deleteGalleryMediaFile(storageName: string): Promise<void> {
+  const normalizedName = storageName.trim();
+
+  if (!normalizedName) {
+    throw new Error("A gallery file name is required.");
+  }
+
+  const supabase = createAdminClient();
+  const { error: storageError } = await supabase.storage.from("gallery").remove([normalizedName]);
+
+  if (storageError) {
+    throw new Error(storageError.message ?? "Gallery file could not be deleted from storage.");
+  }
+
+  const { error: dbError } = await supabase
+    .from("gallery_media")
+    .delete()
+    .eq("storage_name", normalizedName);
+
+  if (dbError) {
+    throw new Error(dbError.message ?? "Gallery media record could not be deleted.");
+  }
+}
+
+export async function deleteGalleryMediaFiles(
+  storageNames: string[]
+): Promise<{ deleted: number; failures: string[] }> {
+  const uniqueNames = [
+    ...new Set(storageNames.map((name) => name.trim()).filter((name) => name.length > 0))
+  ];
+
+  if (uniqueNames.length === 0) {
+    throw new Error("At least one gallery file name is required.");
+  }
+
+  let deleted = 0;
+  const failures: string[] = [];
+
+  for (const storageName of uniqueNames) {
+    try {
+      await deleteGalleryMediaFile(storageName);
+      deleted += 1;
+    } catch (error) {
+      failures.push(`${storageName}: ${error instanceof Error ? error.message : "Delete failed."}`);
+    }
+  }
+
+  if (deleted === 0) {
+    throw new Error(failures[0] ?? "No gallery media could be deleted.");
+  }
+
+  return { deleted, failures };
 }

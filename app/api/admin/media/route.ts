@@ -3,10 +3,15 @@ import path from "node:path";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { getMediaKind } from "@/lib/admin-media";
 import { buildGalleryUploadFileName } from "@/lib/gallery-upload-filename";
+import { galleryMetadataMigrationHint } from "@/lib/gallery-media-db";
+import { isMissingGalleryMediaColumnError } from "@/lib/gallery-media-record";
+import { normalizeGalleryMediaAspect } from "@/lib/gallery-media-aspect";
+import { normalizeGalleryMediaCategory } from "@/lib/gallery-media-category";
+import { GALLERY_MEDIA_BADGE_TYPE, normalizeGalleryMediaType } from "@/lib/gallery-media-type";
 import {
   createGalleryMediaRecord,
   listGalleryMediaLibrary,
-  setGalleryMediaBadge,
+  updateGalleryMediaMetadata,
   syncGalleryStorageIndex
 } from "@/lib/gallery-media";
 import {
@@ -48,9 +53,13 @@ export async function GET(request: Request) {
     const media = await listGalleryMediaLibrary();
     return auth.finish(NextResponse.json({ media, total: media.length, limit: media.length, offset: 0 }));
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load media library.";
+
     return auth.finish(
       NextResponse.json(
-        { error: error instanceof Error ? error.message : "Failed to load media library." },
+        {
+          error: isMissingGalleryMediaColumnError(message) ? galleryMetadataMigrationHint() : message
+        },
         { status: 500 }
       )
     );
@@ -65,15 +74,38 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { storageName?: unknown; badge?: unknown };
+    const body = (await request.json()) as {
+      storageName?: unknown;
+      badge?: unknown;
+      media_category?: unknown;
+      media_type?: unknown;
+      aspect?: unknown;
+    };
     const storageName = String(body.storageName ?? "").trim();
-    const badge = body.badge === true;
+    const hasBadge = Object.prototype.hasOwnProperty.call(body, "badge");
+    const hasMediaCategory = Object.prototype.hasOwnProperty.call(body, "media_category");
+    const hasMediaType = Object.prototype.hasOwnProperty.call(body, "media_type");
+    const hasAspect = Object.prototype.hasOwnProperty.call(body, "aspect");
 
     if (!storageName) {
       return auth.finish(NextResponse.json({ error: "A gallery file name is required." }, { status: 400 }));
     }
 
-    const record = await setGalleryMediaBadge(storageName, badge);
+    if (!hasBadge && !hasMediaCategory && !hasMediaType && !hasAspect) {
+      return auth.finish(
+        NextResponse.json(
+          { error: "Provide badge, media_category, media_type, and/or aspect to update." },
+          { status: 400 }
+        )
+      );
+    }
+
+    const record = await updateGalleryMediaMetadata(storageName, {
+      ...(hasBadge ? { badge: body.badge === true } : {}),
+      ...(hasMediaCategory ? { media_category: normalizeGalleryMediaCategory(body.media_category) } : {}),
+      ...(hasMediaType ? { media_type: normalizeGalleryMediaType(body.media_type) } : {}),
+      ...(hasAspect ? { aspect: normalizeGalleryMediaAspect(body.aspect) } : {})
+    });
 
     return auth.finish(NextResponse.json({ record }));
   } catch (error) {
@@ -113,6 +145,11 @@ export async function POST(request: Request) {
     const baseName = sanitizeFilename(path.basename(file.name, extension)) || "upload";
     const finalName = buildGalleryUploadFileName(baseName, extension);
     const badge = parseBadgeFlag(formData.get("badge"));
+    const mediaCategory = normalizeGalleryMediaCategory(formData.get("media_category"));
+    const mediaType = normalizeGalleryMediaType(
+      formData.get("media_type") ?? (badge ? GALLERY_MEDIA_BADGE_TYPE : "")
+    );
+    const aspect = normalizeGalleryMediaAspect(formData.get("aspect"));
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const supabase = createAdminClient();
@@ -126,7 +163,12 @@ export async function POST(request: Request) {
       throw uploadError;
     }
 
-    await createGalleryMediaRecord(finalName, badge);
+    await createGalleryMediaRecord(finalName, {
+      badge,
+      media_category: mediaCategory,
+      media_type: mediaType,
+      aspect
+    });
 
     const { data: urlData } = supabase.storage.from("gallery").getPublicUrl(finalName);
 
@@ -139,7 +181,10 @@ export async function POST(request: Request) {
           kind,
           extension,
           storageName: finalName,
-          badge
+          badge,
+          mediaCategory,
+          mediaType,
+          aspect
         }
       })
     );

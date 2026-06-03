@@ -1631,7 +1631,7 @@ function RewardStyleColumn({
           ) : null}
           {!selectedSymbolUrl ? (
             <p className="admin-field-help admin-game-reward-symbol-help">
-              Choose a badge-marked gallery image or upload a new symbol. Uploads from here are marked for badge use
+              Choose a gallery image with Type Badge or upload a new symbol. Uploads from here are set to Type Badge
               automatically.
             </p>
           ) : null}
@@ -1727,6 +1727,7 @@ function RewardEditor({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("badge", "1");
+      formData.append("media_type", "Badge");
       const response = await fetch("/api/admin/media", { method: "POST", body: formData });
       const data = await readAdminJson<{ media?: { path?: string }; error?: string }>(
         response,
@@ -1755,6 +1756,7 @@ function RewardEditor({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("badge", "1");
+      formData.append("media_type", "Badge");
       const response = await fetch("/api/admin/media", { method: "POST", body: formData });
       const data = await readAdminJson<{ media?: { path?: string }; error?: string }>(
         response,

@@ -89,6 +89,12 @@ export const modulePaletteGroups: Array<{
   { value: "player-portal", label: "Player Portal", icon: "PP", description: "Player login and registration on any page." },
   { value: "previous-results", label: "Previous Results", icon: "PR", description: "Only the live previous-poll results panel." },
   { value: "current-poll", label: "Polls", icon: "P?", description: "The current live poll with vote actions." },
+  {
+    value: "poll-category-list",
+    label: "Poll Categories",
+    icon: "☰",
+    description: "Linked list of poll categories that open the home page filtered by category."
+  },
   { value: "social-share", label: "Social Share", icon: "↗", description: "Share buttons with dynamic post text from the current poll." },
   { value: "social", label: "Social", icon: "@", description: "Linked rows of social icons and profile badges." },
   { value: "table", label: "Tables", icon: "⊞", description: "Data tables with configurable columns and rows." },
@@ -446,6 +452,32 @@ export const modulePaletteItems: ModulePaletteItem[] = [
     name: "Current Poll",
     text: "",
     settings: {}
+  },
+  {
+    id: "poll-category-list-default",
+    type: "poll-category-list",
+    group: "poll-category-list",
+    label: "Category List",
+    icon: "☰",
+    description: "All poll categories as links to the home page.",
+    name: "Poll Categories",
+    text: "",
+    settings: {
+      listTitle: "Categories",
+      categorySort: "alphabetical",
+      categoryListFlow: "rows",
+      fontSize: "18",
+      color: "#18324a",
+      bold: "true",
+      alignment: "left",
+      itemGap: "8",
+      backgroundMode: "color",
+      backgroundColor: "#e8f6fc",
+      backgroundColor2: "#eaf4ff",
+      backgroundImageUrl: "",
+      backgroundStyleKey: "",
+      panelBorderColor: "#c6e8f5"
+    }
   },
   {
     id: "poll-social-share",

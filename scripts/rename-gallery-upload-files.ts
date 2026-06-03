@@ -178,7 +178,7 @@ async function migrateGalleryMediaRow(from: string, to: string, dryRun: boolean)
   const supabase = createAdminClient();
   const { data: existing, error: readError } = await supabase
     .from("gallery_media")
-    .select("storage_name, badge, created_at, updated_at")
+    .select("storage_name, badge, media_category, media_type, aspect, created_at, updated_at")
     .eq("storage_name", from)
     .maybeSingle();
 
@@ -207,6 +207,9 @@ async function migrateGalleryMediaRow(from: string, to: string, dryRun: boolean)
   const { error: insertError } = await supabase.from("gallery_media").upsert({
     storage_name: to,
     badge: existing.badge,
+    media_category: existing.media_category ?? "",
+    media_type: existing.media_type ?? "",
+    aspect: existing.aspect ?? "square",
     created_at: existing.created_at,
     updated_at: new Date().toISOString()
   });

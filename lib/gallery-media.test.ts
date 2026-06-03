@@ -28,11 +28,17 @@ describe("mergeGalleryMediaBadges", () => {
       {
         storage_name: "wave.png",
         badge: true,
+        media_category: "Dark / Truth",
+        media_type: "WYR Poster",
+        aspect: "wide",
         updated_at: "2026-01-01T00:00:00.000Z"
       }
     ]);
 
     expect(merged[0]?.badge).toBe(true);
     expect(merged[0]?.storageName).toBe("wave.png");
+    expect(merged[0]?.mediaCategory).toBe("Dark / Truth");
+    expect(merged[0]?.mediaType).toBe("WYR Poster");
+    expect(merged[0]?.aspect).toBe("wide");
   });
 });

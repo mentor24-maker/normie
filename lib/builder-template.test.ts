@@ -2,11 +2,34 @@ import { describe, expect, it } from "vitest";
 import {
   formatRichTextContent,
   normalizeBuilderAssetUrl,
+  normalizeBuilderModuleSettingsForType,
   normalizeBuilderModules,
   normalizeBuilderSection,
   normalizeLayoutSections,
   resolveBuilderModuleType
 } from "@/lib/builder-template";
+
+describe("normalizeBuilderModuleSettingsForType", () => {
+  it("preserves transparent poll category list background on save", () => {
+    const settings = normalizeBuilderModuleSettingsForType(
+      "poll-category-list",
+      {
+        backgroundMode: "none",
+        backgroundColor: "#e8f6fc",
+        backgroundColor2: "#eaf4ff",
+        backgroundImageUrl: "https://example.com/bg.png",
+        backgroundStyleKey: "blue-yellow-circles"
+      },
+      { id: "cat-1", type: "poll-category-list", column: "main", name: "", text: "" }
+    );
+
+    expect(settings.backgroundMode).toBe("none");
+    expect(settings.backgroundColor).toBe("");
+    expect(settings.backgroundColor2).toBe("");
+    expect(settings.backgroundImageUrl).toBe("");
+    expect(settings.backgroundStyleKey).toBe("");
+  });
+});
 
 describe("formatRichTextContent", () => {
   it("wraps plain text in paragraphs", () => {

@@ -3,6 +3,20 @@ export type PollCategorySeed = {
   slug: string;
 };
 
+/** Display names for seeded poll categories (Polls Manager filter + imports). */
+export const POLL_MANAGER_CATEGORY_NAMES = [
+  "Identity & Psychology",
+  "Money & Success",
+  "Dark / Truth",
+  "Social & Relationships",
+  "Life Tradeoffs",
+  "Future / Power",
+  "Self-Perception",
+  "Behavior & Habits",
+  "Modern Life / Digital",
+  "Absurd but Revealing"
+] as const;
+
 /** Canonical poll categories (matches admin + public category navigation). */
 export const POLL_CATEGORY_SEEDS: PollCategorySeed[] = [
   { name: "Identity & Psychology", slug: "identity-psychology" },
@@ -78,6 +92,13 @@ export function buildPollsNextRequestUrl(
   return qs ? `/api/polls/next?${qs}` : "/api/polls/next";
 }
 
+/** Home page URL filtered to a poll category (see `PollExperience` `category` query param). */
+export function buildPublicPollCategoryPath(category: Pick<PollCategorySeed, "slug">): string {
+  const params = new URLSearchParams();
+  params.set("category", category.slug);
+  return `/?${params.toString()}`;
+}
+
 /** Path + query to open the site with a specific published poll as the current question (see `/api/polls/next?startPoll=`). */
 export function buildPublicPollViewPath(poll: { id: string; category: string | null }): string {
   const params = new URLSearchParams();
@@ -103,6 +124,38 @@ export function stripStartPollFromBrowserUrl(): void {
   url.searchParams.delete("startPoll");
   const next = `${url.pathname}${url.search}${url.hash}`;
   window.history.replaceState({}, "", next);
+}
+
+/**
+ * Polls Manager category filter order: seeded categories first, then any distinct names
+ * found on polls (imports, personality systems, one-offs).
+ */
+export function buildPollCategoryCatalog(extraCategoryNames: readonly string[] = []): PollCategorySeed[] {
+  const seen = new Set<string>();
+  const ordered: PollCategorySeed[] = [];
+
+  function addName(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+
+    seen.add(trimmed);
+    const meta = getPollCategoryMeta(trimmed);
+    if (meta) {
+      ordered.push(meta);
+    }
+  }
+
+  for (const seed of POLL_CATEGORY_SEEDS) {
+    addName(seed.name);
+  }
+
+  for (const extra of extraCategoryNames) {
+    addName(extra);
+  }
+
+  return ordered;
 }
 
 export function getPollCategoryMeta(param: string | null | undefined): PollCategorySeed | null {

@@ -25,9 +25,9 @@ function rgbComponentsToHex(r: number, g: number, b: number): string {
     .join("")}`;
 }
 
-function parseRgbOrRgba(value: string): { r: number; g: number; b: number } | null {
+function parseRgbOrRgba(value: string): { r: number; g: number; b: number; a: number } | null {
   const match = value.match(
-    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*[\d.]+)?\s*\)$/i
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i
   );
 
   if (!match) {
@@ -37,12 +37,29 @@ function parseRgbOrRgba(value: string): { r: number; g: number; b: number } | nu
   const r = Number(match[1]);
   const g = Number(match[2]);
   const b = Number(match[3]);
+  const a = match[4] !== undefined ? Number(match[4]) : 1;
 
-  if (![r, g, b].every(Number.isFinite)) {
+  if (![r, g, b, a].every(Number.isFinite)) {
     return null;
   }
 
-  return { r, g, b };
+  return { r, g, b, a };
+}
+
+export function isTransparentBuilderColor(value: unknown): boolean {
+  const trimmed = String(value ?? "").trim().toLowerCase();
+
+  if (!trimmed || trimmed === "transparent") {
+    return true;
+  }
+
+  if (/^#[0-9a-f]{8}$/i.test(trimmed) && trimmed.slice(-2) === "00") {
+    return true;
+  }
+
+  const rgba = parseRgbOrRgba(trimmed);
+
+  return rgba !== null && rgba.a <= 0;
 }
 
 /** Builder color settings are stored and edited as hex (e.g. #ffffff). */
@@ -51,6 +68,10 @@ export function normalizeBuilderHexColor(value: unknown, fallback = DEFAULT_BUIL
 
   if (!trimmed) {
     return fallback;
+  }
+
+  if (trimmed.toLowerCase() === "transparent") {
+    return "transparent";
   }
 
   const compact = trimmed.replace(/\s+/g, "");
@@ -66,6 +87,10 @@ export function normalizeBuilderHexColor(value: unknown, fallback = DEFAULT_BUIL
   const rgb = parseRgbOrRgba(trimmed);
 
   if (rgb) {
+    if (rgb.a <= 0) {
+      return "transparent";
+    }
+
     return rgbComponentsToHex(rgb.r, rgb.g, rgb.b);
   }
 

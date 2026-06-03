@@ -1,4 +1,5 @@
 import type { AdminMediaItem } from "@/lib/admin-media";
+import { isGalleryBadgeMediaItem } from "@/lib/gallery-media-badge-type";
 import type { GameReward } from "@/lib/game-admin";
 import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 
@@ -67,7 +68,7 @@ export function buildRewardSymbolOptions(
   addOption("", "No Symbol", "none");
 
   for (const item of galleryMedia) {
-    if (item.kind !== "image" || !item.badge) {
+    if (item.kind !== "image" || !isGalleryBadgeMediaItem(item)) {
       continue;
     }
 

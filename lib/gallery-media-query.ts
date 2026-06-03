@@ -5,6 +5,13 @@ import {
 } from "@/lib/admin-media-shared";
 import type { AdminMediaItem } from "@/lib/admin-media-shared";
 import { createAdminClient } from "@/lib/supabase-admin";
+import {
+  GALLERY_MEDIA_RECORD_SELECT_FULL,
+  GALLERY_MEDIA_RECORD_SELECT_LEGACY,
+  isMissingGalleryMediaColumnError,
+  normalizeGalleryMediaRecordRow,
+  type GalleryMediaRecordRow
+} from "@/lib/gallery-media-record";
 import type { GalleryMediaRecord } from "@/lib/gallery-media";
 import {
   escapeIlikePattern,
@@ -72,43 +79,70 @@ function mapGalleryRowToMediaItem(row: GalleryMediaRow, publicPath: string): Adm
     extension,
     storageName: row.storage_name,
     badge: row.badge,
+    mediaCategory: row.media_category,
+    mediaType: row.media_type,
+    aspect: row.aspect,
     createdAt: row.created_at
   };
 }
 
-export async function queryGalleryMediaLibrary(
+async function executeGalleryMediaQuery(
   params: GalleryMediaQueryParams,
-  options?: { syncIndex?: () => Promise<number> }
-): Promise<GalleryMediaQueryResult> {
-  if (params.sync && options?.syncIndex) {
-    await options.syncIndex();
-  }
-
+  selectColumns: string
+) {
   const supabase = createAdminClient();
-  let query = supabase
-    .from("gallery_media")
-    .select("storage_name, badge, created_at, updated_at", { count: "exact" });
+  let query = supabase.from("gallery_media").select(selectColumns, { count: "exact" });
 
   const filename = params.filename.trim();
 
   if (filename) {
-    query = query.ilike("storage_name", `%${escapeIlikePattern(filename)}%`);
+    const pattern = `%${escapeIlikePattern(filename)}%`;
+
+    query = params.notFilename
+      ? query.not("storage_name", "ilike", pattern)
+      : query.ilike("storage_name", pattern);
   }
 
   const extension = params.extension;
 
   if (extension) {
-    query = query.ilike("storage_name", `%${extension}`);
+    const pattern = `%${extension}`;
+
+    query = params.notExtension
+      ? query.not("storage_name", "ilike", pattern)
+      : query.ilike("storage_name", pattern);
   }
 
   if (params.kind === "image" || params.kind === "video") {
-    query = query.filter("storage_name", "imatch", kindStorageNamePattern(params.kind));
+    const pattern = kindStorageNamePattern(params.kind);
+
+    query = params.notKind
+      ? query.not("storage_name", "imatch", pattern)
+      : query.filter("storage_name", "imatch", pattern);
   }
 
   if (params.badge === "yes") {
     query = query.eq("badge", true);
   } else if (params.badge === "no") {
     query = query.eq("badge", false);
+  }
+
+  if (params.mediaCategory) {
+    query = params.notMediaCategory
+      ? query.neq("media_category", params.mediaCategory)
+      : query.eq("media_category", params.mediaCategory);
+  }
+
+  if (params.mediaType) {
+    query = params.notMediaType
+      ? query.neq("media_type", params.mediaType)
+      : query.eq("media_type", params.mediaType);
+  }
+
+  if (params.aspect) {
+    query = params.notAspect
+      ? query.neq("aspect", params.aspect)
+      : query.eq("aspect", params.aspect);
   }
 
   switch (params.sort) {
@@ -129,13 +163,37 @@ export async function queryGalleryMediaLibrary(
   const rangeEnd = params.offset + params.limit - 1;
   query = query.range(params.offset, rangeEnd);
 
-  const { data, count, error } = await query;
+  return query;
+}
 
-  if (error) {
-    throw error;
+export async function queryGalleryMediaLibrary(
+  params: GalleryMediaQueryParams,
+  options?: { syncIndex?: () => Promise<number> }
+): Promise<GalleryMediaQueryResult> {
+  if (params.sync && options?.syncIndex) {
+    await options.syncIndex();
   }
 
-  const rows = (data as GalleryMediaRow[] | null) ?? [];
+  let result = await executeGalleryMediaQuery(params, GALLERY_MEDIA_RECORD_SELECT_FULL);
+
+  if (result.error && isMissingGalleryMediaColumnError(result.error.message)) {
+    result = await executeGalleryMediaQuery(params, GALLERY_MEDIA_RECORD_SELECT_LEGACY);
+  }
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const supabase = createAdminClient();
+  const rows = ((result.data as GalleryMediaRecordRow[] | null) ?? []).map((row) => {
+    const normalized = normalizeGalleryMediaRecordRow(row);
+
+    return {
+      ...normalized,
+      created_at: row.created_at ?? normalized.created_at ?? new Date(0).toISOString()
+    } satisfies GalleryMediaRow;
+  });
+
   const media = rows
     .map((row) => {
       const { data: urlData } = supabase.storage.from("gallery").getPublicUrl(row.storage_name);
@@ -145,7 +203,7 @@ export async function queryGalleryMediaLibrary(
 
   return {
     media,
-    total: count ?? media.length,
+    total: result.count ?? media.length,
     limit: params.limit,
     offset: params.offset
   };

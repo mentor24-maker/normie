@@ -1,3 +1,5 @@
+import type { GalleryMediaAspect } from "@/lib/gallery-media-aspect";
+
 export type AdminMediaKind = "image" | "video";
 
 export type AdminMediaItem = {
@@ -8,6 +10,9 @@ export type AdminMediaItem = {
   extension: string;
   storageName?: string;
   badge?: boolean;
+  mediaCategory?: string;
+  mediaType?: string;
+  aspect?: GalleryMediaAspect;
   createdAt?: string;
 };
 

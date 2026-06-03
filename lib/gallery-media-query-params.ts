@@ -1,5 +1,7 @@
 import type { AdminMediaKind, AdminMediaItem } from "@/lib/admin-media-shared";
 import { GALLERY_FILTER_EXTENSIONS } from "@/lib/admin-media-shared";
+import { isGalleryMediaAspect, type GalleryMediaAspect } from "@/lib/gallery-media-aspect";
+import { isGalleryMediaType } from "@/lib/gallery-media-type";
 
 export const GALLERY_MEDIA_PAGE_SIZE_DEFAULT = 48;
 export const GALLERY_MEDIA_PAGE_SIZE_MAX = 200;
@@ -21,12 +23,26 @@ export type GalleryMediaQueryParams = {
   extension: string;
   kind: GalleryMediaKindFilter;
   badge: GalleryMediaBadgeFilter;
+  mediaCategory: string;
+  mediaType: string;
+  aspect: "" | GalleryMediaAspect;
+  notFilename: boolean;
+  notExtension: boolean;
+  notKind: boolean;
+  notMediaCategory: boolean;
+  notMediaType: boolean;
+  notAspect: boolean;
   sort: GalleryMediaSort;
   limit: number;
   offset: number;
   sync: boolean;
   indexed: boolean;
 };
+
+function parseNegationFlag(searchParams: URLSearchParams, key: string): boolean {
+  const value = searchParams.get(key)?.trim().toLowerCase() ?? "";
+  return value === "1" || value === "true" || value === "yes";
+}
 
 export type GalleryMediaQueryResult = {
   media: AdminMediaItem[];
@@ -72,11 +88,26 @@ export function parseGalleryMediaQueryParams(searchParams: URLSearchParams): Gal
     : GALLERY_MEDIA_PAGE_SIZE_DEFAULT;
   const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0;
 
+  const aspectParam = searchParams.get("aspect")?.trim().toLowerCase() ?? "";
+  const aspect: "" | GalleryMediaAspect = isGalleryMediaAspect(aspectParam) ? aspectParam : "";
+
+  const mediaTypeParam = searchParams.get("media_type")?.trim() ?? "";
+  const mediaType = isGalleryMediaType(mediaTypeParam) ? mediaTypeParam : "";
+
   return {
     filename: searchParams.get("filename")?.trim() ?? "",
     extension: normalizeGalleryExtensionFilter(searchParams.get("extension") ?? ""),
     kind,
     badge,
+    mediaCategory: searchParams.get("media_category")?.trim() ?? "",
+    mediaType,
+    aspect,
+    notFilename: parseNegationFlag(searchParams, "not_filename"),
+    notExtension: parseNegationFlag(searchParams, "not_extension"),
+    notKind: parseNegationFlag(searchParams, "not_kind"),
+    notMediaCategory: parseNegationFlag(searchParams, "not_media_category"),
+    notMediaType: parseNegationFlag(searchParams, "not_media_type"),
+    notAspect: parseNegationFlag(searchParams, "not_aspect"),
     sort,
     limit,
     offset,
@@ -92,6 +123,15 @@ export function galleryMediaQueryUsesServerFilters(params: GalleryMediaQueryPara
     params.extension.length > 0 ||
     params.kind.length > 0 ||
     params.badge.length > 0 ||
+    params.mediaCategory.length > 0 ||
+    params.mediaType.length > 0 ||
+    params.aspect.length > 0 ||
+    params.notFilename ||
+    params.notExtension ||
+    params.notKind ||
+    params.notMediaCategory ||
+    params.notMediaType ||
+    params.notAspect ||
     params.sort !== "name_asc" ||
     params.offset > 0 ||
     params.limit !== GALLERY_MEDIA_PAGE_SIZE_DEFAULT ||
@@ -119,6 +159,42 @@ export function buildGalleryMediaSearchParams(
 
   if (params.badge) {
     search.set("badge", params.badge);
+  }
+
+  if (params.mediaCategory) {
+    search.set("media_category", params.mediaCategory);
+  }
+
+  if (params.mediaType) {
+    search.set("media_type", params.mediaType);
+  }
+
+  if (params.aspect) {
+    search.set("aspect", params.aspect);
+  }
+
+  if (params.notFilename) {
+    search.set("not_filename", "1");
+  }
+
+  if (params.notExtension) {
+    search.set("not_extension", "1");
+  }
+
+  if (params.notKind) {
+    search.set("not_kind", "1");
+  }
+
+  if (params.notMediaCategory) {
+    search.set("not_media_category", "1");
+  }
+
+  if (params.notMediaType) {
+    search.set("not_media_type", "1");
+  }
+
+  if (params.notAspect) {
+    search.set("not_aspect", "1");
   }
 
   if (params.sort !== "name_asc") {

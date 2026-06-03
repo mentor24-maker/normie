@@ -5,6 +5,7 @@ import {
   buildLevelEventsFromRows,
   type GameLevelEventRow
 } from "@/lib/game-level-events";
+import { normalizeAvatarUrl } from "@/lib/player-profile";
 import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
@@ -32,6 +33,7 @@ export type LeaderboardEntry = {
   playerId: string;
   displayName: string;
   handle: string;
+  avatarUrl: string;
   shareProfile: boolean;
   answersCount: number;
   tokensEarned: number;
@@ -133,6 +135,7 @@ type ProfileRelation = {
   id: string;
   full_name: string | null;
   handle: string | null;
+  avatar_url: string | null;
   share_profile: boolean | null;
 };
 
@@ -633,7 +636,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
   const { data: profileRows, error: profilesError } = leaderboardPlayerIds.length
     ? await supabase
         .from("player_profiles")
-        .select("id, full_name, handle, share_profile")
+        .select("id, full_name, handle, avatar_url, share_profile")
         .in("id", leaderboardPlayerIds)
     : { data: [], error: null };
 
@@ -653,6 +656,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
       playerId: row.playerId,
       displayName: displayNameForProfile(profile?.full_name, profile?.handle),
       handle: profile?.handle ?? "player",
+      avatarUrl: normalizeAvatarUrl(profile?.avatar_url),
       shareProfile: Boolean(profile?.share_profile),
       answersCount: row.answersCount,
       tokensEarned: row.tokensEarned

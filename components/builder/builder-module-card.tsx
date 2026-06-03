@@ -2,7 +2,12 @@ import Image from "next/image";
 import { type CSSProperties, type DragEvent, useRef, useState } from "react";
 import type { RichTextGalleryBinding } from "@/components/builder/builder-types";
 import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
-import type { BackgroundSettings, BuilderProductRecord, BuilderTemplateModule, BuilderTemplateModuleType } from "@/lib/builder-template";
+import type {
+  BackgroundSettings,
+  BuilderProductRecord,
+  BuilderTemplateModule,
+  BuilderTemplateModuleType
+} from "@/lib/builder-template";
 import {
   createEmptyModule,
   getBuilderBackgroundStyle,
@@ -57,6 +62,7 @@ import {
   getHeadingModuleStyle,
   getModuleAlignment,
   getModuleBackgroundSettings,
+  isPollCategoryListPanelTransparent,
   getModuleMarginStyle,
   getModuleOuterSpacingStyle,
   getVerticalMarginStyle,
@@ -69,6 +75,16 @@ import { BuilderHeadingModuleSettings } from "./builder-heading-module-settings"
 import { BuilderPlayerPortalSettings } from "./builder-player-portal-settings";
 import { getPlayerPortalAuthSettings, PlayerPortalAuthForm } from "@/components/player-portal-auth-form";
 import { BuilderSettingRow } from "./builder-setting-row";
+import { PollCategoryListPreview } from "./poll-category-list-preview";
+import {
+  normalizePollCategoryListFlow,
+  normalizePollCategoryListSort,
+  POLL_CATEGORY_LIST_DEFAULT_FONT_SIZE,
+  POLL_CATEGORY_LIST_DEFAULT_ITEM_GAP,
+  POLL_CATEGORY_LIST_DEFAULT_TITLE,
+  type PollCategoryListFlow,
+  type PollCategoryListSort
+} from "@/lib/poll-category-list";
 import {
   BuilderInlineNumberSelect,
   BuilderInlineNumberSelectRow,
@@ -225,6 +241,14 @@ function renderModulePreview(module: BuilderTemplateModule) {
           <strong>Reminders</strong> — {recordCount} configured; live overlays when visitor criteria match (not in the
           column layout).
         </p>
+      </div>
+    );
+  }
+
+  if (module.type === "poll-category-list") {
+    return (
+      <div className="builder-module-preview-copy">
+        <PollCategoryListPreview className="builder-module-preview-poll-category-list" module={module} />
       </div>
     );
   }
@@ -1502,6 +1526,117 @@ function NavModuleEditor({
   );
 }
 
+function PollCategoryListModuleEditor({
+  module,
+  onUpdateModule,
+  onUpdateModuleBackground
+}: {
+  module: BuilderTemplateModule;
+  onUpdateModule: (updater: (current: BuilderTemplateModule) => BuilderTemplateModule) => void;
+  onUpdateModuleBackground: (updater: (background: BackgroundSettings) => BackgroundSettings) => void;
+}) {
+  function updateSetting(key: string, value: string) {
+    onUpdateModule((current) => ({ ...current, settings: { ...current.settings, [key]: value } }));
+  }
+
+  const sort = normalizePollCategoryListSort(module.settings.categorySort);
+  const listFlow = normalizePollCategoryListFlow(module.settings.categoryListFlow);
+
+  return (
+    <>
+      <div className="builder-poll-category-list-module-chrome">
+        <BuilderBackgroundControls
+          label="Background"
+          background={getModuleBackgroundSettings(module.settings)}
+          horizontal
+          onChange={onUpdateModuleBackground}
+        />
+        {!isPollCategoryListPanelTransparent(module.settings) ? (
+          <BuilderSettingRow label="Panel Border" fullWidth>
+            <input
+              type="color"
+              value={
+                module.settings.panelBorderColor?.startsWith("#")
+                  ? module.settings.panelBorderColor
+                  : "#c6e8f5"
+              }
+              onChange={(event) => updateSetting("panelBorderColor", event.target.value)}
+            />
+          </BuilderSettingRow>
+        ) : null}
+      </div>
+      <BuilderSettingRow label="Headline" fullWidth>
+        <input
+          type="text"
+          value={module.settings.listTitle ?? POLL_CATEGORY_LIST_DEFAULT_TITLE}
+          onChange={(event) => updateSetting("listTitle", event.target.value)}
+        />
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Sort" fullWidth>
+        <select
+          value={sort}
+          onChange={(event) => updateSetting("categorySort", event.target.value as PollCategoryListSort)}
+        >
+          <option value="alphabetical">Alphabetical</option>
+          <option value="canonical">Canonical</option>
+        </select>
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Default Layout" fullWidth>
+        <select
+          value={listFlow}
+          onChange={(event) => updateSetting("categoryListFlow", event.target.value as PollCategoryListFlow)}
+        >
+          <option value="rows">By Row</option>
+          <option value="columns">By Column</option>
+        </select>
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Font Size">
+        <input
+          type="number"
+          min={10}
+          max={120}
+          value={module.settings.fontSize ?? POLL_CATEGORY_LIST_DEFAULT_FONT_SIZE}
+          onChange={(event) => updateSetting("fontSize", event.target.value)}
+        />
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Color">
+        <input
+          type="text"
+          value={module.settings.color ?? "#18324a"}
+          onChange={(event) => updateSetting("color", event.target.value)}
+          placeholder="#18324a"
+        />
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Bold">
+        <input
+          type="checkbox"
+          checked={module.settings.bold !== "false"}
+          onChange={(event) => updateSetting("bold", event.target.checked ? "true" : "false")}
+        />
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Alignment" fullWidth>
+        <BuilderAlignmentIconGroup
+          value={getModuleAlignment(module.settings)}
+          onChange={(value) => updateSetting("alignment", value)}
+        />
+      </BuilderSettingRow>
+      <BuilderSettingRow label="Item Gap">
+        <input
+          type="number"
+          min={0}
+          max={48}
+          value={module.settings.itemGap ?? POLL_CATEGORY_LIST_DEFAULT_ITEM_GAP}
+          onChange={(event) => updateSetting("itemGap", event.target.value)}
+        />
+      </BuilderSettingRow>
+      <p className="builder-module-editor-copy">
+        Lists seeded categories plus every category used on polls (same set as the Polls Manager filter). Each link
+        opens the home page with that category filter.
+      </p>
+    </>
+  );
+}
+
 function HeadlineRotatorModuleEditor({
   module,
   onUpdateModule
@@ -1706,13 +1841,14 @@ export function BuilderModuleCard({
     const isCurrentPollModule = module.type === "current-poll";
     const isConfettiModule = module.type === "confetti";
     const isSocialModule = module.type === "social";
+    const isPollCategoryListModule = module.type === "poll-category-list";
     const isPollRuntimeModule = isCurrentPollModule || module.type === "previous-results";
     const showModuleTriggerSettings = builderModuleShowsTriggerSettings(module, moduleClassOverride);
   return (
     <div
       className={`builder-module-card ${getAlignmentClass(moduleAlignment)}`}
       style={{
-        ...(module.type !== "button"
+        ...(module.type !== "button" && !isPollCategoryListModule
           ? resolveBuilderDrillDownSurfaceBackground(getModuleBackgroundSettings(module.settings), "module")
           : {}),
         ...(isHeadingModule
@@ -1840,7 +1976,9 @@ export function BuilderModuleCard({
                   <option value="right">Right</option>
                 </select>
               </BuilderSettingRow>
-              {(module.type === "heading" || module.type === "headline-rotator") ? (
+              {(module.type === "heading" ||
+                module.type === "headline-rotator" ||
+                module.type === "poll-category-list") ? (
                 <BuilderSettingRow label="Mobile Font Size">
                   <input
                     type="number"
@@ -1903,7 +2041,7 @@ export function BuilderModuleCard({
                   />
                 </BuilderSettingRow>
               </div>
-            ) : isReminderModule ? null : isFloatingImage ? (
+            ) : isPollCategoryListModule ? null : isReminderModule ? null : isFloatingImage ? (
               <div className="builder-floating-image-module-chrome">
                 <BuilderBackgroundControls
                   background={getModuleBackgroundSettings(module.settings)}
@@ -2191,6 +2329,13 @@ export function BuilderModuleCard({
           {module.type === "slider" && <SliderModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "navigation" && <NavModuleEditor module={module} onUpdateModule={onUpdateModule} />}
           {module.type === "headline-rotator" && <HeadlineRotatorModuleEditor module={module} onUpdateModule={onUpdateModule} />}
+          {module.type === "poll-category-list" && (
+            <PollCategoryListModuleEditor
+              module={module}
+              onUpdateModule={onUpdateModule}
+              onUpdateModuleBackground={onUpdateModuleBackground}
+            />
+          )}
           {module.type === "social-share" && <SocialShareModuleEditor module={module} onUpdateModule={onUpdateModule} />}
 
           {module.type === "merch" ? (
@@ -2291,6 +2436,7 @@ export function BuilderModuleCard({
           module.type !== "social" &&
           module.type !== "navigation" &&
           module.type !== "headline-rotator" &&
+          module.type !== "poll-category-list" &&
           module.type !== "social-share" &&
           module.type !== "merch" &&
           module.type !== "code" &&

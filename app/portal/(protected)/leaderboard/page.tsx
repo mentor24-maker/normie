@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { PlayerLeaderboardName } from "@/components/player-leaderboard-name";
+import { PlayerLeaderboardPlayerCell } from "@/components/player-leaderboard-player-cell";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPortalSnapshot } from "@/lib/player-portal";
 
@@ -22,7 +22,7 @@ export default async function PlayerLeaderboardPage() {
                 <tr className={entry.playerId === snapshot.player.id ? "player-table-highlight" : undefined} key={entry.playerId}>
                   <td>#{entry.rank}</td>
                   <td>
-                    <PlayerLeaderboardName entry={entry} />
+                    <PlayerLeaderboardPlayerCell entry={entry} />
                   </td>
                   <td>@{entry.handle}</td>
                   <td>{entry.answersCount}</td>

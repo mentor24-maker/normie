@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   summarizeDeepDiveBlogPost,
   summarizeDeepDiveRelatedPolls,
@@ -9,6 +9,8 @@ import {
   type AdminBlogPostOption
 } from "@/components/admin-poll-deep-dive-editor";
 import { buildPublicPollViewPath } from "@/lib/poll-categories";
+import { sortPollCategoryNames } from "@/lib/load-poll-category-catalog";
+import { usePollCategoryCatalog } from "@/lib/use-poll-category-catalog";
 import { AdminPollUploadPod } from "@/components/admin-poll-upload-pod";
 import { CsvImportForm } from "@/components/csv-import-form";
 import { PersonalityCsvImportForm } from "@/components/personality-csv-import-form";
@@ -59,19 +61,6 @@ type PollFilterState = {
   requireYoutube: boolean;
   requireBlogPost: boolean;
 };
-
-const POLL_CATEGORIES = [
-  "Identity & Psychology",
-  "Money & Success",
-  "Dark / Truth",
-  "Social & Relationships",
-  "Life Tradeoffs",
-  "Future / Power",
-  "Self-Perception",
-  "Behavior & Habits",
-  "Modern Life / Digital",
-  "Absurd but Revealing"
-] as const;
 
 const emptyFilters: PollFilterState = {
   collection: "",
@@ -177,14 +166,12 @@ export function AdminPollsManager() {
     void loadBlogPosts();
   }, []);
 
+  const categoryFilterListId = useId();
+  const { catalog: pollCategoryCatalog } = usePollCategoryCatalog();
+
   const availableCategories = useMemo(() => {
-    return [
-      ...new Set([
-        ...POLL_CATEGORIES,
-        ...polls.map((poll) => poll.category ?? "").filter(Boolean)
-      ])
-    ];
-  }, [polls]);
+    return sortPollCategoryNames(pollCategoryCatalog.map((category) => category.name));
+  }, [pollCategoryCatalog]);
 
   const filteredPolls = useMemo(() => {
     return polls.filter((poll) => {
@@ -440,17 +427,19 @@ export function AdminPollsManager() {
           </label>
           <label className="field polls-filter-field">
             <span>Category</span>
-            <select
-              value={filters.category}
+            <input
+              aria-label="Filter by category"
+              list={categoryFilterListId}
               onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
-            >
-              <option value="">All categories</option>
+              placeholder="All categories"
+              type="text"
+              value={filters.category}
+            />
+            <datalist id={categoryFilterListId}>
               {availableCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
+                <option key={category} value={category} />
               ))}
-            </select>
+            </datalist>
           </label>
           <label className="field polls-filter-field">
             <span>Question</span>
@@ -564,15 +553,16 @@ export function AdminPollsManager() {
                   <td>{pollStatusLabel(poll)}</td>
                   <td className="polls-actions-cell">
                     <div className="polls-row-actions">
-                      {!poll.is_hidden ? (
+                      {poll.is_published && !poll.is_hidden ? (
                         <Link
                           className="polls-icon-button polls-icon-button-view"
                           href={buildPublicPollViewPath(poll)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label="View poll on site"
+                          aria-label="Open poll on home page"
+                          title="View Poll"
                         >
-                          <span aria-hidden="true" className="polls-icon-glyph-eye" />
+                          <span aria-hidden="true">↗</span>
                         </Link>
                       ) : null}
                       <Link

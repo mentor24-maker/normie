@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { GalleryMediaFilterBar } from "@/components/gallery-media-filter-bar";
 import { getRichTextGalleryModalStyle, type BuilderModalAnchor } from "@/lib/builder-anchored-modal";
+import { buildGalleryMediaCategoryOptions } from "@/lib/gallery-media-category";
 import { getGalleryMediaThumbnailUrl } from "@/lib/gallery-media-thumbnail";
 import { useGalleryMediaLibrary } from "@/lib/use-gallery-media-library";
 
@@ -39,6 +40,11 @@ export function BuilderGalleryModal({
     rangeEnd,
     canLoadMore
   } = useGalleryMediaLibrary({ syncOnFirstLoad: false });
+
+  const categoryOptions = useMemo(
+    () => buildGalleryMediaCategoryOptions(media.map((item) => item.mediaCategory ?? "")),
+    [media]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -116,7 +122,12 @@ export function BuilderGalleryModal({
           </div>
         </div>
         <div className="builder-gallery-body">
-          <GalleryMediaFilterBar filters={filters} onChange={setFilters} onClear={clearFilters} />
+          <GalleryMediaFilterBar
+            categoryOptions={categoryOptions}
+            filters={filters}
+            onChange={setFilters}
+            onClear={clearFilters}
+          />
           <div className="builder-gallery-grid">
             {media.map((image) => (
               <button
