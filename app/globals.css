@@ -4383,6 +4383,23 @@ h2 {
   margin: 0;
 }
 
+.poll-question-area-hold {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 220px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.poll-module-panel-awaiting-next .poll-question-area-hold {
+  background: transparent;
+}
+
+.player-portal-polls .poll-module-panel-awaiting-next .poll-question-area-hold {
+  min-height: 240px;
+  background: transparent;
+}
+
 .player-shell {
   gap: 28px;
 }

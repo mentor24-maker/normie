@@ -24,8 +24,10 @@ export function PlayerPortalPollStage({
   onSkip,
   showSkipPoll = false
 }: PlayerPortalPollStageProps) {
-  if (isLoading && (!payload || payload.done)) {
-    return <div className="notice">Loading polls...</div>;
+  const isAwaitingNextPoll = isLoading && Boolean(payload?.currentPoll);
+
+  if (isLoading && !payload?.currentPoll && (!payload || payload.done)) {
+    return <div className="notice player-portal-polls-loading">Loading polls...</div>;
   }
 
   if (payload?.done) {
@@ -43,7 +45,10 @@ export function PlayerPortalPollStage({
 
   if (payload?.currentPoll) {
     return (
-      <section className="poll-grid player-portal-poll-grid" style={getPollGridStyle(payload.settings)}>
+      <section
+        className={`poll-grid player-portal-poll-grid${isAwaitingNextPoll ? " player-portal-poll-grid-awaiting-next" : ""}`}
+        style={getPollGridStyle(payload.settings)}
+      >
         {activeCategory ? (
           <div className="poll-grid-category-row">
             <PollCategoryHeadline category={activeCategory} />
@@ -52,6 +57,7 @@ export function PlayerPortalPollStage({
         <div className="poll-grid-current player-portal-poll-current">
           <CurrentPollPanel
             currentPoll={payload.currentPoll}
+            isAwaitingNextPoll={isAwaitingNextPoll}
             isSubmitting={isSubmitting}
             onSkip={onSkip}
             onSubmit={onSubmit}

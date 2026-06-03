@@ -43,13 +43,14 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
       let showLoading = false;
 
       setPayload((current) => {
-        if (options?.reset || current?.done) {
-          showLoading = true;
-          return null;
+        showLoading = true;
+
+        if (current?.currentPoll && !current.done) {
+          return current;
         }
 
-        if (!current) {
-          showLoading = true;
+        if (options?.reset || current?.done || !current) {
+          return null;
         }
 
         return current;

@@ -85,11 +85,13 @@ async function loadPolls(
   isLoadingPromise = (async () => {
     const showLoading = options?.force || !runtimeState.payload;
 
+    const holdCurrentLayout = Boolean(runtimeState.payload?.currentPoll && !runtimeState.payload.done);
+
     setRuntimeState({
       ...runtimeState,
       isLoading: showLoading,
       error: null,
-      ...(options?.force ? { payload: null } : {})
+      ...(options?.force && !holdCurrentLayout ? { payload: null } : {})
     });
 
     try {
@@ -256,7 +258,7 @@ export function BuilderPollModuleRuntime({
     );
   }
 
-  if (isLoading && (!payload || payload.done)) {
+  if (isLoading && !payload?.currentPoll && (!payload || payload.done)) {
     return wrapPollModule(
       <article className={panelClassName} style={panelStyle}>
         <div className="panel-label">{getPollModuleLabel(kind)}</div>
@@ -296,6 +298,7 @@ export function BuilderPollModuleRuntime({
     return wrapPollModule(
       <CurrentPollPanel
         currentPoll={payload.currentPoll}
+        isAwaitingNextPoll={isLoading}
         isSubmitting={isSubmitting}
         moduleSettings={settings}
         onSubmit={onSubmit}

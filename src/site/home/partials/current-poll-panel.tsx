@@ -3,6 +3,7 @@ import type { CurrentPoll, PollSettingsSnapshot } from "@/src/site/home/types";
 
 type CurrentPollPanelProps = {
   currentPoll: CurrentPoll;
+  isAwaitingNextPoll?: boolean;
   isSubmitting: boolean;
   moduleSettings?: Record<string, string>;
   onSubmit: (optionId: string) => void | Promise<void>;
@@ -13,6 +14,7 @@ type CurrentPollPanelProps = {
 
 export function CurrentPollPanel({
   currentPoll,
+  isAwaitingNextPoll = false,
   isSubmitting,
   moduleSettings = {},
   onSubmit,
@@ -20,40 +22,50 @@ export function CurrentPollPanel({
   settings,
   showSkipPoll = false
 }: CurrentPollPanelProps) {
+  const panelBusy = isSubmitting || isAwaitingNextPoll;
+
   return (
     <article
-      className="panel action-panel poll-module-panel"
+      className={`panel action-panel poll-module-panel${isAwaitingNextPoll ? " poll-module-panel-awaiting-next" : ""}`}
       style={getCurrentPollPanelStyle(moduleSettings, settings)}
     >
       <div className="panel-label">Current Question</div>
-      <div className="poll-question-area">
-        <h2 className="poll-question">{currentPoll.question}</h2>
-        <div className="option-list">
-          {currentPoll.options.map((option, index) => (
-            <button
-              className={`option-button poll-answer-button-${index === 0 ? "a" : "b"}`}
-              key={option.id}
-              onClick={() => void onSubmit(option.id)}
-              disabled={isSubmitting}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        {showSkipPoll && onSkip ? (
-          <div className="player-poll-skip-row">
-            <button
-              className="secondary-button player-poll-skip-button"
-              disabled={isSubmitting}
-              onClick={() => void onSkip()}
-              type="button"
-            >
-              Skip Question
-            </button>
+      {isAwaitingNextPoll ? (
+        <div
+          aria-busy="true"
+          aria-label="Loading next question"
+          className="poll-question-area poll-question-area-hold"
+        />
+      ) : (
+        <div className="poll-question-area">
+          <h2 className="poll-question">{currentPoll.question}</h2>
+          <div className="option-list">
+            {currentPoll.options.map((option, index) => (
+              <button
+                className={`option-button poll-answer-button-${index === 0 ? "a" : "b"}`}
+                key={option.id}
+                onClick={() => void onSubmit(option.id)}
+                disabled={panelBusy}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-        ) : null}
-      </div>
+          {showSkipPoll && onSkip ? (
+            <div className="player-poll-skip-row">
+              <button
+                className="secondary-button player-poll-skip-button"
+                disabled={panelBusy}
+                onClick={() => void onSkip()}
+                type="button"
+              >
+                Skip Question
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
       {isSubmitting ? <p className="panel-copy">Saving your answer...</p> : null}
     </article>
   );

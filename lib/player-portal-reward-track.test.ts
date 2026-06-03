@@ -82,10 +82,24 @@ describe("buildRewardTrack", () => {
     expect(track.totalSlots).toBe(PLAYER_POLLS_PER_LEVEL);
   });
 
-  it("uses the 60px grade graduation row for the grade the player enters", () => {
+  it("uses the first 60px level-level row in rewards succession for the first grade coin", () => {
     const mixedRewards = buildFixtureRewards(2).map((reward) => {
       const gradeTier = Number(reward.metadata.gradeTier);
       const levelTier = Number(reward.metadata.levelTier);
+
+      if (gradeTier === 1 && levelTier === 2) {
+        return {
+          ...reward,
+          metadata: {
+            ...reward.metadata,
+            levelReward: {
+              visualType: "coin",
+              visualColor: "#d8212d",
+              visualSize: "30px"
+            }
+          }
+        };
+      }
 
       if (gradeTier !== 2 || levelTier !== 1) {
         return reward;
@@ -115,7 +129,7 @@ describe("buildRewardTrack", () => {
     expect(track.completedGrades).toBe(1);
     expect(track.currentGrade).toBe(2);
     expect(track.completedGradeCoins).toHaveLength(1);
-    expect(track.completedGradeCoins[0]?.visualColor).toBe("#ff6600");
+    expect(track.completedGradeCoins[0]?.visualColor).toBe("#d8212d");
     expect(track.completedGradeCoins[0]?.visualSize).toBe("60px");
     expect(track.completedLevelRewardsInGrade).toHaveLength(0);
     expect(track.earnedSlots).toBe(0);
@@ -144,7 +158,36 @@ describe("buildRewardTrack", () => {
     expect(track.completedLevelRewardsInGrade[0]?.visualSize).toBe("30px");
   });
 
-  it("at 120 polls stacks each completed level using that level poll color at 30px", () => {
+  it("uses level-level color for stacked coins when level-level is not 30px", () => {
+    const rewards = buildFixtureRewards(2).map((reward) => {
+      if (Number(reward.metadata.gradeTier) !== 2 || Number(reward.metadata.levelTier) !== 1) {
+        return reward;
+      }
+
+      return {
+        ...reward,
+        metadata: {
+          ...reward.metadata,
+          pollReward: {
+            visualType: "coin",
+            visualColor: "#f9cdd0",
+            visualSize: "30px"
+          },
+          levelReward: {
+            visualType: "coin",
+            visualColor: "#000dbd",
+            visualSize: "60px"
+          }
+        }
+      };
+    });
+    const track = buildRewardTrack(rewards, 110);
+
+    expect(track.completedLevelRewardsInGrade[0]?.visualColor).toBe("#000dbd");
+    expect(track.completedLevelRewardsInGrade[0]?.visualSize).toBe("30px");
+  });
+
+  it("at 120 polls stacks each completed level using that level level-level color at 30px", () => {
     const gradeTwoRewards = buildFixtureRewards(2).map((reward) => {
       const levelTier = Number(reward.metadata.levelTier);
       const gradeTier = Number(reward.metadata.gradeTier);
@@ -180,10 +223,24 @@ describe("buildRewardTrack", () => {
     expect(track.completedLevelRewardsInGrade.every((visual) => visual.visualSize === "30px")).toBe(true);
   });
 
-  it("at 200 polls uses each entering grade level 1 graduation visual", () => {
+  it("at 200 polls uses the first and second 60px rows in grade-level succession", () => {
     const customRewards = buildFixtureRewards(4).map((reward) => {
       const gradeTier = Number(reward.metadata.gradeTier);
       const levelTier = Number(reward.metadata.levelTier);
+
+      if (gradeTier === 1 && levelTier === 2) {
+        return {
+          ...reward,
+          metadata: {
+            ...reward.metadata,
+            levelReward: {
+              visualType: "coin",
+              visualColor: "#d8212d",
+              visualSize: "30px"
+            }
+          }
+        };
+      }
 
       if (gradeTier === 2 && levelTier === 1) {
         return {
@@ -200,7 +257,7 @@ describe("buildRewardTrack", () => {
         };
       }
 
-      if (gradeTier === 3 && levelTier === 1) {
+      if (gradeTier === 2 && levelTier === 2) {
         return {
           ...reward,
           metadata: {
@@ -210,6 +267,20 @@ describe("buildRewardTrack", () => {
               visualColor: "#ff9900",
               visualSize: "60px",
               visualSymbolUrl: "https://cdn.example.com/g2-grade.png"
+            }
+          }
+        };
+      }
+
+      if (gradeTier === 3 && levelTier === 1) {
+        return {
+          ...reward,
+          metadata: {
+            ...reward.metadata,
+            levelReward: {
+              visualType: "coin",
+              visualColor: "#b19bc0",
+              visualSize: "60px"
             }
           }
         };
@@ -232,6 +303,20 @@ describe("buildRewardTrack", () => {
     const symbolRewards = buildFixtureRewards(2).map((reward) => {
       const gradeTier = Number(reward.metadata.gradeTier);
       const levelTier = Number(reward.metadata.levelTier);
+
+      if (gradeTier === 1 && levelTier === 2) {
+        return {
+          ...reward,
+          metadata: {
+            ...reward.metadata,
+            levelReward: {
+              visualType: "coin",
+              visualColor: "#d8212d",
+              visualSize: "30px"
+            }
+          }
+        };
+      }
 
       return {
         ...reward,
@@ -265,7 +350,7 @@ describe("buildRewardTrack", () => {
 
     expect(track.completedGradeCoins[0]?.visualSymbolUrl).toBe("https://cdn.example.com/grade-1-graduation.png");
     expect(track.completedLevelRewardsInGrade[0]?.visualSymbolUrl).toBe(
-      "https://cdn.example.com/grade-2-level-1.png"
+      "https://cdn.example.com/grade-1-graduation.png"
     );
     expect(track.completedLevelRewardsInGrade[1]?.visualSymbolUrl).toBe(
       "https://cdn.example.com/grade-2-level-2.png"

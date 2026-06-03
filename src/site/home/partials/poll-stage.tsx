@@ -16,7 +16,9 @@ type PollStageProps = {
 };
 
 export function PollStage({ activeCategory, isLoading, isSubmitting, payload, onSubmit }: PollStageProps) {
-  if (isLoading && (!payload || payload.done)) {
+  const isAwaitingNextPoll = isLoading && Boolean(payload?.currentPoll);
+
+  if (isLoading && !payload?.currentPoll && (!payload || payload.done)) {
     return <div className="notice">Loading polls...</div>;
   }
 
@@ -35,6 +37,7 @@ export function PollStage({ activeCategory, isLoading, isSubmitting, payload, on
         <div className="poll-grid-current">
           <CurrentPollPanel
             currentPoll={payload.currentPoll}
+            isAwaitingNextPoll={isAwaitingNextPoll}
             isSubmitting={isSubmitting}
             onSubmit={onSubmit}
             settings={payload.settings}

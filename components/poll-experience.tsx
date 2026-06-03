@@ -30,8 +30,14 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
 
   const loadPolls = useCallback(
     async (options?: { category?: string; startPoll?: string }) => {
-      setIsLoading(true);
       setError(null);
+      setPayload((current) => {
+        if (!current?.currentPoll || current.done) {
+          return null;
+        }
+        return current;
+      });
+      setIsLoading(true);
 
       const category = (options?.category ?? categoryParam).trim();
       const startPoll = (options?.startPoll ?? startPollParam).trim();
@@ -108,7 +114,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     <>
       {error ? <div className="notice error">{error}</div> : null}
 
-      {isLoading ? (
+      {isLoading && !payload?.currentPoll && (!payload || payload.done) ? (
         <div className="notice">Loading polls...</div>
       ) : payload?.done ? (
         <div className="notice success">{getPollDoneMessage(payload.doneReason)}</div>
@@ -122,6 +128,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
             ) : null}
             <CurrentPollPanel
               currentPoll={payload.currentPoll}
+              isAwaitingNextPoll={isLoading}
               isSubmitting={isSubmitting}
               onSubmit={submitAnswer}
               settings={payload.settings}
