@@ -94,7 +94,7 @@ describe("fetchNormieBalancesForWallets", () => {
     expect(result.configured).toBe(false);
     expect(result.decimals).toBe(NORMIE_TOKEN_DECIMALS_FALLBACK);
     expect(result.wallets).toHaveLength(1);
-    expect(result.wallets[0]?.error).toBe("Solana RPC is not configured.");
+    expect(result.wallets[0]?.error).toContain("SOLANA_RPC_URL");
   });
 
   it("loads balances from mocked RPC responses", async () => {

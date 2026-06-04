@@ -1,3 +1,8 @@
+import { getSolanaRpcDiagnostics, readSolanaRpcEnv } from "@/lib/solana-rpc-config";
+
+export type { SolanaRpcDiagnostics } from "@/lib/solana-rpc-config";
+export { getSolanaRpcDiagnostics, readSolanaRpcEnv } from "@/lib/solana-rpc-config";
+
 type JsonRpcError = {
   code: number;
   message: string;
@@ -28,15 +33,24 @@ export class SolanaRpcRequestError extends Error {
 }
 
 export function getSolanaRpcEndpoint(): string | null {
-  const base = String(process.env.SOLANA_RPC_URL ?? "").trim();
-  const apiKey = String(process.env.SOLANA_RPC_API_KEY ?? "").trim();
+  const { rpcUrl, apiKey } = readSolanaRpcEnv();
 
-  if (!base || !apiKey) {
+  if (!rpcUrl) {
     return null;
   }
 
   try {
-    const url = new URL(base);
+    const url = new URL(rpcUrl);
+    const embeddedKey = url.searchParams.get("api-key")?.trim();
+
+    if (embeddedKey) {
+      return url.toString();
+    }
+
+    if (!apiKey) {
+      return null;
+    }
+
     url.searchParams.set("api-key", apiKey);
     return url.toString();
   } catch {
@@ -45,7 +59,7 @@ export function getSolanaRpcEndpoint(): string | null {
 }
 
 export function isSolanaRpcConfigured(): boolean {
-  return Boolean(getSolanaRpcEndpoint());
+  return getSolanaRpcDiagnostics().endpointReady;
 }
 
 let rpcRequestId = 1;
@@ -58,7 +72,7 @@ export async function solanaJsonRpc<T>(
   const endpoint = options.endpoint ?? getSolanaRpcEndpoint();
 
   if (!endpoint) {
-    throw new SolanaRpcConfigError();
+    throw new SolanaRpcConfigError(getSolanaRpcDiagnostics().hint ?? undefined);
   }
 
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -66,6 +80,7 @@ export async function solanaJsonRpc<T>(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: rpcRequestId++,

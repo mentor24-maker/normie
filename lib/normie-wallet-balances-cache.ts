@@ -1,3 +1,4 @@
+import type { NormieTokenPriceSource } from "@/lib/normie-token-price";
 import type { NormieWalletBalanceRow } from "@/lib/normie-wallet-balances";
 
 export const NORMIE_WALLET_BALANCES_CACHE_TTL_MS = 90_000;
@@ -8,6 +9,7 @@ export type CachedNormieWalletBalances = {
   decimals: number;
   configured: boolean;
   tokenPriceUsd: number | null;
+  tokenPriceSource: NormieTokenPriceSource;
   expiresAt: number;
 };
 

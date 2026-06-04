@@ -1,6 +1,7 @@
 import { NORMIE_TOKEN_MINT_ADDRESS } from "@/lib/normie-token";
 import { normalizeSolanaWalletAddress } from "@/lib/player-crypto-wallets";
 import {
+  getSolanaRpcDiagnostics,
   getSolanaRpcEndpoint,
   isSolanaRpcConfigured,
   solanaJsonRpc,
@@ -172,7 +173,10 @@ export async function fetchNormieBalancesForWallets(
 
   if (!isSolanaRpcConfigured() && !options.endpoint) {
     return {
-      wallets: buildUnavailableRows(uniqueAddresses, "Solana RPC is not configured."),
+      wallets: buildUnavailableRows(
+        uniqueAddresses,
+        getSolanaRpcDiagnostics().hint ?? "Solana RPC is not configured."
+      ),
       fetchedAt,
       decimals: NORMIE_TOKEN_DECIMALS_FALLBACK,
       configured: false

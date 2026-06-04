@@ -28,7 +28,8 @@ describe("normie wallet balances cache", () => {
       fetchedAt: "2026-06-03T12:00:00.000Z",
       decimals: 6,
       configured: true,
-      tokenPriceUsd: 1
+      tokenPriceUsd: 1,
+      tokenPriceSource: "jupiter"
     });
 
     expect(getCachedWalletBalances(key)?.wallets[0]?.amountFormatted).toBe("1");
@@ -46,21 +47,24 @@ describe("normie wallet balances cache", () => {
       fetchedAt: "2026-06-03T12:00:00.000Z",
       decimals: 6,
       configured: true,
-      tokenPriceUsd: 1
+      tokenPriceUsd: 1,
+      tokenPriceSource: "jupiter"
     });
     setCachedWalletBalances(buildWalletBalancesCacheKey("user-1", ["bbb"]), {
       wallets: [{ address: "bbb", amountRaw: "2", amountFormatted: "2", amountUsdFormatted: "$2.00" }],
       fetchedAt: "2026-06-03T12:00:00.000Z",
       decimals: 6,
       configured: true,
-      tokenPriceUsd: 1
+      tokenPriceUsd: 1,
+      tokenPriceSource: "jupiter"
     });
     setCachedWalletBalances(buildWalletBalancesCacheKey("user-2", ["ccc"]), {
       wallets: [{ address: "ccc", amountRaw: "3", amountFormatted: "3", amountUsdFormatted: "$3.00" }],
       fetchedAt: "2026-06-03T12:00:00.000Z",
       decimals: 6,
       configured: true,
-      tokenPriceUsd: 1
+      tokenPriceUsd: 1,
+      tokenPriceSource: "jupiter"
     });
 
     invalidateWalletBalancesForUser("user-1");

@@ -285,14 +285,18 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                   <p className="player-token-balances-meta">
                     Balances as of {formatBalancesTimestamp(balances.fetchedAt)}
                     {balances.cached ? " (cached)" : null}
-                    {!balances.configured ? " — Solana RPC is not configured on the server." : null}
+                    {!balances.configured
+                      ? ` — ${balances.rpcDiagnostics.hint ?? "Solana RPC is not configured on the server."}`
+                      : null}
                     {balances.tokenPriceUsd
                       ? ` — ${NORMIE_TOKEN_SYMBOL} price ${balances.tokenPriceUsd.toLocaleString("en-US", {
                           style: "currency",
                           currency: "USD",
                           maximumFractionDigits: 8
-                        })} via Dexscreener`
-                      : " — USD price unavailable"}
+                        })} via ${balances.tokenPriceSource === "jupiter" ? "Jupiter" : "Dexscreener"}`
+                      : balances.priceDiagnostics?.hint
+                        ? ` — ${balances.priceDiagnostics.hint}`
+                        : " — USD price unavailable"}
                   </p>
                 ) : null}
 
@@ -308,26 +312,37 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
 
                   {wallets.map((address) => {
                     const row = balancesByAddress.get(address);
+                    const balanceUnavailable = Boolean(row?.error);
                     const balanceLabel = isLoadingBalances && !row
                       ? "Loading..."
-                      : row?.error
+                      : balanceUnavailable
                         ? "Unavailable"
-                        : `${row?.amountFormatted ?? "0"} ${NORMIE_TOKEN_SYMBOL}`;
+                        : row?.amountFormatted ?? "0";
                     const usdLabel = isLoadingBalances && !row
                       ? "Loading..."
-                      : row?.error
+                      : balanceUnavailable
                         ? "Unavailable"
-                        : row?.amountUsdFormatted ?? (balances?.tokenPriceUsd ? "—" : "Unavailable");
+                        : row?.amountUsdFormatted ??
+                          (balances?.tokenPriceUsd ? "—" : balances?.priceDiagnostics?.hint ?? "Unavailable");
+                    const errorDetail = row?.error ?? "";
 
                     return (
                       <div className="player-token-wallet-table-row" key={address} role="row">
                         <code className="player-token-wallet-address" role="cell">
                           {address}
                         </code>
-                        <div className="player-token-wallet-balance" role="cell">
+                        <div
+                          className="player-token-wallet-balance"
+                          role="cell"
+                          title={balanceUnavailable ? errorDetail : undefined}
+                        >
                           {balanceLabel}
                         </div>
-                        <div className="player-token-wallet-usd" role="cell">
+                        <div
+                          className="player-token-wallet-usd"
+                          role="cell"
+                          title={balanceUnavailable ? errorDetail : undefined}
+                        >
                           {usdLabel}
                         </div>
                         <div className="player-token-wallet-table-actions crud-actions-cell" role="cell">
@@ -349,7 +364,7 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                   <div className="player-token-wallet-table-foot" role="row">
                     <span role="cell">Total Across Wallets</span>
                     <strong className="player-token-wallet-balance-total" role="cell">
-                      {isLoadingBalances ? "Loading..." : `${totalFormatted} ${NORMIE_TOKEN_SYMBOL}`}
+                      {isLoadingBalances ? "Loading..." : totalFormatted}
                     </strong>
                     <strong className="player-token-wallet-usd-total" role="cell">
                       {isLoadingBalances ? "Loading..." : totalUsdFormatted ?? "—"}

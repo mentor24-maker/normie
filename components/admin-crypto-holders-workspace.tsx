@@ -1,0 +1,155 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { readAdminJson } from "@/lib/admin-fetch";
+import type { AdminCryptoHolderRow, AdminCryptoHoldersSnapshot } from "@/lib/admin-crypto-holders";
+import { NORMIE_TOKEN_SYMBOL } from "@/lib/normie-token";
+
+function formatTimestamp(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+export function AdminCryptoHoldersWorkspace() {
+  const [snapshot, setSnapshot] = useState<AdminCryptoHoldersSnapshot | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadHolders = useCallback(async (refresh = false) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const url = refresh ? "/api/admin/crypto/holders?refresh=1" : "/api/admin/crypto/holders";
+      const response = await fetch(url, { cache: "no-store" });
+      const data = await readAdminJson<{ data?: AdminCryptoHoldersSnapshot }>(
+        response,
+        "Crypto holders could not be loaded."
+      );
+
+      setSnapshot(data.data ?? null);
+    } catch (loadError) {
+      setSnapshot(null);
+      setError(loadError instanceof Error ? loadError.message : "Crypto holders could not be loaded.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHolders(false);
+  }, [loadHolders]);
+
+  const summary = snapshot
+    ? `${snapshot.playerCount} player${snapshot.playerCount === 1 ? "" : "s"}, ${snapshot.walletCount} registered wallet${snapshot.walletCount === 1 ? "" : "s"}`
+    : isLoading
+      ? "Loading holders..."
+      : "No holder data loaded";
+
+  return (
+    <section className="admin-stack">
+      <section className="admin-section">
+        <div className="admin-toolbar">
+          <div>
+            <div className="panel-label">Crypto</div>
+            <h2>$NORMIE Holders Directory</h2>
+            <p className="page-copy admin-copy">
+              All registered players and their linked Solana wallets, with live {NORMIE_TOKEN_SYMBOL} balances
+              and USD estimates.
+            </p>
+            <p className="page-copy admin-copy">{summary}</p>
+          </div>
+          <div className="admin-actions">
+            <button
+              className="secondary-button"
+              disabled={isLoading}
+              onClick={() => void loadHolders(true)}
+              type="button"
+            >
+              {isLoading ? "Refreshing..." : "Refresh Balances"}
+            </button>
+          </div>
+        </div>
+
+        {snapshot?.fetchedAt ? (
+          <p className="page-copy admin-copy admin-crypto-holders-meta">
+            Balances as of {formatTimestamp(snapshot.fetchedAt)}
+            {snapshot.tokenPriceUsd
+              ? ` — ${NORMIE_TOKEN_SYMBOL} price ${snapshot.tokenPriceUsd.toLocaleString("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                  maximumFractionDigits: 8
+                })} via ${snapshot.tokenPriceSource === "jupiter" ? "Jupiter" : "Dexscreener"}`
+              : null}
+            {snapshot.priceDiagnostics.hint ? ` — ${snapshot.priceDiagnostics.hint}` : null}
+            {!snapshot.configured ? ` — ${snapshot.rpcDiagnostics.hint ?? "Solana RPC is not configured."}` : null}
+          </p>
+        ) : null}
+
+        {error ? <div className="notice error admin-notice">{error}</div> : null}
+      </section>
+
+      <section className="admin-section">
+        <div className="table-shell">
+          <table className="polls-table admin-crypto-holders-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Email</th>
+                <th>Handle</th>
+                <th>Wallets Address</th>
+                <th>{NORMIE_TOKEN_SYMBOL} Held</th>
+                <th>USD Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(snapshot?.rows ?? []).map((row) => (
+                <AdminCryptoHolderTableRow key={`${row.userId}-${row.walletAddress || "none"}`} row={row} />
+              ))}
+              {!isLoading && (snapshot?.rows.length ?? 0) === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={6}>
+                    No registered players found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function AdminCryptoHolderTableRow({ row }: { row: AdminCryptoHolderRow }) {
+  const balanceLabel = row.error
+    ? "Unavailable"
+    : row.walletAddress
+      ? row.amountFormatted
+      : "—";
+  const usdLabel = row.error
+    ? "Unavailable"
+    : row.walletAddress
+      ? row.amountUsdFormatted ?? "—"
+      : "—";
+
+  return (
+    <tr>
+      <td>
+        <strong>{row.fullName}</strong>
+      </td>
+      <td>{row.email}</td>
+      <td>{row.handle && row.handle !== "—" ? `@${row.handle}` : "—"}</td>
+      <td>
+        {row.walletAddress ? <code className="admin-crypto-wallet-address">{row.walletAddress}</code> : "—"}
+      </td>
+      <td title={row.error}>{balanceLabel}</td>
+      <td title={row.error}>{usdLabel}</td>
+    </tr>
+  );
+}

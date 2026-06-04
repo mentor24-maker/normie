@@ -4,8 +4,8 @@ import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerCryptoWallets } from "@/lib/player-crypto-wallets";
 import {
   enrichWalletBalancesWithUsd,
-  fetchNormieTokenPriceUsd,
-  sumWalletBalancesUsd
+  fetchNormieTokenPriceQuote,
+  type NormieTokenPriceSource
 } from "@/lib/normie-token-price";
 import {
   fetchNormieBalancesForWallets,
@@ -16,7 +16,9 @@ import {
   getCachedWalletBalances,
   setCachedWalletBalances
 } from "@/lib/normie-wallet-balances-cache";
-import { isSolanaRpcConfigured } from "@/lib/solana-rpc";
+import { getSolanaRpcDiagnostics, isSolanaRpcConfigured } from "@/lib/solana-rpc";
+
+export const runtime = "nodejs";
 
 function orderBalancesBySavedWallets(
   savedWallets: string[],
@@ -36,6 +38,22 @@ function orderBalancesBySavedWallets(
   );
 }
 
+function attachPriceToWallets(
+  savedWallets: string[],
+  balanceRows: NormieWalletBalanceRow[],
+  decimals: number,
+  priceQuote: Awaited<ReturnType<typeof fetchNormieTokenPriceQuote>>
+) {
+  const ordered = orderBalancesBySavedWallets(savedWallets, balanceRows);
+
+  return {
+    wallets: enrichWalletBalancesWithUsd(ordered, priceQuote.priceUsd, decimals),
+    tokenPriceUsd: priceQuote.priceUsd,
+    tokenPriceSource: priceQuote.source,
+    priceDiagnostics: priceQuote.diagnostics
+  };
+}
+
 async function buildBalancesPayload(
   savedWallets: string[],
   refresh: boolean
@@ -45,20 +63,24 @@ async function buildBalancesPayload(
   decimals: number;
   configured: boolean;
   tokenPriceUsd: number | null;
+  tokenPriceSource: NormieTokenPriceSource;
+  priceDiagnostics: Awaited<ReturnType<typeof fetchNormieTokenPriceQuote>>["diagnostics"];
 }> {
-  const [balances, tokenPriceUsd] = await Promise.all([
+  const [balances, priceQuote] = await Promise.all([
     fetchNormieBalancesForWallets(savedWallets),
-    fetchNormieTokenPriceUsd({ refresh })
+    fetchNormieTokenPriceQuote({ refresh })
   ]);
 
-  const orderedWallets = orderBalancesBySavedWallets(savedWallets, balances.wallets);
+  const priced = attachPriceToWallets(savedWallets, balances.wallets, balances.decimals, priceQuote);
 
   return {
-    wallets: enrichWalletBalancesWithUsd(orderedWallets, tokenPriceUsd),
+    wallets: priced.wallets,
     fetchedAt: balances.fetchedAt,
     decimals: balances.decimals,
     configured: balances.configured,
-    tokenPriceUsd
+    tokenPriceUsd: priced.tokenPriceUsd,
+    tokenPriceSource: priced.tokenPriceSource,
+    priceDiagnostics: priced.priceDiagnostics
   };
 }
 
@@ -76,6 +98,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Wallets could not be loaded." }, { status: 404 });
   }
 
+  const refresh = new URL(request.url).searchParams.get("refresh") === "1";
+  const priceQuote = await fetchNormieTokenPriceQuote({ refresh });
+
   if (savedWallets.wallets.length === 0) {
     return NextResponse.json({
       data: {
@@ -83,26 +108,33 @@ export async function GET(request: Request) {
         fetchedAt: new Date().toISOString(),
         decimals: null,
         configured: isSolanaRpcConfigured(),
-        tokenPriceUsd: await fetchNormieTokenPriceUsd(),
+        tokenPriceUsd: priceQuote.priceUsd,
+        tokenPriceSource: priceQuote.source,
+        priceDiagnostics: priceQuote.diagnostics,
+        rpcDiagnostics: getSolanaRpcDiagnostics(),
         cached: false
       }
     });
   }
 
-  const refresh = new URL(request.url).searchParams.get("refresh") === "1";
   const cacheKey = buildWalletBalancesCacheKey(player.authUser.id, savedWallets.wallets);
 
   if (!refresh) {
     const cached = getCachedWalletBalances(cacheKey);
 
     if (cached) {
+      const priced = attachPriceToWallets(savedWallets.wallets, cached.wallets, cached.decimals, priceQuote);
+
       return NextResponse.json({
         data: {
-          wallets: orderBalancesBySavedWallets(savedWallets.wallets, cached.wallets),
+          wallets: priced.wallets,
           fetchedAt: cached.fetchedAt,
           decimals: cached.decimals,
           configured: cached.configured,
-          tokenPriceUsd: cached.tokenPriceUsd,
+          tokenPriceUsd: priced.tokenPriceUsd,
+          tokenPriceSource: priced.tokenPriceSource,
+          priceDiagnostics: priced.priceDiagnostics,
+          rpcDiagnostics: getSolanaRpcDiagnostics(),
           cached: true
         }
       });
@@ -111,11 +143,24 @@ export async function GET(request: Request) {
 
   const payload = await buildBalancesPayload(savedWallets.wallets, refresh);
 
-  setCachedWalletBalances(cacheKey, payload);
+  setCachedWalletBalances(cacheKey, {
+    wallets: payload.wallets.map((wallet) => ({
+      address: wallet.address,
+      amountRaw: wallet.amountRaw,
+      amountFormatted: wallet.amountFormatted,
+      error: wallet.error
+    })),
+    fetchedAt: payload.fetchedAt,
+    decimals: payload.decimals,
+    configured: payload.configured,
+    tokenPriceUsd: payload.tokenPriceUsd,
+    tokenPriceSource: payload.tokenPriceSource
+  });
 
   return NextResponse.json({
     data: {
       ...payload,
+      rpcDiagnostics: getSolanaRpcDiagnostics(),
       cached: false
     }
   });

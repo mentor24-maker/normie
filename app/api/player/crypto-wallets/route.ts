@@ -9,6 +9,8 @@ import {
 } from "@/lib/player-crypto-wallets";
 import { invalidateWalletBalancesForUser } from "@/lib/normie-wallet-balances-cache";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   const cookieStore = await cookies();
   const player = await getAuthorizedPlayerFromCookieStore(cookieStore);

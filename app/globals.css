@@ -1960,6 +1960,22 @@ h2 {
   list-style: none;
 }
 
+.admin-crypto-holders-meta {
+  margin-top: 0;
+}
+
+.admin-crypto-holders-table code.admin-crypto-wallet-address {
+  display: inline-block;
+  max-width: min(320px, 36vw);
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
 .admin-crypto-wallet-list code {
   display: block;
   padding: 10px 12px;
