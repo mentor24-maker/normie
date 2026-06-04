@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { readAdminJson } from "@/lib/admin-fetch";
 import type { AdminCryptoHolderRow, AdminCryptoHoldersSnapshot } from "@/lib/admin-crypto-holders";
 import { NORMIE_TOKEN_SYMBOL } from "@/lib/normie-token";
+import { buildNormieWalletSendUrl } from "@/lib/solana-wallet-links";
 
 function formatTimestamp(value: string) {
   const date = new Date(value);
@@ -59,8 +61,8 @@ export function AdminCryptoHoldersWorkspace() {
             <div className="panel-label">Crypto</div>
             <h2>$NORMIE Holders Directory</h2>
             <p className="page-copy admin-copy">
-              All registered players and their linked Solana wallets, with live {NORMIE_TOKEN_SYMBOL} balances
-              and USD estimates.
+              Registered players with linked Solana wallets, live {NORMIE_TOKEN_SYMBOL} balances, and USD
+              estimates. Click a wallet address to send {NORMIE_TOKEN_SYMBOL} from your Solana wallet.
             </p>
             <p className="page-copy admin-copy">{summary}</p>
           </div>
@@ -114,7 +116,7 @@ export function AdminCryptoHoldersWorkspace() {
               {!isLoading && (snapshot?.rows.length ?? 0) === 0 ? (
                 <tr>
                   <td className="empty-cell" colSpan={6}>
-                    No registered players found.
+                    No players with registered wallets found.
                   </td>
                 </tr>
               ) : null}
@@ -127,26 +129,29 @@ export function AdminCryptoHoldersWorkspace() {
 }
 
 function AdminCryptoHolderTableRow({ row }: { row: AdminCryptoHolderRow }) {
-  const balanceLabel = row.error
-    ? "Unavailable"
-    : row.walletAddress
-      ? row.amountFormatted
-      : "—";
-  const usdLabel = row.error
-    ? "Unavailable"
-    : row.walletAddress
-      ? row.amountUsdFormatted ?? "—"
-      : "—";
+  const balanceLabel = row.error ? "Unavailable" : row.amountFormatted;
+  const usdLabel = row.error ? "Unavailable" : row.amountUsdFormatted ?? "—";
+  const profileHref = `/admin/users?user=${encodeURIComponent(row.userId)}`;
+  const sendHref = buildNormieWalletSendUrl(row.walletAddress);
 
   return (
     <tr>
       <td>
-        <strong>{row.fullName}</strong>
+        <Link className="admin-crypto-holder-name-link" href={profileHref}>
+          <strong>{row.fullName}</strong>
+        </Link>
       </td>
       <td>{row.email}</td>
       <td>{row.handle && row.handle !== "—" ? `@${row.handle}` : "—"}</td>
       <td>
-        {row.walletAddress ? <code className="admin-crypto-wallet-address">{row.walletAddress}</code> : "—"}
+        <a
+          className="admin-crypto-wallet-send-link"
+          href={sendHref}
+          rel="noopener noreferrer"
+          title={`Send ${NORMIE_TOKEN_SYMBOL} in Phantom, Solflare, or another Solana wallet`}
+        >
+          <code className="admin-crypto-wallet-address">{row.walletAddress}</code>
+        </a>
       </td>
       <td title={row.error}>{balanceLabel}</td>
       <td title={row.error}>{usdLabel}</td>

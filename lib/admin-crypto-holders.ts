@@ -86,9 +86,13 @@ export async function buildAdminCryptoHoldersSnapshot(
     };
   });
 
+  const playersWithWallets = players.filter(
+    (player) => normalizePlayerCryptoWallets(player.cryptoWallets).length > 0
+  );
+
   const uniqueAddresses = [
     ...new Set(
-      players.flatMap((player) => normalizePlayerCryptoWallets(player.cryptoWallets))
+      playersWithWallets.flatMap((player) => normalizePlayerCryptoWallets(player.cryptoWallets))
     )
   ];
 
@@ -106,22 +110,8 @@ export async function buildAdminCryptoHoldersSnapshot(
 
   const rows: AdminCryptoHolderRow[] = [];
 
-  for (const player of players) {
+  for (const player of playersWithWallets) {
     const wallets = normalizePlayerCryptoWallets(player.cryptoWallets);
-
-    if (wallets.length === 0) {
-      rows.push({
-        userId: player.id,
-        fullName: player.fullName || "Unnamed player",
-        email: player.email,
-        handle: player.handle,
-        walletAddress: "",
-        amountRaw: "0",
-        amountFormatted: "0",
-        amountUsdFormatted: null
-      });
-      continue;
-    }
 
     for (const walletAddress of wallets) {
       const balance = balancesByAddress.get(walletAddress);
@@ -159,7 +149,7 @@ export async function buildAdminCryptoHoldersSnapshot(
     tokenPriceSource: priceQuote.source,
     priceDiagnostics: priceQuote.diagnostics,
     rpcDiagnostics: getSolanaRpcDiagnostics(),
-    playerCount: players.length,
+    playerCount: playersWithWallets.length,
     walletCount: uniqueAddresses.length
   };
 }

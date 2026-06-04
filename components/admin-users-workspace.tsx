@@ -81,6 +81,7 @@ type AdminUsersWorkspaceProps = {
   directoryEyebrow?: string;
   directoryTitle?: string;
   emptyMessage?: string;
+  initialSelectedUserId?: string;
 };
 
 export function AdminUsersWorkspace({
@@ -94,7 +95,8 @@ export function AdminUsersWorkspace({
   createButtonLabel = "Create User",
   directoryEyebrow = "User Directory",
   directoryTitle = "All users",
-  emptyMessage = "No users found."
+  emptyMessage = "No users found.",
+  initialSelectedUserId = ""
 }: AdminUsersWorkspaceProps) {
   const [users, setUsers] = useState<DirectoryRecord[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -135,6 +137,18 @@ export function AdminUsersWorkspace({
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    const userId = initialSelectedUserId.trim();
+
+    if (!userId || isLoading) {
+      return;
+    }
+
+    if (users.some((user) => user.id === userId)) {
+      setSelectedUserId(userId);
+    }
+  }, [initialSelectedUserId, isLoading, users]);
 
   useEffect(() => {
     if (!selectedUser) {

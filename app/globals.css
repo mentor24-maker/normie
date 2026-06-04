@@ -1960,6 +1960,25 @@ h2 {
   list-style: none;
 }
 
+.admin-crypto-holder-name-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-crypto-holder-name-link:hover {
+  text-decoration: underline;
+}
+
+.admin-crypto-wallet-send-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-crypto-wallet-send-link:hover .admin-crypto-wallet-address {
+  text-decoration: underline;
+}
+
 .admin-crypto-holders-meta {
   margin-top: 0;
 }

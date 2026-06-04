@@ -1,6 +1,12 @@
 import { AdminUsersWorkspace } from "@/components/admin-users-workspace";
 
-export default function UsersPage() {
+type UsersPageProps = {
+  searchParams: Promise<{ user?: string }>;
+};
+
+export default async function UsersPage({ searchParams }: UsersPageProps) {
+  const { user } = await searchParams;
+
   return (
     <AdminUsersWorkspace
       eyebrow="Player Management"
@@ -12,6 +18,7 @@ export default function UsersPage() {
       directoryEyebrow="Player Directory"
       directoryTitle="All registered players"
       emptyMessage="No registered players found."
+      initialSelectedUserId={user?.trim() ?? ""}
     />
   );
 }
