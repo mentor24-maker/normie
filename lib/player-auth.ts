@@ -19,6 +19,7 @@ export type PlayerProfileRow = {
   share_poll_responses?: boolean | null;
   preferred_poll_categories?: unknown;
   default_play_poll_category?: string | null;
+  crypto_wallets?: unknown;
   created_at: string | null;
   updated_at: string | null;
 };

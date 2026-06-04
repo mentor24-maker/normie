@@ -73,7 +73,7 @@ export async function PATCH(
       status,
       updated_at: new Date().toISOString()
     })
-    .select("id, full_name, handle, status, created_at, updated_at")
+    .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
     .single();
 
   if (profileError || !profile) {

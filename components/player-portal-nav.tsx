@@ -7,6 +7,7 @@ const navItems = [
   { href: "/portal/dashboard", label: "Dashboard" },
   { href: "/portal/polls", label: "My Polls" },
   { href: "/portal/points", label: "Points" },
+  { href: "/portal/token", label: "Token" },
   { href: "/portal/leaderboard", label: "Leaderboard" },
   { href: "/portal/preferences", label: "Preferences" }
 ] as const;

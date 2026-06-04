@@ -378,6 +378,22 @@ export function AdminUsersWorkspace({
               />
             </label>
           ) : null}
+          {directoryKind === "users" && selectedUser && isPublicUserRecord(selectedUser) ? (
+            <div className="field admin-form-notes">
+              <span>Crypto Wallets</span>
+              {selectedUser.cryptoWallets.length === 0 ? (
+                <p className="page-copy admin-copy">No wallets registered.</p>
+              ) : (
+                <ul className="admin-crypto-wallet-list">
+                  {selectedUser.cryptoWallets.map((wallet) => (
+                    <li key={wallet}>
+                      <code>{wallet}</code>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </div>
 
         {message ? <div className="notice success admin-notice">{message}</div> : null}

@@ -46,7 +46,7 @@ export async function GET() {
       supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
       supabase
         .from("player_profiles")
-        .select("id, full_name, handle, status, created_at, updated_at")
+        .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
         .order("created_at", { ascending: false }),
       supabase.from("poll_response").select("user_id, tokens_earned, is_skipped").not("user_id", "is", null)
     ]);
