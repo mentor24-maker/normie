@@ -16,6 +16,7 @@ import { sanitizeRichTextHtml } from "@/lib/sanitize-html";
 import { POLL_COLLECTION_STANDARD } from "@/lib/poll-collections";
 import { mapPollRowWithCategory, resolvePollCategoryIdForWrite } from "@/lib/poll-category-store";
 import { POLL_ADMIN_SELECT } from "@/lib/poll-select";
+import { loadAllAdminPollRows } from "@/lib/poll-rows-pagination";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionInput = {
@@ -61,41 +62,44 @@ export async function GET(request: Request) {
   }
 
   const supabase = createAdminClient();
-  const [pollsResult, galleryExistence] = await Promise.all([
-    supabase.from("polls").select(POLL_SELECT).order("order_index", { ascending: true }),
-    loadGalleryExistenceNameSets()
+  const [pollRows, galleryExistence, questionCountResult, responsesResult] = await Promise.all([
+    loadAllAdminPollRows(),
+    loadGalleryExistenceNameSets(),
+    supabase.from("polls").select("id", { count: "exact", head: true }),
+    supabase.from("poll_response").select("id", { count: "exact", head: true })
   ]);
 
-  if (pollsResult.error) {
-    return auth.finish(NextResponse.json({ error: pollsResult.error.message }, { status: 500 }));
+  if (questionCountResult.error) {
+    return auth.finish(NextResponse.json({ error: questionCountResult.error.message }, { status: 500 }));
   }
 
-  const polls = (pollsResult.data ?? []).map((poll) => {
-    const mapped = mapPollRowWithCategory({
-      ...poll,
-      poll_options: [...(poll.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order)
-    });
+  const polls = pollRows.map((poll) => {
+    const row = poll as Record<string, unknown> & {
+      poll_options?: Array<{ id: string; label: string; sort_order: number }>;
+      image_url?: string | null;
+    };
+
+    const mapped = mapPollRowWithCategory(
+      row as Parameters<typeof mapPollRowWithCategory>[0] & typeof row
+    );
 
     return {
       ...mapped,
-      gallery_linked: pollHasGalleryFileInStorageWithSets(poll.image_url, galleryExistence)
+      poll_options: [...(row.poll_options ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+      gallery_linked: pollHasGalleryFileInStorageWithSets(row.image_url, galleryExistence)
     };
   });
 
-  const { count: totalAnswers, error: responsesError } = await supabase
-    .from("poll_response")
-    .select("id", { count: "exact", head: true });
-
-  if (responsesError) {
-    return auth.finish(NextResponse.json({ error: responsesError.message }, { status: 500 }));
+  if (responsesResult.error) {
+    return auth.finish(NextResponse.json({ error: responsesResult.error.message }, { status: 500 }));
   }
 
   return auth.finish(
     NextResponse.json({
       polls,
       metrics: {
-        questionCount: polls.length,
-        totalAnswers: totalAnswers ?? 0
+        questionCount: questionCountResult.count ?? polls.length,
+        totalAnswers: responsesResult.count ?? 0
       }
     })
   );

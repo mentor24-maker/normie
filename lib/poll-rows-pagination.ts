@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-admin";
+import { POLL_ADMIN_SELECT } from "@/lib/poll-select";
 
 export const POLL_ROWS_PAGE_SIZE = 1000;
 
@@ -53,6 +54,25 @@ export async function loadAllPollIdImageUrlRows(): Promise<PollIdImageUrlRow[]> 
       .from("polls")
       .select("id, image_url")
       .order("id", { ascending: true })
+      .range(offset, offset + POLL_ROWS_PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data ?? [];
+  });
+}
+
+/** Load every admin poll row for Polls Manager (paginated past the Supabase 1000-row cap). */
+export async function loadAllAdminPollRows(): Promise<Record<string, unknown>[]> {
+  const supabase = createAdminClient();
+
+  return fetchAllPollPages(async (offset) => {
+    const { data, error } = await supabase
+      .from("polls")
+      .select(POLL_ADMIN_SELECT)
+      .order("order_index", { ascending: true })
       .range(offset, offset + POLL_ROWS_PAGE_SIZE - 1);
 
     if (error) {

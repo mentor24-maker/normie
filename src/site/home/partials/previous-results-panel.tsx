@@ -74,6 +74,15 @@ export function PreviousResultsPanel({ previousPoll, settings }: PreviousResults
                 </div>
               ))}
             </div>
+            <div className="poll-pod-action-row">
+              <button
+                className="secondary-button poll-pod-action-button poll-deep-dive-trigger"
+                onClick={() => setDeepDiveOpen(true)}
+                type="button"
+              >
+                Deep Dive
+              </button>
+            </div>
           </div>
         ) : initialContent ? (
           <>
@@ -90,16 +99,6 @@ export function PreviousResultsPanel({ previousPoll, settings }: PreviousResults
 
       {previousPoll ? (
         <>
-          <div className="poll-deep-dive-actions">
-            <button
-              className="secondary-button poll-deep-dive-trigger"
-              onClick={() => setDeepDiveOpen(true)}
-              type="button"
-            >
-              Deep Dive
-            </button>
-          </div>
-
           {deepDiveOpen ? (
             <div
               className="poll-deep-dive-overlay"

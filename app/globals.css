@@ -70,12 +70,12 @@
   --poll-previous-results-question-ink: #7a3b2e;
   /* Deep dive overlay on Previous Results — must be fully opaque (matches previous poll card fill). */
   --poll-deep-dive-overlay-fill: #fefac7;
-  --poll-deep-dive-trigger-bg: #006699;
+  --poll-deep-dive-trigger-bg: #0245a1;
   --poll-deep-dive-trigger-color: #ffffff;
-  --poll-deep-dive-trigger-hover-bg: #0088bb;
+  --poll-deep-dive-trigger-hover-bg: #0358c4;
   --poll-deep-dive-trigger-hover-color: #ffffff;
-  --poll-deep-dive-trigger-font-size: 1rem;
-  --poll-deep-dive-trigger-margin-top: 20px;
+  --poll-deep-dive-trigger-font-size: 0.99rem;
+  --poll-deep-dive-trigger-margin-top: 17px;
   --gold: #ffd60a;
   --gold-soft: rgba(255, 214, 10, 0.22);
   --night: #081019;
@@ -955,26 +955,32 @@ h2 {
   overflow: hidden;
 }
 
-.poll-deep-dive-actions {
+.poll-pod-action-row {
   display: flex;
   justify-content: center;
-  margin-top: var(--poll-deep-dive-trigger-margin-top);
+  margin-top: 17px;
+  width: 100%;
 }
 
-.poll-previous-results-panel .secondary-button.poll-deep-dive-trigger {
+.poll-pod-action-button.secondary-button {
   white-space: nowrap;
-  font-size: var(--poll-deep-dive-trigger-font-size);
-  background: var(--poll-deep-dive-trigger-bg);
-  color: var(--poll-deep-dive-trigger-color);
-  border-color: rgba(9, 16, 24, 0.14);
-  box-shadow: 0 8px 22px rgba(0, 51, 77, 0.18);
+  width: fit-content;
+  padding: 5px 14px;
+  min-height: 0;
+  font-size: 0.99rem;
+  font-weight: 700;
+  line-height: 1.2;
   text-align: center;
+  background: #0245a1;
+  color: #ffffff;
+  border-color: rgba(9, 16, 24, 0.14);
+  box-shadow: 0 8px 22px rgba(2, 69, 161, 0.22);
 }
 
-.poll-previous-results-panel .secondary-button.poll-deep-dive-trigger:hover {
+.poll-pod-action-button.secondary-button:hover:not(:disabled) {
   transform: translateY(-3px) scale(1.01);
-  background: var(--poll-deep-dive-trigger-hover-bg);
-  color: var(--poll-deep-dive-trigger-hover-color);
+  background: #0358c4;
+  color: #ffffff;
 }
 
 .poll-deep-dive-overlay {
@@ -2158,7 +2164,7 @@ h2 {
 }
 
 .option-button:hover:not(.poll-answer-button-a):not(.poll-answer-button-b),
-.secondary-button:hover:not(.poll-deep-dive-trigger),
+.secondary-button:hover:not(.poll-pod-action-button),
 .danger-button:hover {
   transform: translateY(-3px) scale(1.01);
   background: #ffffff;
@@ -4407,22 +4413,6 @@ h2 {
   flex-direction: column;
 }
 
-.player-poll-skip-row {
-  display: flex;
-  justify-content: center;
-  margin-top: 12px;
-  width: 100%;
-}
-
-.player-poll-skip-button.secondary-button {
-  white-space: nowrap;
-  width: fit-content;
-  padding: 5px 14px;
-  min-height: 0;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
 
 .player-portal-polls .poll-module-panel.action-panel {
   --poll-content-width: 100%;
@@ -8637,7 +8627,8 @@ a.polls-icon-button {
   column-gap: 20px;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 0 100px;
+  box-sizing: border-box;
 }
 
 .builder-preview-poll-category-list-items li,
@@ -8649,7 +8640,7 @@ a.polls-icon-button {
 .builder-module-preview-poll-category-list-items a {
   display: block;
   line-height: 1.35;
-  word-break: break-word;
+  white-space: nowrap;
 }
 
 .builder-preview-poll-category-list-status,
@@ -8668,6 +8659,7 @@ a.polls-icon-button {
 .builder-preview-device-mobile .builder-module-preview-poll-category-list-items {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 14px;
+  padding-left: 0;
 }
 
 @media (max-width: 640px) {
@@ -8695,6 +8687,7 @@ a.polls-icon-button {
   .builder-module-preview-poll-category-list-items {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 14px;
+    padding-left: 0;
   }
 }
 
@@ -13244,28 +13237,6 @@ code {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.site-header-dev-reset-button {
-  border: 2px solid #177aa7;
-  border-radius: 999px;
-  background: #f8fdff;
-  color: #0f4f8f;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1.2;
-  padding: 8px 14px;
-  white-space: nowrap;
-}
-
-.site-header-dev-reset-button:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.site-header-dev-reset-button:hover {
-  background: #e8f7fd;
 }
 
 .site-header-social-link {

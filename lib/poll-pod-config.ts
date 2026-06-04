@@ -112,12 +112,12 @@ export type PollPodContent = {
 };
 
 export const DEFAULT_DEEP_DIVE_TRIGGER = {
-  backgroundColor: "#006699",
+  backgroundColor: "#0245A1",
   fontColor: "#ffffff",
-  marginTopPx: "20",
-  hoverBackgroundColor: "#0088bb",
+  marginTopPx: "17",
+  hoverBackgroundColor: "#0358C4",
   hoverFontColor: "#ffffff",
-  fontSizeRem: "1"
+  fontSizeRem: "0.99"
 } as const;
 
 export type PollDeepDiveTriggerSettings = {
@@ -790,17 +790,7 @@ export function getPollPodStyle(pod: PollPodConfig): CSSProperties {
     "--poll-answer-a-color": buttons.answerButtonAFontColor,
     "--poll-answer-b-color": buttons.answerButtonBFontColor,
     "--poll-answer-a-font-size": `${buttons.answerButtonAFontSize}rem`,
-    "--poll-answer-b-font-size": `${buttons.answerButtonBFontSize}rem`,
-    ...(pod.deepDiveTrigger
-      ? {
-          "--poll-deep-dive-trigger-bg": pod.deepDiveTrigger.backgroundColor,
-          "--poll-deep-dive-trigger-color": pod.deepDiveTrigger.fontColor,
-          "--poll-deep-dive-trigger-margin-top": `${pod.deepDiveTrigger.marginTopPx}px`,
-          "--poll-deep-dive-trigger-hover-bg": pod.deepDiveTrigger.hoverBackgroundColor,
-          "--poll-deep-dive-trigger-hover-color": pod.deepDiveTrigger.hoverFontColor,
-          "--poll-deep-dive-trigger-font-size": `${pod.deepDiveTrigger.fontSizeRem}rem`
-        }
-      : {})
+    "--poll-answer-b-font-size": `${buttons.answerButtonBFontSize}rem`
   } as CSSProperties;
 }
 

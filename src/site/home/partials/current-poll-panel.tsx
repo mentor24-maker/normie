@@ -55,9 +55,9 @@ export function CurrentPollPanel({
             ))}
           </div>
           {showSkipPoll && onSkip ? (
-            <div className="player-poll-skip-row">
+            <div className="poll-pod-action-row">
               <button
-                className="secondary-button player-poll-skip-button"
+                className="secondary-button poll-pod-action-button"
                 disabled={panelBusy}
                 onClick={() => void onSkip()}
                 type="button"

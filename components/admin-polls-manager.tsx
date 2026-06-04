@@ -248,12 +248,14 @@ export function AdminPollsManager() {
       return "Loading polls...";
     }
 
+    const totalPolls = metrics.questionCount;
+
     if (filteredPolls.length === polls.length) {
-      return `${polls.length} poll${polls.length === 1 ? "" : "s"} loaded`;
+      return `${totalPolls} poll${totalPolls === 1 ? "" : "s"} loaded`;
     }
 
-    return `${filteredPolls.length} of ${polls.length} polls shown`;
-  }, [filteredPolls.length, isLoading, polls.length]);
+    return `${filteredPolls.length} of ${totalPolls} polls shown`;
+  }, [filteredPolls.length, isLoading, metrics.questionCount, polls.length]);
 
   function togglePollSelection(pollId: string) {
     setSelectedPollIds((current) =>
@@ -306,8 +308,13 @@ export function AdminPollsManager() {
       }
 
       setMessage(`Deleted ${data.deletedCount ?? pollIds.length} poll(s).`);
+      const deletedCount = data.deletedCount ?? pollIds.length;
       setSelectedPollIds((current) => current.filter((id) => !pollIds.includes(id)));
       setPolls((current) => current.filter((poll) => !pollIds.includes(poll.id)));
+      setMetrics((current) => ({
+        ...current,
+        questionCount: Math.max(0, current.questionCount - deletedCount)
+      }));
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete polls.");
     } finally {

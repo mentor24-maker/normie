@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import logoWide from "@/images/logo_normie_3_1600x500.png";
-import { SiteHeaderDevResetButton } from "@/components/site-header-dev-reset-button";
 import { SiteHeaderSocial } from "@/src/site/layout/site-header-social";
 
 type BlogSiteHeaderProps = {
@@ -25,7 +24,6 @@ export function BlogSiteHeader({ showBlogLabel = true }: BlogSiteHeaderProps) {
           </div>
           <div className="site-header-social-row">
             <SiteHeaderSocial />
-            <SiteHeaderDevResetButton />
           </div>
         </div>
       </div>

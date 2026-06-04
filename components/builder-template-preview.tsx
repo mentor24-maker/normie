@@ -14,7 +14,6 @@ import {
 } from "@/lib/builder-template";
 import { sanitizeEmbedHtml } from "@/lib/sanitize-html";
 import { normalizeSocialIconBackgroundColor } from "@/lib/social-icon-background";
-import { SiteHeaderDevResetButton } from "@/components/site-header-dev-reset-button";
 import { BuilderConfettiRuntime } from "@/components/builder-confetti-runtime";
 import { BuilderPollModuleRuntime, BuilderSocialShareRuntime } from "@/components/builder-poll-runtime";
 import { PollCategoryListPreview } from "@/components/builder/poll-category-list-preview";
@@ -1104,7 +1103,6 @@ function SocialModulePreview({ module }: { module: import("@/lib/builder-templat
           </div>
         ))}
       </div>
-      <SiteHeaderDevResetButton />
     </div>
   );
 }
