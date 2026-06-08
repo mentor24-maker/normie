@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { readAdminJson } from "@/lib/admin-fetch";
 import type { AdminCryptoHolderRow, AdminCryptoHoldersSnapshot } from "@/lib/admin-crypto-holders";
 import { NORMIE_TOKEN_SYMBOL } from "@/lib/normie-token";
+import { sumWalletBalancesUsd } from "@/lib/normie-token-price";
+import { formatNormieTokenAmount } from "@/lib/normie-wallet-balances";
 import { buildNormieWalletSendUrl } from "@/lib/solana-wallet-links";
 
 function formatTimestamp(value: string) {
@@ -52,6 +54,32 @@ export function AdminCryptoHoldersWorkspace() {
     : isLoading
       ? "Loading holders..."
       : "No holder data loaded";
+
+  const totals = useMemo(() => {
+    if (!snapshot?.rows.length) {
+      return { normieTotal: "0", usdTotal: null as string | null };
+    }
+
+    const totalRaw = snapshot.rows.reduce((sum, row) => {
+      if (row.error) {
+        return sum;
+      }
+
+      return sum + BigInt(row.amountRaw.replace(/\D/g, "") || "0");
+    }, BigInt(0));
+
+    const normieTotal = formatNormieTokenAmount(totalRaw.toString(), snapshot.decimals);
+    const walletRows = snapshot.rows.map((row) => ({
+      address: row.walletAddress,
+      amountRaw: row.amountRaw,
+      amountFormatted: row.amountFormatted,
+      amountUsdFormatted: row.amountUsdFormatted,
+      error: row.error
+    }));
+    const usdTotal = sumWalletBalancesUsd(walletRows, snapshot.tokenPriceUsd, snapshot.decimals);
+
+    return { normieTotal, usdTotal };
+  }, [snapshot]);
 
   return (
     <section className="admin-stack">
@@ -121,6 +149,21 @@ export function AdminCryptoHoldersWorkspace() {
                 </tr>
               ) : null}
             </tbody>
+            {(snapshot?.rows.length ?? 0) > 0 ? (
+              <tfoot>
+                <tr className="admin-crypto-holders-table-foot">
+                  <td colSpan={4}>
+                    <strong>Total Registered Wallets</strong>
+                  </td>
+                  <td>
+                    <strong>{totals.normieTotal}</strong>
+                  </td>
+                  <td>
+                    <strong>{totals.usdTotal ?? "—"}</strong>
+                  </td>
+                </tr>
+              </tfoot>
+            ) : null}
           </table>
         </div>
       </section>

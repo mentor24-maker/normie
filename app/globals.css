@@ -1979,6 +1979,12 @@ h2 {
   text-decoration: underline;
 }
 
+.admin-crypto-holders-table-foot td {
+  border-top: 2px solid rgba(9, 16, 24, 0.14);
+  font-weight: 700;
+  vertical-align: middle;
+}
+
 .admin-crypto-holders-meta {
   margin-top: 0;
 }

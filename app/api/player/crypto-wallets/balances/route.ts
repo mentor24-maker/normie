@@ -13,12 +13,14 @@ import {
 } from "@/lib/normie-wallet-balances";
 import {
   buildWalletBalancesCacheKey,
+  deleteCachedWalletBalances,
   getCachedWalletBalances,
   setCachedWalletBalances
 } from "@/lib/normie-wallet-balances-cache";
 import { getSolanaRpcDiagnostics, isSolanaRpcConfigured } from "@/lib/solana-rpc";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function orderBalancesBySavedWallets(
   savedWallets: string[],
@@ -118,6 +120,10 @@ export async function GET(request: Request) {
   }
 
   const cacheKey = buildWalletBalancesCacheKey(player.authUser.id, savedWallets.wallets);
+
+  if (refresh) {
+    deleteCachedWalletBalances(cacheKey);
+  }
 
   if (!refresh) {
     const cached = getCachedWalletBalances(cacheKey);

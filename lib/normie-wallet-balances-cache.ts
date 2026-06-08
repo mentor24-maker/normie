@@ -47,6 +47,10 @@ export function setCachedWalletBalances(
   return entry;
 }
 
+export function deleteCachedWalletBalances(cacheKey: string): void {
+  balancesCache.delete(cacheKey);
+}
+
 export function invalidateWalletBalancesForUser(userId: string): void {
   const prefix = `${userId}:`;
 

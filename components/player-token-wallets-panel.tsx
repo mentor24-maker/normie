@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { NormieDexscreenerEmbed } from "@/components/normie-dexscreener-embed";
 import {
   MAX_PLAYER_CRYPTO_WALLETS,
@@ -45,22 +45,43 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
   const [removingAddress, setRemovingAddress] = useState<string | null>(null);
   const [balances, setBalances] = useState<PlayerCryptoWalletBalancesResponse | null>(null);
   const [balancesError, setBalancesError] = useState<string | null>(null);
+  const [balancesNotice, setBalancesNotice] = useState<string | null>(null);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+  const [isRefreshingBalances, setIsRefreshingBalances] = useState(false);
+  const balancesRequestIdRef = useRef(0);
   const hasHolderAccess = wallets.length > 0;
+  const walletListKey = wallets.join("|");
 
   const loadBalances = useCallback(async (refresh = false) => {
     if (wallets.length === 0) {
       setBalances(null);
       setBalancesError(null);
+      setBalancesNotice(null);
+      setIsLoadingBalances(false);
+      setIsRefreshingBalances(false);
       return;
     }
 
+    const requestId = ++balancesRequestIdRef.current;
+
     setIsLoadingBalances(true);
+    if (refresh) {
+      setIsRefreshingBalances(true);
+      setBalancesNotice(null);
+    }
     setBalancesError(null);
 
     try {
-      const url = refresh
-        ? "/api/player/crypto-wallets/balances?refresh=1"
+      const params = new URLSearchParams();
+
+      if (refresh) {
+        params.set("refresh", "1");
+        params.set("_", String(Date.now()));
+      }
+
+      const query = params.toString();
+      const url = query
+        ? `/api/player/crypto-wallets/balances?${query}`
         : "/api/player/crypto-wallets/balances";
       const response = await fetch(url, {
         credentials: "same-origin",
@@ -71,24 +92,39 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
         data?: PlayerCryptoWalletBalancesResponse;
       };
 
+      if (requestId !== balancesRequestIdRef.current) {
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(payload.error ?? "Wallets balances could not be loaded.");
       }
 
       setBalances(payload.data ?? null);
+
+      if (refresh) {
+        setBalancesNotice("Balances refreshed.");
+      }
     } catch (loadError) {
+      if (requestId !== balancesRequestIdRef.current) {
+        return;
+      }
+
       setBalances(null);
       setBalancesError(
         loadError instanceof Error ? loadError.message : "Wallets balances could not be loaded."
       );
     } finally {
-      setIsLoadingBalances(false);
+      if (requestId === balancesRequestIdRef.current) {
+        setIsLoadingBalances(false);
+        setIsRefreshingBalances(false);
+      }
     }
   }, [wallets]);
 
   useEffect(() => {
     void loadBalances(false);
-  }, [loadBalances]);
+  }, [loadBalances, walletListKey]); // walletListKey ensures reload when registered wallets change
 
   const balancesByAddress = useMemo(
     () => new Map((balances?.wallets ?? []).map((row) => [row.address, row])),
@@ -267,11 +303,11 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
               {wallets.length > 0 ? (
                 <button
                   className="secondary-button"
-                  disabled={isLoadingBalances}
+                  disabled={isLoadingBalances || isRefreshingBalances}
                   onClick={() => void loadBalances(true)}
                   type="button"
                 >
-                  {isLoadingBalances ? "Refreshing..." : "Refresh Balances"}
+                  {isRefreshingBalances ? "Refreshing..." : "Refresh Balances"}
                 </button>
               ) : null}
             </div>
@@ -281,6 +317,7 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
             ) : (
               <>
                 {balancesError ? <div className="notice error admin-notice">{balancesError}</div> : null}
+                {balancesNotice ? <div className="notice success admin-notice">{balancesNotice}</div> : null}
                 {balances?.fetchedAt ? (
                   <p className="player-token-balances-meta">
                     Balances as of {formatBalancesTimestamp(balances.fetchedAt)}
@@ -313,12 +350,13 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                   {wallets.map((address) => {
                     const row = balancesByAddress.get(address);
                     const balanceUnavailable = Boolean(row?.error);
-                    const balanceLabel = isLoadingBalances && !row
+                    const showLoading = isRefreshingBalances || (isLoadingBalances && !balances);
+                    const balanceLabel = showLoading
                       ? "Loading..."
                       : balanceUnavailable
                         ? "Unavailable"
                         : row?.amountFormatted ?? "0";
-                    const usdLabel = isLoadingBalances && !row
+                    const usdLabel = showLoading
                       ? "Loading..."
                       : balanceUnavailable
                         ? "Unavailable"
@@ -364,10 +402,12 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                   <div className="player-token-wallet-table-foot" role="row">
                     <span role="cell">Total Across Wallets</span>
                     <strong className="player-token-wallet-balance-total" role="cell">
-                      {isLoadingBalances ? "Loading..." : totalFormatted}
+                      {isRefreshingBalances || (isLoadingBalances && !balances) ? "Loading..." : totalFormatted}
                     </strong>
                     <strong className="player-token-wallet-usd-total" role="cell">
-                      {isLoadingBalances ? "Loading..." : totalUsdFormatted ?? "—"}
+                      {isRefreshingBalances || (isLoadingBalances && !balances)
+                        ? "Loading..."
+                        : totalUsdFormatted ?? "—"}
                     </strong>
                     <span role="cell" />
                   </div>
