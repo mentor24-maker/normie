@@ -17,6 +17,7 @@ import { POLL_COLLECTION_STANDARD } from "@/lib/poll-collections";
 import { mapPollRowWithCategory, resolvePollCategoryIdForWrite } from "@/lib/poll-category-store";
 import { POLL_ADMIN_SELECT } from "@/lib/poll-select";
 import { loadAllAdminPollRows } from "@/lib/poll-rows-pagination";
+import { deleteAdminPolls } from "@/lib/admin-poll-delete";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PollOptionInput = {
@@ -240,19 +241,33 @@ export async function DELETE(request: Request) {
     return auth.response;
   }
 
-  const body = (await request.json()) as { pollIds?: string[] };
+  const body = (await request.json()) as { pollIds?: string[]; deletePlayerRecords?: boolean };
   const pollIds = (body.pollIds ?? []).map((id) => id.trim()).filter(Boolean);
+  const deletePlayerRecords = body.deletePlayerRecords !== false;
 
   if (pollIds.length === 0) {
     return auth.finish(NextResponse.json({ error: "At least one poll id is required." }, { status: 400 }));
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase.from("polls").delete().in("id", pollIds);
 
-  if (error) {
-    return auth.finish(NextResponse.json({ error: error.message }, { status: 500 }));
+  try {
+    const result = await deleteAdminPolls(supabase, pollIds, { deletePlayerRecords });
+
+    return auth.finish(
+      NextResponse.json({
+        ok: true,
+        deletedCount: result.deletedPollCount,
+        deletedResponseCount: result.deletedResponseCount,
+        deletedReactionCount: result.deletedReactionCount
+      })
+    );
+  } catch (error) {
+    return auth.finish(
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed to delete polls." },
+        { status: 500 }
+      )
+    );
   }
-
-  return auth.finish(NextResponse.json({ ok: true, deletedCount: pollIds.length }));
 }

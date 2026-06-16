@@ -106,9 +106,13 @@ export async function resolvePollReactionPoints(
 
 export async function sumPlayerReactionPointsFromDb(
   supabase: AdminSupabaseClient,
-  userId: string
+  userId: string,
+  countablePollIds?: ReadonlySet<string>
 ): Promise<number> {
-  const { data, error } = await supabase.from("poll_reaction").select("tokens_earned").eq("user_id", userId);
+  const { data, error } = await supabase
+    .from("poll_reaction")
+    .select("poll_id, tokens_earned")
+    .eq("user_id", userId);
 
   if (error) {
     if (error.message.includes("poll_reaction")) {
@@ -118,13 +122,22 @@ export async function sumPlayerReactionPointsFromDb(
     throw error;
   }
 
-  return (data ?? []).reduce<number>((total, row) => total + Math.max(0, Number(row.tokens_earned ?? 0)), 0);
+  return (data ?? []).reduce<number>((total, row) => {
+    const pollId = String(row.poll_id ?? "").trim();
+
+    if (countablePollIds && !countablePollIds.has(pollId)) {
+      return total;
+    }
+
+    return total + Math.max(0, Number(row.tokens_earned ?? 0));
+  }, 0);
 }
 
 export async function fetchReactionPointsByUserId(
-  supabase: AdminSupabaseClient
+  supabase: AdminSupabaseClient,
+  countablePollIds?: ReadonlySet<string>
 ): Promise<Map<string, number>> {
-  const { data, error } = await supabase.from("poll_reaction").select("user_id, tokens_earned");
+  const { data, error } = await supabase.from("poll_reaction").select("user_id, poll_id, tokens_earned");
 
   if (error) {
     if (error.message.includes("poll_reaction")) {
@@ -138,8 +151,13 @@ export async function fetchReactionPointsByUserId(
 
   for (const row of data ?? []) {
     const userId = String(row.user_id ?? "").trim();
+    const pollId = String(row.poll_id ?? "").trim();
 
     if (!userId) {
+      continue;
+    }
+
+    if (countablePollIds && !countablePollIds.has(pollId)) {
       continue;
     }
 

@@ -6,8 +6,14 @@ import {
   type GameLevelEventRow
 } from "@/lib/game-level-events";
 import { normalizeAvatarUrl } from "@/lib/player-profile";
-import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { sumPlayerReactionPointsFromDb, fetchReactionPointsByUserId } from "@/lib/poll-reaction";
+import {
+  countCountableProgressPolls,
+  fetchCountablePollIds,
+  filterResponsesToCountablePolls,
+  isCountableProgressResponse,
+  sumCountableResponsePoints
+} from "@/lib/poll-player-score";
 import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
@@ -128,6 +134,7 @@ type ResponseRow = {
 
 type LeaderboardResponseRow = {
   user_id: string | null;
+  poll_id: string;
   tokens_earned: number | null;
   is_skipped: boolean | null;
   created_at: string | null;
@@ -531,7 +538,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
         .order("created_at", { ascending: false }),
       supabase
         .from("poll_response")
-        .select("user_id, tokens_earned, is_skipped, created_at")
+        .select("user_id, poll_id, tokens_earned, is_skipped, created_at")
         .not("user_id", "is", null),
       supabase
         .from("game_rewards")
@@ -563,7 +570,12 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     throw new Error(levelEventsError.message);
   }
 
-  const responseRowsTyped = (responseRows ?? []) as unknown as ResponseRow[];
+  const countablePollIds = await fetchCountablePollIds(supabase);
+  const countableResponseRows = filterResponsesToCountablePolls(
+    (responseRows ?? []) as unknown as ResponseRow[],
+    countablePollIds
+  );
+  const responseRowsTyped = countableResponseRows as unknown as ResponseRow[];
   const answers: PlayerAnswer[] = responseRowsTyped.map((row) => {
     const poll = firstRelation(row.polls);
     const rawOptions = poll?.poll_options;
@@ -600,11 +612,15 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
       continue;
     }
 
+    if (!countablePollIds.has(row.poll_id)) {
+      continue;
+    }
+
     const createdAt = row.created_at ?? "";
     const existing = leaderboardGroups.get(row.user_id);
 
     if (existing) {
-      if (isProgressPollResponse(row)) {
+      if (isCountableProgressResponse(row, countablePollIds)) {
         existing.answersCount += 1;
       }
       existing.tokensEarned += row.tokens_earned ?? 0;
@@ -615,14 +631,14 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     } else {
       leaderboardGroups.set(row.user_id, {
         playerId: row.user_id,
-        answersCount: isProgressPollResponse(row) ? 1 : 0,
+        answersCount: isCountableProgressResponse(row, countablePollIds) ? 1 : 0,
         tokensEarned: row.tokens_earned ?? 0,
         firstAnsweredAt: createdAt
       });
     }
   }
 
-  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase);
+  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase, countablePollIds);
 
   for (const [userId, reactionPoints] of reactionPointsByUser) {
     const existing = leaderboardGroups.get(userId);
@@ -642,17 +658,19 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     }
   }
 
-  const leaderboardTotals = [...leaderboardGroups.values()]
-    .sort((a, b) => {
-      if (b.tokensEarned !== a.tokensEarned) {
-        return b.tokensEarned - a.tokensEarned;
-      }
-      if (b.answersCount !== a.answersCount) {
-        return b.answersCount - a.answersCount;
-      }
-      return a.firstAnsweredAt.localeCompare(b.firstAnsweredAt);
-    })
-    .slice(0, 25);
+  const allLeaderboardTotals = [...leaderboardGroups.values()].sort((a, b) => {
+    if (b.tokensEarned !== a.tokensEarned) {
+      return b.tokensEarned - a.tokensEarned;
+    }
+    if (b.answersCount !== a.answersCount) {
+      return b.answersCount - a.answersCount;
+    }
+    return a.firstAnsweredAt.localeCompare(b.firstAnsweredAt);
+  });
+
+  const playerRankIndex = allLeaderboardTotals.findIndex((row) => row.playerId === player.authUser.id);
+  const playerRank = playerRankIndex >= 0 ? playerRankIndex + 1 : null;
+  const leaderboardTotals = allLeaderboardTotals.slice(0, 25);
 
   const leaderboardPlayerIds = leaderboardTotals.map((row) => row.playerId);
   const { data: profileRows, error: profilesError } = leaderboardPlayerIds.length
@@ -685,10 +703,13 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     };
   });
 
-  const playerRank = leaderboard.find((entry) => entry.playerId === player.authUser.id)?.rank ?? null;
-  const reactionPointsEarned = await sumPlayerReactionPointsFromDb(supabase, player.authUser.id);
-  const tokensEarned = sumPointsEarned(responseRowsTyped) + reactionPointsEarned;
-  const pollsTaken = countProgressPolls(responseRowsTyped);
+  const reactionPointsEarned = await sumPlayerReactionPointsFromDb(
+    supabase,
+    player.authUser.id,
+    countablePollIds
+  );
+  const tokensEarned = sumCountableResponsePoints(responseRowsTyped) + reactionPointsEarned;
+  const pollsTaken = countCountableProgressPolls(responseRowsTyped);
 
   return {
     player: {

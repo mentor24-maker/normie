@@ -8,24 +8,25 @@ import {
   type PublicUserRow
 } from "@/lib/public-users";
 import { normalizePlayerHandle } from "@/lib/player-auth";
-import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
 import { fetchReactionPointsByUserId } from "@/lib/poll-reaction";
+import { fetchCountablePollIds, isCountableProgressResponse } from "@/lib/poll-player-score";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ResponseStatsRow = {
   user_id: string | null;
+  poll_id: string;
   tokens_earned: number | null;
   is_skipped: boolean | null;
 };
 
-function buildStatsByUserId(rows: ResponseStatsRow[]) {
+function buildStatsByUserId(rows: ResponseStatsRow[], countablePollIds: ReadonlySet<string>) {
   const stats = new Map<string, { pollsTaken: number; pointsEarned: number }>();
 
   for (const row of rows) {
-    if (!row.user_id) continue;
+    if (!row.user_id || !countablePollIds.has(row.poll_id)) continue;
 
     const current = stats.get(row.user_id) ?? { pollsTaken: 0, pointsEarned: 0 };
-    if (isProgressPollResponse(row)) {
+    if (isCountableProgressResponse(row, countablePollIds)) {
       current.pollsTaken += 1;
     }
     current.pointsEarned += row.tokens_earned ?? 0;
@@ -49,7 +50,7 @@ export async function GET() {
         .from("player_profiles")
         .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
         .order("created_at", { ascending: false }),
-      supabase.from("poll_response").select("user_id, tokens_earned, is_skipped").not("user_id", "is", null)
+      supabase.from("poll_response").select("user_id, poll_id, tokens_earned, is_skipped").not("user_id", "is", null)
     ]);
 
   if (authError) {
@@ -73,9 +74,10 @@ export async function GET() {
     return auth.finish(NextResponse.json({ error: responsesError.message }, { status: 500 }));
   }
 
+  const countablePollIds = await fetchCountablePollIds(supabase);
   const authUsersById = new Map<string, User>(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
-  const statsByUserId = buildStatsByUserId((responses ?? []) as ResponseStatsRow[]);
-  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase);
+  const statsByUserId = buildStatsByUserId((responses ?? []) as ResponseStatsRow[], countablePollIds);
+  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase, countablePollIds);
 
   for (const [userId, reactionPoints] of reactionPointsByUser) {
     const current = statsByUserId.get(userId) ?? { pollsTaken: 0, pointsEarned: 0 };

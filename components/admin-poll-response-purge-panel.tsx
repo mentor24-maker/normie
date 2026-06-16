@@ -9,7 +9,7 @@ export function AdminPollResponsePurgePanel() {
 
   async function handlePurge() {
     const confirmed = window.confirm(
-      "Remove all saved answers that no longer belong to a published poll? Players who were blocked after poll deletes will be able to continue. This cannot be undone."
+      "Remove all saved answers and reactions that no longer belong to a live published poll? Player dashboard and leaderboard totals will reset to match. This cannot be undone."
     );
 
     if (!confirmed) {
@@ -22,13 +22,20 @@ export function AdminPollResponsePurgePanel() {
 
     try {
       const response = await fetch("/api/admin/responses/purge-orphaned", { method: "POST" });
-      const data = (await response.json()) as { deletedCount?: number; error?: string };
+      const data = (await response.json()) as {
+        deletedCount?: number;
+        deletedResponseCount?: number;
+        deletedReactionCount?: number;
+        error?: string;
+      };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to purge stale poll responses.");
       }
 
-      setMessage(`Removed ${data.deletedCount ?? 0} stale response row(s).`);
+      setMessage(
+        `Removed ${data.deletedResponseCount ?? 0} stale answer row(s) and ${data.deletedReactionCount ?? 0} stale reaction row(s).`
+      );
     } catch (purgeError) {
       setError(
         purgeError instanceof Error ? purgeError.message : "Failed to purge stale poll responses."
@@ -43,9 +50,8 @@ export function AdminPollResponsePurgePanel() {
       <div className="panel-label">Player Data Cleanup</div>
       <h2>Stale Poll Responses</h2>
       <p className="page-copy admin-copy">
-        After deleting or unpublishing polls, old answer rows can remain in the database and make the
-        site think a player is finished. This removes every response that does not point at a currently
-        published poll.
+        After deleting, hiding, or unpublishing polls, old answer and reaction rows can remain in the database and
+        inflate player totals. This removes every player record that does not point at a currently published poll.
       </p>
 
       {error ? <div className="notice error admin-notice">{error}</div> : null}

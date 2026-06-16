@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState, type DragEvent } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
 import { buildRewardSymbolOptions, type RewardSymbolOption } from "@/lib/game-reward-symbol-options";
@@ -3284,9 +3285,9 @@ export function AdminGameWorkspace() {
             </p>
           </div>
           <div className="admin-actions">
-            <button className="secondary-button" disabled={isLoading} onClick={() => void loadGame()} type="button">
-              Refresh
-            </button>
+            <Link className="secondary-button" href="/portal/leaderboard">
+              Leaderboard
+            </Link>
           </div>
         </div>
         {message ? <div className="notice success admin-notice">{message}</div> : null}

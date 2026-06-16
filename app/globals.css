@@ -983,6 +983,27 @@ h2 {
   color: #ffffff;
 }
 
+.admin-polls-delete-dialog {
+  border: 2px solid rgba(153, 31, 31, 0.18);
+}
+
+.admin-polls-delete-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-weight: 700;
+}
+
+.admin-polls-delete-option input {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-polls-delete-dialog .admin-actions {
+  margin-top: 16px;
+}
+
 .poll-reaction-corner-controls {
   display: flex;
   align-items: center;

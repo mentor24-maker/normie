@@ -143,6 +143,8 @@ export function AdminPollsManager() {
   const [filters, setFilters] = useState<PollFilterState>(emptyFilters);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ pollIds: string[] } | null>(null);
+  const [deletePlayerRecords, setDeletePlayerRecords] = useState(true);
   const [isHiding, setIsHiding] = useState(false);
   const [blogPosts, setBlogPosts] = useState<AdminBlogPostOption[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -275,17 +277,21 @@ export function AdminPollsManager() {
     });
   }
 
-  async function deletePolls(pollIds: string[]) {
+  function requestDeletePolls(pollIds: string[]) {
     if (pollIds.length === 0) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete ${pollIds.length} poll(s)? This cannot be undone.`);
+    setDeletePlayerRecords(true);
+    setDeleteDialog({ pollIds });
+  }
 
-    if (!confirmed) {
+  async function confirmDeletePolls() {
+    if (!deleteDialog) {
       return;
     }
 
+    const pollIds = deleteDialog.pollIds;
     setIsDeleting(true);
     setError(null);
     setMessage(null);
@@ -297,24 +303,38 @@ export function AdminPollsManager() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          pollIds
+          pollIds,
+          deletePlayerRecords
         })
       });
 
-      const data = (await response.json()) as { deletedCount?: number; error?: string };
+      const data = (await response.json()) as {
+        deletedCount?: number;
+        deletedResponseCount?: number;
+        deletedReactionCount?: number;
+        error?: string;
+      };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to delete polls.");
       }
 
-      setMessage(`Deleted ${data.deletedCount ?? pollIds.length} poll(s).`);
       const deletedCount = data.deletedCount ?? pollIds.length;
+      const deletedResponseCount = data.deletedResponseCount ?? 0;
+      const deletedReactionCount = data.deletedReactionCount ?? 0;
+      const cleanupSummary =
+        deletePlayerRecords && (deletedResponseCount > 0 || deletedReactionCount > 0)
+          ? ` Removed ${deletedResponseCount} answer${deletedResponseCount === 1 ? "" : "s"} and ${deletedReactionCount} reaction${deletedReactionCount === 1 ? "" : "s"}.`
+          : "";
+
+      setMessage(`Deleted ${deletedCount} poll${deletedCount === 1 ? "" : "s"}.${cleanupSummary}`);
       setSelectedPollIds((current) => current.filter((id) => !pollIds.includes(id)));
       setPolls((current) => current.filter((poll) => !pollIds.includes(poll.id)));
       setMetrics((current) => ({
         ...current,
         questionCount: Math.max(0, current.questionCount - deletedCount)
       }));
+      setDeleteDialog(null);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete polls.");
     } finally {
@@ -427,8 +447,51 @@ export function AdminPollsManager() {
           </div>
         </div>
 
-        {message ? <div className="notice success admin-notice">{message}</div> : null}
-        {error ? <div className="notice error admin-notice">{error}</div> : null}
+      {message ? <div className="notice success admin-notice">{message}</div> : null}
+      {deleteDialog ? (
+        <section className="admin-section admin-polls-delete-dialog">
+          <div className="panel-label">Confirm Delete</div>
+          <h2>
+            Delete {deleteDialog.pollIds.length} Poll{deleteDialog.pollIds.length === 1 ? "" : "s"}
+          </h2>
+          <p className="page-copy admin-copy">
+            This permanently removes the selected poll{deleteDialog.pollIds.length === 1 ? "" : "s"} from Poll
+            Manager. This cannot be undone.
+          </p>
+          <label className="admin-polls-delete-option">
+            <input
+              checked={deletePlayerRecords}
+              onChange={(event) => setDeletePlayerRecords(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Delete Player Answers and Reactions</span>
+          </label>
+          <p className="admin-field-help">
+            When checked, player answers and Like/Dislike reactions for these polls are removed so dashboard and
+            leaderboard totals stay aligned. Leave unchecked only if you need to preserve player records without the
+            poll.
+          </p>
+          <div className="admin-actions">
+            <button
+              className="secondary-button"
+              disabled={isDeleting}
+              onClick={() => setDeleteDialog(null)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="submit-button admin-save-button"
+              disabled={isDeleting}
+              onClick={() => void confirmDeletePolls()}
+              type="button"
+            >
+              {isDeleting ? "Deleting..." : "Delete Polls"}
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {error ? <div className="notice error admin-notice">{error}</div> : null}
 
         {isPurgeOpen ? (
           <section className="admin-polls-purge-shell" aria-label="Stale poll response purge">
@@ -600,7 +663,7 @@ export function AdminPollsManager() {
           <button
             className="danger-button"
             disabled={isDeleting || selectedPollIds.length === 0}
-            onClick={() => void deletePolls(selectedPollIds)}
+            onClick={() => requestDeletePolls(selectedPollIds)}
             type="button"
           >
             {isDeleting ? "Deleting..." : "Delete Selected"}
@@ -666,7 +729,7 @@ export function AdminPollsManager() {
                       </Link>
                       <button
                         className="polls-icon-button polls-icon-button-danger polls-icon-button-delete"
-                        onClick={() => void deletePolls([poll.id])}
+                        onClick={() => requestDeletePolls([poll.id])}
                         type="button"
                         disabled={isDeleting}
                         aria-label="Delete poll"

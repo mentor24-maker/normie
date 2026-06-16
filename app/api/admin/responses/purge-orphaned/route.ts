@@ -3,7 +3,8 @@ import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type PurgeOrphanedResponse = {
-  deletedCount: number;
+  deletedResponseCount: number;
+  deletedReactionCount: number;
 };
 
 export async function POST() {
@@ -14,22 +15,38 @@ export async function POST() {
   }
 
   const supabase = createAdminClient();
-  const { data, error } = await supabase.rpc("purge_orphan_poll_responses");
+  const [{ data: responseData, error: responseError }, { data: reactionData, error: reactionError }] =
+    await Promise.all([
+      supabase.rpc("purge_orphan_poll_responses"),
+      supabase.rpc("purge_orphan_poll_reactions")
+    ]);
 
-  if (error) {
-    const message = error.message.includes("purge_orphan_poll_responses")
-      ? "Poll response cleanup is not installed yet. Apply migration 025_rename_responses_to_poll_response.sql."
-      : error.message;
+  if (responseError) {
+    const message = responseError.message.includes("purge_orphan_poll_responses")
+      ? "Poll response cleanup is not installed yet. Apply migration 053_poll_orphan_player_records.sql."
+      : responseError.message;
 
     return auth.finish(NextResponse.json({ error: message }, { status: 500 }));
   }
 
-  const deletedCount = typeof data === "number" ? data : Number(data ?? 0);
+  if (reactionError && !reactionError.message.includes("purge_orphan_poll_reactions")) {
+    return auth.finish(NextResponse.json({ error: reactionError.message }, { status: 500 }));
+  }
+
+  const deletedResponseCount = typeof responseData === "number" ? responseData : Number(responseData ?? 0);
+  const deletedReactionCount =
+    reactionError && reactionError.message.includes("purge_orphan_poll_reactions")
+      ? 0
+      : typeof reactionData === "number"
+        ? reactionData
+        : Number(reactionData ?? 0);
 
   return auth.finish(
     NextResponse.json({
       ok: true,
-      deletedCount: Number.isFinite(deletedCount) ? deletedCount : 0
-    } satisfies PurgeOrphanedResponse & { ok: true })
+      deletedCount: deletedResponseCount + deletedReactionCount,
+      deletedResponseCount: Number.isFinite(deletedResponseCount) ? deletedResponseCount : 0,
+      deletedReactionCount: Number.isFinite(deletedReactionCount) ? deletedReactionCount : 0
+    } satisfies PurgeOrphanedResponse & { ok: true; deletedCount: number })
   );
 }
