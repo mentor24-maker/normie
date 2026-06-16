@@ -8,14 +8,14 @@ import {
 export { getPublicPlayerProfilePath } from "@/lib/public-player-profile-path";
 import { normalizeAvatarUrl, parsePlayerSocialLinks, type PlayerSocialLinks } from "@/lib/player-profile";
 import { PLAYER_SOCIAL_FIELD_CONFIG, type PlayerSocialFieldKey } from "@/lib/player-social-handles";
-import { sumPlayerReactionPointsFromDb, fetchReactionPointsByUserId } from "@/lib/poll-reaction";
+import { sumPlayerReactionPointsFromDb } from "@/lib/poll-reaction";
 import {
   countCountableProgressPolls,
   fetchCountablePollIds,
   filterResponsesToCountablePolls,
-  isCountableProgressResponse,
   sumCountableResponsePoints
 } from "@/lib/poll-player-score";
+import { getLeaderboardStatsForPlayer, loadLeaderboardAggregateMap } from "@/lib/player-leaderboard-stats";
 import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -115,87 +115,9 @@ function mapResponseRows(rows: ResponseRow[]): PublicPlayerAnswer[] {
   });
 }
 
-type LeaderboardAggregateRow = {
-  playerId: string;
-  tokensEarned: number;
-  answersCount: number;
-  firstAnsweredAt: string;
-};
-
 async function loadLeaderboardRank(playerId: string): Promise<number | null> {
-  const supabase = createAdminClient();
-  const countablePollIds = await fetchCountablePollIds(supabase);
-  const [{ data: rows, error }, reactionPointsByUser] = await Promise.all([
-    supabase.from("poll_response").select("user_id, poll_id, tokens_earned, is_skipped, created_at").not("user_id", "is", null),
-    fetchReactionPointsByUserId(supabase, countablePollIds)
-  ]);
-
-  if (error || !rows?.length) {
-    return null;
-  }
-
-  const leaderboardGroups = new Map<string, LeaderboardAggregateRow>();
-
-  for (const row of rows) {
-    if (!row.user_id || !countablePollIds.has(row.poll_id)) {
-      continue;
-    }
-
-    const createdAt = row.created_at ?? "";
-    const existing = leaderboardGroups.get(row.user_id);
-
-    if (existing) {
-      if (isCountableProgressResponse(row, countablePollIds)) {
-        existing.answersCount += 1;
-      }
-      existing.tokensEarned += row.tokens_earned ?? 0;
-      existing.firstAnsweredAt =
-        createdAt && (!existing.firstAnsweredAt || createdAt < existing.firstAnsweredAt)
-          ? createdAt
-          : existing.firstAnsweredAt;
-    } else {
-      leaderboardGroups.set(row.user_id, {
-        playerId: row.user_id,
-        answersCount: isCountableProgressResponse(row, countablePollIds) ? 1 : 0,
-        tokensEarned: row.tokens_earned ?? 0,
-        firstAnsweredAt: createdAt
-      });
-    }
-  }
-
-  for (const [userId, reactionPoints] of reactionPointsByUser) {
-    const existing = leaderboardGroups.get(userId);
-
-    if (existing) {
-      existing.tokensEarned += reactionPoints;
-      continue;
-    }
-
-    if (reactionPoints > 0) {
-      leaderboardGroups.set(userId, {
-        playerId: userId,
-        answersCount: 0,
-        tokensEarned: reactionPoints,
-        firstAnsweredAt: ""
-      });
-    }
-  }
-
-  const leaderboardTotals = [...leaderboardGroups.values()].sort((a, b) => {
-    if (b.tokensEarned !== a.tokensEarned) {
-      return b.tokensEarned - a.tokensEarned;
-    }
-
-    if (b.answersCount !== a.answersCount) {
-      return b.answersCount - a.answersCount;
-    }
-
-    return a.firstAnsweredAt.localeCompare(b.firstAnsweredAt);
-  });
-
-  const rankIndex = leaderboardTotals.findIndex((entry) => entry.playerId === playerId);
-
-  return rankIndex >= 0 ? rankIndex + 1 : null;
+  const { groups } = await loadLeaderboardAggregateMap(createAdminClient());
+  return getLeaderboardStatsForPlayer(groups, playerId).playerRank;
 }
 
 function buildPublicProfile(
@@ -231,22 +153,12 @@ function buildPublicProfile(
 }
 
 async function loadPlayerAnswerTotals(userId: string): Promise<{ pollsTaken: number; pointsEarned: number }> {
-  const supabase = createAdminClient();
-  const countablePollIds = await fetchCountablePollIds(supabase);
-  const [{ data, error }, reactionPoints] = await Promise.all([
-    supabase.from("poll_response").select("poll_id, tokens_earned, is_skipped").eq("user_id", userId),
-    sumPlayerReactionPointsFromDb(supabase, userId, countablePollIds)
-  ]);
-
-  if (error) {
-    return { pollsTaken: 0, pointsEarned: reactionPoints };
-  }
-
-  const rows = filterResponsesToCountablePolls(data ?? [], countablePollIds);
+  const { groups } = await loadLeaderboardAggregateMap(createAdminClient());
+  const stats = getLeaderboardStatsForPlayer(groups, userId);
 
   return {
-    pollsTaken: countCountableProgressPolls(rows),
-    pointsEarned: sumCountableResponsePoints(rows) + reactionPoints
+    pollsTaken: stats.pollsTaken,
+    pointsEarned: stats.tokensEarned
   };
 }
 

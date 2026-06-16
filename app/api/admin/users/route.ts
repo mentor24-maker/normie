@@ -2,39 +2,14 @@ import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
 import { safeUserText } from "@/lib/admin-users";
+import { loadLeaderboardAggregateMap } from "@/lib/player-leaderboard-stats";
 import {
   mergePublicUserRecord,
   normalizePublicUserStatus,
   type PublicUserRow
 } from "@/lib/public-users";
 import { normalizePlayerHandle } from "@/lib/player-auth";
-import { fetchReactionPointsByUserId } from "@/lib/poll-reaction";
-import { fetchCountablePollIds, isCountableProgressResponse } from "@/lib/poll-player-score";
 import { createAdminClient } from "@/lib/supabase-admin";
-
-type ResponseStatsRow = {
-  user_id: string | null;
-  poll_id: string;
-  tokens_earned: number | null;
-  is_skipped: boolean | null;
-};
-
-function buildStatsByUserId(rows: ResponseStatsRow[], countablePollIds: ReadonlySet<string>) {
-  const stats = new Map<string, { pollsTaken: number; pointsEarned: number }>();
-
-  for (const row of rows) {
-    if (!row.user_id || !countablePollIds.has(row.poll_id)) continue;
-
-    const current = stats.get(row.user_id) ?? { pollsTaken: 0, pointsEarned: 0 };
-    if (isCountableProgressResponse(row, countablePollIds)) {
-      current.pollsTaken += 1;
-    }
-    current.pointsEarned += row.tokens_earned ?? 0;
-    stats.set(row.user_id, current);
-  }
-
-  return stats;
-}
 
 export async function GET() {
   const auth = await requireAdminRoute("users:read");
@@ -43,14 +18,14 @@ export async function GET() {
   }
 
   const supabase = createAdminClient();
-  const [{ data: authData, error: authError }, { data: profiles, error: profilesError }, { data: responses, error: responsesError }] =
+  const [{ data: authData, error: authError }, { data: profiles, error: profilesError }, { groups }] =
     await Promise.all([
       supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
       supabase
         .from("player_profiles")
         .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
         .order("created_at", { ascending: false }),
-      supabase.from("poll_response").select("user_id, poll_id, tokens_earned, is_skipped").not("user_id", "is", null)
+      loadLeaderboardAggregateMap(supabase)
     ]);
 
   if (authError) {
@@ -70,20 +45,13 @@ export async function GET() {
     );
   }
 
-  if (responsesError) {
-    return auth.finish(NextResponse.json({ error: responsesError.message }, { status: 500 }));
-  }
-
-  const countablePollIds = await fetchCountablePollIds(supabase);
-  const authUsersById = new Map<string, User>(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
-  const statsByUserId = buildStatsByUserId((responses ?? []) as ResponseStatsRow[], countablePollIds);
-  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase, countablePollIds);
-
-  for (const [userId, reactionPoints] of reactionPointsByUser) {
-    const current = statsByUserId.get(userId) ?? { pollsTaken: 0, pointsEarned: 0 };
-    current.pointsEarned += reactionPoints;
-    statsByUserId.set(userId, current);
-  }
+  const authUsersById = new Map(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
+  const statsByUserId = new Map(
+    [...groups.entries()].map(([userId, row]) => [
+      userId,
+      { pollsTaken: row.answersCount, pointsEarned: row.tokensEarned }
+    ])
+  );
 
   const users = ((profiles ?? []) as PublicUserRow[])
     .map((profile) => {
