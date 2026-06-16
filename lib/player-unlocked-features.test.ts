@@ -3,10 +3,14 @@ import { PLAYER_POLLS_PER_GRADE } from "@/lib/player-portal";
 import {
   getUnlockedFeatureKeys,
   pollsRequiredForRewardTier,
+  POLL_LIKE_DISLIKE_FEATURE_KEY,
   POLL_SKIP_FEATURE_KEY
 } from "@/lib/player-unlocked-features";
 
-const progressiveFeatures = [{ feature_key: POLL_SKIP_FEATURE_KEY, is_active: true }];
+const progressiveFeatures = [
+  { feature_key: POLL_SKIP_FEATURE_KEY, is_active: true },
+  { feature_key: POLL_LIKE_DISLIKE_FEATURE_KEY, is_active: true }
+];
 
 describe("pollsRequiredForRewardTier", () => {
   it("maps grade 1 level 2 to 20 polls", () => {
@@ -49,6 +53,22 @@ describe("getUnlockedFeatureKeys", () => {
     );
 
     expect(keys).toEqual([]);
+  });
+
+  it("unlocks poll_like_dislike from an active feature reward milestone", () => {
+    const keys = getUnlockedFeatureKeys(
+      20,
+      [
+        {
+          reward_type: "feature",
+          status: "active",
+          metadata: { featureKey: POLL_LIKE_DISLIKE_FEATURE_KEY, gradeTier: 1, levelTier: 2 }
+        }
+      ],
+      progressiveFeatures
+    );
+
+    expect(keys).toEqual([POLL_LIKE_DISLIKE_FEATURE_KEY]);
   });
 
   it("unlocks at grade 2 level 1 when configured for poll 110", () => {

@@ -30,7 +30,18 @@ export function PlayerPortalPollSectionOpen({
     optimisticPollsTakenRef.current = stats.pollsTaken;
   }, [stats.pollsTaken]);
 
-  const { error, isLoading, isSubmitting, payload, showSkipPoll, skipCurrentPoll, submitAnswer } = usePollExperience({
+  const {
+    error,
+    isLoading,
+    isReacting,
+    isSubmitting,
+    payload,
+    showPollReactions,
+    showSkipPoll,
+    skipCurrentPoll,
+    submitAnswer,
+    submitPollReaction
+  } = usePollExperience({
     onAnswered: (result: PollAnswerResult) => {
       const previousPollsTaken = optimisticPollsTakenRef.current;
       const nextPollsTaken = result.playerAnswerCount ?? previousPollsTaken + 1;
@@ -66,6 +77,12 @@ export function PlayerPortalPollSectionOpen({
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
       }
+    },
+    onReacted: () => {
+      router.refresh();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(PLAYER_GAME_REMINDERS_REFRESH_EVENT));
+      }
     }
   });
 
@@ -78,10 +95,13 @@ export function PlayerPortalPollSectionOpen({
       {error ? <div className="notice error">{error}</div> : null}
       <PlayerPortalPollStage
         isLoading={isLoading}
+        isReacting={isReacting}
         isSubmitting={isSubmitting}
         payload={payload}
+        onReact={submitPollReaction}
         onSkip={() => void skipCurrentPoll()}
         onSubmit={submitAnswer}
+        showPollReactions={showPollReactions}
         showSkipPoll={showSkipPoll}
       />
     </section>

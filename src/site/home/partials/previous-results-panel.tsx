@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { PollDeepDiveContentView } from "@/components/poll-deep-dive-content";
+import { PollReactionButtons } from "@/components/poll-reaction-buttons";
 import { getPollDeepDiveOverlayPillLabel } from "@/lib/poll-deep-dive";
+import type { PollReactionKind } from "@/lib/poll-reaction";
 import {
   getPollPodAppearanceStyle,
   resolvePollPod
@@ -11,8 +13,12 @@ import type { PollSettingsSnapshot, PreviousPoll } from "@/src/site/home/types";
 import { PollCategoryHeadline } from "@/src/site/home/partials/poll-category-headline";
 
 type PreviousResultsPanelProps = {
+  isReacting?: boolean;
+  onReact?: (reaction: PollReactionKind) => void | Promise<void>;
+  playerReaction?: PollReactionKind | null;
   previousPoll: PreviousPoll | null;
   settings?: PollSettingsSnapshot | null;
+  showPollReactions?: boolean;
 };
 
 function formatDisplayCount(value: number) {
@@ -23,7 +29,14 @@ function formatDisplayCount(value: number) {
   return String(value);
 }
 
-export function PreviousResultsPanel({ previousPoll, settings }: PreviousResultsPanelProps) {
+export function PreviousResultsPanel({
+  isReacting = false,
+  onReact,
+  playerReaction = null,
+  previousPoll,
+  settings,
+  showPollReactions = false
+}: PreviousResultsPanelProps) {
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
   const podType = previousPoll ? "previous_results" : "initial_page";
   const panelPodAppearanceStyle = getPollPodAppearanceStyle(settings, podType);
@@ -83,6 +96,13 @@ export function PreviousResultsPanel({ previousPoll, settings }: PreviousResults
                 Deep Dive
               </button>
             </div>
+            {showPollReactions && onReact ? (
+              <PollReactionButtons
+                disabled={isReacting}
+                playerReaction={playerReaction}
+                onReact={onReact}
+              />
+            ) : null}
           </div>
         ) : initialContent ? (
           <>

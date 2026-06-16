@@ -6,19 +6,25 @@ import { getPollGridStyle } from "@/lib/poll-pod-config";
 
 type PlayerPortalPollStageProps = {
   isLoading: boolean;
+  isReacting?: boolean;
   isSubmitting: boolean;
   payload: PollPayload | null;
+  onReact?: (reaction: "like" | "dislike") => void | Promise<void>;
   onSubmit: (optionId: string) => void | Promise<void>;
   onSkip?: () => void | Promise<void>;
+  showPollReactions?: boolean;
   showSkipPoll?: boolean;
 };
 
 export function PlayerPortalPollStage({
   isLoading,
+  isReacting = false,
   isSubmitting,
   payload,
+  onReact,
   onSubmit,
   onSkip,
+  showPollReactions = false,
   showSkipPoll = false
 }: PlayerPortalPollStageProps) {
   const isAwaitingNextPoll = isLoading && Boolean(payload?.currentPoll);
@@ -58,7 +64,14 @@ export function PlayerPortalPollStage({
           />
         </div>
         <div className="player-portal-poll-previous">
-          <PreviousResultsPanel previousPoll={payload.previousPoll} settings={payload.settings} />
+          <PreviousResultsPanel
+            isReacting={isReacting}
+            onReact={onReact}
+            playerReaction={payload.previousPoll?.playerReaction ?? null}
+            previousPoll={payload.previousPoll}
+            settings={payload.settings}
+            showPollReactions={showPollReactions}
+          />
         </div>
       </section>
     );

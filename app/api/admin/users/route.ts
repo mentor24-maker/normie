@@ -9,6 +9,7 @@ import {
 } from "@/lib/public-users";
 import { normalizePlayerHandle } from "@/lib/player-auth";
 import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
+import { fetchReactionPointsByUserId } from "@/lib/poll-reaction";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type ResponseStatsRow = {
@@ -74,6 +75,14 @@ export async function GET() {
 
   const authUsersById = new Map<string, User>(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
   const statsByUserId = buildStatsByUserId((responses ?? []) as ResponseStatsRow[]);
+  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase);
+
+  for (const [userId, reactionPoints] of reactionPointsByUser) {
+    const current = statsByUserId.get(userId) ?? { pollsTaken: 0, pointsEarned: 0 };
+    current.pointsEarned += reactionPoints;
+    statsByUserId.set(userId, current);
+  }
+
   const users = ((profiles ?? []) as PublicUserRow[])
     .map((profile) => {
       const authUser = authUsersById.get(profile.id);

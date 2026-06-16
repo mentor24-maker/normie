@@ -8,6 +8,7 @@ import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { getPlayerPreferences } from "@/lib/player-preferences";
 import { getUnlockedFeatureKeys } from "@/lib/player-unlocked-features";
+import { loadPlayerPollReaction, type PollReactionKind } from "@/lib/poll-reaction";
 import { countProgressPolls } from "@/lib/player-poll-stats";
 import { POLL_PUBLIC_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -298,7 +299,10 @@ export const GET = withObservedRoute("polls.next", async (request) => {
       category: previousPoll.category,
       totalResponses: pollResults.totalResponses,
       options: pollResults.options,
-      deepDive
+      deepDive,
+      playerReaction: player
+        ? await loadPlayerPollReaction(supabaseAdmin, player.authUser.id, previousPoll.id)
+        : null
     };
   }
 

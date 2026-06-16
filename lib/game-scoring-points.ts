@@ -1,6 +1,9 @@
 import type { createAdminClient } from "@/lib/supabase-admin";
 
 export const SKIP_QUESTION_SCORE_NAME = "Skip Question";
+export const POLL_LIKE_SCORE_NAME = "Poll Like";
+export const POLL_DISLIKE_SCORE_NAME = "Poll Dislike";
+export const DEFAULT_POLL_REACTION_POINTS = 2;
 export const DEFAULT_POLL_ANSWER_SCORE_NAME = "Poll answer";
 
 export async function getScoringRulePointsByName(

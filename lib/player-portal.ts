@@ -7,6 +7,7 @@ import {
 } from "@/lib/game-level-events";
 import { normalizeAvatarUrl } from "@/lib/player-profile";
 import { countProgressPolls, isProgressPollResponse, sumPointsEarned } from "@/lib/player-poll-stats";
+import { sumPlayerReactionPointsFromDb, fetchReactionPointsByUserId } from "@/lib/poll-reaction";
 import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
@@ -621,6 +622,26 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     }
   }
 
+  const reactionPointsByUser = await fetchReactionPointsByUserId(supabase);
+
+  for (const [userId, reactionPoints] of reactionPointsByUser) {
+    const existing = leaderboardGroups.get(userId);
+
+    if (existing) {
+      existing.tokensEarned += reactionPoints;
+      continue;
+    }
+
+    if (reactionPoints > 0) {
+      leaderboardGroups.set(userId, {
+        playerId: userId,
+        answersCount: 0,
+        tokensEarned: reactionPoints,
+        firstAnsweredAt: ""
+      });
+    }
+  }
+
   const leaderboardTotals = [...leaderboardGroups.values()]
     .sort((a, b) => {
       if (b.tokensEarned !== a.tokensEarned) {
@@ -665,7 +686,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
   });
 
   const playerRank = leaderboard.find((entry) => entry.playerId === player.authUser.id)?.rank ?? null;
-  const tokensEarned = sumPointsEarned(responseRowsTyped);
+  const reactionPointsEarned = await sumPlayerReactionPointsFromDb(supabase, player.authUser.id);
+  const tokensEarned = sumPointsEarned(responseRowsTyped) + reactionPointsEarned;
   const pollsTaken = countProgressPolls(responseRowsTyped);
 
   return {

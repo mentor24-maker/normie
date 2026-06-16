@@ -9,6 +9,7 @@ export { getPublicPlayerProfilePath } from "@/lib/public-player-profile-path";
 import { normalizeAvatarUrl, parsePlayerSocialLinks, type PlayerSocialLinks } from "@/lib/player-profile";
 import { PLAYER_SOCIAL_FIELD_CONFIG, type PlayerSocialFieldKey } from "@/lib/player-social-handles";
 import { countProgressPolls, sumPointsEarned } from "@/lib/player-poll-stats";
+import { sumPlayerReactionPointsFromDb } from "@/lib/poll-reaction";
 import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "@/lib/supabase-admin";
 
@@ -204,17 +205,20 @@ function buildPublicProfile(
 
 async function loadPlayerAnswerTotals(userId: string): Promise<{ pollsTaken: number; pointsEarned: number }> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("poll_response").select("tokens_earned, is_skipped").eq("user_id", userId);
+  const [{ data, error }, reactionPointsEarned] = await Promise.all([
+    supabase.from("poll_response").select("tokens_earned, is_skipped").eq("user_id", userId),
+    sumPlayerReactionPointsFromDb(supabase, userId)
+  ]);
 
   if (error) {
-    return { pollsTaken: 0, pointsEarned: 0 };
+    return { pollsTaken: 0, pointsEarned: reactionPointsEarned };
   }
 
   const rows = data ?? [];
 
   return {
     pollsTaken: countProgressPolls(rows),
-    pointsEarned: sumPointsEarned(rows)
+    pointsEarned: sumPointsEarned(rows) + reactionPointsEarned
   };
 }
 

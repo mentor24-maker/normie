@@ -12,11 +12,13 @@ import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
-import { POLL_SKIP_FEATURE_KEY } from "@/lib/player-unlocked-features";
+import { POLL_SKIP_FEATURE_KEY, POLL_LIKE_DISLIKE_FEATURE_KEY } from "@/lib/player-unlocked-features";
+import type { PollReactionKind } from "@/lib/poll-reaction";
 import type { PollPayload } from "@/src/site/home/types";
 
 type UsePollExperienceOptions = {
   onAnswered?: (result: PollAnswerResult) => void;
+  onReacted?: (result: { reaction: PollReactionKind; tokensEarned?: number; duplicate?: boolean }) => void;
 };
 
 export type PollAnswerResult = PollAnswerClientPayload & {
@@ -34,6 +36,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReacting, setIsReacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadPolls = useCallback(
@@ -181,16 +184,74 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
     }
   }
 
+  async function submitPollReaction(reaction: PollReactionKind) {
+    if (!payload?.previousPoll || payload.previousPoll.playerReaction) {
+      return;
+    }
+
+    setIsReacting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/reaction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          pollId: payload.previousPoll.id,
+          reaction
+        })
+      });
+
+      const data = (await response.json()) as PollAnswerResult & {
+        reaction?: PollReactionKind;
+        tokensEarned?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save your reaction.");
+      }
+
+      setPayload((current) => {
+        if (!current?.previousPoll) {
+          return current;
+        }
+
+        return {
+          ...current,
+          previousPoll: {
+            ...current.previousPoll,
+            playerReaction: data.reaction ?? reaction
+          }
+        };
+      });
+
+      options?.onReacted?.({
+        reaction: data.reaction ?? reaction,
+        tokensEarned: data.tokensEarned,
+        duplicate: data.duplicate
+      });
+    } catch (reactError) {
+      setError(reactError instanceof Error ? reactError.message : "Failed to save your reaction.");
+    } finally {
+      setIsReacting(false);
+    }
+  }
+
   const categoryFromUrl = getPollCategoryMeta(categoryParam);
 
   return {
     activeCategory: payload?.activeCategory ?? categoryFromUrl,
     error,
     isLoading,
+    isReacting,
     isSubmitting,
     payload,
+    showPollReactions: Boolean(payload?.unlockedFeatures?.includes(POLL_LIKE_DISLIKE_FEATURE_KEY)),
     showSkipPoll: Boolean(payload?.unlockedFeatures?.includes(POLL_SKIP_FEATURE_KEY)),
     skipCurrentPoll,
-    submitAnswer
+    submitAnswer,
+    submitPollReaction
   };
 }

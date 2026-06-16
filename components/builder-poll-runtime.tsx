@@ -18,6 +18,8 @@ import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
 import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
+import { POLL_LIKE_DISLIKE_FEATURE_KEY } from "@/lib/player-unlocked-features";
+import type { PollReactionKind } from "@/lib/poll-reaction";
 import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/lib/player-reminder-events";
 import type { PollPayload } from "@/src/site/home/types";
 import { SocialShareBar } from "@/components/social-share-module";
@@ -26,6 +28,7 @@ type PollRuntimeState = {
   payload: PollPayload | null;
   isLoading: boolean;
   isSubmitting: boolean;
+  isReacting: boolean;
   error: string | null;
 };
 
@@ -39,6 +42,7 @@ const initialState: PollRuntimeState = {
   payload: null,
   isLoading: true,
   isSubmitting: false,
+  isReacting: false,
   error: null
 };
 
@@ -73,6 +77,7 @@ async function loadPolls(
       payload: null,
       isLoading: true,
       isSubmitting: false,
+      isReacting: false,
       error: null
     });
   } else if (isLoadingPromise && loadedCategoryKey === categoryKey && loadedStartPollKey === startKey) {
@@ -110,6 +115,7 @@ async function loadPolls(
         payload: data,
         isLoading: false,
         isSubmitting: false,
+        isReacting: false,
         error: null
       });
     } catch (loadError) {
@@ -117,6 +123,7 @@ async function loadPolls(
         ...runtimeState,
         isLoading: false,
         isSubmitting: false,
+        isReacting: false,
         error: loadError instanceof Error ? loadError.message : "Failed to load the poll."
       });
     } finally {
@@ -182,6 +189,61 @@ async function submitAnswer(optionId: string) {
   }
 }
 
+async function submitPollReaction(reaction: PollReactionKind) {
+  const previousPoll = runtimeState.payload?.previousPoll;
+
+  if (!previousPoll || previousPoll.playerReaction) {
+    return;
+  }
+
+  setRuntimeState({
+    ...runtimeState,
+    isReacting: true,
+    error: null
+  });
+
+  try {
+    const response = await fetch("/api/polls/reaction", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        pollId: previousPoll.id,
+        reaction
+      })
+    });
+
+    const data = (await response.json()) as { error?: string; reaction?: PollReactionKind };
+
+    if (!response.ok) {
+      throw new Error(data.error ?? "Failed to save your reaction.");
+    }
+
+    setRuntimeState({
+      ...runtimeState,
+      isReacting: false,
+      payload: runtimeState.payload
+        ? {
+            ...runtimeState.payload,
+            previousPoll: runtimeState.payload.previousPoll
+              ? {
+                  ...runtimeState.payload.previousPoll,
+                  playerReaction: data.reaction ?? reaction
+                }
+              : null
+          }
+        : null
+    });
+  } catch (reactError) {
+    setRuntimeState({
+      ...runtimeState,
+      isReacting: false,
+      error: reactError instanceof Error ? reactError.message : "Failed to save your reaction."
+    });
+  }
+}
+
 function useSharedPollRuntime(categoryParam: string, startPollParam: string) {
   const [state, setState] = useState(runtimeState);
 
@@ -217,7 +279,8 @@ function useSharedPollRuntime(categoryParam: string, startPollParam: string) {
   return {
     ...state,
     reload: () => loadPolls(categoryParam, startPollParam, { force: true }),
-    submitAnswer
+    submitAnswer,
+    submitPollReaction
   };
 }
 
@@ -233,10 +296,9 @@ export function BuilderPollModuleRuntime({
   const searchParams = useSearchParams();
   const categoryParam = searchParams?.get("category")?.trim() ?? "";
   const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
-  const { error, isLoading, isSubmitting, payload, submitAnswer: onSubmit } = useSharedPollRuntime(
-    categoryParam,
-    startPollParam
-  );
+  const { error, isLoading, isReacting, isSubmitting, payload, submitAnswer: onSubmit, submitPollReaction } =
+    useSharedPollRuntime(categoryParam, startPollParam);
+  const showPollReactions = Boolean(payload?.unlockedFeatures?.includes(POLL_LIKE_DISLIKE_FEATURE_KEY));
   const categoryFromUrl = getPollCategoryMeta(categoryParam);
   const activeCategory = payload?.activeCategory ?? categoryFromUrl;
   const shellStyle =
@@ -288,8 +350,12 @@ export function BuilderPollModuleRuntime({
   if (kind === "previous-results") {
     return wrapPollModule(
       <PreviousResultsPanel
+        isReacting={isReacting}
+        onReact={submitPollReaction}
+        playerReaction={payload?.previousPoll?.playerReaction ?? null}
         previousPoll={payload?.previousPoll ?? null}
         settings={payload?.settings}
+        showPollReactions={showPollReactions}
       />
     );
   }

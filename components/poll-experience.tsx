@@ -14,6 +14,8 @@ import { getPollDoneMessage } from "@/lib/poll-done-copy";
 import { getPollGridStyle } from "@/lib/poll-pod-config";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
 import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
+import { POLL_LIKE_DISLIKE_FEATURE_KEY } from "@/lib/player-unlocked-features";
+import type { PollReactionKind } from "@/lib/poll-reaction";
 import type { PollPayload } from "@/src/site/home/types";
 
 export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
@@ -23,6 +25,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReacting, setIsReacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadPolls = useCallback(
@@ -107,6 +110,55 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     }
   }
 
+  async function submitPollReaction(reaction: PollReactionKind) {
+    if (!payload?.previousPoll || payload.previousPoll.playerReaction) {
+      return;
+    }
+
+    setIsReacting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/reaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pollId: payload.previousPoll.id,
+          reaction
+        })
+      });
+
+      const data = (await response.json()) as PollAnswerClientPayload & {
+        error?: string;
+        reaction?: PollReactionKind;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save your reaction.");
+      }
+
+      setPayload((current) => {
+        if (!current?.previousPoll) {
+          return current;
+        }
+
+        return {
+          ...current,
+          previousPoll: {
+            ...current.previousPoll,
+            playerReaction: data.reaction ?? reaction
+          }
+        };
+      });
+    } catch (reactError) {
+      setError(reactError instanceof Error ? reactError.message : "Failed to save your reaction.");
+    } finally {
+      setIsReacting(false);
+    }
+  }
+
+  const showPollReactions = Boolean(payload?.unlockedFeatures?.includes(POLL_LIKE_DISLIKE_FEATURE_KEY));
+
   const pollBody = (
     <>
       {error ? <div className="notice error">{error}</div> : null}
@@ -127,8 +179,12 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
             />
 
             <PreviousResultsPanel
+              isReacting={isReacting}
+              onReact={submitPollReaction}
+              playerReaction={payload.previousPoll?.playerReaction ?? null}
               previousPoll={payload.previousPoll}
               settings={payload.settings}
+              showPollReactions={showPollReactions}
             />
           </section>
         </>

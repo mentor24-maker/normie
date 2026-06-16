@@ -983,6 +983,65 @@ h2 {
   color: #ffffff;
 }
 
+.poll-reaction-corner-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.poll-reaction-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(9, 16, 24, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  color: #091018;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.poll-reaction-button:hover:not(:disabled),
+.poll-reaction-button:focus-visible:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.poll-reaction-button:disabled {
+  cursor: default;
+  opacity: 0.92;
+}
+
+.poll-reaction-button-like.is-active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
+.poll-reaction-button-dislike.is-active {
+  background: #b42318;
+  border-color: #b42318;
+  color: #ffffff;
+}
+
+.poll-reaction-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.poll-reaction-button-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .poll-deep-dive-overlay {
   position: absolute;
   inset: 0;
@@ -5205,8 +5264,32 @@ h2 {
   box-shadow: none;
 }
 
+.player-token-wallet-address-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.player-token-wallet-copy-button {
+  flex-shrink: 0;
+}
+
+.player-token-wallet-balance-link {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.player-token-wallet-balance-link:hover,
+.player-token-wallet-balance-link:focus-visible {
+  text-decoration: underline;
+}
+
 .player-token-wallet-address {
   display: inline-block;
+  flex: 1;
+  min-width: 0;
   max-width: 100%;
   padding: 10px 12px;
   border-radius: 14px;

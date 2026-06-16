@@ -31,6 +31,7 @@ export type PreviousPoll = {
   totalResponses: number;
   options: PreviousPollOption[];
   deepDive: PollDeepDiveContent;
+  playerReaction?: "like" | "dislike" | null;
 };
 
 export type PollCategoryFilter = {

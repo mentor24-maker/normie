@@ -80,6 +80,17 @@ create table if not exists public.poll_response (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.poll_reaction (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  poll_id uuid not null references public.polls(id) on delete cascade,
+  reaction text not null check (reaction in ('like', 'dislike')),
+  tokens_earned integer not null default 0 check (tokens_earned >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, poll_id)
+);
+
 create table if not exists public.player_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null default '',
@@ -421,6 +432,9 @@ end $$;
 create index if not exists poll_response_poll_id_idx on public.poll_response (poll_id);
 create index if not exists poll_response_session_id_idx on public.poll_response (session_id);
 create index if not exists poll_response_user_id_idx on public.poll_response (user_id);
+create index if not exists poll_reaction_user_id_idx on public.poll_reaction (user_id);
+create index if not exists poll_reaction_poll_id_idx on public.poll_reaction (poll_id);
+create index if not exists poll_reaction_updated_at_idx on public.poll_reaction (updated_at desc);
 create unique index if not exists poll_response_anonymous_session_poll_unique_idx
 on public.poll_response (session_id, poll_id)
 where user_id is null;
@@ -480,6 +494,7 @@ alter table public.polls enable row level security;
 alter table public.poll_categories enable row level security;
 alter table public.poll_options enable row level security;
 alter table public.poll_response enable row level security;
+alter table public.poll_reaction enable row level security;
 alter table public.player_profiles enable row level security;
 alter table public.poll_settings enable row level security;
 alter table public.page_templates enable row level security;
@@ -580,6 +595,21 @@ with check (
   )
 );
 
+drop policy if exists "poll reactions are readable for published polls" on public.poll_reaction;
+create policy "poll reactions are readable for published polls"
+on public.poll_reaction
+for select
+to anon, authenticated
+using (
+  exists (
+    select 1
+    from public.polls
+    where public.polls.id = public.poll_reaction.poll_id
+      and public.polls.is_published = true
+      and public.polls.is_hidden = false
+  )
+);
+
 drop policy if exists "active player profiles are readable" on public.player_profiles;
 create policy "active player profiles are readable"
 on public.player_profiles
@@ -596,6 +626,8 @@ using (auth.uid() = id);
 
 grant select, insert, update on public.player_profiles to anon, authenticated, service_role;
 grant select, insert, update on public.poll_response to anon, authenticated, service_role;
+grant select on public.poll_reaction to anon, authenticated, service_role;
+grant insert, update, delete on public.poll_reaction to service_role;
 
 notify pgrst, 'reload schema';
 
@@ -804,7 +836,9 @@ on conflict (level_order) do nothing;
 
 insert into public.game_scoring (score_name, description, specific_criteria, points)
 values
-  ('Poll answer', 'Awarded when a signed-in player answers a poll.', 'Player must submit one valid answer to a published poll they have not already answered.', 1)
+  ('Poll answer', 'Awarded when a signed-in player answers a poll.', 'Player must submit one valid answer to a published poll they have not already answered.', 1),
+  ('Poll Like', 'Awarded when a signed-in player likes a poll they already answered.', 'Player must react with Like on a previous poll in the results panel.', 2),
+  ('Poll Dislike', 'Awarded when a signed-in player dislikes a poll they already answered.', 'Player must react with Dislike on a previous poll in the results panel.', 2)
 on conflict do nothing;
 
 insert into public.game_progressive_features (feature_key, name, description, unlock_level_name, unlock_sublevel_name, is_active, metadata)
@@ -817,6 +851,15 @@ values
     '1',
     true,
     '{"uiPlacement":"under_poll_options"}'::jsonb
+  ),
+  (
+    'poll_like_dislike',
+    'Like and Dislike',
+    'Shows Like and Dislike controls on previous poll results so players can react and earn points.',
+    'Level',
+    '2',
+    true,
+    '{"uiPlacement":"previous_results_corners"}'::jsonb
   )
 on conflict (feature_key) do nothing;
 

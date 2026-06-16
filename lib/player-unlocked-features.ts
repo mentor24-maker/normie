@@ -4,14 +4,15 @@ import {
 } from "@/lib/player-portal";
 
 export const POLL_SKIP_FEATURE_KEY = "poll_skip";
+export const POLL_LIKE_DISLIKE_FEATURE_KEY = "poll_like_dislike";
 
-type FeatureRewardRow = {
+export type FeatureRewardRow = {
   reward_type: string;
   status: string | null;
   metadata: unknown;
 };
 
-type ProgressiveFeatureRow = {
+export type ProgressiveFeatureRow = {
   feature_key: string;
   is_active: boolean | null;
 };
@@ -80,4 +81,12 @@ export function getUnlockedFeatureKeys(
 
 export function playerHasPollSkip(pollsTaken: number, rewards: FeatureRewardRow[], progressiveFeatures: ProgressiveFeatureRow[]): boolean {
   return getUnlockedFeatureKeys(pollsTaken, rewards, progressiveFeatures).includes(POLL_SKIP_FEATURE_KEY);
+}
+
+export function playerHasPollLikeDislike(
+  pollsTaken: number,
+  rewards: FeatureRewardRow[],
+  progressiveFeatures: ProgressiveFeatureRow[]
+): boolean {
+  return getUnlockedFeatureKeys(pollsTaken, rewards, progressiveFeatures).includes(POLL_LIKE_DISLIKE_FEATURE_KEY);
 }
