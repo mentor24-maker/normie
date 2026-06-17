@@ -7163,7 +7163,8 @@ a.polls-icon-button {
 }
 
 .builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed),
-.builder-preview-module-overlay-slot:has(.normie-effect-cruise) {
+.builder-preview-module-overlay-slot:has(.normie-effect-cruise),
+.builder-preview-module-overlay-slot:has(.normie-effect-parkour) {
   min-height: 220px;
 }
 
@@ -13214,6 +13215,27 @@ code {
   animation: normie-big-bounce calc(1.6s / 3) infinite;
 }
 
+@keyframes normie-flips {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-in;
+  }
+
+  50% {
+    transform: translateY(-36px) rotate(180deg);
+    animation-timing-function: ease-out;
+  }
+
+  100% {
+    transform: translateY(0) rotate(360deg);
+    animation-timing-function: ease-in;
+  }
+}
+
+.normie-effect-flips {
+  animation: normie-flips calc(1.6s / 3) infinite;
+}
+
 @keyframes normie-spin {
   from {
     transform: rotate(0deg);
@@ -13226,6 +13248,29 @@ code {
 
 .normie-effect-spin {
   animation: normie-spin 2.4s linear infinite;
+}
+
+.builder-preview-image-shell:has(.normie-effect-axis-rotate),
+.builder-preview-image-shell:has(.normie-effect-parkour),
+.player-game-floating-image-host .builder-preview-image-shell:has(.normie-effect-axis-rotate),
+.player-game-floating-image-host .builder-preview-image-shell:has(.normie-effect-parkour) {
+  perspective: 900px;
+}
+
+@keyframes normie-axis-rotate {
+  from {
+    transform: rotateY(0deg);
+  }
+
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.normie-effect-axis-rotate {
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  animation: normie-axis-rotate 2.4s linear infinite;
 }
 
 @keyframes normie-cruise {
@@ -13284,8 +13329,52 @@ code {
   animation: normie-tumbleweed 8s linear infinite;
 }
 
+@keyframes normie-parkour {
+  0% {
+    transform: translateX(-100vw) translateY(0) rotate(0deg) rotateY(0deg);
+  }
+
+  12.5% {
+    transform: translateX(-75vw) translateY(-36px) rotate(150deg) rotateY(150deg);
+  }
+
+  25% {
+    transform: translateX(-50vw) translateY(0) rotate(300deg) rotateY(300deg);
+  }
+
+  37.5% {
+    transform: translateX(-25vw) translateY(-36px) rotate(450deg) rotateY(450deg);
+  }
+
+  50% {
+    transform: translateX(0) translateY(0) rotate(600deg) rotateY(600deg);
+  }
+
+  62.5% {
+    transform: translateX(25vw) translateY(-36px) rotate(750deg) rotateY(750deg);
+  }
+
+  75% {
+    transform: translateX(50vw) translateY(0) rotate(900deg) rotateY(900deg);
+  }
+
+  87.5% {
+    transform: translateX(75vw) translateY(-36px) rotate(1050deg) rotateY(1050deg);
+  }
+
+  100% {
+    transform: translateX(100vw) translateY(0) rotate(1200deg) rotateY(1200deg);
+  }
+}
+
+.normie-effect-parkour {
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  animation: normie-parkour 8s linear infinite;
+}
+
 /*
- * Tumbleweed / cruise use ±100vw translateX (scrollbar) and ±80px translateY (bounce).
+ * Tumbleweed / cruise / parkour use ±100vw translateX (scrollbar) and vertical bounce headroom.
  * Clip horizontal overflow only — overflow: hidden here was cutting off the top of the roll.
  */
 .normie-effect-motion-clip {
@@ -13309,7 +13398,8 @@ code {
  * Inline shell anchors (bottom-right + %) shrink the clip and cut off the top of the roll.
  */
 .builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed) > .builder-preview-image-shell-overlay,
-.builder-preview-module-overlay-slot:has(.normie-effect-cruise) > .builder-preview-image-shell-overlay {
+.builder-preview-module-overlay-slot:has(.normie-effect-cruise) > .builder-preview-image-shell-overlay,
+.builder-preview-module-overlay-slot:has(.normie-effect-parkour) > .builder-preview-image-shell-overlay {
   inset: 0 auto auto 0 !important;
   top: 0 !important;
   right: auto !important;
@@ -13323,8 +13413,10 @@ code {
 
 .builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed) .normie-effect-motion-clip,
 .builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-cruise) .normie-effect-motion-clip,
+.builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-parkour) .normie-effect-motion-clip,
 .builder-preview-section-overlay-slot:has(.normie-effect-tumbleweed) .normie-effect-motion-clip,
-.builder-preview-section-overlay-slot:has(.normie-effect-cruise) .normie-effect-motion-clip {
+.builder-preview-section-overlay-slot:has(.normie-effect-cruise) .normie-effect-motion-clip,
+.builder-preview-section-overlay-slot:has(.normie-effect-parkour) .normie-effect-motion-clip {
   position: relative;
   width: 100%;
   min-height: 220px;
@@ -13336,7 +13428,8 @@ code {
 }
 
 .builder-preview-module-overlay-slot:has(.normie-effect-tumbleweed) .normie-effect-tumbleweed,
-.builder-preview-module-overlay-slot:has(.normie-effect-cruise) .normie-effect-cruise {
+.builder-preview-module-overlay-slot:has(.normie-effect-cruise) .normie-effect-cruise,
+.builder-preview-module-overlay-slot:has(.normie-effect-parkour) .normie-effect-parkour {
   width: auto;
   max-width: none;
 }

@@ -37,8 +37,11 @@ const EFFECT_OPTIONS = [
   { value: "fast-bounce", label: "Fast Bounce" },
   { value: "big-bounce", label: "Big Bounce" },
   { value: "spin", label: "Spin" },
+  { value: "flips", label: "Flips" },
+  { value: "axis-rotate", label: "Axis Rotate" },
   { value: "cruise", label: "Cruise" },
-  { value: "tumbleweed", label: "Tumbleweed" }
+  { value: "tumbleweed", label: "Tumbleweed" },
+  { value: "parkour", label: "Parkour" }
 ] as const;
 
 export function BuilderFloatingImageModuleSettings({

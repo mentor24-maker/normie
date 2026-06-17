@@ -16,14 +16,17 @@ export function getImageEffectClassName(effect: string | undefined) {
   if (effect === "fast-bounce") return " normie-effect-fast-bounce";
   if (effect === "big-bounce") return " normie-effect-big-bounce";
   if (effect === "spin") return " normie-effect-spin";
+  if (effect === "flips") return " normie-effect-flips";
+  if (effect === "axis-rotate") return " normie-effect-axis-rotate";
   if (effect === "cruise") return " normie-effect-cruise";
   if (effect === "tumbleweed") return " normie-effect-tumbleweed";
+  if (effect === "parkour") return " normie-effect-parkour";
   return "";
 }
 
-/** Cruise / tumbleweed keyframes move ±100vw and can force a horizontal scrollbar that reads like a bottom progress bar. */
+/** Cruise / tumbleweed / parkour keyframes move ±100vw and can force a horizontal scrollbar that reads like a bottom progress bar. */
 export function usesHorizontalMotionClip(effect: string | undefined): boolean {
-  return effect === "cruise" || effect === "tumbleweed";
+  return effect === "cruise" || effect === "tumbleweed" || effect === "parkour";
 }
 
 type BuilderImagePreviewProps = {

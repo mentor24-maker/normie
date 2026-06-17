@@ -2313,8 +2313,11 @@ export function BuilderModuleCard({
                     <option value="fast-bounce">Fast Bounce</option>
                     <option value="big-bounce">Big Bounce</option>
                     <option value="spin">Spin</option>
+                    <option value="flips">Flips</option>
+                    <option value="axis-rotate">Axis Rotate</option>
                     <option value="cruise">Cruise</option>
                     <option value="tumbleweed">Tumbleweed</option>
+                    <option value="parkour">Parkour</option>
                   </select>
                 </label>
               </div>
