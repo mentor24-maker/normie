@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="420" viewBox="0 0 800 420">
-  <title>Normie Tumbleweed Animation</title>
+  <title>Normie Cartwheels Animation</title>
   <style>
     svg {
       background: transparent;
@@ -9,10 +9,10 @@
     #normie {
       transform-box: fill-box;
       transform-origin: center;
-      animation: normie-tumbleweed 8s linear infinite;
+      animation: normie-cartwheels 8s linear infinite;
     }
 
-    @keyframes normie-tumbleweed {
+    @keyframes normie-cartwheels {
       0% { transform: translate(-190px, 170px) rotate(0deg); }
       12.5% { transform: translate(-61px, 90px) rotate(180deg); }
       25% { transform: translate(68px, 170px) rotate(360deg); }

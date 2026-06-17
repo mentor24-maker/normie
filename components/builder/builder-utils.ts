@@ -268,6 +268,44 @@ export function getFloatingImageModuleStyle(settings: Record<string, string>): C
   };
 }
 
+/** Legacy stored effect keys still render after renames (Cruise → Slide, Tumbleweed → Cartwheels). */
+export function normalizeImageEffect(effect: string | undefined): string | undefined {
+  if (!effect) {
+    return effect;
+  }
+
+  if (effect === "cruise") {
+    return "slide";
+  }
+
+  if (effect === "tumbleweed") {
+    return "cartwheels";
+  }
+
+  return effect;
+}
+
+export function usesHorizontalImageMotionClip(effect: string | undefined): boolean {
+  const normalized = normalizeImageEffect(effect);
+
+  return normalized === "slide" || normalized === "cartwheels" || normalized === "parkour";
+}
+
+/** Horizontal motion expands the overlay shell to full width; keep the configured size on the figure. */
+export function getFloatingImageFigureStyle(
+  settings: Record<string, string>,
+  effect: string | undefined
+): CSSProperties {
+  if (usesHorizontalImageMotionClip(effect)) {
+    const size = Number.parseInt(settings.size ?? "15", 10);
+    const clampedSize = String(Math.min(Math.max(Number.isFinite(size) ? size : 15, 10), 100));
+
+    return getImageModuleStyle({ ...settings, size: clampedSize });
+  }
+
+  return getFloatingImageModuleStyle(settings);
+}
+
 export function getImagePositionMode(settings: Record<string, string>): "inline" | "overlay" {
   return settings.positionMode === "overlay" ? "overlay" : "inline";
 }

@@ -2,31 +2,35 @@ import type { CSSProperties } from "react";
 import { resolvePublicBuilderAssetUrl } from "@/lib/builder-template";
 import type { BuilderTemplateModule } from "@/lib/builder-template";
 import {
+  getFloatingImageFigureStyle,
   getFloatingImageModuleShellStyle,
-  getFloatingImageModuleStyle,
   getGameOverlayFloatingImageShellStyle,
   getImageModuleShellStyle,
   getImageModuleStyle,
   isFloatingImageModule,
-  isVideoMedia
+  isVideoMedia,
+  normalizeImageEffect,
+  usesHorizontalImageMotionClip
 } from "./builder-utils";
 
 export function getImageEffectClassName(effect: string | undefined) {
-  if (effect === "bounce") return " normie-effect-bounce";
-  if (effect === "fast-bounce") return " normie-effect-fast-bounce";
-  if (effect === "big-bounce") return " normie-effect-big-bounce";
-  if (effect === "spin") return " normie-effect-spin";
-  if (effect === "flips") return " normie-effect-flips";
-  if (effect === "axis-rotate") return " normie-effect-axis-rotate";
-  if (effect === "cruise") return " normie-effect-cruise";
-  if (effect === "tumbleweed") return " normie-effect-tumbleweed";
-  if (effect === "parkour") return " normie-effect-parkour";
+  const normalized = normalizeImageEffect(effect);
+
+  if (normalized === "bounce") return " normie-effect-bounce";
+  if (normalized === "fast-bounce") return " normie-effect-fast-bounce";
+  if (normalized === "big-bounce") return " normie-effect-big-bounce";
+  if (normalized === "spin") return " normie-effect-spin";
+  if (normalized === "flips") return " normie-effect-flips";
+  if (normalized === "axis-rotate") return " normie-effect-axis-rotate";
+  if (normalized === "slide") return " normie-effect-slide";
+  if (normalized === "cartwheels") return " normie-effect-cartwheels";
+  if (normalized === "parkour") return " normie-effect-parkour";
   return "";
 }
 
-/** Cruise / tumbleweed / parkour keyframes move ±100vw and can force a horizontal scrollbar that reads like a bottom progress bar. */
+/** Slide / cartwheels / parkour keyframes move ±100vw and can force a horizontal scrollbar that reads like a bottom progress bar. */
 export function usesHorizontalMotionClip(effect: string | undefined): boolean {
-  return effect === "cruise" || effect === "tumbleweed" || effect === "parkour";
+  return usesHorizontalImageMotionClip(effect);
 }
 
 type BuilderImagePreviewProps = {
@@ -51,14 +55,16 @@ export function BuilderImagePreview({
   const mediaUrl = resolvePublicBuilderAssetUrl(module.settings.url);
   const linkUrl = isFloatingImageModule(module) ? "" : resolvePublicBuilderAssetUrl(module.settings.linkUrl);
   const floating = isFloatingImageModule(module);
-  const imageStyle = floating ? getFloatingImageModuleStyle(module.settings) : getImageModuleStyle(module.settings);
+  const effect = normalizeImageEffect(module.settings.effect);
+  const imageStyle = floating
+    ? getFloatingImageFigureStyle(module.settings, effect)
+    : getImageModuleStyle(module.settings);
   const shellStyle = floating
     ? gameOverlayHost
       ? getGameOverlayFloatingImageShellStyle(module.settings)
       : getFloatingImageModuleShellStyle(module.settings, { sectionScopedDecor })
     : getImageModuleShellStyle(module.settings);
   const opensInNewTab = module.settings.newTab === "true";
-  const effect = module.settings.effect;
   const effectClass = getImageEffectClassName(effect);
   const motionClip = usesHorizontalMotionClip(effect);
   const resolvedVariant = variant ?? module.settings.variant ?? "default";

@@ -2315,8 +2315,8 @@ export function BuilderModuleCard({
                     <option value="spin">Spin</option>
                     <option value="flips">Flips</option>
                     <option value="axis-rotate">Axis Rotate</option>
-                    <option value="cruise">Cruise</option>
-                    <option value="tumbleweed">Tumbleweed</option>
+                    <option value="slide">Slide</option>
+                    <option value="cartwheels">Cartwheels</option>
                     <option value="parkour">Parkour</option>
                   </select>
                 </label>

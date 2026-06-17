@@ -6,6 +6,7 @@ import {
   normalizeGameFloatingImageDurationMs
 } from "@/lib/game-floating-image-trigger";
 import { isGameModuleTrigger } from "@/lib/module-trigger";
+import { normalizeImageEffect } from "./builder-utils";
 import { BuilderNumberSelectControl } from "./builder-inline-number-select";
 import { BuilderModuleOffsetFields } from "./builder-module-offset-fields";
 import { BuilderSettingRow } from "./builder-setting-row";
@@ -39,8 +40,8 @@ const EFFECT_OPTIONS = [
   { value: "spin", label: "Spin" },
   { value: "flips", label: "Flips" },
   { value: "axis-rotate", label: "Axis Rotate" },
-  { value: "cruise", label: "Cruise" },
-  { value: "tumbleweed", label: "Tumbleweed" },
+  { value: "slide", label: "Slide" },
+  { value: "cartwheels", label: "Cartwheels" },
   { value: "parkour", label: "Parkour" }
 ] as const;
 
@@ -181,7 +182,7 @@ export function BuilderFloatingImageModuleSettings({
 
       <BuilderSettingRow fullWidth label="Effect">
         <select
-          value={module.settings.effect ?? "none"}
+          value={normalizeImageEffect(module.settings.effect) ?? "none"}
           onChange={(event) => updateSettings({ effect: event.target.value })}
         >
           {EFFECT_OPTIONS.map((option) => (

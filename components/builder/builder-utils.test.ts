@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildClonedPageCreatePayload,
   columnHasOnlyOverlayImageModules,
+  getFloatingImageFigureStyle,
+  getFloatingImageModuleStyle,
   getHeadingModuleStyle,
   getImageOverlayStyle,
   getImageModuleShellStyle,
@@ -17,7 +19,9 @@ import {
   sectionHasOnlyPageOverlayImageModules,
   sectionHasOnlySectionScopedOverlayModules,
   isSectionScopedOverlayDecor,
-  resolveSectionScopedOverlaySectionZIndex
+  normalizeImageEffect,
+  resolveSectionScopedOverlaySectionZIndex,
+  usesHorizontalImageMotionClip
 } from "@/components/builder/builder-utils";
 
 describe("overlay flow collapse helpers", () => {
@@ -322,6 +326,33 @@ describe("module width styles", () => {
     expect(getModuleWidthShellStyle({ size: "100", alignment: "left" })).toMatchObject({
       width: "100%",
       alignSelf: "stretch"
+    });
+  });
+});
+
+describe("floating image effects", () => {
+  it("maps legacy effect keys to Slide and Cartwheels", () => {
+    expect(normalizeImageEffect("cruise")).toBe("slide");
+    expect(normalizeImageEffect("tumbleweed")).toBe("cartwheels");
+    expect(normalizeImageEffect("parkour")).toBe("parkour");
+  });
+
+  it("detects horizontal motion effects including legacy keys", () => {
+    expect(usesHorizontalImageMotionClip("slide")).toBe(true);
+    expect(usesHorizontalImageMotionClip("cruise")).toBe(true);
+    expect(usesHorizontalImageMotionClip("cartwheels")).toBe(true);
+    expect(usesHorizontalImageMotionClip("tumbleweed")).toBe(true);
+    expect(usesHorizontalImageMotionClip("parkour")).toBe(true);
+    expect(usesHorizontalImageMotionClip("bounce")).toBe(false);
+  });
+
+  it("keeps configured size on the figure for horizontal motion effects", () => {
+    expect(getFloatingImageFigureStyle({ size: "15" }, "parkour")).toMatchObject({
+      width: "15%",
+      maxWidth: "100%"
+    });
+    expect(getFloatingImageModuleStyle({ size: "15" })).toMatchObject({
+      width: "100%"
     });
   });
 });

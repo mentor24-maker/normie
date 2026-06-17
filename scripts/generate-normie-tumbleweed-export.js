@@ -3,7 +3,7 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const imagePath = path.join(root, "images", "normie_psycho_happy.png");
-const outputPath = path.join(root, "exports", "normie-tumbleweed-standalone.html");
+const outputPath = path.join(root, "exports", "normie-cartwheels-standalone.html");
 const image = fs.readFileSync(imagePath).toString("base64");
 
 const html = [
@@ -12,7 +12,7 @@ const html = [
   "  <head>",
   '    <meta charset="utf-8" />',
   '    <meta name="viewport" content="width=800, initial-scale=1" />',
-  "    <title>Normie Tumbleweed Animation</title>",
+  "    <title>Normie Cartwheels Animation</title>",
   "    <style>",
   "      html,",
   "      body {",
@@ -38,11 +38,11 @@ const html = [
   "        width: 150px;",
   "        height: auto;",
   "        transform-origin: center center;",
-  "        animation: normie-tumbleweed 8s linear infinite;",
+  "        animation: normie-cartwheels 8s linear infinite;",
   "        will-change: transform;",
   "      }",
   "",
-  "      @keyframes normie-tumbleweed {",
+  "      @keyframes normie-cartwheels {",
   "        0% { transform: translateX(-190px) translateY(0) rotate(0deg); }",
   "        12.5% { transform: translateX(-61px) translateY(-80px) rotate(180deg); }",
   "        25% { transform: translateX(68px) translateY(0) rotate(360deg); }",
