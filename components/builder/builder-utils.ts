@@ -291,18 +291,23 @@ export function usesHorizontalImageMotionClip(effect: string | undefined): boole
   return normalized === "slide" || normalized === "cartwheels" || normalized === "parkour";
 }
 
-/** Horizontal motion expands the overlay shell to full width; keep the configured size on the figure. */
+export function getFloatingImageSizePercent(settings: Record<string, string>): number {
+  const size = Number.parseInt(settings.size ?? "15", 10);
+
+  return Math.min(Math.max(Number.isFinite(size) ? size : 15, 10), 100);
+}
+
+export function getHorizontalMotionClipStyle(settings: Record<string, string>): CSSProperties {
+  return {
+    ["--normie-floating-image-width" as string]: `${getFloatingImageSizePercent(settings)}%`
+  };
+}
+
+/** Horizontal motion uses a full-width clip; the figure fills a sized motion stage inside it. */
 export function getFloatingImageFigureStyle(
   settings: Record<string, string>,
-  effect: string | undefined
+  _effect: string | undefined
 ): CSSProperties {
-  if (usesHorizontalImageMotionClip(effect)) {
-    const size = Number.parseInt(settings.size ?? "15", 10);
-    const clampedSize = String(Math.min(Math.max(Number.isFinite(size) ? size : 15, 10), 100));
-
-    return getImageModuleStyle({ ...settings, size: clampedSize });
-  }
-
   return getFloatingImageModuleStyle(settings);
 }
 

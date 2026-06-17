@@ -7163,9 +7163,12 @@ a.polls-icon-button {
 }
 
 .builder-preview-module-overlay-slot:has(.normie-effect-cartwheels),
-.builder-preview-module-overlay-slot:has(.normie-effect-slide),
-.builder-preview-module-overlay-slot:has(.normie-effect-parkour) {
+.builder-preview-module-overlay-slot:has(.normie-effect-slide) {
   min-height: 220px;
+}
+
+.builder-preview-module-overlay-slot:has(.normie-effect-parkour) {
+  min-height: 240px;
 }
 
 /*
@@ -13233,7 +13236,7 @@ code {
 }
 
 .normie-effect-flips {
-  animation: normie-flips calc(1.6s / 3) infinite;
+  animation: normie-flips calc(3.2s / 3) infinite;
 }
 
 @keyframes normie-spin {
@@ -13251,9 +13254,7 @@ code {
 }
 
 .builder-preview-image-shell:has(.normie-effect-axis-rotate),
-.builder-preview-image-shell:has(.normie-effect-parkour),
-.player-game-floating-image-host .builder-preview-image-shell:has(.normie-effect-axis-rotate),
-.player-game-floating-image-host .builder-preview-image-shell:has(.normie-effect-parkour) {
+.player-game-floating-image-host .builder-preview-image-shell:has(.normie-effect-axis-rotate) {
   perspective: 900px;
 }
 
@@ -13384,6 +13385,22 @@ code {
   min-height: 1px;
 }
 
+.normie-effect-motion-stage {
+  width: var(--normie-floating-image-width, 15%);
+  max-width: 100%;
+}
+
+.normie-effect-motion-stage > .builder-preview-image,
+.normie-effect-motion-stage > .builder-module-preview-image {
+  width: 100%;
+  max-width: none;
+}
+
+.normie-effect-motion-clip:has(.normie-effect-parkour) {
+  perspective: 1600px;
+  perspective-origin: center center;
+}
+
 .builder-preview-module-overlay-flow .normie-effect-motion-clip,
 .builder-preview-overlay-layer .normie-effect-motion-clip,
 .player-game-floating-image-host .normie-effect-motion-clip {
@@ -13398,8 +13415,7 @@ code {
  * Inline shell anchors (bottom-right + %) shrink the clip and cut off the top of the roll.
  */
 .builder-preview-module-overlay-slot:has(.normie-effect-cartwheels) > .builder-preview-image-shell-overlay,
-.builder-preview-module-overlay-slot:has(.normie-effect-slide) > .builder-preview-image-shell-overlay,
-.builder-preview-module-overlay-slot:has(.normie-effect-parkour) > .builder-preview-image-shell-overlay {
+.builder-preview-module-overlay-slot:has(.normie-effect-slide) > .builder-preview-image-shell-overlay {
   inset: 0 auto auto 0 !important;
   top: 0 !important;
   right: auto !important;
@@ -13411,12 +13427,22 @@ code {
   transform: none !important;
 }
 
+.builder-preview-module-overlay-slot:has(.normie-effect-parkour) > .builder-preview-image-shell-overlay {
+  inset: 0 auto auto 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 240px;
+  transform: none !important;
+}
+
 .builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-cartwheels) .normie-effect-motion-clip,
 .builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-slide) .normie-effect-motion-clip,
-.builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-parkour) .normie-effect-motion-clip,
 .builder-preview-section-overlay-slot:has(.normie-effect-cartwheels) .normie-effect-motion-clip,
-.builder-preview-section-overlay-slot:has(.normie-effect-slide) .normie-effect-motion-clip,
-.builder-preview-section-overlay-slot:has(.normie-effect-parkour) .normie-effect-motion-clip {
+.builder-preview-section-overlay-slot:has(.normie-effect-slide) .normie-effect-motion-clip {
   position: relative;
   width: 100%;
   min-height: 220px;
@@ -13425,6 +13451,20 @@ code {
   overflow-x: clip;
   overflow-y: visible;
   box-sizing: border-box;
+}
+
+.builder-preview-column > .builder-preview-module-overlay-slot:has(.normie-effect-parkour) .normie-effect-motion-clip,
+.builder-preview-section-overlay-slot:has(.normie-effect-parkour) .normie-effect-motion-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 240px;
+  padding-top: 48px;
+  margin-top: -48px;
+  padding-bottom: 48px;
+  overflow-x: clip;
+  overflow-y: visible;
+  box-sizing: content-box;
 }
 
 .builder-section-title-edit-hint {

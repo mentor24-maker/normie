@@ -4,6 +4,8 @@ import {
   columnHasOnlyOverlayImageModules,
   getFloatingImageFigureStyle,
   getFloatingImageModuleStyle,
+  getFloatingImageSizePercent,
+  getHorizontalMotionClipStyle,
   getHeadingModuleStyle,
   getImageOverlayStyle,
   getImageModuleShellStyle,
@@ -346,10 +348,13 @@ describe("floating image effects", () => {
     expect(usesHorizontalImageMotionClip("bounce")).toBe(false);
   });
 
-  it("keeps configured size on the figure for horizontal motion effects", () => {
+  it("sizes horizontal motion through a stage wrapper and keeps the figure full width", () => {
+    expect(getHorizontalMotionClipStyle({ size: "15" })).toEqual({
+      "--normie-floating-image-width": "15%"
+    });
+    expect(getFloatingImageSizePercent({ size: "15" })).toBe(15);
     expect(getFloatingImageFigureStyle({ size: "15" }, "parkour")).toMatchObject({
-      width: "15%",
-      maxWidth: "100%"
+      width: "100%"
     });
     expect(getFloatingImageModuleStyle({ size: "15" })).toMatchObject({
       width: "100%"

@@ -5,6 +5,7 @@ import {
   getFloatingImageFigureStyle,
   getFloatingImageModuleShellStyle,
   getGameOverlayFloatingImageShellStyle,
+  getHorizontalMotionClipStyle,
   getImageModuleShellStyle,
   getImageModuleStyle,
   isFloatingImageModule,
@@ -105,7 +106,13 @@ export function BuilderImagePreview({
       className={`builder-preview-image-shell${floating ? " builder-preview-image-shell-overlay" : ""}`}
       style={shellStyle}
     >
-      {motionClip ? <div className="normie-effect-motion-clip">{figure}</div> : figure}
+      {motionClip ? (
+        <div className="normie-effect-motion-clip" style={getHorizontalMotionClipStyle(module.settings)}>
+          <div className="normie-effect-motion-stage">{figure}</div>
+        </div>
+      ) : (
+        figure
+      )}
     </div>
   );
 }
