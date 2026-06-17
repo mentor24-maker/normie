@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { NormieDexscreenerEmbed } from "@/components/normie-dexscreener-embed";
+import { buildNormieWalletHolderExplorerUrl } from "@/lib/solana-wallet-links";
+import type { NormieWalletBalanceRow } from "@/lib/normie-wallet-balances";
 import {
   MAX_PLAYER_CRYPTO_WALLETS,
   type PlayerCryptoWallets
@@ -46,14 +48,23 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
   const [balances, setBalances] = useState<PlayerCryptoWalletBalancesResponse | null>(null);
   const [balancesError, setBalancesError] = useState<string | null>(null);
   const [balancesNotice, setBalancesNotice] = useState<string | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
+  const [balancesGeneration, setBalancesGeneration] = useState(0);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [isRefreshingBalances, setIsRefreshingBalances] = useState(false);
   const balancesRequestIdRef = useRef(0);
+  const balancesAbortRef = useRef<AbortController | null>(null);
+  const skipAutoFetchRef = useRef(false);
+  const walletsRef = useRef(wallets);
   const hasHolderAccess = wallets.length > 0;
   const walletListKey = wallets.join("|");
 
-  const loadBalances = useCallback(async (refresh = false) => {
-    if (wallets.length === 0) {
+  walletsRef.current = wallets;
+
+  const fetchBalances = useCallback(async (refresh = false) => {
+    const currentWallets = walletsRef.current;
+
+    if (currentWallets.length === 0) {
       setBalances(null);
       setBalancesError(null);
       setBalancesNotice(null);
@@ -62,6 +73,9 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
       return;
     }
 
+    balancesAbortRef.current?.abort();
+    const controller = new AbortController();
+    balancesAbortRef.current = controller;
     const requestId = ++balancesRequestIdRef.current;
 
     setIsLoadingBalances(true);
@@ -72,22 +86,34 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
     setBalancesError(null);
 
     try {
-      const params = new URLSearchParams();
+      const requests: [
+        Promise<Response>,
+        Promise<Response | null>
+      ] = [
+        refresh
+          ? fetch("/api/player/crypto-wallets/balances", {
+              method: "POST",
+              credentials: "same-origin",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              signal: controller.signal
+            })
+          : fetch("/api/player/crypto-wallets/balances", {
+              credentials: "same-origin",
+              cache: "no-store",
+              signal: controller.signal
+            }),
+        refresh
+          ? fetch("/api/player/crypto-wallets", {
+              credentials: "same-origin",
+              cache: "no-store",
+              signal: controller.signal
+            })
+          : Promise.resolve(null)
+      ];
 
-      if (refresh) {
-        params.set("refresh", "1");
-        params.set("_", String(Date.now()));
-      }
-
-      const query = params.toString();
-      const url = query
-        ? `/api/player/crypto-wallets/balances?${query}`
-        : "/api/player/crypto-wallets/balances";
-      const response = await fetch(url, {
-        credentials: "same-origin",
-        cache: "no-store"
-      });
-      const payload = (await response.json()) as {
+      const [balancesResponse, walletsResponse] = await Promise.all(requests);
+      const payload = (await balancesResponse.json()) as {
         error?: string;
         data?: PlayerCryptoWalletBalancesResponse;
       };
@@ -96,17 +122,37 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
         return;
       }
 
-      if (!response.ok) {
+      if (!balancesResponse.ok) {
         throw new Error(payload.error ?? "Wallets balances could not be loaded.");
       }
 
-      setBalances(payload.data ?? null);
+      if (walletsResponse?.ok) {
+        const walletsPayload = (await walletsResponse.json()) as {
+          data?: PlayerCryptoWallets;
+        };
+
+        if (walletsPayload.data?.wallets) {
+          setWallets(walletsPayload.data.wallets);
+        }
+      }
+
+      const nextBalances = payload.data
+        ? {
+            ...payload.data,
+            wallets: payload.data.wallets.map((wallet) => ({ ...wallet }))
+          }
+        : null;
+
+      setBalances(nextBalances);
+      setBalancesGeneration((generation) => generation + 1);
 
       if (refresh) {
+        skipAutoFetchRef.current = true;
+        setLastRefreshedAt(new Date().toISOString());
         setBalancesNotice("Balances refreshed.");
       }
     } catch (loadError) {
-      if (requestId !== balancesRequestIdRef.current) {
+      if (controller.signal.aborted || requestId !== balancesRequestIdRef.current) {
         return;
       }
 
@@ -120,23 +166,36 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
         setIsRefreshingBalances(false);
       }
     }
-  }, [wallets]);
+  }, []);
 
   useEffect(() => {
-    void loadBalances(false);
-  }, [loadBalances, walletListKey]); // walletListKey ensures reload when registered wallets change
+    if (skipAutoFetchRef.current) {
+      skipAutoFetchRef.current = false;
+      return;
+    }
 
-  const balancesByAddress = useMemo(
-    () => new Map((balances?.wallets ?? []).map((row) => [row.address, row])),
-    [balances]
-  );
+    void fetchBalances(false);
+  }, [walletListKey, fetchBalances]);
+
+  const walletRowsForDisplay = useMemo((): NormieWalletBalanceRow[] => {
+    if (balances?.wallets?.length) {
+      return balances.wallets;
+    }
+
+    return wallets.map((address) => ({
+      address,
+      amountRaw: "0",
+      amountFormatted: "0",
+      amountUsdFormatted: null
+    }));
+  }, [balances, balancesGeneration, wallets]);
 
   const totalFormatted = useMemo(() => {
-    if (!balances?.wallets.length) {
+    if (!walletRowsForDisplay.length) {
       return "0";
     }
 
-    const totalRaw = balances.wallets.reduce((sum, row) => {
+    const totalRaw = walletRowsForDisplay.reduce((sum, row) => {
       if (row.error) {
         return sum;
       }
@@ -144,16 +203,16 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
       return sum + BigInt(row.amountRaw.replace(/\D/g, "") || "0");
     }, BigInt(0));
 
-    return formatNormieTokenAmount(totalRaw.toString(), balances.decimals ?? 6);
-  }, [balances]);
+    return formatNormieTokenAmount(totalRaw.toString(), balances?.decimals ?? 6);
+  }, [balances?.decimals, walletRowsForDisplay]);
 
   const totalUsdFormatted = useMemo(() => {
-    if (!balances?.wallets.length) {
+    if (!walletRowsForDisplay.length) {
       return null;
     }
 
-    return sumWalletBalancesUsd(balances.wallets, balances.tokenPriceUsd);
-  }, [balances]);
+    return sumWalletBalancesUsd(walletRowsForDisplay, balances?.tokenPriceUsd ?? null);
+  }, [balances?.tokenPriceUsd, walletRowsForDisplay]);
 
   async function handleRegisterWallet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -179,13 +238,14 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
       }
 
       if (data.data) {
+        skipAutoFetchRef.current = true;
         setWallets(data.data.wallets);
       }
 
       setWalletAddress("");
       setNotice("Wallets registered. Welcome to the Back Room.");
       router.refresh();
-      await loadBalances(true);
+      await fetchBalances(true);
     } catch (registerError) {
       setError(registerError instanceof Error ? registerError.message : "Wallets could not be registered.");
     } finally {
@@ -216,12 +276,13 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
       }
 
       if (data.data) {
+        skipAutoFetchRef.current = true;
         setWallets(data.data.wallets);
       }
 
       setNotice("Wallets removed.");
       router.refresh();
-      await loadBalances(true);
+      await fetchBalances(true);
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "Wallets could not be removed.");
     } finally {
@@ -304,7 +365,7 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                 <button
                   className="secondary-button"
                   disabled={isLoadingBalances || isRefreshingBalances}
-                  onClick={() => void loadBalances(true)}
+                  onClick={() => void fetchBalances(true)}
                   type="button"
                 >
                   {isRefreshingBalances ? "Refreshing..." : "Refresh Balances"}
@@ -321,7 +382,10 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                 {balances?.fetchedAt ? (
                   <p className="player-token-balances-meta">
                     Balances as of {formatBalancesTimestamp(balances.fetchedAt)}
-                    {balances.cached ? " (cached)" : null}
+                    {balances.chainSlot ? ` — Solana slot ${balances.chainSlot.toLocaleString("en-US")}` : null}
+                    {lastRefreshedAt
+                      ? ` — refreshed ${formatBalancesTimestamp(lastRefreshedAt)}`
+                      : null}
                     {!balances.configured
                       ? ` — ${balances.rpcDiagnostics.hint ?? "Solana RPC is not configured on the server."}`
                       : null}
@@ -347,34 +411,45 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
                     </span>
                   </div>
 
-                  {wallets.map((address) => {
-                    const row = balancesByAddress.get(address);
-                    const balanceUnavailable = Boolean(row?.error);
+                  {walletRowsForDisplay.map((row) => {
+                    const address = row.address;
+                    const balanceUnavailable = Boolean(row.error);
                     const showLoading = isRefreshingBalances || (isLoadingBalances && !balances);
                     const balanceLabel = showLoading
                       ? "Loading..."
                       : balanceUnavailable
                         ? "Unavailable"
-                        : row?.amountFormatted ?? "0";
+                        : row.amountFormatted;
                     const usdLabel = showLoading
                       ? "Loading..."
                       : balanceUnavailable
                         ? "Unavailable"
-                        : row?.amountUsdFormatted ??
+                        : row.amountUsdFormatted ??
                           (balances?.tokenPriceUsd ? "—" : balances?.priceDiagnostics?.hint ?? "Unavailable");
-                    const errorDetail = row?.error ?? "";
+                    const errorDetail = row.error ?? "";
+                    const rowKey = `${balancesGeneration}-${address}-${row.amountRaw}`;
 
                     return (
-                      <div className="player-token-wallet-table-row" key={address} role="row">
-                        <code className="player-token-wallet-address" role="cell">
-                          {address}
-                        </code>
+                      <div className="player-token-wallet-table-row" key={rowKey} role="row">
+                        <PlayerTokenWalletAddressCell address={address} />
                         <div
                           className="player-token-wallet-balance"
                           role="cell"
                           title={balanceUnavailable ? errorDetail : undefined}
                         >
-                          {balanceLabel}
+                          {showLoading || balanceUnavailable ? (
+                            balanceLabel
+                          ) : (
+                            <a
+                              className="player-token-wallet-balance-link"
+                              href={buildNormieWalletHolderExplorerUrl(address)}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                              title={`View ${NORMIE_TOKEN_SYMBOL} holdings on Solscan`}
+                            >
+                              {balanceLabel}
+                            </a>
+                          )}
                         </div>
                         <div
                           className="player-token-wallet-usd"
@@ -425,5 +500,34 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
         </article>
       ) : null}
     </section>
+  );
+}
+
+function PlayerTokenWalletAddressCell({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="player-token-wallet-address-cell" role="cell">
+      <button
+        className="polls-icon-button polls-icon-button-view player-token-wallet-copy-button"
+        onClick={() => void handleCopy()}
+        type="button"
+        aria-label={copied ? "Wallet address copied" : "Copy wallet address"}
+        title={copied ? "Copied" : "Copy"}
+      >
+        {copied ? "✓" : "⧉"}
+      </button>
+      <code className="player-token-wallet-address">{address}</code>
+    </div>
   );
 }

@@ -5,6 +5,11 @@ export function buildSolanaWalletExplorerUrl(walletAddress: string): string {
   return `https://solscan.io/account/${encodeURIComponent(recipient)}`;
 }
 
+/** Solscan account page — portfolio tab lists SPL holdings including $NORMIE. */
+export function buildNormieWalletHolderExplorerUrl(walletAddress: string): string {
+  return buildSolanaWalletExplorerUrl(walletAddress);
+}
+
 /** Solana Pay transfer request — opens a wallet send flow for $NORMIE to this address. */
 export function buildNormieWalletSendUrl(walletAddress: string): string {
   const recipient = walletAddress.trim();

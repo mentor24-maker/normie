@@ -19,6 +19,9 @@ type ParsedTokenAmount = {
 };
 
 type TokenAccountsByOwnerResult = {
+  context?: {
+    slot?: number;
+  };
   value: Array<{
     account: {
       data: {
@@ -31,6 +34,8 @@ type TokenAccountsByOwnerResult = {
     };
   }>;
 };
+
+export const PUBLIC_SOLANA_RPC_FALLBACK_URL = "https://api.mainnet-beta.solana.com";
 
 type MintAccountInfoResult = {
   value: {
@@ -57,6 +62,7 @@ export type FetchNormieBalancesResult = {
   fetchedAt: string;
   decimals: number;
   configured: boolean;
+  chainSlot: number | null;
 };
 
 let cachedMintDecimals: number | null = null;
@@ -137,18 +143,69 @@ export async function fetchNormieMintDecimals(
   return cachedMintDecimals;
 }
 
+type FetchNormieBalanceOptions = {
+  fetchImpl?: typeof fetch;
+  endpoint?: string;
+  commitment?: "processed" | "confirmed" | "finalized";
+  refresh?: boolean;
+};
+
+async function queryNormieBalanceForWallet(
+  address: string,
+  decimals: number,
+  endpoint: string,
+  options: FetchNormieBalanceOptions
+): Promise<{ amountRaw: string; amountFormatted: string; chainSlot: number | null }> {
+  const result = await solanaJsonRpc<TokenAccountsByOwnerResult>(
+    "getTokenAccountsByOwner",
+    [
+      address,
+      { mint: NORMIE_TOKEN_MINT_ADDRESS },
+      { encoding: "jsonParsed", commitment: options.commitment ?? "confirmed" }
+    ],
+    { ...options, endpoint }
+  );
+  const balance = sumParsedTokenAccounts(result.value ?? [], decimals);
+
+  return {
+    ...balance,
+    chainSlot: typeof result.context?.slot === "number" ? result.context.slot : null
+  };
+}
+
 async function fetchNormieBalanceForWallet(
   address: string,
   decimals: number,
-  options: { fetchImpl?: typeof fetch; endpoint?: string } = {}
-): Promise<Pick<NormieWalletBalanceRow, "amountRaw" | "amountFormatted">> {
-  const result = await solanaJsonRpc<TokenAccountsByOwnerResult>(
-    "getTokenAccountsByOwner",
-    [address, { mint: NORMIE_TOKEN_MINT_ADDRESS }, { encoding: "jsonParsed" }],
-    options
-  );
+  options: FetchNormieBalanceOptions = {}
+): Promise<Pick<NormieWalletBalanceRow, "amountRaw" | "amountFormatted"> & { chainSlot: number | null }> {
+  const primaryEndpoint = options.endpoint ?? getSolanaRpcEndpoint();
 
-  return sumParsedTokenAccounts(result.value ?? [], decimals);
+  if (!primaryEndpoint) {
+    throw new SolanaRpcConfigError();
+  }
+
+  const primary = await queryNormieBalanceForWallet(address, decimals, primaryEndpoint, options);
+
+  if (!options.refresh) {
+    return primary;
+  }
+
+  try {
+    const fallback = await queryNormieBalanceForWallet(
+      address,
+      decimals,
+      PUBLIC_SOLANA_RPC_FALLBACK_URL,
+      options
+    );
+
+    if (primary.amountRaw !== fallback.amountRaw) {
+      return fallback;
+    }
+  } catch {
+    return primary;
+  }
+
+  return primary;
 }
 
 function buildUnavailableRows(addresses: string[], message: string): NormieWalletBalanceRow[] {
@@ -162,8 +219,10 @@ function buildUnavailableRows(addresses: string[], message: string): NormieWalle
 
 export async function fetchNormieBalancesForWallets(
   addresses: string[],
-  options: { fetchImpl?: typeof fetch; endpoint?: string } = {}
+  options: FetchNormieBalanceOptions & { refresh?: boolean } = {}
 ): Promise<FetchNormieBalancesResult> {
+  const commitment = options.commitment ?? (options.refresh ? "processed" : "confirmed");
+  const rpcOptions = { ...options, commitment };
   const fetchedAt = new Date().toISOString();
   const normalized = addresses
     .map((address) => normalizeSolanaWalletAddress(address))
@@ -179,14 +238,19 @@ export async function fetchNormieBalancesForWallets(
       ),
       fetchedAt,
       decimals: NORMIE_TOKEN_DECIMALS_FALLBACK,
-      configured: false
+      configured: false,
+      chainSlot: null
     };
+  }
+
+  if (options.refresh) {
+    resetNormieMintDecimalsCache();
   }
 
   let decimals = NORMIE_TOKEN_DECIMALS_FALLBACK;
 
   try {
-    decimals = await fetchNormieMintDecimals(options);
+    decimals = await fetchNormieMintDecimals(rpcOptions);
   } catch (error) {
     const message =
       error instanceof SolanaRpcConfigError || error instanceof SolanaRpcRequestError
@@ -197,14 +261,22 @@ export async function fetchNormieBalancesForWallets(
       wallets: buildUnavailableRows(uniqueAddresses, message),
       fetchedAt,
       decimals: NORMIE_TOKEN_DECIMALS_FALLBACK,
-      configured: Boolean(options.endpoint ?? getSolanaRpcEndpoint())
+      configured: Boolean(options.endpoint ?? getSolanaRpcEndpoint()),
+      chainSlot: null
     };
   }
+
+  let latestChainSlot: number | null = null;
 
   const wallets = await Promise.all(
     uniqueAddresses.map(async (address): Promise<NormieWalletBalanceRow> => {
       try {
-        const balance = await fetchNormieBalanceForWallet(address, decimals, options);
+        const balance = await fetchNormieBalanceForWallet(address, decimals, rpcOptions);
+
+        if (balance.chainSlot !== null) {
+          latestChainSlot =
+            latestChainSlot === null ? balance.chainSlot : Math.max(latestChainSlot, balance.chainSlot);
+        }
 
         return {
           address,
@@ -231,6 +303,7 @@ export async function fetchNormieBalancesForWallets(
     wallets,
     fetchedAt,
     decimals,
-    configured: true
+    configured: true,
+    chainSlot: latestChainSlot
   };
 }

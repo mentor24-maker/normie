@@ -11,5 +11,7 @@ export type PlayerCryptoWalletBalancesResponse = {
   tokenPriceSource: NormieTokenPriceSource;
   priceDiagnostics: NormieTokenPriceDiagnostics;
   rpcDiagnostics: SolanaRpcDiagnostics;
+  chainSlot?: number | null;
   cached?: boolean;
+  refreshed?: boolean;
 };
