@@ -10,6 +10,7 @@ import { getPlayerPreferences } from "@/lib/player-preferences";
 import { getUnlockedFeatureKeys } from "@/lib/player-unlocked-features";
 import { loadPlayerPollReaction, type PollReactionKind } from "@/lib/poll-reaction";
 import { countProgressPolls } from "@/lib/player-poll-stats";
+import { resolveSurveyInterstitialForSession } from "@/lib/game-interstitial-runtime";
 import { POLL_PUBLIC_SELECT } from "@/lib/poll-select";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createPublicClient } from "@/lib/supabase-public";
@@ -246,6 +247,14 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     startPollParam === currentPoll.id &&
     !answeredPollIds.has(currentPoll.id);
 
+  const progressPollCount = countProgressPolls(eligibleResponses);
+  const surveyInterstitial = await resolveSurveyInterstitialForSession({
+    sessionId,
+    userId: player?.authUser.id ?? null,
+    progressPollCount,
+    skipForStartPollPreview: isStartPollPendingPreview
+  });
+
   const previousPoll = resolveMostRecentAnsweredPoll(
     orderedPolls,
     eligibleResponses,
@@ -310,16 +319,19 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     {
       done: false,
       activeCategory,
-      currentPoll: {
-        id: currentPoll.id,
-        question: currentPoll.question,
-        category: currentPoll.category,
-        imageUrl: currentPoll.image_url ?? "",
-        options: shuffleForDisplay(currentPoll.poll_options).map((option) => ({
-          id: option.id,
-          label: option.label
-        }))
-      },
+      currentPoll: surveyInterstitial
+        ? null
+        : {
+            id: currentPoll.id,
+            question: currentPoll.question,
+            category: currentPoll.category,
+            imageUrl: currentPoll.image_url ?? "",
+            options: shuffleForDisplay(currentPoll.poll_options).map((option) => ({
+              id: option.id,
+              label: option.label
+            }))
+          },
+      surveyInterstitial,
       previousPoll: previousPollResults,
       settings: settingsPayload,
       unlockedFeatures,

@@ -1,5 +1,6 @@
 import type { PollDeepDiveContent } from "@/lib/poll-deep-dive";
 import type { PollSettingsSnapshot } from "@/lib/poll-pod-config";
+import type { SurveyInterstitialClient } from "@/lib/game-interstitial-survey";
 
 export type PollOption = {
   id: string;
@@ -55,6 +56,7 @@ export type PollPayload = {
   activeCategory?: PollCategoryFilter | null;
   currentPoll: CurrentPoll | null;
   previousPoll: PreviousPoll | null;
+  surveyInterstitial?: SurveyInterstitialClient | null;
   settings?: PollSettingsSnapshot;
   /** Browser poll session id (also stored httpOnly); mirrored to localStorage for post-login recovery. */
   pollSessionId?: string;

@@ -35,12 +35,14 @@ export function PlayerPortalPollSectionOpen({
     isLoading,
     isReacting,
     isSubmitting,
+    isSubmittingSurvey,
     payload,
     showPollReactions,
     showSkipPoll,
     skipCurrentPoll,
     submitAnswer,
-    submitPollReaction
+    submitPollReaction,
+    submitSurveyInterstitial
   } = usePollExperience({
     onAnswered: (result: PollAnswerResult) => {
       const previousPollsTaken = optimisticPollsTakenRef.current;
@@ -97,10 +99,12 @@ export function PlayerPortalPollSectionOpen({
         isLoading={isLoading}
         isReacting={isReacting}
         isSubmitting={isSubmitting}
+        isSubmittingSurvey={isSubmittingSurvey}
         payload={payload}
         onReact={submitPollReaction}
         onSkip={() => void skipCurrentPoll()}
         onSubmit={submitAnswer}
+        onSubmitSurvey={submitSurveyInterstitial}
         showPollReactions={showPollReactions}
         showSkipPoll={showSkipPoll}
       />

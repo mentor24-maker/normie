@@ -18,6 +18,9 @@ import type {
   GameLevelUpRule,
   GameLevelEvent,
   GameEventModule,
+  GameInterstitial,
+  GameInterstitialStatus,
+  GameInterstitialType,
   GameProgressiveFeature,
   GameSublevel,
   GameReward,
@@ -25,7 +28,14 @@ import type {
   GameRewardType,
   GameScoringRule
 } from "@/lib/game-admin";
-import { GAME_LEVEL_NAMES, GAME_REWARD_STATUSES, GAME_REWARD_TYPES } from "@/lib/game-admin";
+import {
+  GAME_INTERSTITIAL_STATUSES,
+  GAME_INTERSTITIAL_TYPE_LABELS,
+  GAME_INTERSTITIAL_TYPES,
+  GAME_LEVEL_NAMES,
+  GAME_REWARD_STATUSES,
+  GAME_REWARD_TYPES
+} from "@/lib/game-admin";
 import { normalizeBuilderHexColor } from "@/lib/builder-hex-color";
 import { normalizeBuilderAssetUrl } from "@/lib/builder-template";
 import {
@@ -38,6 +48,13 @@ import {
 import { PLAYER_LEVELS_PER_GRADE } from "@/lib/player-portal";
 import { formatTemplateTimestamp } from "@/components/builder/builder-utils";
 import { BuilderSettingRow } from "@/components/builder/builder-setting-row";
+import { AdminSurveyInterstitialFields } from "@/components/admin-survey-interstitial-fields";
+import {
+  createDefaultSurveyConfig,
+  readSurveyConfigFromMetadata,
+  writeSurveyConfigToMetadata,
+  type GameInterstitialSurveyConfig
+} from "@/lib/game-interstitial-survey";
 import {
   buildNumericSelectWidthStyle,
   getNumericSelectDigitCountFromOptions
@@ -51,6 +68,7 @@ type GameSnapshot = {
   progressiveFeatures: GameProgressiveFeature[];
   rewards: GameReward[];
   scoringRules: GameScoringRule[];
+  interstitials: GameInterstitial[];
 };
 
 type GameLevelDraft = Partial<GameLevel>;
@@ -86,8 +104,9 @@ type RewardDraft = Partial<GameReward> & {
   classTier?: number;
 };
 type ScoringRuleDraft = Partial<GameScoringRule>;
+type InterstitialDraft = Partial<GameInterstitial>;
 type SortDirection = "asc" | "desc";
-type GameSection = "levels" | "scoring" | "level-up" | "redemptions";
+type GameSection = "levels" | "scoring" | "level-up" | "redemptions" | "interstitials";
 type GameLevelSortKey = "levelName" | "levelOrder" | "sublevels";
 type RewardSortKey = "name" | "rewardType" | "levelTier" | "gradeTier" | "classTier" | "rewardVisual";
 type ScoringRuleSortKey = "scoreName" | "description" | "specificCriteria" | "points" | "updatedAt";
@@ -231,7 +250,8 @@ const GAME_SECTION_TILES: Array<{ key: GameSection; label: string; description: 
   { key: "levels", label: "Progression Tracks", description: "Tracks, sublevels, and order." },
   { key: "scoring", label: "Point Scoring", description: "Ways players earn points." },
   { key: "level-up", label: "Level Up", description: "Graduation rules and criteria." },
-  { key: "redemptions", label: "Rewards & Redemptions", description: "Achievement rewards and point claims." }
+  { key: "redemptions", label: "Rewards & Redemptions", description: "Achievement rewards and point claims." },
+  { key: "interstitials", label: "Interstitials", description: "Messages between polls in the main panel." }
 ];
 
 async function readAdminJson<T extends { error?: string }>(response: Response, fallbackMessage: string): Promise<T> {
@@ -464,6 +484,31 @@ function createScoringRuleDraft(): ScoringRuleDraft {
     specificCriteria: "",
     points: 0
   };
+}
+
+function createInterstitialDraft(): InterstitialDraft {
+  return {
+    name: "",
+    description: "",
+    interstitialType: "survey",
+    displayOrder: 1,
+    status: "draft",
+    metadata: writeSurveyConfigToMetadata({}, createDefaultSurveyConfig())
+  };
+}
+
+function interstitialToDraft(interstitial: GameInterstitial): InterstitialDraft {
+  return { ...interstitial, metadata: { ...interstitial.metadata } };
+}
+
+function formatInterstitialStatus(status: GameInterstitialStatus | undefined) {
+  if (status === "active") return "Active";
+  if (status === "archived") return "Archived";
+  return "Draft";
+}
+
+function formatInterstitialType(type: GameInterstitialType | undefined) {
+  return GAME_INTERSTITIAL_TYPE_LABELS[type ?? "custom"] ?? "Custom";
 }
 
 function gameLevelToDraft(gameLevel: GameLevel): GameLevelDraft {
@@ -1359,6 +1404,119 @@ function ProgressiveFeatureEditor({
   );
 }
 
+function InterstitialEditor({
+  draft,
+  isSaving,
+  onCancel,
+  onChange,
+  onSave
+}: {
+  draft: InterstitialDraft;
+  isSaving: boolean;
+  onCancel: () => void;
+  onChange: (next: InterstitialDraft) => void;
+  onSave: () => void;
+}) {
+  const surveyConfig = readSurveyConfigFromMetadata(draft.metadata);
+
+  function updateSurveyConfig(nextSurvey: GameInterstitialSurveyConfig) {
+    onChange({
+      ...draft,
+      metadata: writeSurveyConfigToMetadata(draft.metadata, nextSurvey)
+    });
+  }
+
+  function handleTypeChange(nextType: GameInterstitialType) {
+    const nextDraft: InterstitialDraft = { ...draft, interstitialType: nextType };
+
+    if (nextType === "survey" && !draft.metadata?.survey) {
+      nextDraft.metadata = writeSurveyConfigToMetadata(draft.metadata, createDefaultSurveyConfig());
+    }
+
+    onChange(nextDraft);
+  }
+
+  return (
+    <div className="builder-product-editor admin-game-editor">
+      <div className="admin-game-reward-grid">
+        <BuilderSettingRow fullWidth label="Name">
+          <input
+            className="admin-game-reward-field-medium"
+            type="text"
+            value={draft.name ?? ""}
+            onChange={(event) => onChange({ ...draft, name: event.target.value })}
+            placeholder="Welcome Back Promo"
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Type">
+          <select
+            className="admin-game-reward-field-select"
+            value={draft.interstitialType ?? "custom"}
+            onChange={(event) => handleTypeChange(event.target.value as GameInterstitialType)}
+          >
+            {GAME_INTERSTITIAL_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {GAME_INTERSTITIAL_TYPE_LABELS[type]}
+              </option>
+            ))}
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Status">
+          <select
+            className="admin-game-reward-field-select"
+            value={draft.status ?? "draft"}
+            onChange={(event) =>
+              onChange({ ...draft, status: event.target.value as GameInterstitialStatus })
+            }
+          >
+            {GAME_INTERSTITIAL_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {formatInterstitialStatus(status)}
+              </option>
+            ))}
+          </select>
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Display Order">
+          <input
+            className="admin-game-reward-field-number"
+            min="1"
+            type="number"
+            value={draft.displayOrder ?? 1}
+            onChange={(event) =>
+              onChange({ ...draft, displayOrder: Math.max(1, Number(event.target.value) || 1) })
+            }
+          />
+        </BuilderSettingRow>
+        <BuilderSettingRow fullWidth label="Admin Notes">
+          <textarea
+            className="admin-game-reward-field-textarea"
+            value={draft.description ?? ""}
+            onChange={(event) => onChange({ ...draft, description: event.target.value })}
+            placeholder="Internal notes about when and why this interstitial should appear."
+            rows={4}
+          />
+        </BuilderSettingRow>
+      </div>
+
+      {draft.interstitialType === "survey" ? (
+        <AdminSurveyInterstitialFields onChange={updateSurveyConfig} survey={surveyConfig} />
+      ) : (
+        <p className="panel-copy admin-copy">
+          Type-specific content and display rules will be configured in a follow-up pass.
+        </p>
+      )}
+      <div className="builder-meta-actions">
+        <button className="secondary-button" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button className="submit-button admin-blog-add-button" disabled={isSaving} onClick={onSave} type="button">
+          {isSaving ? "Saving..." : "Save Interstitial"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LevelEventEditor({
   draft,
   eventModules,
@@ -2069,6 +2227,7 @@ export function AdminGameWorkspace() {
   const [progressiveFeatures, setProgressiveFeatures] = useState<GameProgressiveFeature[]>([]);
   const [rewards, setRewards] = useState<GameReward[]>([]);
   const [scoringRules, setScoringRules] = useState<GameScoringRule[]>([]);
+  const [interstitials, setInterstitials] = useState<GameInterstitial[]>([]);
   const [galleryMedia, setGalleryMedia] = useState<AdminMediaItem[]>([]);
   const [activeSection, setActiveSection] = useState<GameSection>("levels");
   const [editingGameLevelId, setEditingGameLevelId] = useState("");
@@ -2077,12 +2236,14 @@ export function AdminGameWorkspace() {
   const [editingProgressiveFeatureId, setEditingProgressiveFeatureId] = useState("");
   const [editingRewardId, setEditingRewardId] = useState("");
   const [editingScoringRuleId, setEditingScoringRuleId] = useState("");
+  const [editingInterstitialId, setEditingInterstitialId] = useState("");
   const [gameLevelDraft, setGameLevelDraft] = useState<GameLevelDraft>(createGameLevelDraft());
   const [levelUpRuleDraft, setLevelUpRuleDraft] = useState<LevelUpRuleDraft>(createLevelUpRuleDraft());
   const [levelEventDraft, setLevelEventDraft] = useState<LevelEventDraft>(createLevelEventDraft());
   const [progressiveFeatureDraft, setProgressiveFeatureDraft] = useState<ProgressiveFeatureDraft>(createProgressiveFeatureDraft());
   const [rewardDraft, setRewardDraft] = useState<RewardDraft>(createRewardDraft());
   const [scoringRuleDraft, setScoringRuleDraft] = useState<ScoringRuleDraft>(createScoringRuleDraft());
+  const [interstitialDraft, setInterstitialDraft] = useState<InterstitialDraft>(createInterstitialDraft());
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2250,6 +2411,14 @@ export function AdminGameWorkspace() {
         compareScoringRules(left, right, scoringRuleSortKey, scoringRuleSortDirection)
       ),
     [filteredScoringRules, scoringRuleSortDirection, scoringRuleSortKey]
+  );
+
+  const sortedInterstitials = useMemo(
+    () =>
+      [...interstitials].sort(
+        (left, right) => left.displayOrder - right.displayOrder || left.name.localeCompare(right.name)
+      ),
+    [interstitials]
   );
 
   const levelEventGradeOptions = useMemo(
@@ -2451,6 +2620,7 @@ export function AdminGameWorkspace() {
       setProgressiveFeatures(data.progressiveFeatures ?? []);
       setRewards(data.rewards ?? []);
       setScoringRules(data.scoringRules ?? []);
+      setInterstitials(data.interstitials ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load game settings.");
       setGameLevels([]);
@@ -2460,6 +2630,7 @@ export function AdminGameWorkspace() {
       setProgressiveFeatures([]);
       setRewards([]);
       setScoringRules([]);
+      setInterstitials([]);
     } finally {
       setIsLoading(false);
     }
@@ -2521,6 +2692,13 @@ export function AdminGameWorkspace() {
     setActiveSection("scoring");
     setEditingScoringRuleId("new");
     setScoringRuleDraft(createScoringRuleDraft());
+  }
+
+  function startNewInterstitial() {
+    resetMessages();
+    setActiveSection("interstitials");
+    setEditingInterstitialId("new");
+    setInterstitialDraft(createInterstitialDraft());
   }
 
   async function saveGameLevel() {
@@ -3000,6 +3178,52 @@ export function AdminGameWorkspace() {
     }
   }
 
+  async function saveInterstitial() {
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(
+        interstitialDraft.id ? `/api/admin/game/interstitials/${interstitialDraft.id}` : "/api/admin/game/interstitials",
+        {
+          method: interstitialDraft.id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: interstitialDraft.name,
+            description: interstitialDraft.description,
+            interstitialType: interstitialDraft.interstitialType,
+            displayOrder: interstitialDraft.displayOrder,
+            status: interstitialDraft.status,
+            metadata: interstitialDraft.metadata ?? {}
+          })
+        }
+      );
+      const data = await readAdminJson<{ interstitial?: GameInterstitial; error?: string }>(
+        response,
+        "Failed to save interstitial."
+      );
+
+      if (!data.interstitial) {
+        throw new Error(data.error ?? "Failed to save interstitial.");
+      }
+
+      setInterstitials((current) =>
+        interstitialDraft.id
+          ? current.map((item) => (item.id === data.interstitial!.id ? data.interstitial! : item))
+          : [...current, data.interstitial!].sort(
+              (left, right) => left.displayOrder - right.displayOrder || left.name.localeCompare(right.name)
+            )
+      );
+      setMessage(`Saved interstitial "${data.interstitial.name}".`);
+      setEditingInterstitialId("");
+      setInterstitialDraft(createInterstitialDraft());
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save interstitial.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function deleteGameLevel(gameLevel: GameLevel) {
     if (!window.confirm(`Delete ${formatGameLevelName(gameLevel.levelName)} order ${gameLevel.levelOrder}?`)) return;
     setIsSaving(true);
@@ -3268,6 +3492,27 @@ export function AdminGameWorkspace() {
       setMessage(`Deleted scoring rule "${scoringRule.scoreName}".`);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete scoring rule.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteInterstitial(interstitial: GameInterstitial) {
+    if (!window.confirm(`Delete interstitial "${interstitial.name}"?`)) return;
+    setIsSaving(true);
+    resetMessages();
+
+    try {
+      const response = await fetch(`/api/admin/game/interstitials/${interstitial.id}`, { method: "DELETE" });
+      await readAdminJson<{ error?: string }>(response, "Failed to delete interstitial.");
+      setInterstitials((current) => current.filter((item) => item.id !== interstitial.id));
+      if (editingInterstitialId === interstitial.id) {
+        setEditingInterstitialId("");
+        setInterstitialDraft(createInterstitialDraft());
+      }
+      setMessage(`Deleted interstitial "${interstitial.name}".`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete interstitial.");
     } finally {
       setIsSaving(false);
     }
@@ -4421,6 +4666,101 @@ export function AdminGameWorkspace() {
             onCancel={() => setEditingScoringRuleId("")}
             onChange={setScoringRuleDraft}
             onSave={() => void saveScoringRule()}
+          />
+        ) : null}
+      </section>
+      ) : null}
+
+      {activeSection === "interstitials" ? (
+      <section className="admin-section">
+        <div className="admin-toolbar">
+          <div>
+            <div className="panel-label">Interstitials</div>
+            <h2>Poll Panel Interstitials</h2>
+            <p className="page-copy admin-copy">
+              Configure messages that appear in the main polling panel between questions.
+            </p>
+          </div>
+          <button className="submit-button" disabled={isSaving} onClick={startNewInterstitial} type="button">
+            New Interstitial
+          </button>
+        </div>
+        {editingInterstitialId === "new" ? (
+          <InterstitialEditor
+            draft={interstitialDraft}
+            isSaving={isSaving}
+            onCancel={() => setEditingInterstitialId("")}
+            onChange={setInterstitialDraft}
+            onSave={() => void saveInterstitial()}
+          />
+        ) : null}
+        <div className="table-shell builder-templates-shell">
+          <table className="polls-table builder-templates-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th className="crud-actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedInterstitials.map((interstitial) => (
+                <tr key={interstitial.id}>
+                  <td>{interstitial.displayOrder}</td>
+                  <td><strong>{interstitial.name}</strong></td>
+                  <td>{formatInterstitialType(interstitial.interstitialType)}</td>
+                  <td>{formatInterstitialStatus(interstitial.status)}</td>
+                  <td>{formatTemplateTimestamp(interstitial.updatedAt)}</td>
+                  <td className="crud-actions-cell">
+                    <div className="crud-actions">
+                      <button
+                        aria-label="Edit interstitial"
+                        className="polls-icon-button polls-icon-button-edit"
+                        disabled={isSaving}
+                        onClick={() => {
+                          setActiveSection("interstitials");
+                          setEditingInterstitialId(interstitial.id);
+                          setInterstitialDraft(interstitialToDraft(interstitial));
+                        }}
+                        title="Edit"
+                        type="button"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        aria-label="Delete interstitial"
+                        className="polls-icon-button polls-icon-button-danger"
+                        disabled={isSaving}
+                        onClick={() => void deleteInterstitial(interstitial)}
+                        title="Delete"
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {sortedInterstitials.length === 0 ? (
+                <tr>
+                  <td className="empty-cell" colSpan={6}>
+                    {isLoading ? "Loading interstitials..." : "No interstitials found."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {editingInterstitialId && editingInterstitialId !== "new" ? (
+          <InterstitialEditor
+            draft={interstitialDraft}
+            isSaving={isSaving}
+            onCancel={() => setEditingInterstitialId("")}
+            onChange={setInterstitialDraft}
+            onSave={() => void saveInterstitial()}
           />
         ) : null}
       </section>

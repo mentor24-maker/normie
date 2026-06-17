@@ -130,6 +130,34 @@ export type GameLevelEvent = {
   updatedAt: string;
 };
 
+export type GameInterstitialType =
+  | "ad"
+  | "instructions"
+  | "special_deal"
+  | "feedback_poll"
+  | "announcement"
+  | "milestone"
+  | "survey"
+  | "partner_promo"
+  | "referral"
+  | "content_teaser"
+  | "onboarding"
+  | "custom";
+
+export type GameInterstitialStatus = "active" | "draft" | "archived";
+
+export type GameInterstitial = {
+  id: string;
+  name: string;
+  description: string;
+  interstitialType: GameInterstitialType;
+  displayOrder: number;
+  status: GameInterstitialStatus;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type GameLevelTierRow = {
   id: string;
   level: number;
@@ -229,8 +257,49 @@ type GameEventModuleRow = {
   modules: unknown;
 };
 
+type GameInterstitialRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  interstitial_type: string | null;
+  display_order: number | null;
+  status: string | null;
+  metadata: unknown;
+  created_at: string;
+  updated_at: string;
+};
+
 export const GAME_REWARD_TYPES: GameRewardType[] = ["badge", "digital", "access", "feature", "merch", "token", "custom"];
 export const GAME_REWARD_STATUSES: GameRewardStatus[] = ["active", "draft", "archived"];
+export const GAME_INTERSTITIAL_TYPES: GameInterstitialType[] = [
+  "ad",
+  "instructions",
+  "special_deal",
+  "feedback_poll",
+  "announcement",
+  "milestone",
+  "survey",
+  "partner_promo",
+  "referral",
+  "content_teaser",
+  "onboarding",
+  "custom"
+];
+export const GAME_INTERSTITIAL_STATUSES: GameInterstitialStatus[] = ["active", "draft", "archived"];
+export const GAME_INTERSTITIAL_TYPE_LABELS: Record<GameInterstitialType, string> = {
+  ad: "Ad",
+  instructions: "Instructions",
+  special_deal: "Special Deal",
+  feedback_poll: "Feedback Poll",
+  announcement: "Announcement",
+  milestone: "Milestone",
+  survey: "Survey",
+  partner_promo: "Partner Promo",
+  referral: "Referral",
+  content_teaser: "Content Teaser",
+  onboarding: "Onboarding",
+  custom: "Custom"
+};
 export const GAME_LEVEL_NAMES: GameLevelName[] = [
   "Level",
   "Grade",
@@ -325,6 +394,20 @@ function normalizeRewardType(value: unknown): GameRewardType {
 function normalizeRewardStatus(value: unknown): GameRewardStatus {
   const status = String(value ?? "").trim();
   return GAME_REWARD_STATUSES.includes(status as GameRewardStatus) ? (status as GameRewardStatus) : "draft";
+}
+
+export function normalizeGameInterstitialType(value: unknown): GameInterstitialType {
+  const interstitialType = String(value ?? "").trim();
+  return GAME_INTERSTITIAL_TYPES.includes(interstitialType as GameInterstitialType)
+    ? (interstitialType as GameInterstitialType)
+    : "custom";
+}
+
+export function normalizeGameInterstitialStatus(value: unknown): GameInterstitialStatus {
+  const status = String(value ?? "").trim();
+  return GAME_INTERSTITIAL_STATUSES.includes(status as GameInterstitialStatus)
+    ? (status as GameInterstitialStatus)
+    : "draft";
 }
 
 function normalizeLevelName(value: unknown): GameLevelName {
@@ -457,6 +540,22 @@ export function gameLevelEventToClient(row: GameLevelEventRow): GameLevelEvent {
   };
 }
 
+export function gameInterstitialToClient(row: GameInterstitialRow): GameInterstitial {
+  const displayOrder = row.display_order ?? 1;
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    interstitialType: normalizeGameInterstitialType(row.interstitial_type),
+    displayOrder: Number.isFinite(displayOrder) ? Math.max(1, displayOrder) : 1,
+    status: normalizeGameInterstitialStatus(row.status),
+    metadata: toRecord(row.metadata),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function gameEventModuleToClient(row: GameEventModuleRow): GameEventModule | null {
   const modules = normalizeBuilderModules(row.modules);
 
@@ -493,6 +592,7 @@ export async function getAdminGameSnapshot() {
     progressiveFeaturesResult,
     levelEventsResult,
     eventModulesResult,
+    interstitialsResult,
   ] =
     await Promise.all([
     supabase
@@ -532,6 +632,11 @@ export async function getAdminGameSnapshot() {
     supabase
       .from("builder_cell_modules")
       .select("id, name, module_class, modules")
+      .order("name", { ascending: true }),
+    supabase
+      .from("game_interstitials")
+      .select("id, name, description, interstitial_type, display_order, status, metadata, created_at, updated_at")
+      .order("display_order", { ascending: true })
       .order("name", { ascending: true })
   ]);
 
@@ -595,6 +700,14 @@ export async function getAdminGameSnapshot() {
     throw new Error(eventModulesResult.error.message);
   }
 
+  if (interstitialsResult.error) {
+    throw new Error(
+      interstitialsResult.error.message.includes("game_interstitials")
+        ? "Missing game_interstitials table. Apply migration 054_game_interstitials.sql."
+        : interstitialsResult.error.message
+    );
+  }
+
   const eventModules = ((eventModulesResult.data ?? []) as GameEventModuleRow[])
     .map(gameEventModuleToClient)
     .filter(
@@ -635,6 +748,7 @@ export async function getAdminGameSnapshot() {
     levelUpRules: ((levelUpRulesResult.data ?? []) as GameLevelUpRuleRow[]).map(gameLevelUpRuleToClient),
     progressiveFeatures: ((progressiveFeaturesResult.data ?? []) as GameProgressiveFeatureRow[]).map(gameProgressiveFeatureToClient),
     levelEvents,
-    eventModules
+    eventModules,
+    interstitials: ((interstitialsResult.data ?? []) as GameInterstitialRow[]).map(gameInterstitialToClient)
   };
 }

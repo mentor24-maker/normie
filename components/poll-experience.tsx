@@ -8,6 +8,7 @@ import {
 import logoBanner from "@/images/logo_normie_3_1600x500.png";
 import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
 import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import { SurveyInterstitialPanel } from "@/src/site/home/partials/survey-interstitial-panel";
 import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
 import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
 import { getPollDoneMessage } from "@/lib/poll-done-copy";
@@ -25,6 +26,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
   const [isReacting, setIsReacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +34,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     async (options?: { category?: string; startPoll?: string }) => {
       setError(null);
       setPayload((current) => {
-        if (!current?.currentPoll || current.done) {
+        if ((!current?.currentPoll && !current?.surveyInterstitial) || current.done) {
           return null;
         }
         return current;
@@ -110,6 +112,38 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     }
   }
 
+  async function submitSurveyInterstitial(answers: Record<string, string>) {
+    if (!payload?.surveyInterstitial) {
+      return;
+    }
+
+    setIsSubmittingSurvey(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/interstitial-survey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interstitialId: payload.surveyInterstitial.id,
+          answers
+        })
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save your survey responses.");
+      }
+
+      await loadPolls({ startPoll: "" });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to save your survey responses.");
+    } finally {
+      setIsSubmittingSurvey(false);
+    }
+  }
+
   async function submitPollReaction(reaction: PollReactionKind) {
     if (!payload?.previousPoll || payload.previousPoll.playerReaction) {
       return;
@@ -163,10 +197,17 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     <>
       {error ? <div className="notice error">{error}</div> : null}
 
-      {isLoading && !payload?.currentPoll && (!payload || payload.done) ? (
+      {isLoading && !payload?.currentPoll && !payload?.surveyInterstitial && (!payload || payload.done) ? (
         <div className="notice">Loading polls...</div>
       ) : payload?.done ? (
         <div className="notice success">{getPollDoneMessage(payload.doneReason)}</div>
+      ) : payload?.surveyInterstitial ? (
+        <SurveyInterstitialPanel
+          isSubmitting={isSubmittingSurvey}
+          onSubmit={submitSurveyInterstitial}
+          settings={payload.settings}
+          survey={payload.surveyInterstitial}
+        />
       ) : payload?.currentPoll ? (
         <>
           <section className="poll-grid" style={getPollGridStyle(payload.settings)}>

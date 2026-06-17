@@ -7,7 +7,8 @@ import { SiteShell } from "@/src/site/layout/site-shell";
 import { usePollExperience } from "@/src/site/home/use-poll-experience";
 
 export function HomePage() {
-  const { error, isLoading, isSubmitting, payload, submitAnswer } = usePollExperience();
+  const { error, isLoading, isSubmitting, isSubmittingSurvey, payload, submitAnswer, submitSurveyInterstitial } =
+    usePollExperience();
 
   return (
     <SiteShell>
@@ -15,8 +16,10 @@ export function HomePage() {
       <PollStage
         isLoading={isLoading}
         isSubmitting={isSubmitting}
+        isSubmittingSurvey={isSubmittingSurvey}
         payload={payload}
         onSubmit={submitAnswer}
+        onSubmitSurvey={submitSurveyInterstitial}
       />
       <HomeFooterNote />
     </SiteShell>

@@ -1644,6 +1644,112 @@ h2 {
   color: var(--poll-previous-results-question-ink);
 }
 
+.poll-survey-interstitial-grid {
+  width: 100%;
+}
+
+.poll-survey-interstitial-instructions,
+.poll-survey-interstitial-questions {
+  min-height: 100%;
+}
+
+.poll-survey-interstitial-copy {
+  display: grid;
+  gap: 12px;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.poll-survey-interstitial-copy p {
+  margin: 0;
+}
+
+.poll-survey-question-list {
+  display: grid;
+  gap: 22px;
+}
+
+.poll-survey-question-block {
+  display: grid;
+  gap: 12px;
+}
+
+.poll-survey-question-prompt {
+  margin: 0;
+  font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+  line-height: 1.35;
+  color: #240251;
+}
+
+.poll-survey-question-index {
+  margin-right: 0.35rem;
+  color: var(--muted);
+}
+
+.poll-survey-option-list {
+  display: grid;
+  gap: 10px;
+}
+
+.poll-survey-option-button.is-selected {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
+.poll-survey-submit-button {
+  width: fit-content;
+}
+
+.admin-survey-interstitial-fields {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.admin-survey-inline-number-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-survey-inline-suffix {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.admin-survey-question-list {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-survey-question-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-survey-question-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-survey-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-survey-add-button,
+.admin-survey-remove-button {
+  width: fit-content;
+}
+
 .admin-stack {
   display: grid;
   gap: 28px;

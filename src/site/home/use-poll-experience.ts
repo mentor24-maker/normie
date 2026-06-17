@@ -36,6 +36,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
   const [payload, setPayload] = useState<PollPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
   const [isReacting, setIsReacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +49,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
       setPayload((current) => {
         showLoading = true;
 
-        if (current?.currentPoll && !current.done) {
+        if ((current?.currentPoll || current?.surveyInterstitial) && !current.done) {
           return current;
         }
 
@@ -146,6 +147,40 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function submitSurveyInterstitial(answers: Record<string, string>) {
+    if (!payload?.surveyInterstitial) {
+      return;
+    }
+
+    setIsSubmittingSurvey(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/interstitial-survey", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          interstitialId: payload.surveyInterstitial.id,
+          answers
+        })
+      });
+
+      const data = (await response.json()) as { error?: string; ok?: boolean };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save your survey responses.");
+      }
+
+      await loadPolls({ reset: true });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to save your survey responses.");
+    } finally {
+      setIsSubmittingSurvey(false);
     }
   }
 
@@ -247,11 +282,13 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
     isLoading,
     isReacting,
     isSubmitting,
+    isSubmittingSurvey,
     payload,
     showPollReactions: Boolean(payload?.unlockedFeatures?.includes(POLL_LIKE_DISLIKE_FEATURE_KEY)),
     showSkipPoll: Boolean(payload?.unlockedFeatures?.includes(POLL_SKIP_FEATURE_KEY)),
     skipCurrentPoll,
     submitAnswer,
-    submitPollReaction
+    submitPollReaction,
+    submitSurveyInterstitial
   };
 }
