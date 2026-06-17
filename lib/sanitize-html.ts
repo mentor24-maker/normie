@@ -1,5 +1,5 @@
 import type DOMPurifyType from "dompurify";
-import { isAllowedRichTextImageSrc } from "@/lib/rich-text-image";
+import { isAllowedRichTextImageSrc } from "@/lib/rich-text-image-src";
 
 const RICH_TEXT_ALLOWED_TAGS = [
   "p",
