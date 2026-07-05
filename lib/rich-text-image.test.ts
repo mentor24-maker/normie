@@ -28,6 +28,17 @@ describe("resolveRichTextImageSrc", () => {
       "/api/admin/media-file/logo.png"
     );
   });
+
+  it("accepts Supabase gallery public URLs from the media library", () => {
+    const supabaseUrl =
+      "https://project.supabase.co/storage/v1/object/public/gallery/normie.png";
+
+    expect(resolveRichTextImageSrc(supabaseUrl, "editor")).toBe(
+      "/api/admin/media-file/gallery/normie.png"
+    );
+    expect(resolveRichTextImageSrc(supabaseUrl, "display")).toBe("/gallery/normie.png");
+    expect(resolveRichTextImageSrc(supabaseUrl, "storage")).toBe("/gallery/normie.png");
+  });
 });
 
 describe("appendRichTextImageToHtml", () => {

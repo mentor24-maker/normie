@@ -8,10 +8,10 @@ import {
   stripStartPollFromBrowserUrl
 } from "@/lib/poll-categories";
 import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
-import type { PollAnswerClientPayload } from "@/lib/poll-test-mode";
+import type { PollAnswerClientPayload } from "@/lib/poll-answer-client";
 import { subscribePlayerPreferencesUpdated } from "@/lib/player-preferences-events";
 import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
-import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-test-mode";
+import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-answer-client";
 import { POLL_SKIP_FEATURE_KEY, POLL_LIKE_DISLIKE_FEATURE_KEY } from "@/lib/player-unlocked-features";
 import type { PollReactionKind } from "@/lib/poll-reaction";
 import type { PollPayload } from "@/src/site/home/types";

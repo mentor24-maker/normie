@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
+import { loadPlayerTesterPollPin } from "@/lib/player-tester-poll";
 import { getScoringRulePointsByName, SKIP_QUESTION_SCORE_NAME } from "@/lib/game-scoring-points";
 import { countPlayerProgressPollsFromDb } from "@/lib/player-poll-stats";
 import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
@@ -73,8 +74,14 @@ export const POST = withObservedRoute("polls.skip", async (request) => {
   }
 
   const pollTestPin = readPollTestPin(cookieStore);
+  const playerTesterPollPin = await loadPlayerTesterPollPin(player.authUser.id);
 
   if (isPollTestModeRequest(request, cookieStore) && pollTestPin === pollId) {
+    const progressPolls = await countPlayerProgressPollsFromDb(createAdminClient(), player.authUser.id);
+    return NextResponse.json({ ok: true, skipped: false, duplicate: true, playerAnswerCount: progressPolls });
+  }
+
+  if (playerTesterPollPin && playerTesterPollPin === pollId) {
     const progressPolls = await countPlayerProgressPollsFromDb(createAdminClient(), player.authUser.id);
     return NextResponse.json({ ok: true, skipped: false, duplicate: true, playerAnswerCount: progressPolls });
   }

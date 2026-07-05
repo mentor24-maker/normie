@@ -3,7 +3,7 @@ import {
   resolvePollAnswerProgress,
   shouldFirePollAnswerEffects,
   type PollAnswerClientPayload
-} from "@/lib/poll-test-mode";
+} from "@/lib/poll-answer-client";
 
 export async function runPollAnswerSideEffects(payload: PollAnswerClientPayload): Promise<void> {
   if (!shouldFirePollAnswerEffects(payload)) {

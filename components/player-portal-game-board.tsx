@@ -54,11 +54,13 @@ function renderLevelRewardColumns(
 export function PlayerPortalGameBoard({
   onClose,
   rewardTrack,
-  stats
+  stats,
+  testerPollNumber = null
 }: {
   onClose?: () => void;
   rewardTrack: PlayerPortalRewardTrack;
   stats: PlayerPortalGameBoardStats;
+  testerPollNumber?: number | null;
 }) {
   return (
     <section
@@ -164,6 +166,16 @@ export function PlayerPortalGameBoard({
                     ))}
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+            {testerPollNumber != null ? (
+              <div className="player-portal-home-base-right">
+                <p
+                  aria-label={`Tester poll number ${testerPollNumber}`}
+                  className="player-portal-tester-poll-diagnostic"
+                >
+                  <strong>{testerPollNumber}</strong>
+                </p>
               </div>
             ) : null}
           </div>

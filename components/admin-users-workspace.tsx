@@ -10,6 +10,14 @@ import {
 } from "@/lib/admin-users";
 import { PUBLIC_USER_STATUSES, type PublicUserRecord, type PublicUserStatus } from "@/lib/public-users";
 import { formatPlayerLastSignIn } from "@/lib/player-email-confirmation";
+import { readAdminJson } from "@/lib/admin-fetch";
+
+type PollPickerRow = {
+  id: string;
+  category: string | null;
+  question: string;
+  order_index: number;
+};
 
 type DirectoryRecord = AdminUserRecord | PublicUserRecord;
 
@@ -22,6 +30,8 @@ type UserFormState = {
   status: UserStatus | PublicUserStatus;
   source: string;
   notes: string;
+  isTester: boolean;
+  testerPollId: string;
 };
 
 const emptyUserForm: UserFormState = {
@@ -32,7 +42,9 @@ const emptyUserForm: UserFormState = {
   role: "editor",
   status: "active",
   source: "manual",
-  notes: ""
+  notes: "",
+  isTester: false,
+  testerPollId: ""
 };
 
 function createEmptyForm(directoryKind: "users" | "team"): UserFormState {
@@ -56,7 +68,9 @@ function createFormFromUser(user: DirectoryRecord, directoryKind: "users" | "tea
     role: "role" in user ? user.role : "viewer",
     status: user.status,
     source: directoryKind === "team" ? "team" : "manual",
-    notes: user.notes
+    notes: user.notes,
+    isTester: isPublicUserRecord(user) ? user.isTester : false,
+    testerPollId: isPublicUserRecord(user) ? user.testerPollId ?? "" : ""
   };
 }
 
@@ -67,6 +81,164 @@ function formatTimestamp(value: string) {
 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+type SortDirection = "asc" | "desc";
+
+type UserDirectorySortKey =
+  | "user"
+  | "status"
+  | "lastSignIn"
+  | "handle"
+  | "pollsTaken"
+  | "pointsEarned"
+  | "createdAt";
+
+type TeamDirectorySortKey = "user" | "role" | "status" | "lastSignIn" | "createdAt";
+
+type DirectorySortKey = UserDirectorySortKey | TeamDirectorySortKey;
+
+function getUserDisplayName(user: DirectoryRecord) {
+  return user.fullName || "Unnamed user";
+}
+
+function getLastSignInTimestamp(user: DirectoryRecord) {
+  if (isPublicUserRecord(user)) {
+    if (!user.emailConfirmedAt || !user.lastSignInAt) {
+      return 0;
+    }
+
+    const timestamp = new Date(user.lastSignInAt).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+  }
+
+  if (!("lastSignInAt" in user) || !user.lastSignInAt) {
+    return 0;
+  }
+
+  const timestamp = new Date(user.lastSignInAt).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function compareDirectoryUsers(
+  left: DirectoryRecord,
+  right: DirectoryRecord,
+  sortKey: DirectorySortKey,
+  sortDirection: SortDirection
+) {
+  let result = 0;
+
+  switch (sortKey) {
+    case "user": {
+      const leftLabel = `${getUserDisplayName(left)} ${left.email}`.trim();
+      const rightLabel = `${getUserDisplayName(right)} ${right.email}`.trim();
+      result = leftLabel.localeCompare(rightLabel, undefined, { sensitivity: "base" });
+      break;
+    }
+    case "role":
+      result = ("role" in left ? left.role : "").localeCompare(
+        "role" in right ? right.role : "",
+        undefined,
+        { sensitivity: "base" }
+      );
+      break;
+    case "status":
+      result = left.status.localeCompare(right.status, undefined, { sensitivity: "base" });
+      break;
+    case "lastSignIn":
+      result = getLastSignInTimestamp(left) - getLastSignInTimestamp(right);
+      break;
+    case "handle":
+      result = (isPublicUserRecord(left) ? left.handle : "").localeCompare(
+        isPublicUserRecord(right) ? right.handle : "",
+        undefined,
+        { sensitivity: "base" }
+      );
+      break;
+    case "pollsTaken":
+      result = ("pollsTaken" in left ? left.pollsTaken : 0) - ("pollsTaken" in right ? right.pollsTaken : 0);
+      break;
+    case "pointsEarned":
+      result =
+        ("pointsEarned" in left ? left.pointsEarned : 0) -
+        ("pointsEarned" in right ? right.pointsEarned : 0);
+      break;
+    case "createdAt":
+      result = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+      break;
+  }
+
+  return sortDirection === "asc" ? result : -result;
+}
+
+function userMatchesFilters(
+  user: DirectoryRecord,
+  filters: {
+    userQuery: string;
+    statusFilter: string;
+    handleQuery: string;
+    roleFilter: string;
+  },
+  directoryKind: "users" | "team"
+) {
+  const userQuery = filters.userQuery.trim().toLowerCase();
+
+  if (userQuery) {
+    const haystack = `${getUserDisplayName(user)} ${user.email}`.toLowerCase();
+
+    if (!haystack.includes(userQuery)) {
+      return false;
+    }
+  }
+
+  if (filters.statusFilter && user.status !== filters.statusFilter) {
+    return false;
+  }
+
+  if (directoryKind === "team" && filters.roleFilter && "role" in user && user.role !== filters.roleFilter) {
+    return false;
+  }
+
+  const handleQuery = filters.handleQuery.trim().toLowerCase();
+
+  if (directoryKind === "users" && handleQuery) {
+    if (!isPublicUserRecord(user) || !user.handle.toLowerCase().includes(handleQuery)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function DirectoryTableSortButton({
+  label,
+  sortKey,
+  activeSortKey,
+  sortDirection,
+  onSort
+}: {
+  label: string;
+  sortKey: DirectorySortKey;
+  activeSortKey: DirectorySortKey;
+  sortDirection: SortDirection;
+  onSort: (key: DirectorySortKey) => void;
+}) {
+  const isActive = activeSortKey === sortKey;
+  const indicator = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
+
+  return (
+    <button
+      aria-sort={isActive ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+      className={`admin-table-sort-button${isActive ? " is-active" : ""}`}
+      onClick={() => onSort(sortKey)}
+      type="button"
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="admin-table-sort-indicator">
+        {indicator}
+      </span>
+    </button>
+  );
 }
 
 type AdminUsersWorkspaceProps = {
@@ -107,11 +279,57 @@ export function AdminUsersWorkspace({
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [testerPollOptions, setTesterPollOptions] = useState<PollPickerRow[]>([]);
+  const [isLoadingTesterPolls, setIsLoadingTesterPolls] = useState(false);
+  const [sortKey, setSortKey] = useState<DirectorySortKey>("createdAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [filterUser, setFilterUser] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterHandle, setFilterHandle] = useState("");
+  const [filterRole, setFilterRole] = useState("");
 
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) ?? null,
     [users, selectedUserId]
   );
+
+  const hasActiveFilters = Boolean(
+    filterUser.trim() ||
+      filterStatus ||
+      (directoryKind === "users" ? filterHandle.trim() : filterRole)
+  );
+
+  const filteredUsers = useMemo(
+    () =>
+      users.filter((user) =>
+        userMatchesFilters(
+          user,
+          {
+            userQuery: filterUser,
+            statusFilter: filterStatus,
+            handleQuery: filterHandle,
+            roleFilter: filterRole
+          },
+          directoryKind
+        )
+      ),
+    [directoryKind, filterHandle, filterRole, filterStatus, filterUser, users]
+  );
+
+  const sortedUsers = useMemo(
+    () => [...filteredUsers].sort((left, right) => compareDirectoryUsers(left, right, sortKey, sortDirection)),
+    [filteredUsers, sortDirection, sortKey]
+  );
+
+  function handleSort(nextKey: DirectorySortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "createdAt" || nextKey === "lastSignIn" ? "desc" : "asc");
+  }
 
   const loadUsers = useCallback(async function loadUsers() {
     setIsLoading(true);
@@ -158,6 +376,37 @@ export function AdminUsersWorkspace({
 
     setForm(createFormFromUser(selectedUser, directoryKind));
   }, [directoryKind, selectedUser]);
+
+  const loadTesterPollOptions = useCallback(async () => {
+    setIsLoadingTesterPolls(true);
+
+    try {
+      const response = await fetch("/api/admin/polls/picker", { cache: "no-store" });
+      const data = await readAdminJson<{ polls?: PollPickerRow[]; error?: string }>(
+        response,
+        "Failed to load polls."
+      );
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to load polls.");
+      }
+
+      setTesterPollOptions(data.polls ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load polls.");
+      setTesterPollOptions([]);
+    } finally {
+      setIsLoadingTesterPolls(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (directoryKind !== "users" || !selectedUserId || !form.isTester) {
+      return;
+    }
+
+    void loadTesterPollOptions();
+  }, [directoryKind, form.isTester, loadTesterPollOptions, selectedUserId]);
 
   function updateForm<K extends keyof UserFormState>(key: K, value: UserFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -381,6 +630,48 @@ export function AdminUsersWorkspace({
               ))}
             </select>
           </label>
+          {directoryKind === "users" && selectedUserId ? (
+            <>
+              <label className="field">
+                <span>Tester</span>
+                <input
+                  checked={form.isTester}
+                  onChange={(event) => {
+                    const isTester = event.target.checked;
+                    setForm((current) => ({
+                      ...current,
+                      isTester,
+                      testerPollId: isTester ? current.testerPollId : ""
+                    }));
+                  }}
+                  type="checkbox"
+                />
+              </label>
+              {form.isTester ? (
+                <label className="field">
+                  <span>Assigned Poll</span>
+                  <select
+                    value={form.testerPollId}
+                    onChange={(event) => updateForm("testerPollId", event.target.value)}
+                    disabled={isLoadingTesterPolls}
+                  >
+                    <option value="">
+                      {isLoadingTesterPolls ? "Loading polls..." : "Select a poll"}
+                    </option>
+                    {form.testerPollId &&
+                    !testerPollOptions.some((poll) => poll.id === form.testerPollId) ? (
+                      <option value={form.testerPollId}>Current assignment</option>
+                    ) : null}
+                    {testerPollOptions.map((poll) => (
+                      <option key={poll.id} value={poll.id}>
+                        {poll.order_index}. {poll.question}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </>
+          ) : null}
           {directoryKind === "team" ? (
             <label className="field admin-form-notes">
               <span>Notes</span>
@@ -428,23 +719,146 @@ export function AdminUsersWorkspace({
           </div>
         </div>
 
+        <div className="admin-products-filter-bar">
+          <label className="field">
+            <span>User</span>
+            <input
+              type="search"
+              value={filterUser}
+              onChange={(event) => setFilterUser(event.target.value)}
+              placeholder="Filter by name or email"
+            />
+          </label>
+          {directoryKind === "users" ? (
+            <label className="field">
+              <span>Handle</span>
+              <input
+                type="search"
+                value={filterHandle}
+                onChange={(event) => setFilterHandle(event.target.value)}
+                placeholder="Filter by handle"
+              />
+            </label>
+          ) : (
+            <label className="field">
+              <span>Role</span>
+              <select value={filterRole} onChange={(event) => setFilterRole(event.target.value)}>
+                <option value="">All roles</option>
+                {TEAM_USER_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="field">
+            <span>Status</span>
+            <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+              <option value="">All statuses</option>
+              {(directoryKind === "team" ? TEAM_USER_STATUSES : PUBLIC_USER_STATUSES).map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {hasActiveFilters ? (
+          <p className="admin-products-filter-summary">
+            Showing {sortedUsers.length} of {users.length} {directoryKind === "users" ? "players" : "users"}
+          </p>
+        ) : null}
+
         <div className="table-shell">
           <table className="polls-table users-table">
             <thead>
               <tr>
-                <th>User</th>
-                {directoryKind === "team" ? <th>Role</th> : null}
-                <th>Status</th>
-                {directoryKind === "team" ? <th>Last Sign-In</th> : <th>Last Sign-In</th>}
-                {directoryKind === "users" ? <th>Handle</th> : null}
-                {directoryKind === "users" ? <th>Polls</th> : null}
-                {directoryKind === "users" ? <th>Points</th> : null}
-                <th>Created</th>
+                <th>
+                  <DirectoryTableSortButton
+                    activeSortKey={sortKey}
+                    label="User"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="user"
+                  />
+                </th>
+                {directoryKind === "team" ? (
+                  <th>
+                    <DirectoryTableSortButton
+                      activeSortKey={sortKey}
+                      label="Role"
+                      onSort={handleSort}
+                      sortDirection={sortDirection}
+                      sortKey="role"
+                    />
+                  </th>
+                ) : null}
+                <th>
+                  <DirectoryTableSortButton
+                    activeSortKey={sortKey}
+                    label="Status"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="status"
+                  />
+                </th>
+                <th>
+                  <DirectoryTableSortButton
+                    activeSortKey={sortKey}
+                    label="Last Sign-In"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="lastSignIn"
+                  />
+                </th>
+                {directoryKind === "users" ? (
+                  <th>
+                    <DirectoryTableSortButton
+                      activeSortKey={sortKey}
+                      label="Handle"
+                      onSort={handleSort}
+                      sortDirection={sortDirection}
+                      sortKey="handle"
+                    />
+                  </th>
+                ) : null}
+                {directoryKind === "users" ? (
+                  <th>
+                    <DirectoryTableSortButton
+                      activeSortKey={sortKey}
+                      label="Polls"
+                      onSort={handleSort}
+                      sortDirection={sortDirection}
+                      sortKey="pollsTaken"
+                    />
+                  </th>
+                ) : null}
+                {directoryKind === "users" ? (
+                  <th>
+                    <DirectoryTableSortButton
+                      activeSortKey={sortKey}
+                      label="Points"
+                      onSort={handleSort}
+                      sortDirection={sortDirection}
+                      sortKey="pointsEarned"
+                    />
+                  </th>
+                ) : null}
+                <th>
+                  <DirectoryTableSortButton
+                    activeSortKey={sortKey}
+                    label="Created"
+                    onSort={handleSort}
+                    sortDirection={sortDirection}
+                    sortKey="createdAt"
+                  />
+                </th>
                 <th className="crud-actions-cell">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {sortedUsers.map((user) => (
                 <tr className={selectedUserId === user.id ? "is-selected-row" : undefined} key={user.id}>
                   <td>
                     <strong>{user.fullName || "Unnamed user"}</strong>
@@ -502,10 +916,10 @@ export function AdminUsersWorkspace({
                   </td>
                 </tr>
               ))}
-              {users.length === 0 ? (
+              {sortedUsers.length === 0 ? (
                 <tr>
                   <td className="empty-cell" colSpan={directoryKind === "users" ? 8 : 6}>
-                    {emptyMessage}
+                    {hasActiveFilters ? "No users match the current filters." : emptyMessage}
                   </td>
                 </tr>
               ) : null}

@@ -49,6 +49,7 @@
   --crud-edit-border: #22a06b;
   --crud-edit-bg: #e5f8ed;
   --crud-edit-ink: #1a7a4c;
+  --image-radius: 0px;
   --poll-pod-bg: transparent;
   --poll-pod-radius: 34px;
   --poll-header-radius: 999px;
@@ -4281,6 +4282,29 @@ h2 {
   flex: 0 1 var(--player-game-board-stats-width);
   min-width: 0;
   max-width: var(--player-game-board-stats-width);
+}
+
+.player-portal-home-base-right {
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: flex-start;
+  min-width: 0;
+  text-align: right;
+}
+
+.player-portal-tester-poll-diagnostic {
+  margin: 0;
+  padding: 0;
+  text-align: right;
+}
+
+.player-portal-tester-poll-diagnostic strong {
+  display: block;
+  font-size: clamp(2.75rem, 5vw, 3.75rem);
+  line-height: 1;
+  font-weight: 800;
+  color: #15803d;
+  font-variant-numeric: tabular-nums;
 }
 
 .player-portal-polls-mini-stats {
@@ -9841,7 +9865,7 @@ select.builder-number-select-control,
   width: 100%;
   min-height: 220px;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: var(--image-radius);
   background: transparent;
 }
 
@@ -9853,7 +9877,7 @@ select.builder-number-select-control,
 .builder-preview-video {
   width: 100%;
   max-height: 320px;
-  border-radius: 18px;
+  border-radius: var(--image-radius);
   background: rgba(9, 16, 24, 0.92);
 }
 
@@ -9871,7 +9895,7 @@ select.builder-number-select-control,
   aspect-ratio: 16 / 9;
   overflow: hidden;
   border: 1px solid rgba(9, 16, 24, 0.08);
-  border-radius: 18px;
+  border-radius: var(--image-radius);
   background: rgba(9, 16, 24, 0.92);
 }
 
@@ -12690,6 +12714,12 @@ code {
     width: 100%;
   }
 
+  .player-portal-home-base-right {
+    width: 100%;
+    margin-left: 0;
+    align-self: flex-end;
+  }
+
   .player-portal-polls-mini-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
@@ -14287,6 +14317,8 @@ a.blog-chip:hover {
 .blog-post-featured-image {
   display: block;
   width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
   border-radius: var(--blog-pod-radius, 20px);
   margin-bottom: 28px;
 }
@@ -14416,6 +14448,34 @@ a.blog-chip:hover {
   aspect-ratio: 16 / 10;
   object-fit: cover;
   border-radius: 10px;
+}
+
+.admin-blog-posts-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.admin-blog-post-thumb-cell {
+  width: 240px;
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.admin-blog-post-thumb {
+  display: block;
+  width: 240px;
+  height: 135px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(9, 16, 24, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.admin-blog-featured-image-preview {
+  margin-top: 12px;
 }
 
 .admin-blog-view-tabs {
@@ -14857,6 +14917,10 @@ a.blog-chip:hover {
 }
 
 @media (max-width: 900px) {
+  .admin-blog-posts-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-blog-editor-layout {
     grid-template-columns: 1fr;
   }

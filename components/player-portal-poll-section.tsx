@@ -7,6 +7,7 @@ import { PlayerPortalPollStage } from "@/src/site/home/partials/player-portal-po
 import { type PollAnswerResult, usePollExperience } from "@/src/site/home/use-poll-experience";
 import { PLAYER_PORTAL_POLLS_SECTION_ID } from "@/lib/player-portal-play-polls";
 import { appendPlayerLevelUpDiagnostic } from "@/lib/player-level-up-diagnostics";
+import { resolvePollAnswerProgress, shouldFirePollAnswerEffects } from "@/lib/poll-answer-client";
 import { PLAYER_GAME_REMINDERS_REFRESH_EVENT } from "@/lib/player-reminder-events";
 import { firePlayerLevelUpGameEvents } from "@/lib/player-portal-confetti";
 
@@ -46,7 +47,7 @@ export function PlayerPortalPollSectionOpen({
   } = usePollExperience({
     onAnswered: (result: PollAnswerResult) => {
       const previousPollsTaken = optimisticPollsTakenRef.current;
-      const nextPollsTaken = result.playerAnswerCount ?? previousPollsTaken + 1;
+      const nextPollsTaken = resolvePollAnswerProgress(result) ?? previousPollsTaken + 1;
 
       optimisticPollsTakenRef.current = nextPollsTaken;
       appendPlayerLevelUpDiagnostic("poll-answer.response", {
@@ -55,23 +56,33 @@ export function PlayerPortalPollSectionOpen({
         playerAnswerCount: result.playerAnswerCount ?? null,
         levelUp: result.levelUp ?? false,
         duplicate: result.duplicate ?? false,
-        claimed: result.claimed ?? false
+        claimed: result.claimed ?? false,
+        testerPollMode: result.testerPollMode ?? false,
+        pollTestMode: result.pollTestMode ?? false
       });
 
-      if (!result.duplicate && nextPollsTaken > previousPollsTaken) {
-        appendPlayerLevelUpDiagnostic("poll-answer.fire-confetti-immediate", {
-          progressPollsTaken: nextPollsTaken,
-          levelEvents: levelEvents.length,
-          playerAnswerCount: result.playerAnswerCount ?? null,
-          levelUp: result.levelUp ?? false
-        });
-        void firePlayerLevelUpGameEvents(levelEvents, nextPollsTaken);
+      if (shouldFirePollAnswerEffects(result) && result.isRegistered !== false) {
+        const progressPollsTaken = resolvePollAnswerProgress(result);
+
+        if (progressPollsTaken !== null && progressPollsTaken > 0) {
+          appendPlayerLevelUpDiagnostic("poll-answer.fire-confetti-immediate", {
+            progressPollsTaken,
+            levelEvents: levelEvents.length,
+            playerAnswerCount: result.playerAnswerCount ?? null,
+            levelUp: result.levelUp ?? false,
+            testerPollMode: result.testerPollMode ?? false,
+            pollTestMode: result.pollTestMode ?? false
+          });
+          void firePlayerLevelUpGameEvents(levelEvents, progressPollsTaken);
+        }
       } else {
         appendPlayerLevelUpDiagnostic("poll-answer.no-immediate-fire", {
           duplicate: result.duplicate ?? false,
           previousPollsTaken,
           nextPollsTaken,
-          playerAnswerCount: result.playerAnswerCount ?? null
+          playerAnswerCount: result.playerAnswerCount ?? null,
+          testerPollMode: result.testerPollMode ?? false,
+          pollTestMode: result.pollTestMode ?? false
         });
       }
 

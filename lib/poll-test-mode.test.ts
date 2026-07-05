@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   excludePinnedPollFromAnswered,
   isLocalhostPollTestHost,
-  nextPollTestProgress,
-  resolvePollAnswerProgress,
-  shouldFirePollAnswerEffects
+  nextPollTestProgress
 } from "./poll-test-mode";
+import { resolvePollAnswerProgress, shouldFirePollAnswerEffects } from "./poll-answer-client";
 
 describe("isLocalhostPollTestHost", () => {
   it("matches only localhost:3000", () => {
@@ -26,6 +25,7 @@ describe("nextPollTestProgress", () => {
 describe("shouldFirePollAnswerEffects", () => {
   it("fires on every test-mode answer", () => {
     expect(shouldFirePollAnswerEffects({ pollTestMode: true, duplicate: true })).toBe(true);
+    expect(shouldFirePollAnswerEffects({ testerPollMode: true, duplicate: true })).toBe(true);
     expect(shouldFirePollAnswerEffects({ duplicate: true })).toBe(false);
   });
 });

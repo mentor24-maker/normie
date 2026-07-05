@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { normalizeBlogSlugInput, slugifyBlogText, validateBlogPostInput } from "@/lib/blog";
+import {
+  normalizeBlogSlugInput,
+  normalizePublicBlogImageUrl,
+  resolveBlogFeaturedImageAdminSrc,
+  slugifyBlogText,
+  validateBlogPostInput
+} from "@/lib/blog";
+
+describe("blog featured image urls", () => {
+  it("maps gallery paths to public and admin URLs", () => {
+    expect(normalizePublicBlogImageUrl("/gallery/normie.png")).toBe("/gallery/normie.png");
+    expect(resolveBlogFeaturedImageAdminSrc("/gallery/normie.png")).toBe(
+      "/api/admin/media-file/gallery/normie.png"
+    );
+  });
+});
 
 describe("normalizeBlogSlugInput", () => {
   it("preserves dashes while typing", () => {

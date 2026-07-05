@@ -29,6 +29,14 @@ alter table public.player_profiles
 add column if not exists preferred_poll_categories jsonb not null default '[]'::jsonb,
 add column if not exists default_play_poll_category text;
 
+alter table public.player_profiles
+add column if not exists is_tester boolean not null default false,
+add column if not exists tester_poll_id uuid references public.polls(id) on delete set null;
+
+create index if not exists player_profiles_tester_poll_id_idx
+on public.player_profiles (tester_poll_id)
+where is_tester = true;
+
 create index if not exists player_profiles_status_idx on public.player_profiles (status);
 create index if not exists player_profiles_handle_idx on public.player_profiles (handle);
 

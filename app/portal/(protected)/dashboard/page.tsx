@@ -28,6 +28,7 @@ export default async function PlayerDashboardPage() {
             tokensEarned: snapshot.tokensEarned,
             playerRank: snapshot.playerRank
           }}
+          testerPollNumber={snapshot.testerPollNumber}
         />
       </Suspense>
       <PlayerPortalLevelUpCelebration

@@ -1,15 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
 import type {
   BlogCategoryRecord,
   BlogPostEditorInput,
   BlogPostRecord,
+  BlogPostStatus,
   BlogTagRecord,
   BlogTopicRecord
 } from "@/lib/blog";
-import { getBlogPostPath, normalizeBlogSlugInput, slugifyBlogText, validateBlogPostInput } from "@/lib/blog";
+import {
+  getBlogPostPath,
+  normalizeBlogSlugInput,
+  slugifyBlogText,
+  validateBlogPostInput
+} from "@/lib/blog";
+import { BlogFeaturedImageThumb } from "@/components/blog-featured-image-thumb";
 import { DEFAULT_BLOG_SETTINGS, type BlogSettingsSnapshot } from "@/lib/blog-settings";
 import { parseAdminJsonResponse, readAdminJson } from "@/lib/admin-fetch";
 import { AdminBlogPostEditor } from "@/components/admin-blog-post-editor";
@@ -45,6 +52,18 @@ type BlogImageTarget = {
   modeKey: BlogSettingsKey;
   imageKey: BlogSettingsKey;
 };
+
+type SortDirection = "asc" | "desc";
+
+const BLOG_POST_TABLE_COLUMNS = [
+  { key: "title", label: "Title" },
+  { key: "status", label: "Status" },
+  { key: "primaryTopic", label: "Primary topic" },
+  { key: "primaryCategory", label: "Primary category" },
+  { key: "updatedAt", label: "Updated" }
+] as const;
+
+type BlogPostSortKey = (typeof BLOG_POST_TABLE_COLUMNS)[number]["key"];
 
 const DEFAULT_PAINT_DRAFT: BlogPaintDraft = {
   mode: "color",
@@ -161,6 +180,100 @@ function createEmptyDraft(): BlogPostEditorInput & { id?: string } {
   };
 }
 
+function postMatchesFilters(
+  post: BlogPostRecord,
+  filters: {
+    titleQuery: string;
+    status: "" | BlogPostStatus;
+    primaryTopicId: string;
+    primaryCategoryId: string;
+  }
+) {
+  const titleQuery = filters.titleQuery.trim().toLowerCase();
+
+  if (titleQuery && !post.title.toLowerCase().includes(titleQuery)) {
+    return false;
+  }
+
+  if (filters.status && post.status !== filters.status) {
+    return false;
+  }
+
+  if (filters.primaryTopicId && post.primaryTopicId !== filters.primaryTopicId) {
+    return false;
+  }
+
+  if (filters.primaryCategoryId && post.primaryCategoryId !== filters.primaryCategoryId) {
+    return false;
+  }
+
+  return true;
+}
+
+function compareBlogPosts(
+  left: BlogPostRecord,
+  right: BlogPostRecord,
+  sortKey: BlogPostSortKey,
+  sortDirection: SortDirection
+) {
+  let result = 0;
+
+  switch (sortKey) {
+    case "title":
+      result = left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+      break;
+    case "status":
+      result = left.status.localeCompare(right.status);
+      break;
+    case "primaryTopic":
+      result = (left.primaryTopic?.name ?? "").localeCompare(right.primaryTopic?.name ?? "", undefined, {
+        sensitivity: "base"
+      });
+      break;
+    case "primaryCategory":
+      result = (left.primaryCategory?.name ?? "").localeCompare(right.primaryCategory?.name ?? "", undefined, {
+        sensitivity: "base"
+      });
+      break;
+    case "updatedAt":
+      result = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
+      break;
+  }
+
+  return sortDirection === "asc" ? result : -result;
+}
+
+function BlogPostTableSortButton({
+  label,
+  sortKey,
+  activeSortKey,
+  sortDirection,
+  onSort
+}: {
+  label: string;
+  sortKey: BlogPostSortKey;
+  activeSortKey: BlogPostSortKey;
+  sortDirection: SortDirection;
+  onSort: (key: BlogPostSortKey) => void;
+}) {
+  const isActive = activeSortKey === sortKey;
+  const indicator = isActive ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
+
+  return (
+    <button
+      aria-sort={isActive ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+      className={`admin-table-sort-button${isActive ? " is-active" : ""}`}
+      onClick={() => onSort(sortKey)}
+      type="button"
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="admin-table-sort-indicator">
+        {indicator}
+      </span>
+    </button>
+  );
+}
+
 function postToDraft(post: BlogPostRecord): BlogPostEditorInput & { id: string } {
   return {
     id: post.id,
@@ -213,6 +326,44 @@ export function AdminBlogWorkspace() {
   const [topicDraft, setTopicDraft] = useState({ name: "", slug: "" });
   const [categoryDraft, setCategoryDraft] = useState({ name: "", slug: "" });
   const [tagDraft, setTagDraft] = useState({ name: "", slug: "" });
+  const [filterTitle, setFilterTitle] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"" | BlogPostStatus>("");
+  const [filterPrimaryTopicId, setFilterPrimaryTopicId] = useState("");
+  const [filterPrimaryCategoryId, setFilterPrimaryCategoryId] = useState("");
+  const [sortKey, setSortKey] = useState<BlogPostSortKey>("updatedAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const filteredPosts = useMemo(
+    () =>
+      posts.filter((post) =>
+        postMatchesFilters(post, {
+          titleQuery: filterTitle,
+          status: filterStatus,
+          primaryTopicId: filterPrimaryTopicId,
+          primaryCategoryId: filterPrimaryCategoryId
+        })
+      ),
+    [filterPrimaryCategoryId, filterPrimaryTopicId, filterStatus, filterTitle, posts]
+  );
+
+  const sortedPosts = useMemo(
+    () => [...filteredPosts].sort((left, right) => compareBlogPosts(left, right, sortKey, sortDirection)),
+    [filteredPosts, sortDirection, sortKey]
+  );
+
+  const hasActivePostFilters = Boolean(
+    filterTitle.trim() || filterStatus || filterPrimaryTopicId || filterPrimaryCategoryId
+  );
+
+  function handlePostSort(nextKey: BlogPostSortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
+  }
 
   function updateBlogSetting<Key extends keyof BlogSettingsSnapshot>(
     key: Key,
@@ -613,24 +764,88 @@ export function AdminBlogWorkspace() {
 
       {view === "posts" ? (
         <section className="admin-section">
+          <div className="admin-blog-posts-filter-bar">
+            <label className="field">
+              <span>Title</span>
+              <input
+                type="search"
+                value={filterTitle}
+                onChange={(event) => setFilterTitle(event.target.value)}
+                placeholder="Filter by title"
+              />
+            </label>
+            <label className="field">
+              <span>Status</span>
+              <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value as "" | BlogPostStatus)}>
+                <option value="">All statuses</option>
+                <option value="draft">draft</option>
+                <option value="scheduled">scheduled</option>
+                <option value="published">published</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Primary topic</span>
+              <select value={filterPrimaryTopicId} onChange={(event) => setFilterPrimaryTopicId(event.target.value)}>
+                <option value="">All topics</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Primary category</span>
+              <select
+                value={filterPrimaryCategoryId}
+                onChange={(event) => setFilterPrimaryCategoryId(event.target.value)}
+              >
+                <option value="">All categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {hasActivePostFilters ? (
+            <p className="admin-products-filter-summary">
+              Showing {sortedPosts.length} of {posts.length} posts
+            </p>
+          ) : null}
           <div className="table-shell">
-            <table className="polls-table">
+            <table className="polls-table admin-blog-posts-table">
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>Primary topic</th>
-                  <th>Primary category</th>
-                  <th>Updated</th>
-                  <th className="crud-actions-cell">Actions</th>
+                  <th className="admin-blog-post-thumb-cell" scope="col">
+                    Image
+                  </th>
+                  {BLOG_POST_TABLE_COLUMNS.map((column) => (
+                    <th key={column.key} scope="col">
+                      <BlogPostTableSortButton
+                        activeSortKey={sortKey}
+                        label={column.label}
+                        onSort={handlePostSort}
+                        sortDirection={sortDirection}
+                        sortKey={column.key}
+                      />
+                    </th>
+                  ))}
+                  <th className="crud-actions-cell" scope="col">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {posts.map((post) => {
+                {sortedPosts.map((post) => {
                   const viewUrl = getPostViewUrl(post);
 
                   return (
                     <tr key={post.id}>
+                      <td className="admin-blog-post-thumb-cell">
+                        <BlogFeaturedImageThumb imageUrl={post.featuredImageUrl} />
+                      </td>
                       <td><strong>{post.title}</strong></td>
                       <td>{post.status}</td>
                       <td>{post.primaryTopic?.name ?? "—"}</td>
@@ -695,10 +910,12 @@ export function AdminBlogWorkspace() {
                     </tr>
                   );
                 })}
-                {!isLoading && posts.length === 0 ? (
+                {!isLoading && sortedPosts.length === 0 ? (
                   <tr>
-                    <td className="empty-cell" colSpan={6}>
-                      No posts yet.
+                    <td className="empty-cell" colSpan={7}>
+                      {posts.length === 0
+                        ? "No posts yet."
+                        : "No posts match the current filters."}
                     </td>
                   </tr>
                 ) : null}

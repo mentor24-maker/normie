@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BlogFeaturedImageThumb } from "@/components/blog-featured-image-thumb";
 import { BlogPostBody } from "@/components/blog-post-body";
 import { BlogPostSidebar } from "@/components/blog-post-sidebar";
 import { BlogShareButtons } from "@/components/blog-share-buttons";
 import {
   buildBlogArticleJsonLd,
   formatBlogPublishedDate,
-  normalizePublicBlogImageUrl,
   resolveBlogSeo
 } from "@/lib/blog";
 import { getBlogSettingsCssVariables, getPublicBlogSettings } from "@/lib/blog-settings";
@@ -72,7 +72,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   ]);
   const seo = resolveBlogSeo(post);
   const jsonLd = buildBlogArticleJsonLd(post);
-  const featuredImage = post.featuredImageUrl ? normalizePublicBlogImageUrl(post.featuredImageUrl) : "";
 
   return (
     <div className="blog-post-layout" style={getBlogSettingsCssVariables(blogSettings)}>
@@ -106,8 +105,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           {post.excerpt ? <p className="page-copy blog-post-excerpt">{post.excerpt}</p> : null}
         </header>
 
-        {featuredImage ? (
-          <img alt="" className="blog-post-featured-image" src={featuredImage} />
+        {post.featuredImageUrl ? (
+          <BlogFeaturedImageThumb alt={post.title} imageUrl={post.featuredImageUrl} variant="detail" />
         ) : null}
 
         <BlogPostBody html={post.bodyHtml} />
