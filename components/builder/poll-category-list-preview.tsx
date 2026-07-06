@@ -56,12 +56,15 @@ export function PollCategoryListPreview({
   const sort = normalizePollCategoryListSort(module.settings.categorySort);
   const defaultFlow = normalizePollCategoryListFlow(module.settings.categoryListFlow);
   const [flow, setFlow] = useState<PollCategoryListFlow>(defaultFlow);
+  const [prevDefaultFlow, setPrevDefaultFlow] = useState(defaultFlow);
   const [categoryFilter, setCategoryFilter] = useState("");
   const isTransparentPanel = isPollCategoryListPanelTransparent(module.settings);
 
-  useEffect(() => {
+  // Reset flow when the configured default changes (adjust-during-render).
+  if (prevDefaultFlow !== defaultFlow) {
+    setPrevDefaultFlow(defaultFlow);
     setFlow(defaultFlow);
-  }, [defaultFlow]);
+  }
 
   const categoryNames = useMemo(
     () => sortPollCategoryNames(catalog.map((category) => category.name)),

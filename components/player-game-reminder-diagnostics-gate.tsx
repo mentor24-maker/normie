@@ -3,7 +3,7 @@
 import { PlayerGameReminderDiagnosticsPanel } from "@/components/player-game-reminder-diagnostics-panel";
 import type { PlayerGameReminderDiagnostics } from "@/lib/player-game-reminders";
 import { isReminderDebugEnabled } from "@/lib/player-game-reminder-debug";
-import { useEffect, useState } from "react";
+import { useClientValue } from "@/lib/use-client-value";
 
 export function PlayerGameReminderDiagnosticsGate({
   diagnostics,
@@ -12,11 +12,7 @@ export function PlayerGameReminderDiagnosticsGate({
   diagnostics: PlayerGameReminderDiagnostics;
   isLoading?: boolean;
 }) {
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-
-  useEffect(() => {
-    setShowDiagnostics(isReminderDebugEnabled());
-  }, []);
+  const showDiagnostics = useClientValue(isReminderDebugEnabled, false);
 
   if (!showDiagnostics) {
     return null;

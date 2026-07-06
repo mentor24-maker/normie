@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useClientValue, useIsHydrated } from "@/lib/use-client-value";
 import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import type { BuilderCellModuleRecord } from "@/lib/builder-template";
@@ -90,8 +91,18 @@ export function BuilderModulePaletteModal({
   onSelectSavedModule,
   onClose
 }: BuilderModulePaletteModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsHydrated();
+  // Toggleable state seeded from the stored preference once hydrated;
+  // adjusting state during render avoids a setState-in-effect cascade.
+  const storedAzSort = useClientValue(readAzSortPreference, false);
+  const [azSortSeeded, setAzSortSeeded] = useState(false);
   const [sortCategoriesAz, setSortCategoriesAz] = useState(false);
+
+  if (mounted && !azSortSeeded) {
+    setAzSortSeeded(true);
+    setSortCategoriesAz(storedAzSort);
+  }
+
   const displayGroups = useMemo(
     () => sortModulePaletteGroups(modulePaletteGroups, sortCategoriesAz),
     [sortCategoriesAz]
@@ -101,14 +112,6 @@ export function BuilderModulePaletteModal({
   const classOnlyGroup = activeGroup ? isSavedModuleOnlyPaletteGroup(activeGroup) : false;
   const isAnchored = anchor != null;
   const anchoredModalStyle = isAnchored && mounted ? getAnchoredModulePaletteStyle(anchor) : undefined;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setSortCategoriesAz(readAzSortPreference());
-  }, []);
 
   function toggleSortCategoriesAz() {
     setSortCategoriesAz((current) => {

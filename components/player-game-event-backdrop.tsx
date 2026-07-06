@@ -10,10 +10,13 @@ type OverlayLayerKey = "floating-image" | "speech-bubble";
 export function PlayerGameEventBackdrop() {
   const pathname = usePathname();
   const [activeLayers, setActiveLayers] = useState<Set<OverlayLayerKey>>(() => new Set());
+  const [prevPathname, setPrevPathname] = useState(pathname);
 
-  useEffect(() => {
+  // Clear overlay layers on navigation (adjust-during-render).
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setActiveLayers(new Set());
-  }, [pathname]);
+  }
 
   useEffect(() => {
     function showLayer(layer: OverlayLayerKey) {

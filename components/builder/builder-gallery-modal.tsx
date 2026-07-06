@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useIsHydrated } from "@/lib/use-client-value";
 import { GalleryMediaFilterBar } from "@/components/gallery-media-filter-bar";
 import { getRichTextGalleryModalStyle, type BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import { buildGalleryMediaCategoryOptions } from "@/lib/gallery-media-category";
@@ -24,7 +25,7 @@ export function BuilderGalleryModal({
   onClose,
   onUploadImage
 }: BuilderGalleryModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsHydrated();
   const isAnchored = anchor != null;
   const anchoredModalStyle = isAnchored && mounted ? getRichTextGalleryModalStyle() : undefined;
 
@@ -45,10 +46,6 @@ export function BuilderGalleryModal({
     () => buildGalleryMediaCategoryOptions(media.map((item) => item.mediaCategory ?? "")),
     [media]
   );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   async function handleUpload(file: File | null) {
     if (!file || !onUploadImage) {

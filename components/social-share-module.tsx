@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useClientValue } from "@/lib/use-client-value";
 import type { CurrentPoll } from "@/src/site/home/types";
 
 export type SocialSharePlatformId =
@@ -250,7 +251,7 @@ export function SocialShareBar({
   poll?: CurrentPoll | null;
   preview?: boolean;
 }) {
-  const [currentUrl, setCurrentUrl] = useState(DEFAULT_SHARE_URL);
+  const currentUrl = useClientValue(() => window.location.href, DEFAULT_SHARE_URL);
   const enabledPlatforms = useMemo(() => getEnabledSocialSharePlatforms(settings), [settings]);
   const label = settings.shareLabel || "Share this poll";
   const labelSize = getNumberSetting(settings, "shareLabelSize", 14, 8, 64);
@@ -258,12 +259,6 @@ export function SocialShareBar({
   const glyphSize = getNumberSetting(settings, "shareGlyphSize", Math.round(iconSize * 0.56), 10, 96);
   const iconGap = getNumberSetting(settings, "shareIconGap", 12, 0, 64);
   const iconBackground = settings.shareIconBackground || "#ffffff";
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setCurrentUrl(window.location.href);
-    }
-  }, []);
 
   if (enabledPlatforms.length === 0) {
     return preview ? <div className="builder-module-preview-placeholder">Enable at least one share platform</div> : null;

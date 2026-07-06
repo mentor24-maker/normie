@@ -13,6 +13,13 @@ import {
 export function PlayerGameFloatingImageHost() {
   const pathname = usePathname();
   const [activeModule, setActiveModule] = useState<BuilderTemplateModule | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+
+  // Clear the active module on navigation (adjust-during-render).
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setActiveModule(null);
+  }
 
   useEffect(() => {
     function handleFloatingImage(event: Event) {
@@ -31,10 +38,6 @@ export function PlayerGameFloatingImageHost() {
       window.removeEventListener(PLAYER_GAME_FLOATING_IMAGE_EVENT, handleFloatingImage);
     };
   }, []);
-
-  useEffect(() => {
-    setActiveModule(null);
-  }, [pathname]);
 
   useEffect(() => {
     if (!activeModule) {

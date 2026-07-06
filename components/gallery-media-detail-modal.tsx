@@ -50,13 +50,17 @@ export function GalleryMediaDetailModal({
   const [mediaCategory, setMediaCategory] = useState(item.mediaCategory ?? "");
   const [mediaType, setMediaType] = useState(item.mediaType ?? "");
   const [aspect, setAspect] = useState<GalleryMediaAspect>(normalizeGalleryMediaAspect(item.aspect));
+  const [prevItem, setPrevItem] = useState(item);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
+  // Re-seed the edit fields when a different media item is shown
+  // (adjust-during-render instead of a setState-in-effect cascade).
+  if (prevItem !== item) {
+    setPrevItem(item);
     setMediaCategory(item.mediaCategory ?? "");
     setMediaType(item.mediaType ?? "");
     setAspect(normalizeGalleryMediaAspect(item.aspect));
-  }, [item.aspect, item.mediaCategory, item.mediaType, item.path]);
+  }
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
