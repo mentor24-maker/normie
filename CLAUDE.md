@@ -1,6 +1,6 @@
 # Normie — Project Guide
 
-Normie is a Next.js 15 (App Router) + TypeScript + Supabase app on Vercel: public
+Normie is a Next.js 16 (App Router) + TypeScript + Supabase app on Vercel: public
 personality polls, a visual page builder, a player portal, and a protected admin
 control room. See `README.md` for setup.
 
