@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useClientValue } from "@/lib/use-client-value";
 import type { BuilderModuleEditorFocus } from "@/components/builder/builder-module-repository-list";
 
 const DEBUG_STORAGE_KEY = "builderSaveDebug";
@@ -47,12 +48,8 @@ export function BuilderSaveDebugPanel({
   selectedTemplateId,
   templateEditorFocused
 }: BuilderSaveDebugPanelProps) {
-  const [enabled, setEnabled] = useState(false);
+  const enabled = useClientValue(isBuilderSaveDebugEnabled, false);
   const [anchorInfo, setAnchorInfo] = useState("—");
-
-  useEffect(() => {
-    setEnabled(isBuilderSaveDebugEnabled());
-  }, []);
 
   useEffect(() => {
     if (!enabled) {

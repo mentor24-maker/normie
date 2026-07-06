@@ -12,6 +12,13 @@ import {
 export function PlayerGameSpeechBubbleHost() {
   const pathname = usePathname();
   const [activeModule, setActiveModule] = useState<BuilderTemplateModule | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+
+  // Clear the active module on navigation (adjust-during-render).
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setActiveModule(null);
+  }
 
   useEffect(() => {
     function handleSpeechBubble(event: Event) {
@@ -30,10 +37,6 @@ export function PlayerGameSpeechBubbleHost() {
       window.removeEventListener(PLAYER_GAME_SPEECH_BUBBLE_EVENT, handleSpeechBubble);
     };
   }, []);
-
-  useEffect(() => {
-    setActiveModule(null);
-  }, [pathname]);
 
   useEffect(() => {
     if (!activeModule) {

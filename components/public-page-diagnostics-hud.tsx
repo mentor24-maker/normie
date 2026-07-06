@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useClientValue } from "@/lib/use-client-value";
 import { PlayerGameReminderDiagnosticsPanel } from "@/components/player-game-reminder-diagnostics-panel";
 import type { PlayerGameReminderDiagnostics } from "@/lib/player-game-reminders";
 import {
@@ -16,13 +17,11 @@ type PublicPageDiagnosticsHudProps = {
 
 export function PublicPageDiagnosticsHud({ diagnostics, isLoading = false }: PublicPageDiagnosticsHudProps) {
   const pathname = usePathname() ?? "/";
-  const [isVisible, setIsVisible] = useState(false);
+  const isVisible = useClientValue(
+    () => shouldShowPublicPageDiagnostics(window.location.host, pathname),
+    false
+  );
   const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    const host = window.location.host;
-    setIsVisible(shouldShowPublicPageDiagnostics(host, pathname));
-  }, [pathname]);
 
   if (!isVisible) {
     return null;

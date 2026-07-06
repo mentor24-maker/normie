@@ -54,16 +54,23 @@ export function BlogIndexClient({
   const [offset, setOffset] = useState(initialPosts.length);
   const [isLoading, setIsLoading] = useState(false);
   const [searchDraft, setSearchDraft] = useState(searchQuery);
+  const [prevInitialPosts, setPrevInitialPosts] = useState(initialPosts);
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
 
-  useEffect(() => {
+  // Re-seed the list when the server sends fresh results, and sync the
+  // search draft when the URL query changes (adjust-during-render instead
+  // of setState-in-effect cascades).
+  if (prevInitialPosts !== initialPosts) {
+    setPrevInitialPosts(initialPosts);
     setPosts(initialPosts);
     setTotal(initialTotal);
     setOffset(initialPosts.length);
-  }, [initialPosts, initialTotal]);
+  }
 
-  useEffect(() => {
+  if (prevSearchQuery !== searchQuery) {
+    setPrevSearchQuery(searchQuery);
     setSearchDraft(searchQuery);
-  }, [searchQuery]);
+  }
 
   async function fetchPosts(nextOffset: number, replace: boolean, filters: BlogFilters) {
     setIsLoading(true);

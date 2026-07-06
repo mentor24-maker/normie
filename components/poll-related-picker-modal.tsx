@@ -25,11 +25,14 @@ export function PollRelatedPickerModal({
   onClose
 }: PollRelatedPickerModalProps) {
   const [draftIds, setDraftIds] = useState<string[]>(selectedIds);
+  const [prevSelectedIds, setPrevSelectedIds] = useState(selectedIds);
   const [filter, setFilter] = useState("");
 
-  useEffect(() => {
+  // Reset the draft when the applied selection changes (adjust-during-render).
+  if (prevSelectedIds !== selectedIds) {
+    setPrevSelectedIds(selectedIds);
     setDraftIds(selectedIds);
-  }, [selectedIds]);
+  }
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

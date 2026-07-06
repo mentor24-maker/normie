@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useIsHydrated } from "@/lib/use-client-value";
 import { formatRichTextContent } from "@/lib/builder-template";
 import type { PlayerMatchedReminder } from "@/lib/game-reminder-eval";
 import {
@@ -17,11 +18,17 @@ import {
 } from "@/lib/player-game-reminder-dismissals";
 
 function useVisibleReminders(reminders: PlayerMatchedReminder[]) {
+  const hydrated = useIsHydrated();
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [syncedReminders, setSyncedReminders] = useState<PlayerMatchedReminder[] | null>(null);
 
-  useEffect(() => {
+  // Re-read persisted dismissals when the reminder list changes. Adjusting
+  // state during render (post-hydration) replaces the old setState-in-effect
+  // and avoids a committed stale frame.
+  if (hydrated && syncedReminders !== reminders) {
+    setSyncedReminders(reminders);
     setDismissedIds(readDismissedReminderIds());
-  }, [reminders]);
+  }
 
   const visibleReminders = useMemo(
     () => reminders.filter((reminder) => !dismissedIds.includes(reminder.id)),
@@ -73,13 +80,9 @@ function ReminderRichMessage({ messageHtml }: { messageHtml: string }) {
 
 /** Speech-bubble styled reminder above page content; dismisses on the next click anywhere. */
 export function PlayerGameRemindersSpeechBubble({ reminders }: { reminders: PlayerMatchedReminder[] }) {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useIsHydrated();
   const { visibleReminders, dismissReminder } = useVisibleReminders(reminders);
   const activeReminder = visibleReminders[0] ?? null;
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useDismissActiveReminderOnClick(activeReminder, dismissReminder);
 

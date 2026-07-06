@@ -38,6 +38,14 @@ export function PreviousResultsPanel({
   showPollReactions = false
 }: PreviousResultsPanelProps) {
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
+  const [prevPollId, setPrevPollId] = useState(previousPoll?.id);
+
+  // Close the deep dive when a different poll is shown (adjust-during-render).
+  if (prevPollId !== previousPoll?.id) {
+    setPrevPollId(previousPoll?.id);
+    setDeepDiveOpen(false);
+  }
+
   const podType = previousPoll ? "previous_results" : "initial_page";
   const panelPodAppearanceStyle = getPollPodAppearanceStyle(settings, podType);
   const initialContent = resolvePollPod(settings?.pods, "initial_page").content;
@@ -56,10 +64,6 @@ export function PreviousResultsPanel({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [deepDiveOpen]);
-
-  useEffect(() => {
-    setDeepDiveOpen(false);
-  }, [previousPoll?.id]);
 
   return (
     <article

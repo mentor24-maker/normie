@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useIsHydrated } from "@/lib/use-client-value";
 import type { PlayerGameReminderDiagnostics } from "@/lib/player-game-reminders";
 import {
   clearDismissedReminderIds,
@@ -15,11 +16,16 @@ export function PlayerGameReminderDiagnosticsPanel({
   diagnostics: PlayerGameReminderDiagnostics;
   isLoading?: boolean;
 }) {
+  const hydrated = useIsHydrated();
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [dismissedSeeded, setDismissedSeeded] = useState(false);
 
-  useEffect(() => {
+  // Seed persisted dismissals once hydrated by adjusting state during
+  // render instead of a setState-in-effect cascade.
+  if (hydrated && !dismissedSeeded) {
+    setDismissedSeeded(true);
     setDismissedIds(readDismissedReminderIds());
-  }, []);
+  }
 
   const reminderRows = diagnostics.reminders.map((reminder) => ({
     ...reminder,
