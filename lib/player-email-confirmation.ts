@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { findAuthUserByEmail } from "@/lib/auth-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { safePlayerText } from "@/lib/player-auth";
 
@@ -34,13 +35,7 @@ export async function getPlayerEmailConfirmationStatus(email: string): Promise<P
   }
 
   const supabase = createAdminClient();
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const authUser = (data.users ?? []).find((user) => user.email?.toLowerCase() === normalizedEmail);
+  const authUser = await findAuthUserByEmail(supabase, normalizedEmail);
 
   if (!authUser) {
     return "unknown";

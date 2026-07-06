@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/auth-users";
 import { safePlayerText } from "@/lib/player-auth";
 import { sendPlayerPasswordResetEmail } from "@/lib/player-password-reset-email";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
@@ -42,35 +43,9 @@ export async function POST(request: Request) {
   const redirectTo = getPlayerPasswordResetUrl(request);
   const adminClient = createAdminClient();
 
-  async function findExistingUser(): Promise<boolean> {
-    const perPage = 1000;
-    let page = 1;
-
-    for (;;) {
-      const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      const users = data.users ?? [];
-      const found = users.some((user) => user.email?.toLowerCase() === email);
-
-      if (found) {
-        return true;
-      }
-
-      if (users.length < perPage) {
-        return false;
-      }
-
-      page += 1;
-    }
-  }
-
   let existingUser = false;
   try {
-    existingUser = await findExistingUser();
+    existingUser = (await findAuthUserByEmail(adminClient, email)) !== null;
   } catch (listError) {
     return NextResponse.json(
       { error: listError instanceof Error ? listError.message : "Failed to list users." },

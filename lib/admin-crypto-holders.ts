@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { safeUserText } from "@/lib/admin-users";
+import { listAllAuthUsers } from "@/lib/auth-users";
 import {
   enrichWalletBalancesWithUsd,
   fetchNormieTokenPriceQuote
@@ -40,23 +41,19 @@ export async function buildAdminCryptoHoldersSnapshot(
   refreshPrice = false
 ): Promise<AdminCryptoHoldersSnapshot> {
   const supabase = createAdminClient();
-  const [{ data: authData, error: authError }, { data: profiles, error: profilesError }] = await Promise.all([
-    supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  const [authUsers, { data: profiles, error: profilesError }] = await Promise.all([
+    listAllAuthUsers(supabase),
     supabase
       .from("player_profiles")
       .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
       .order("full_name", { ascending: true })
   ]);
 
-  if (authError) {
-    throw new Error(authError.message);
-  }
-
   if (profilesError) {
     throw new Error(profilesError.message);
   }
 
-  const authUsersById = new Map<string, User>(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
+  const authUsersById = new Map<string, User>(authUsers.map((user) => [user.id, user]));
   const players = ((profiles ?? []) as PublicUserRow[]).map((profile) => {
     const authUser = authUsersById.get(profile.id);
 

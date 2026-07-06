@@ -16,6 +16,7 @@ import {
   type AdminPermission
 } from "@/lib/admin-rbac";
 import { forbiddenAdminResponse, requireAdminRoute, unauthorizedAdminResponse } from "@/lib/admin-route-auth";
+import { listAllAuthUsers } from "@/lib/auth-users";
 import {
   mergeAdminUserRecord,
   normalizeUserRole,
@@ -68,18 +69,13 @@ async function getTeamMemberRole(userId: string) {
 export async function listDirectoryUsers(table: AdminDirectoryTable) {
   const supabase = createAdminClient();
 
-  const [{ data: authData, error: authError }, { data: profileData, error: profileError }] =
-    await Promise.all([
-      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      supabase
-        .from(table)
-        .select("id, full_name, role, status, notes, created_at, updated_at")
-        .order("created_at", { ascending: false })
-    ]);
-
-  if (authError) {
-    throw new Error(authError.message);
-  }
+  const [authUsers, { data: profileData, error: profileError }] = await Promise.all([
+    listAllAuthUsers(supabase),
+    supabase
+      .from(table)
+      .select("id, full_name, role, status, notes, created_at, updated_at")
+      .order("created_at", { ascending: false })
+  ]);
 
   if (profileError) {
     throw new Error(
@@ -93,7 +89,7 @@ export async function listDirectoryUsers(table: AdminDirectoryTable) {
     ((profileData ?? []) as UserProfileRow[]).map((profile) => [profile.id, profile])
   );
 
-  return ((authData?.users ?? []) as User[])
+  return authUsers
     .map((user) => mergeAdminUserRecord(user, profilesById.get(user.id)))
     .filter((user) => profilesById.has(user.id))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

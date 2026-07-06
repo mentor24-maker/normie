@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/auth-users";
 import { safePlayerText } from "@/lib/player-auth";
 import { isPlayerAwaitingEmailVerification } from "@/lib/player-email-confirmation";
 import { sendPlayerSignupConfirmationEmail } from "@/lib/player-signup-confirmation-email";
@@ -41,16 +42,16 @@ export async function POST(request: Request) {
   }
 
   const adminClient = createAdminClient();
-  const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000
-  });
 
-  if (listError) {
-    return NextResponse.json({ error: listError.message }, { status: 500 });
+  let existingUser;
+  try {
+    existingUser = await findAuthUserByEmail(adminClient, email);
+  } catch (lookupError) {
+    return NextResponse.json(
+      { error: lookupError instanceof Error ? lookupError.message : "Failed to look up account." },
+      { status: 500 }
+    );
   }
-
-  const existingUser = existingUsers.users.find((user) => user.email?.toLowerCase() === email);
 
   if (!existingUser || !isPlayerAwaitingEmailVerification(existingUser)) {
     return NextResponse.json({
