@@ -2,11 +2,27 @@ import { NextResponse } from "next/server";
 import { safePlayerText } from "@/lib/player-auth";
 import { isPlayerAwaitingEmailVerification } from "@/lib/player-email-confirmation";
 import { sendPlayerSignupConfirmationEmail } from "@/lib/player-signup-confirmation-email";
+import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { getRequestClientIp } from "@/lib/public-request";
 import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 import { getPlayerAuthCallbackUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+const RESEND_CONFIRMATION_RATE_LIMIT = 5;
+const RESEND_CONFIRMATION_WINDOW_SECONDS = 15 * 60;
+
 export async function POST(request: Request) {
+  const clientIp = getRequestClientIp(request);
+  const rateLimit = await consumePublicRateLimit(
+    `player-resend-confirmation:ip:${clientIp}`,
+    RESEND_CONFIRMATION_RATE_LIMIT,
+    RESEND_CONFIRMATION_WINDOW_SECONDS
+  );
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const body = (await request.json()) as { email?: unknown };
   const email = safePlayerText(body.email, 255).toLowerCase();
 

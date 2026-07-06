@@ -2,11 +2,27 @@ import { NextResponse } from "next/server";
 import { isMissingPlayerSchemaError, normalizePlayerHandle, safePlayerText } from "@/lib/player-auth";
 import { isPlayerAwaitingEmailVerification } from "@/lib/player-email-confirmation";
 import { sendPlayerSignupConfirmationEmail } from "@/lib/player-signup-confirmation-email";
+import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { getRequestClientIp } from "@/lib/public-request";
 import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 import { getPlayerAuthCallbackUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+const REGISTER_RATE_LIMIT = 10;
+const REGISTER_WINDOW_SECONDS = 60 * 60;
+
 export async function POST(request: Request) {
+  const clientIp = getRequestClientIp(request);
+  const rateLimit = await consumePublicRateLimit(
+    `player-register:ip:${clientIp}`,
+    REGISTER_RATE_LIMIT,
+    REGISTER_WINDOW_SECONDS
+  );
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const body = (await request.json()) as {
     email?: unknown;
     password?: unknown;

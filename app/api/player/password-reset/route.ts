@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import { safePlayerText } from "@/lib/player-auth";
 import { sendPlayerPasswordResetEmail } from "@/lib/player-password-reset-email";
+import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { getRequestClientIp } from "@/lib/public-request";
 import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 import { getPlayerPasswordResetUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+const PASSWORD_RESET_RATE_LIMIT = 5;
+const PASSWORD_RESET_WINDOW_SECONDS = 15 * 60;
+
 export async function POST(request: Request) {
+  const clientIp = getRequestClientIp(request);
+  const rateLimit = await consumePublicRateLimit(
+    `player-password-reset:ip:${clientIp}`,
+    PASSWORD_RESET_RATE_LIMIT,
+    PASSWORD_RESET_WINDOW_SECONDS
+  );
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const body = (await request.json()) as { email?: unknown };
   const email = safePlayerText(body.email, 255).toLowerCase();
 
