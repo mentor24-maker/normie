@@ -17,7 +17,7 @@ function withRequestId(request: NextRequest, response: NextResponse) {
   return response;
 }
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method.toUpperCase();
   const requestId = normalizeRequestId(request.headers.get("x-request-id")) ?? createRequestId();

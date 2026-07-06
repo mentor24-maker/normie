@@ -49,7 +49,7 @@ These are non-negotiable defaults from product review. Apply on every new or rev
 # Normie Project — Cursor Rules & Coding Conventions
 
 ## Stack
-- Next.js 15 (App Router) with TypeScript
+- Next.js 16 (App Router) with TypeScript — request interception lives in `proxy.ts` (Next 16 rename of `middleware.ts`)
 - Supabase (PostgreSQL) for the database
 - Tailwind is NOT used — all styling is custom global CSS: `app/globals.css` imports ordered chunks from `app/styles/NN-*.css`
 - Tiptap (v3.22.5) for rich text editing — all tiptap packages must stay pinned to 3.22.5
