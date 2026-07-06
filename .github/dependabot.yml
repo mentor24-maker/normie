@@ -15,6 +15,11 @@ updates:
     ignore:
       # Tiptap is pinned intentionally; upgrade manually with --legacy-peer-deps.
       - dependency-name: "@tiptap/*"
+      # Major versions (Next, TypeScript, ESLint, Vitest, ...) are deliberate,
+      # planned upgrades — not grouped Dependabot bumps. Security advisories
+      # still override this when severity requires it.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
