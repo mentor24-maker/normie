@@ -51,7 +51,7 @@ These are non-negotiable defaults from product review. Apply on every new or rev
 ## Stack
 - Next.js 15 (App Router) with TypeScript
 - Supabase (PostgreSQL) for the database
-- Tailwind is NOT used — all styling is custom CSS in `app/globals.css`
+- Tailwind is NOT used — all styling is custom global CSS: `app/globals.css` imports ordered chunks from `app/styles/NN-*.css`
 - Tiptap (v3.22.5) for rich text editing — all tiptap packages must stay pinned to 3.22.5
 - No component library (no shadcn, no MUI, etc.)
 
@@ -60,7 +60,8 @@ These are non-negotiable defaults from product review. Apply on every new or rev
 app/                        # Next.js App Router pages and API routes
   admin/                    # Admin-only routes (protected)
   api/                      # API route handlers
-  globals.css               # ALL styles live here — no CSS modules, no Tailwind
+  globals.css               # Aggregator: @imports app/styles/NN-*.css in cascade order
+  styles/                   # Ordered global CSS chunks (01-base … 13-admin) — no CSS modules, no Tailwind
 components/
   builder/                  # Page builder editor components
     builder-module-card.tsx         # Module editor UI (all module types)
@@ -156,7 +157,7 @@ Always touch all three files in order:
 - Use `void` prefix when calling async functions in event handlers: `onClick={() => void saveTemplate()}`
 
 ## CSS Conventions
-- All styles in `app/globals.css` — no inline styles except for dynamic builder values
+- All styles are global CSS in `app/styles/NN-*.css` chunks, imported in cascade order by `app/globals.css` — do not reorder imports; add new styles to the chunk matching the feature area. No inline styles except for dynamic builder values
 - **Links:** Global `a { color: inherit; text-decoration: none; }` — no default blue underlined links; see Style Guide **Inline links**. Nav, footer, and button-style CTAs use dedicated classes with their own colors.
 - CSS variables defined in `:root` — use `var(--accent)`, `var(--ink)`, `var(--muted)` etc.
 - Builder-specific classes prefixed with `builder-`

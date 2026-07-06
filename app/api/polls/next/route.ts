@@ -26,6 +26,11 @@ import {
   readPollTestPin,
   readPollTestProgress
 } from "@/lib/poll-test-mode";
+import {
+  loadPlayerTesterPollPin,
+  loadTesterPollRow,
+  mergeTesterPollIntoList
+} from "@/lib/player-tester-poll";
 import { pickRandomUnansweredPoll, resolveMostRecentAnsweredPoll, shuffleForDisplay } from "@/lib/polls-next-session";
 import { mapPollRowWithCategory } from "@/lib/poll-category-store";
 
@@ -145,6 +150,16 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     );
   }
 
+  const playerTesterPollPin = player ? await loadPlayerTesterPollPin(player.authUser.id) : null;
+
+  if (playerTesterPollPin) {
+    const testerPoll = await loadTesterPollRow(playerTesterPollPin);
+
+    if (testerPoll) {
+      orderedPolls = mergeTesterPollIntoList(orderedPolls, testerPoll);
+    }
+  }
+
   const eligiblePollIds = new Set(orderedPolls.map((poll) => poll.id));
   const eligibleResponses = filterResponsesToEligiblePolls(responses ?? [], eligiblePollIds);
   const answeredPollIds = buildAnsweredPollIdSet(eligibleResponses, eligiblePollIds);
@@ -196,6 +211,16 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     if (pollTestPin) {
       excludePinnedPollFromAnswered(answeredPollIds, pollTestPin);
     }
+  }
+
+  if (playerTesterPollPin) {
+    const pinned = orderedPolls.find((poll) => poll.id === playerTesterPollPin);
+
+    if (pinned) {
+      currentPoll = pinned;
+    }
+
+    excludePinnedPollFromAnswered(answeredPollIds, playerTesterPollPin);
   }
 
   let doneReason:

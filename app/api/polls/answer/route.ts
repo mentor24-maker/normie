@@ -4,6 +4,11 @@ import { publicErrorResponse } from "@/lib/observability/report-error";
 import { withObservedRoute } from "@/lib/observability/with-api-route";
 import { getAuthorizedPlayerFromCookieStore } from "@/lib/player-auth";
 import { validatePollAnswerSubmission } from "@/lib/poll-answer-validation";
+import {
+  buildTesterPollAnswerSimulation,
+  loadPlayerTesterPollPin,
+  validateTesterPollAnswer
+} from "@/lib/player-tester-poll";
 import { PLAYER_LEVEL_UP_INTERVAL, PLAYER_LEVEL_UP_PENDING_COOKIE } from "@/lib/player-level-up-event";
 import { getRequestClientIp, isUuid, safePublicText } from "@/lib/public-request";
 import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
@@ -30,13 +35,17 @@ async function playerAnswerResponse(
   flags: Record<string, boolean | number> & {
     testProgressOverride?: number;
     pollTestMode?: boolean;
+    testerPollMode?: boolean;
   } = {}
 ) {
   const answerCount =
     typeof flags.testProgressOverride === "number"
       ? flags.testProgressOverride
       : await countPlayerProgressPollsFromDb(supabase, playerId);
-  const levelUp = answerCount > 0 && answerCount % PLAYER_LEVEL_UP_INTERVAL === 0 && !flags.duplicate;
+  const countsAsFreshProgress =
+    !flags.duplicate || flags.pollTestMode === true || flags.testerPollMode === true;
+  const levelUp =
+    answerCount > 0 && answerCount % PLAYER_LEVEL_UP_INTERVAL === 0 && countsAsFreshProgress;
   console.info("[player-level-up] answer response", {
     playerId,
     answerCount,
@@ -96,7 +105,11 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
     return NextResponse.json({ error: "pollId and optionId are required." }, { status: 400 });
   }
 
-  const validation = await validatePollAnswerSubmission(pollId, optionId);
+  const playerTesterPollPin = player ? await loadPlayerTesterPollPin(player.authUser.id) : null;
+  const validation =
+    playerTesterPollPin && pollId === playerTesterPollPin
+      ? await validateTesterPollAnswer(pollId, optionId)
+      : await validatePollAnswerSubmission(pollId, optionId);
 
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: validation.status });
@@ -133,6 +146,51 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
   }
 
   const supabase = createAdminClient();
+
+  if (player && playerTesterPollPin && pollId === playerTesterPollPin) {
+    const { data: existingForPlayer, error: existingForPlayerError } = await supabase
+      .from("poll_response")
+      .select("id")
+      .eq("poll_id", validation.pollId)
+      .eq("user_id", player.authUser.id)
+      .maybeSingle();
+
+    if (existingForPlayerError) {
+      return publicErrorResponse(request, {
+        logEvent: "polls.answer.lookup_failed",
+        error: existingForPlayerError,
+        message: "Failed to save your answer.",
+        context: { pollId }
+      });
+    }
+
+    if (existingForPlayer) {
+      const { error: updateError } = await supabase
+        .from("poll_response")
+        .update({
+          option_id: validation.optionId,
+          tokens_earned: TOKENS_PER_ANSWER,
+          is_skipped: false
+        })
+        .eq("id", existingForPlayer.id);
+
+      if (updateError) {
+        return publicErrorResponse(request, {
+          logEvent: "polls.answer.update_failed",
+          error: updateError,
+          message: "Failed to save your answer.",
+          context: { pollId }
+        });
+      }
+
+      const testerSimulation = await buildTesterPollAnswerSimulation(validation.pollId);
+
+      return playerAnswerResponse(supabase, player.authUser.id, {
+        duplicate: true,
+        ...(testerSimulation ?? {})
+      });
+    }
+  }
 
   if (player) {
     const { data: existingForPlayer, error: existingForPlayerError } = await supabase
@@ -257,7 +315,14 @@ export const POST = withObservedRoute("polls.answer", async (request) => {
   }
 
   if (player) {
-    return playerAnswerResponse(supabase, player.authUser.id);
+    const testerSimulation =
+      playerTesterPollPin && pollId === playerTesterPollPin
+        ? await buildTesterPollAnswerSimulation(validation.pollId)
+        : null;
+
+    return playerAnswerResponse(supabase, player.authUser.id, {
+      ...(testerSimulation ?? {})
+    });
   }
 
   const progressPollsTaken = await countSessionProgressPollsFromDb(supabase, sessionId);

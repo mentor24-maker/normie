@@ -33,6 +33,18 @@ function normalizeRichTextImagePath(value: string) {
     if (url.pathname.startsWith("/gallery/")) {
       return `${url.pathname}${url.search}`;
     }
+
+    const supabaseGallery = url.pathname.match(
+      /^\/storage\/v1\/(?:object\/public|render\/image\/public)\/gallery\/(.+)$/i
+    );
+
+    if (supabaseGallery?.[1]) {
+      try {
+        return `/gallery/${decodeURIComponent(supabaseGallery[1])}`;
+      } catch {
+        return `/gallery/${supabaseGallery[1]}`;
+      }
+    }
   } catch {
     return text;
   }
@@ -49,16 +61,22 @@ export function isAllowedRichTextImageSrc(src: string) {
     return false;
   }
 
-  if (trimmed.startsWith("/gallery/") || trimmed.startsWith("/api/admin/media-file/")) {
+  const normalized = normalizeRichTextImagePath(trimmed);
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.startsWith("/gallery/") || normalized.startsWith("/api/admin/media-file/")) {
     return true;
   }
 
-  if (trimmed.startsWith("gallery/") || trimmed.startsWith("api/admin/media-file/")) {
+  if (normalized.startsWith("gallery/") || normalized.startsWith("api/admin/media-file/")) {
     return true;
   }
 
   try {
-    const url = new URL(trimmed, "https://www.normie.one");
+    const url = new URL(normalized, "https://www.normie.one");
 
     if (url.pathname.startsWith("/gallery/") || url.pathname.startsWith("/api/admin/media-file/")) {
       return true;

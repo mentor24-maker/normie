@@ -18,12 +18,14 @@ type PlayerPortalDashboardTopProps = {
     tokensEarned: number;
     playerRank: number | null;
   };
+  testerPollNumber?: number | null;
 };
 
 export function PlayerPortalDashboardTop({
   levelEvents,
   rewardTrack,
-  stats
+  stats,
+  testerPollNumber = null
 }: PlayerPortalDashboardTopProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -43,7 +45,7 @@ export function PlayerPortalDashboardTop({
 
   return (
     <>
-      <PlayerPortalGameBoard rewardTrack={rewardTrack} stats={stats} />
+      <PlayerPortalGameBoard rewardTrack={rewardTrack} stats={stats} testerPollNumber={testerPollNumber} />
       <PlayerPortalPollSectionOpen levelEvents={levelEvents} stats={stats} />
     </>
   );

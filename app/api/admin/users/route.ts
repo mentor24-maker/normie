@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { requireAdminRoute } from "@/lib/admin-route-auth";
+import { listAllAuthUsers } from "@/lib/auth-users";
 import { safeUserText } from "@/lib/admin-users";
 import { loadLeaderboardAggregateMap } from "@/lib/player-leaderboard-stats";
 import {
@@ -18,18 +19,32 @@ export async function GET() {
   }
 
   const supabase = createAdminClient();
-  const [{ data: authData, error: authError }, { data: profiles, error: profilesError }, { groups }] =
-    await Promise.all([
-      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+
+  let authUsers: User[];
+  let profiles: PublicUserRow[] | null;
+  let profilesError: { message: string } | null;
+  let groups: Awaited<ReturnType<typeof loadLeaderboardAggregateMap>>["groups"];
+
+  try {
+    const [allAuthUsers, profilesResult, aggregates] = await Promise.all([
+      listAllAuthUsers(supabase),
       supabase
         .from("player_profiles")
-        .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
+        .select("id, full_name, handle, status, is_tester, tester_poll_id, crypto_wallets, created_at, updated_at")
         .order("created_at", { ascending: false }),
       loadLeaderboardAggregateMap(supabase)
     ]);
-
-  if (authError) {
-    return auth.finish(NextResponse.json({ error: authError.message }, { status: 500 }));
+    authUsers = allAuthUsers;
+    profiles = profilesResult.data as PublicUserRow[] | null;
+    profilesError = profilesResult.error;
+    groups = aggregates.groups;
+  } catch (authError) {
+    return auth.finish(
+      NextResponse.json(
+        { error: authError instanceof Error ? authError.message : "Failed to list users." },
+        { status: 500 }
+      )
+    );
   }
 
   if (profilesError) {
@@ -45,7 +60,7 @@ export async function GET() {
     );
   }
 
-  const authUsersById = new Map(((authData?.users ?? []) as User[]).map((user) => [user.id, user]));
+  const authUsersById = new Map(authUsers.map((user) => [user.id, user]));
   const statsByUserId = new Map(
     [...groups.entries()].map(([userId, row]) => [
       userId,

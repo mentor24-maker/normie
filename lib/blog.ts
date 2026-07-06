@@ -390,11 +390,32 @@ export function resolveBlogSeo(post: BlogPostRecord) {
   };
 }
 
+export const BLOG_FEATURED_IMAGE_THUMB_WIDTH = 240;
+export const BLOG_FEATURED_IMAGE_THUMB_HEIGHT = 135;
+
+export function resolveBlogFeaturedImageAdminSrc(path: string) {
+  const normalized = normalizeBuilderAssetUrl(path);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.startsWith("/gallery/")) {
+    return `/api/admin/media-file${normalized}`;
+  }
+
+  return normalized;
+}
+
 export function normalizePublicBlogImageUrl(path: string) {
   const normalized = normalizeBuilderAssetUrl(path);
 
   if (normalized.startsWith("/gallery/")) {
-    return `/api/admin/media-file${normalized}`;
+    return normalized;
+  }
+
+  if (normalized.startsWith("/api/admin/media-file/gallery/")) {
+    return normalized.replace("/api/admin/media-file/gallery/", "/gallery/");
   }
 
   return normalized;

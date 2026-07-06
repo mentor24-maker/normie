@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
   // (building/rendering bar) is turned off via scripts/ensure-devtools-config.mjs and
   // components/dev-indicator-suppressor.tsx.
   devIndicators: false,
+  async redirects() {
+    return [
+      {
+        // Legacy alias; the page previously lived at /portal/tokens.
+        source: "/portal/tokens",
+        destination: "/portal/token",
+        permanent: true
+      }
+    ];
+  },
   images: {
     remotePatterns: [
       {

@@ -7,6 +7,11 @@ import {
   type PublicUserRow
 } from "@/lib/public-users";
 import { normalizePlayerHandle } from "@/lib/player-auth";
+import {
+  assertTesterPollExists,
+  normalizeIsTester,
+  normalizeTesterPollId
+} from "@/lib/player-tester-poll";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function PATCH(
@@ -26,6 +31,8 @@ export async function PATCH(
     fullName?: unknown;
     handle?: unknown;
     status?: unknown;
+    isTester?: unknown;
+    testerPollId?: unknown;
   };
 
   const email = safeUserText(body.email, 255).toLowerCase();
@@ -33,6 +40,8 @@ export async function PATCH(
   const fullName = safeUserText(body.fullName, 255);
   const handle = normalizePlayerHandle(body.handle, email);
   const status = normalizePublicUserStatus(body.status);
+  const isTester = normalizeIsTester(body.isTester);
+  const testerPollId = isTester ? normalizeTesterPollId(body.testerPollId) : null;
 
   if (!email || !email.includes("@")) {
     return auth.finish(NextResponse.json({ error: "A valid email is required." }, { status: 400 }));
@@ -40,6 +49,14 @@ export async function PATCH(
 
   if (password && password.length < 8) {
     return auth.finish(NextResponse.json({ error: "New password must be at least 8 characters." }, { status: 400 }));
+  }
+
+  if (isTester) {
+    const testerPollError = await assertTesterPollExists(testerPollId);
+
+    if (testerPollError) {
+      return auth.finish(NextResponse.json({ error: testerPollError }, { status: 400 }));
+    }
   }
 
   const supabase = createAdminClient();
@@ -71,9 +88,11 @@ export async function PATCH(
       full_name: fullName,
       handle,
       status,
+      is_tester: isTester,
+      tester_poll_id: testerPollId,
       updated_at: new Date().toISOString()
     })
-    .select("id, full_name, handle, status, crypto_wallets, created_at, updated_at")
+    .select("id, full_name, handle, status, is_tester, tester_poll_id, crypto_wallets, created_at, updated_at")
     .single();
 
   if (profileError || !profile) {

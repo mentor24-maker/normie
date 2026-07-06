@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildRewardTrack } from "@/lib/player-portal";
 import {
-  buildRewardTrack,
   PLAYER_GRADES_PER_CLASS,
   PLAYER_LEVELS_PER_GRADE,
   PLAYER_POLLS_PER_CLASS,
@@ -9,7 +9,7 @@ import {
   PLAYER_PORTAL_CLASS_COIN_SIZE_PX,
   PLAYER_PORTAL_GRADE_COIN_SIZE_PX,
   PLAYER_PORTAL_LEVEL_COIN_SIZE_PX
-} from "@/lib/player-portal";
+} from "@/lib/player-portal-constants";
 
 type RewardRow = {
   name: string | null;

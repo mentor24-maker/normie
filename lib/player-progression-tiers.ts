@@ -1,7 +1,7 @@
 import {
   PLAYER_LEVELS_PER_GRADE,
   PLAYER_POLLS_PER_LEVEL
-} from "@/lib/player-portal";
+} from "@/lib/player-portal-constants";
 
 export const DEFAULT_EVENT_POLLS_PER_LEVEL = PLAYER_POLLS_PER_LEVEL;
 

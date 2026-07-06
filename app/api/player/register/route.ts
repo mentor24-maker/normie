@@ -1,12 +1,29 @@
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/auth-users";
 import { isMissingPlayerSchemaError, normalizePlayerHandle, safePlayerText } from "@/lib/player-auth";
 import { isPlayerAwaitingEmailVerification } from "@/lib/player-email-confirmation";
 import { sendPlayerSignupConfirmationEmail } from "@/lib/player-signup-confirmation-email";
+import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { getRequestClientIp } from "@/lib/public-request";
 import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 import { getPlayerAuthCallbackUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+const REGISTER_RATE_LIMIT = 10;
+const REGISTER_WINDOW_SECONDS = 60 * 60;
+
 export async function POST(request: Request) {
+  const clientIp = getRequestClientIp(request);
+  const rateLimit = await consumePublicRateLimit(
+    `player-register:ip:${clientIp}`,
+    REGISTER_RATE_LIMIT,
+    REGISTER_WINDOW_SECONDS
+  );
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const body = (await request.json()) as {
     email?: unknown;
     password?: unknown;
@@ -39,16 +56,16 @@ export async function POST(request: Request) {
   }
 
   const adminClient = createAdminClient();
-  const { data: existingUsers, error: existingUsersError } = await adminClient.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000
-  });
 
-  if (existingUsersError) {
-    return NextResponse.json({ error: existingUsersError.message }, { status: 500 });
+  let existingUser;
+  try {
+    existingUser = await findAuthUserByEmail(adminClient, email);
+  } catch (lookupError) {
+    return NextResponse.json(
+      { error: lookupError instanceof Error ? lookupError.message : "Failed to look up account." },
+      { status: 500 }
+    );
   }
-
-  const existingUser = existingUsers.users.find((user) => user.email?.toLowerCase() === email);
 
   if (existingUser) {
     if (isPlayerAwaitingEmailVerification(existingUser)) {

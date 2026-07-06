@@ -1,7 +1,7 @@
 import {
   PLAYER_POLLS_PER_GRADE,
   PLAYER_POLLS_PER_LEVEL
-} from "@/lib/player-portal";
+} from "@/lib/player-portal-constants";
 
 export const POLL_SKIP_FEATURE_KEY = "poll_skip";
 export const POLL_LIKE_DISLIKE_FEATURE_KEY = "poll_like_dislike";

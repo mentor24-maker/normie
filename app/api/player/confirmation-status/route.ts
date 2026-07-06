@@ -4,8 +4,26 @@ import {
   type PlayerEmailConfirmationStatus
 } from "@/lib/player-email-confirmation";
 import { safePlayerText } from "@/lib/player-auth";
+import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { getRequestClientIp } from "@/lib/public-request";
+
+// Generous limit: the register form fires a debounced status check as the
+// player types their email, so legitimate use can hit this several times.
+const CONFIRMATION_STATUS_RATE_LIMIT = 30;
+const CONFIRMATION_STATUS_WINDOW_SECONDS = 15 * 60;
 
 export async function POST(request: Request) {
+  const clientIp = getRequestClientIp(request);
+  const rateLimit = await consumePublicRateLimit(
+    `player-confirmation-status:ip:${clientIp}`,
+    CONFIRMATION_STATUS_RATE_LIMIT,
+    CONFIRMATION_STATUS_WINDOW_SECONDS
+  );
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const body = (await request.json()) as { email?: unknown };
   const email = safePlayerText(body.email, 255).toLowerCase();
 

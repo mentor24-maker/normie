@@ -6,6 +6,7 @@ import {
   type UserProfileRow,
   type UserRole
 } from "@/lib/admin-users";
+import { findAuthUserByEmail as findAuthUserByEmailPaged } from "@/lib/auth-users";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 export type TeamInvitationMatch = {
@@ -37,14 +38,7 @@ export async function findAuthUserByEmail(email: string): Promise<User | null> {
     return null;
   }
 
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return ((data.users ?? []) as User[]).find((user) => user.email?.toLowerCase() === normalizedEmail) ?? null;
+  return findAuthUserByEmailPaged(createAdminClient(), normalizedEmail);
 }
 
 export async function findInvitedTeamProfileByEmail(email: string): Promise<TeamInvitationMatch | null> {

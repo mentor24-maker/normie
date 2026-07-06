@@ -1,17 +1,23 @@
-import type { cookies } from "next/headers";
 import { isLocalDevHost } from "@/lib/local-dev-host";
 import type { PlayerReminderContext } from "@/lib/game-reminder-eval";
 import { isUuid } from "@/lib/public-request";
+
+export {
+  POLL_TEST_MODE_CHANGED_EVENT,
+  resolvePollAnswerProgress,
+  shouldFirePollAnswerEffects,
+  type PollAnswerClientPayload
+} from "@/lib/poll-answer-client";
 
 export const POLL_TEST_MODE_COOKIE = "normie_poll_test_mode";
 export const POLL_TEST_PIN_COOKIE = "normie_poll_test_pin";
 export const POLL_TEST_PROGRESS_COOKIE = "normie_poll_test_progress";
 
-export const POLL_TEST_MODE_CHANGED_EVENT = "normie:poll-test-mode-changed";
-
 const POLL_TEST_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
 
-type CookieStore = Awaited<ReturnType<typeof cookies>>;
+type CookieStore = {
+  get: (name: string) => { value: string } | undefined;
+};
 
 export function isLocalhostPollTestHost(host: string | null | undefined): boolean {
   return isLocalDevHost(host);
@@ -124,31 +130,4 @@ export function applyPollTestReminderContextOverrides(
     pollsTaken: testProgress ?? context.pollsTaken,
     isRegistered: false
   };
-}
-
-export type PollAnswerClientPayload = {
-  duplicate?: boolean;
-  pollTestMode?: boolean;
-  progressPollsTaken?: number;
-  playerAnswerCount?: number;
-  /** Logged-in player portal user — anonymous visitors only get reminders, not game events. */
-  isRegistered?: boolean;
-};
-
-export function resolvePollAnswerProgress(payload: PollAnswerClientPayload): number | null {
-  const progress = payload.progressPollsTaken ?? payload.playerAnswerCount;
-
-  if (!Number.isFinite(progress)) {
-    return null;
-  }
-
-  return progress as number;
-}
-
-export function shouldFirePollAnswerEffects(payload: PollAnswerClientPayload): boolean {
-  if (payload.pollTestMode) {
-    return true;
-  }
-
-  return !payload.duplicate;
 }

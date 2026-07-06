@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAYER_POLLS_PER_GRADE } from "@/lib/player-portal";
+import { PLAYER_POLLS_PER_GRADE } from "@/lib/player-portal-constants";
 import {
   getUnlockedFeatureKeys,
   pollsRequiredForRewardTier,

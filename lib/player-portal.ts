@@ -15,7 +15,19 @@ import {
 import { readPollCategoryNameFromJoin } from "@/lib/poll-category-store";
 import { createAdminClient } from "./supabase-admin";
 import type { AuthorizedPlayer } from "./player-auth";
+import { loadPlayerTesterPollNumber } from "./player-tester-poll";
 import type { BuilderTemplateModule } from "./builder-template";
+
+export {
+  PLAYER_GRADES_PER_CLASS,
+  PLAYER_LEVELS_PER_GRADE,
+  PLAYER_POLLS_PER_CLASS,
+  PLAYER_POLLS_PER_GRADE,
+  PLAYER_POLLS_PER_LEVEL,
+  PLAYER_PORTAL_CLASS_COIN_SIZE_PX,
+  PLAYER_PORTAL_GRADE_COIN_SIZE_PX,
+  PLAYER_PORTAL_LEVEL_COIN_SIZE_PX
+} from "./player-portal-constants";
 
 export type PlayerPollOption = {
   id: string;
@@ -100,6 +112,7 @@ export type PlayerPortalSnapshot = {
   playerRank: number | null;
   rewardTrack: PlayerPortalRewardTrack;
   levelEvents: PlayerPortalLevelEvent[];
+  testerPollNumber: number | null;
 };
 
 type PollOptionRow = {
@@ -146,17 +159,16 @@ type GameRewardRow = {
   updated_at: string | null;
 };
 
-export const PLAYER_POLLS_PER_LEVEL = 10;
-/** 10 levels per grade × 10 polls per level = 100 polls to graduate a grade. */
-export const PLAYER_LEVELS_PER_GRADE = 10;
-export const PLAYER_POLLS_PER_GRADE = PLAYER_POLLS_PER_LEVEL * PLAYER_LEVELS_PER_GRADE;
-/** 10 grades per class × 100 polls per grade = 1000 polls to graduate a class. */
-export const PLAYER_GRADES_PER_CLASS = 10;
-export const PLAYER_POLLS_PER_CLASS = PLAYER_POLLS_PER_GRADE * PLAYER_GRADES_PER_CLASS;
-
-export const PLAYER_PORTAL_LEVEL_COIN_SIZE_PX = 30;
-export const PLAYER_PORTAL_GRADE_COIN_SIZE_PX = 60;
-export const PLAYER_PORTAL_CLASS_COIN_SIZE_PX = 90;
+import {
+  PLAYER_GRADES_PER_CLASS,
+  PLAYER_LEVELS_PER_GRADE,
+  PLAYER_POLLS_PER_CLASS,
+  PLAYER_POLLS_PER_GRADE,
+  PLAYER_POLLS_PER_LEVEL,
+  PLAYER_PORTAL_CLASS_COIN_SIZE_PX,
+  PLAYER_PORTAL_GRADE_COIN_SIZE_PX,
+  PLAYER_PORTAL_LEVEL_COIN_SIZE_PX
+} from "./player-portal-constants";
 
 const DEFAULT_POLL_REWARD_VISUAL: PlayerPortalRewardVisual = {
   visualType: "coin",
@@ -516,7 +528,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     { data: responseRows, error: responsesError },
     { data: rewardRows, error: rewardsError },
     { data: levelEventRows, error: levelEventsError },
-    leaderboardAggregate
+    leaderboardAggregate,
+    testerPollNumber
   ] =
     await Promise.all([
       supabase
@@ -534,7 +547,8 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
         .from("game_level_events")
         .select(ACTIVE_GAME_LEVEL_EVENTS_SELECT)
         .eq("is_active", true),
-      loadLeaderboardAggregateMap(supabase)
+      loadLeaderboardAggregateMap(supabase),
+      loadPlayerTesterPollNumber(player.authUser.id)
     ]);
 
   if (responsesError) {
@@ -636,6 +650,7 @@ export async function getPlayerPortalSnapshot(player: AuthorizedPlayer): Promise
     rewardTrack: buildRewardTrack((rewardRows ?? []) as unknown as GameRewardRow[], pollsTaken),
     levelEvents: levelEventsError
       ? []
-      : buildLevelEventsFromRows((levelEventRows ?? []) as unknown as GameLevelEventRow[])
+      : buildLevelEventsFromRows((levelEventRows ?? []) as unknown as GameLevelEventRow[]),
+    testerPollNumber
   };
 }

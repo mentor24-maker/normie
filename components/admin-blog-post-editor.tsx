@@ -12,6 +12,7 @@ import {
   type BlogTopicRecord,
   type BlogTwitterCardType
 } from "@/lib/blog";
+import { BlogFeaturedImageThumb } from "@/components/blog-featured-image-thumb";
 import { BlogRichTextEditor } from "@/components/blog-rich-text-editor";
 import { BuilderGalleryModal } from "@/components/builder/builder-gallery-modal";
 
@@ -249,6 +250,11 @@ export function AdminBlogPostEditor({
                 Gallery
               </button>
             </div>
+            {draft.featuredImageUrl ? (
+              <div className="admin-blog-featured-image-preview">
+                <BlogFeaturedImageThumb imageUrl={draft.featuredImageUrl} />
+              </div>
+            ) : null}
           </div>
 
           <fieldset className="admin-blog-fieldset">

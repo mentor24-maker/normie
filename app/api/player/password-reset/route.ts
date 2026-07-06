@@ -1,11 +1,28 @@
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/auth-users";
 import { safePlayerText } from "@/lib/player-auth";
 import { sendPlayerPasswordResetEmail } from "@/lib/player-password-reset-email";
+import { consumePublicRateLimit, rateLimitResponse } from "@/lib/public-rate-limit";
+import { getRequestClientIp } from "@/lib/public-request";
 import { isAuthEmailDeliveryConfigured } from "@/lib/send-builder-auth-email";
 import { getPlayerPasswordResetUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+const PASSWORD_RESET_RATE_LIMIT = 5;
+const PASSWORD_RESET_WINDOW_SECONDS = 15 * 60;
+
 export async function POST(request: Request) {
+  const clientIp = getRequestClientIp(request);
+  const rateLimit = await consumePublicRateLimit(
+    `player-password-reset:ip:${clientIp}`,
+    PASSWORD_RESET_RATE_LIMIT,
+    PASSWORD_RESET_WINDOW_SECONDS
+  );
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const body = (await request.json()) as { email?: unknown };
   const email = safePlayerText(body.email, 255).toLowerCase();
 
@@ -26,35 +43,9 @@ export async function POST(request: Request) {
   const redirectTo = getPlayerPasswordResetUrl(request);
   const adminClient = createAdminClient();
 
-  async function findExistingUser(): Promise<boolean> {
-    const perPage = 1000;
-    let page = 1;
-
-    for (;;) {
-      const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      const users = data.users ?? [];
-      const found = users.some((user) => user.email?.toLowerCase() === email);
-
-      if (found) {
-        return true;
-      }
-
-      if (users.length < perPage) {
-        return false;
-      }
-
-      page += 1;
-    }
-  }
-
   let existingUser = false;
   try {
-    existingUser = await findExistingUser();
+    existingUser = (await findAuthUserByEmail(adminClient, email)) !== null;
   } catch (listError) {
     return NextResponse.json(
       { error: listError instanceof Error ? listError.message : "Failed to list users." },
