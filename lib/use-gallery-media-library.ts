@@ -34,7 +34,9 @@ export function useGalleryMediaLibrary(options?: {
   const mediaRef = useRef<AdminMediaItem[]>([]);
   const hasSyncedIndexRef = useRef(false);
 
-  mediaRef.current = media;
+  useEffect(() => {
+    mediaRef.current = media;
+  }, [media]);
 
   const loadMedia = useCallback(
     async (loadOptions?: { sync?: boolean; append?: boolean }) => {

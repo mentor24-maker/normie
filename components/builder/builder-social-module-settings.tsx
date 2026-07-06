@@ -13,7 +13,7 @@ import {
   DEFAULT_SOCIAL_ICON_BACKGROUND,
   normalizeSocialIconBackgroundColor
 } from "@/lib/social-icon-background";
-import { getModuleAlignment, getModuleBackgroundSettings } from "./builder-utils";
+import { createBuilderItemId, getModuleAlignment, getModuleBackgroundSettings } from "./builder-utils";
 
 type SocialItem = {
   id: string;
@@ -142,7 +142,7 @@ export function BuilderSocialModuleSettings({
   }
 
   function addItem() {
-    const id = `social-${Date.now()}-${items.length + 1}`;
+    const id = createBuilderItemId("social", items.length);
     persist([
       ...items,
       {

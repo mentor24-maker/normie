@@ -59,7 +59,9 @@ export function PlayerTokenWalletsPanel({ initialWallets }: PlayerTokenWalletsPa
   const hasHolderAccess = wallets.length > 0;
   const walletListKey = wallets.join("|");
 
-  walletsRef.current = wallets;
+  useEffect(() => {
+    walletsRef.current = wallets;
+  }, [wallets]);
 
   const fetchBalances = useCallback(async (refresh = false) => {
     const currentWallets = walletsRef.current;

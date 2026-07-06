@@ -58,6 +58,7 @@ import { BuilderImagePreview } from "./builder-image-preview";
 import { modulePaletteGroups, modulePaletteItems } from "./builder-types";
 import type { ModulePaletteGroup, ModulePaletteItem } from "./builder-types";
 import {
+  createBuilderItemId,
   getAlignmentClass,
   getHeadingModuleStyle,
   getModuleAlignment,
@@ -1220,7 +1221,7 @@ function SliderModuleEditor({
   function removeItem(id: string) { persist(items.filter((item) => item.id !== id)); }
 
   function addItem() {
-    persist([...items, { id: `slide-${Date.now()}-${items.length + 1}`, title: "", body: "", imageUrl: "", linkUrl: "" }]);
+    persist([...items, { id: createBuilderItemId("slide", items.length), title: "", body: "", imageUrl: "", linkUrl: "" }]);
   }
 
   return (
@@ -1485,7 +1486,7 @@ function NavModuleEditor({
   function removeItem(id: string) { persist(items.filter((item) => item.id !== id)); }
 
   function addItem() {
-    persist([...items, { id: `nav-${Date.now()}-${items.length + 1}`, label: "", href: "" }]);
+    persist([...items, { id: createBuilderItemId("nav", items.length), label: "", href: "" }]);
   }
 
   function updateSetting(key: string, value: string) {
@@ -1671,7 +1672,7 @@ function HeadlineRotatorModuleEditor({
     persist([
       ...items,
       {
-        id: `headline-${Date.now()}-${items.length + 1}`,
+        id: createBuilderItemId("headline", items.length),
         label: "",
         href: "",
         xAxis: position.xAxis,

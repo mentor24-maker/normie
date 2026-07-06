@@ -863,3 +863,12 @@ export function getVideoEmbedSource(value: string | undefined):
 
   return null;
 }
+
+/**
+ * Timestamp-based id for user-added builder list items (slides, nav items,
+ * headlines, social links). Module scope keeps the impure Date.now() call
+ * out of component render bodies (react-hooks/purity).
+ */
+export function createBuilderItemId(prefix: string, existingCount: number): string {
+  return `${prefix}-${Date.now()}-${existingCount + 1}`;
+}
