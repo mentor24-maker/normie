@@ -66,11 +66,8 @@ function positionSignature(style: CSSProperties) {
 
 export function BuilderFloatingSaveRail({ actions, isSaving }: BuilderFloatingSaveRailProps) {
   const [position, setPosition] = useState<CSSProperties>(FALLBACK_POSITION);
-  const actionsRef = useRef(actions);
   const positionSignatureRef = useRef("");
   const actionKey = actions.length > 0 ? actions[0]?.label ?? "" : "";
-
-  actionsRef.current = actions;
 
   useLayoutEffect(() => {
     if (actions.length === 0) {
@@ -129,7 +126,7 @@ export function BuilderFloatingSaveRail({ actions, isSaving }: BuilderFloatingSa
 
   return createPortal(
     <aside aria-label="Save actions" className="builder-floating-save-rail" style={position}>
-      {actionsRef.current.map((action) => (
+      {actions.map((action) => (
         <button
           key={action.label}
           className="submit-button admin-blog-add-button"

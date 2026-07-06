@@ -104,7 +104,9 @@ export function useGalleryMarqueeSelection(options: {
   const [previewStorageNames, setPreviewStorageNames] = useState<Set<string>>(() => new Set());
   const [isDragging, setIsDragging] = useState(false);
 
-  optionsRef.current = options;
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   const finishMarquee = useCallback((endX: number, endY: number) => {
     const session = sessionRef.current;
