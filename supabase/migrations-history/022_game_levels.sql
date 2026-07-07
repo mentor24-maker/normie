@@ -28,12 +28,13 @@ using (true);
 grant select on public.game_levels to anon, authenticated, service_role;
 grant insert, update, delete on public.game_levels to service_role;
 
+-- Seed only when empty (on conflict (level_order) relied on a unique
+-- constraint that migration 023 later drops; harmless on prod, breaks replay).
 insert into public.game_levels (level_name, level_order, game_level_levels)
-values (
+select
   'Levels',
   1,
   '[{"name":"Apprentice","order":1},{"name":"Acolyte","order":2},{"name":"Wizard","order":3}]'::jsonb
-)
-on conflict (level_order) do nothing;
+where not exists (select 1 from public.game_levels);
 
 notify pgrst, 'reload schema';
