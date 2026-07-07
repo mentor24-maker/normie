@@ -887,3 +887,295 @@ from (
 where not exists (
   select 1 from public.game_level_events where event_name = 'Level 1.1 Confetti'
 );
+
+-- ---------------------------------------------------------------------------
+-- Gallery media, game reminders, and interstitials
+-- (consolidated from migrations 037/040/042/044/046/047/054/055; kept
+-- verbatim so schema.sql stays an equivalent install script)
+-- ---------------------------------------------------------------------------
+
+-- from 037_game_reminders.sql
+-- Player reminders: popup or inline notices triggered by game criteria.
+
+create table if not exists public.game_reminders (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  display_type text not null default 'popup' check (display_type in ('popup', 'inline')),
+  message_html text not null default '',
+  criterion_type text not null check (criterion_type in ('polls_taken', 'logins', 'specific_poll', 'registered')),
+  criterion_value jsonb not null default '{}'::jsonb,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists game_reminders_active_sort_idx
+on public.game_reminders (is_active, sort_order);
+
+create index if not exists game_reminders_updated_at_idx
+on public.game_reminders (updated_at desc);
+
+alter table public.game_reminders enable row level security;
+
+drop policy if exists "game reminders are readable" on public.game_reminders;
+create policy "game reminders are readable"
+on public.game_reminders
+for select
+to anon, authenticated
+using (true);
+
+grant select on public.game_reminders to anon, authenticated, service_role;
+grant insert, update, delete on public.game_reminders to service_role;
+
+-- from 040_gallery_media_badge.sql
+-- Metadata for files in the Supabase Storage `gallery` bucket (not the files themselves).
+
+create table if not exists public.gallery_media (
+  storage_name text primary key,
+  badge boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists gallery_media_badge_idx
+on public.gallery_media (badge)
+where badge = true;
+
+alter table public.gallery_media enable row level security;
+
+drop policy if exists "gallery media is readable" on public.gallery_media;
+create policy "gallery media is readable"
+on public.gallery_media
+for select
+to anon, authenticated
+using (true);
+
+grant select on public.gallery_media to anon, authenticated, service_role;
+grant insert, update, delete on public.gallery_media to service_role;
+
+-- from 042_gallery_media_list_indexes.sql
+-- Indexes for filtered, sorted gallery media library queries.
+
+create index if not exists gallery_media_created_at_idx
+on public.gallery_media (created_at desc);
+
+create index if not exists gallery_media_storage_name_idx
+on public.gallery_media (storage_name);
+
+create index if not exists gallery_media_badge_storage_name_idx
+on public.gallery_media (badge, storage_name);
+
+-- from 044_game_reminder_appearance.sql
+-- Reminder presentation: speech bubble overlay or top/bottom strip.
+
+alter table public.game_reminders
+add column if not exists appearance text;
+
+update public.game_reminders
+set appearance = case
+  when coalesce(display_type, 'popup') = 'inline' then 'strip'
+  else 'speech_bubble'
+end
+where appearance is null or trim(appearance) = '';
+
+alter table public.game_reminders
+alter column appearance set default 'speech_bubble';
+
+alter table public.game_reminders
+alter column appearance set not null;
+
+alter table public.game_reminders
+drop constraint if exists game_reminders_appearance_check;
+
+alter table public.game_reminders
+add constraint game_reminders_appearance_check
+check (appearance in ('speech_bubble', 'strip'));
+
+-- from 046_gallery_media_category_type.sql
+-- Gallery file taxonomy: poll-aligned category + asset usage type.
+
+alter table public.gallery_media
+add column if not exists media_category text not null default '';
+
+alter table public.gallery_media
+add column if not exists media_type text not null default '';
+
+create index if not exists gallery_media_media_category_idx
+on public.gallery_media (media_category)
+where media_category <> '';
+
+create index if not exists gallery_media_media_type_idx
+on public.gallery_media (media_type)
+where media_type <> '';
+
+-- Aspect added in 047_gallery_media_aspect.sql if this migration ran before aspect existed.
+alter table public.gallery_media
+add column if not exists aspect text not null default 'square';
+
+-- from 047_gallery_media_aspect.sql
+-- Layout aspect for gallery assets (tall / wide / square).
+
+alter table public.gallery_media
+add column if not exists aspect text not null default 'square';
+
+alter table public.gallery_media
+drop constraint if exists gallery_media_aspect_check;
+
+alter table public.gallery_media
+add constraint gallery_media_aspect_check
+check (aspect in ('tall', 'wide', 'square'));
+
+create index if not exists gallery_media_aspect_idx
+on public.gallery_media (aspect);
+
+-- from 054_game_interstitials.sql
+-- Poll interstitials: messages shown in the main polling panel between polls.
+
+create table if not exists public.game_interstitials (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text not null default '',
+  interstitial_type text not null default 'custom' check (
+    interstitial_type in (
+      'ad',
+      'instructions',
+      'special_deal',
+      'feedback_poll',
+      'announcement',
+      'milestone',
+      'survey',
+      'partner_promo',
+      'referral',
+      'content_teaser',
+      'onboarding',
+      'custom'
+    )
+  ),
+  display_order integer not null default 1 check (display_order >= 1),
+  status text not null default 'draft' check (status in ('active', 'draft', 'archived')),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists game_interstitials_display_order_idx
+on public.game_interstitials (display_order);
+
+create index if not exists game_interstitials_status_idx
+on public.game_interstitials (status);
+
+create index if not exists game_interstitials_updated_at_idx
+on public.game_interstitials (updated_at desc);
+
+alter table public.game_interstitials enable row level security;
+
+drop policy if exists "game interstitials are readable" on public.game_interstitials;
+create policy "game interstitials are readable"
+on public.game_interstitials
+for select
+to anon, authenticated
+using (true);
+
+grant select on public.game_interstitials to anon, authenticated, service_role;
+grant insert, update, delete on public.game_interstitials to service_role;
+
+notify pgrst, 'reload schema';
+
+-- from 055_game_interstitial_survey_responses.sql
+-- Survey interstitial responses: one submission per interstitial per player or session.
+
+create table if not exists public.game_interstitial_responses (
+  id uuid primary key default gen_random_uuid(),
+  interstitial_id uuid not null references public.game_interstitials(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  session_id text not null default '',
+  answers jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists game_interstitial_responses_interstitial_idx
+on public.game_interstitial_responses (interstitial_id);
+
+create index if not exists game_interstitial_responses_user_idx
+on public.game_interstitial_responses (user_id)
+where user_id is not null;
+
+create index if not exists game_interstitial_responses_session_idx
+on public.game_interstitial_responses (session_id)
+where session_id <> '';
+
+create unique index if not exists game_interstitial_responses_user_unique
+on public.game_interstitial_responses (interstitial_id, user_id)
+where user_id is not null;
+
+create unique index if not exists game_interstitial_responses_session_unique
+on public.game_interstitial_responses (interstitial_id, session_id)
+where user_id is null and session_id <> '';
+
+alter table public.game_interstitial_responses enable row level security;
+
+drop policy if exists "game interstitial responses are readable" on public.game_interstitial_responses;
+create policy "game interstitial responses are readable"
+on public.game_interstitial_responses
+for select
+to anon, authenticated
+using (true);
+
+grant select on public.game_interstitial_responses to anon, authenticated, service_role;
+grant insert, update, delete on public.game_interstitial_responses to service_role;
+
+notify pgrst, 'reload schema';
+
+
+-- from later column migrations (038/041/043/051), kept verbatim
+
+-- from 038_player_login_count.sql
+-- Track player login count for game reminder criteria.
+
+alter table public.player_profiles
+add column if not exists login_count integer not null default 0 check (login_count >= 0);
+
+create index if not exists player_profiles_login_count_idx
+on public.player_profiles (login_count);
+
+-- from 041_poll_response_skipped.sql
+-- Track skipped polls separately from real answers (no points, excluded from vote totals).
+
+alter table public.poll_response
+add column if not exists is_skipped boolean not null default false;
+
+create index if not exists poll_response_skipped_idx
+on public.poll_response (poll_id, is_skipped)
+where is_skipped = true;
+
+-- from 043_game_audience.sql
+-- Audience controls where game events and reminders may fire (public site, portal, or both).
+
+alter table if exists public.game_level_events
+add column if not exists audience text not null default 'both';
+
+alter table if exists public.game_level_events
+drop constraint if exists game_level_events_audience_check;
+
+alter table if exists public.game_level_events
+add constraint game_level_events_audience_check
+check (audience in ('public', 'portal', 'both'));
+
+alter table if exists public.game_reminders
+add column if not exists audience text not null default 'both';
+
+alter table if exists public.game_reminders
+drop constraint if exists game_reminders_audience_check;
+
+alter table if exists public.game_reminders
+add constraint game_reminders_audience_check
+check (audience in ('public', 'portal', 'both'));
+
+-- from 051_player_crypto_wallets.sql
+alter table public.player_profiles
+add column if not exists crypto_wallets jsonb not null default '[]'::jsonb;
+
+notify pgrst, 'reload schema';
+
