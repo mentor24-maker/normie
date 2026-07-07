@@ -14,15 +14,15 @@ type RepairCandidate = {
 
 export function AdminPollRepairPanel({ onRepaired }: { onRepaired?: () => Promise<void> | void }) {
   const [candidates, setCandidates] = useState<RepairCandidate[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRepairing, setIsRepairing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch worker with no synchronous setState: the mount effect can call it
+  // directly (isLoading starts true), event handlers go through
+  // refreshCandidates so they still flip the loading state.
   async function loadCandidates() {
-    setIsLoading(true);
-    setError(null);
-
     try {
       const response = await fetch("/api/admin/polls/repair", { cache: "no-store" });
       const data = (await response.json()) as { candidates?: RepairCandidate[]; error?: string };
@@ -40,6 +40,12 @@ export function AdminPollRepairPanel({ onRepaired }: { onRepaired?: () => Promis
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function refreshCandidates() {
+    setIsLoading(true);
+    setError(null);
+    return loadCandidates();
   }
 
   useEffect(() => {
@@ -68,7 +74,7 @@ export function AdminPollRepairPanel({ onRepaired }: { onRepaired?: () => Promis
       }
 
       setMessage(`Repaired ${data.repairedCount ?? 0} poll row(s).`);
-      await loadCandidates();
+      await refreshCandidates();
       await onRepaired?.();
     } catch (repairError) {
       setError(
@@ -104,7 +110,7 @@ export function AdminPollRepairPanel({ onRepaired }: { onRepaired?: () => Promis
       {candidates.length > 0 ? (
         <>
           <div className="admin-actions">
-            <button className="secondary-button" onClick={() => void loadCandidates()} type="button" disabled={isLoading}>
+            <button className="secondary-button" onClick={() => void refreshCandidates()} type="button" disabled={isLoading}>
               Refresh Check
             </button>
             <button className="submit-button" onClick={() => void handleRepair()} type="button" disabled={isRepairing}>

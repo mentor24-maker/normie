@@ -40,30 +40,27 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
   const [isReacting, setIsReacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadPolls = useCallback(
-    async (options?: { category?: string; startPoll?: string; reset?: boolean }) => {
-      setError(null);
-
-      let showLoading = false;
-
-      setPayload((current) => {
-        showLoading = true;
-
-        if ((current?.currentPoll || current?.surveyInterstitial) && !current.done) {
-          return current;
-        }
-
-        if (options?.reset || current?.done || !current) {
-          return null;
-        }
-
+  // Synchronous pre-load state flip, shared by event-handler reloads and the
+  // param-change render adjustment below. Kept out of the fetch worker so the
+  // mount effect performs no synchronous setState.
+  function beginPollLoad(options?: { reset?: boolean }) {
+    setError(null);
+    setPayload((current) => {
+      if ((current?.currentPoll || current?.surveyInterstitial) && !current.done) {
         return current;
-      });
-
-      if (showLoading) {
-        setIsLoading(true);
       }
 
+      if (options?.reset || current?.done || !current) {
+        return null;
+      }
+
+      return current;
+    });
+    setIsLoading(true);
+  }
+
+  const loadPolls = useCallback(
+    async (options?: { category?: string; startPoll?: string; reset?: boolean }) => {
       const category = (options?.category ?? categoryParam).trim();
       const startPoll = (options?.startPoll ?? startPollParam).trim();
 
@@ -89,23 +86,40 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
     [categoryParam, startPollParam]
   );
 
+  function reloadPolls(options?: { category?: string; startPoll?: string; reset?: boolean }) {
+    beginPollLoad(options);
+    return loadPolls(options);
+  }
+
+  const [prevParams, setPrevParams] = useState({ categoryParam, startPollParam });
+
+  // Re-enter the loading state when the URL params change (the loadPolls
+  // effect below re-fetches); adjust-during-render replaces the old
+  // synchronous setState inside the effect.
+  if (prevParams.categoryParam !== categoryParam || prevParams.startPollParam !== startPollParam) {
+    setPrevParams({ categoryParam, startPollParam });
+    beginPollLoad();
+  }
+
   useEffect(() => {
     void loadPolls();
   }, [loadPolls]);
 
   useEffect(() => {
     return subscribePlayerPreferencesUpdated(() => {
-      void loadPolls({ reset: true });
+      void reloadPolls({ reset: true });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadPolls]);
 
   useEffect(() => {
     const reloadForTestMode = () => {
-      void loadPolls({ reset: true });
+      void reloadPolls({ reset: true });
     };
 
     window.addEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
     return () => window.removeEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadPolls]);
 
   async function submitAnswer(optionId: string) {
@@ -142,7 +156,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
       await runPollAnswerSideEffects(data);
 
       options?.onAnswered?.(data);
-      await loadPolls({ startPoll: "", reset: true });
+      await reloadPolls({ startPoll: "", reset: true });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {
@@ -176,7 +190,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
         throw new Error(data.error ?? "Failed to save your survey responses.");
       }
 
-      await loadPolls({ reset: true });
+      await reloadPolls({ reset: true });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your survey responses.");
     } finally {
@@ -211,7 +225,7 @@ export function usePollExperience(options?: UsePollExperienceOptions) {
 
       stripStartPollFromBrowserUrl();
       options?.onAnswered?.(data);
-      await loadPolls({ startPoll: "" });
+      await reloadPolls({ startPoll: "" });
     } catch (skipError) {
       setError(skipError instanceof Error ? skipError.message : "Failed to skip this poll.");
     } finally {

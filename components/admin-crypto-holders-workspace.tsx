@@ -21,13 +21,12 @@ function formatTimestamp(value: string) {
 
 export function AdminCryptoHoldersWorkspace() {
   const [snapshot, setSnapshot] = useState<AdminCryptoHoldersSnapshot | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch worker with no synchronous setState (see refreshHolders for the
+  // event-handler entry point).
   const loadHolders = useCallback(async (refresh = false) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
       const url = refresh ? "/api/admin/crypto/holders?refresh=1" : "/api/admin/crypto/holders";
       const response = await fetch(url, { cache: "no-store" });
@@ -44,6 +43,15 @@ export function AdminCryptoHoldersWorkspace() {
       setIsLoading(false);
     }
   }, []);
+
+  const refreshHolders = useCallback(
+    (refresh = false) => {
+      setIsLoading(true);
+      setError(null);
+      return loadHolders(refresh);
+    },
+    [loadHolders]
+  );
 
   useEffect(() => {
     void loadHolders(false);
@@ -98,7 +106,7 @@ export function AdminCryptoHoldersWorkspace() {
             <button
               className="secondary-button"
               disabled={isLoading}
-              onClick={() => void loadHolders(true)}
+              onClick={() => void refreshHolders(true)}
               type="button"
             >
               {isLoading ? "Refreshing..." : "Refresh Balances"}

@@ -30,17 +30,22 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
   const [isReacting, setIsReacting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Synchronous pre-load state flip, shared by event-handler reloads and the
+  // param-change render adjustment below. Kept out of the fetch worker so the
+  // mount effect performs no synchronous setState.
+  function beginPollLoad() {
+    setError(null);
+    setPayload((current) => {
+      if ((!current?.currentPoll && !current?.surveyInterstitial) || current.done) {
+        return null;
+      }
+      return current;
+    });
+    setIsLoading(true);
+  }
+
   const loadPolls = useCallback(
     async (options?: { category?: string; startPoll?: string }) => {
-      setError(null);
-      setPayload((current) => {
-        if ((!current?.currentPoll && !current?.surveyInterstitial) || current.done) {
-          return null;
-        }
-        return current;
-      });
-      setIsLoading(true);
-
       const category = (options?.category ?? categoryParam).trim();
       const startPoll = (options?.startPoll ?? startPollParam).trim();
 
@@ -66,17 +71,33 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
     [categoryParam, startPollParam]
   );
 
+  function reloadPolls(options?: { category?: string; startPoll?: string }) {
+    beginPollLoad();
+    return loadPolls(options);
+  }
+
+  const [prevParams, setPrevParams] = useState({ categoryParam, startPollParam });
+
+  // Re-enter the loading state when the URL params change (the loadPolls
+  // effect below re-fetches); adjust-during-render replaces the old
+  // synchronous setState inside the effect.
+  if (prevParams.categoryParam !== categoryParam || prevParams.startPollParam !== startPollParam) {
+    setPrevParams({ categoryParam, startPollParam });
+    beginPollLoad();
+  }
+
   useEffect(() => {
     void loadPolls();
   }, [loadPolls]);
 
   useEffect(() => {
     const reloadForTestMode = () => {
-      void loadPolls({ startPoll: "" });
+      void reloadPolls({ startPoll: "" });
     };
 
     window.addEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
     return () => window.removeEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadPolls]);
 
   async function submitAnswer(optionId: string) {
@@ -104,7 +125,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
       await runPollAnswerSideEffects(data);
 
       stripStartPollFromBrowserUrl();
-      await loadPolls({ startPoll: "" });
+      await reloadPolls({ startPoll: "" });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
     } finally {
@@ -136,7 +157,7 @@ export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
         throw new Error(data.error ?? "Failed to save your survey responses.");
       }
 
-      await loadPolls({ startPoll: "" });
+      await reloadPolls({ startPoll: "" });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save your survey responses.");
     } finally {

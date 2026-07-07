@@ -95,12 +95,20 @@ export function AdminPollEditorForm({ pollId }: AdminPollEditorFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const { catalog: pollCategoryCatalog } = usePollCategoryCatalog();
+  const [prevPollId, setPrevPollId] = useState(pollId);
 
-  const load = useCallback(async () => {
+  // Show the loading state again when navigating to a different poll
+  // (adjust-during-render; the effect below re-fetches).
+  if (prevPollId !== pollId) {
+    setPrevPollId(pollId);
     setIsLoading(true);
     setError(null);
     setMessage(null);
+  }
 
+  // Only called from the mount/pollId effect; isLoading starts true, so no
+  // synchronous setState is needed before the fetch.
+  const load = useCallback(async () => {
     try {
       const [pollRes, listRes, postsRes] = await Promise.all([
         pollId ? fetch(`/api/admin/polls/${pollId}`, { cache: "no-store" }) : Promise.resolve(null),

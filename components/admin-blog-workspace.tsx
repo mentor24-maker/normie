@@ -472,10 +472,9 @@ export function AdminBlogWorkspace() {
     }
   }
 
+  // Fetch worker with no synchronous setState (isLoading starts true);
+  // event handlers reload via refreshAll so they still flip loading state.
   const loadAll = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-
     try {
       const payload = await readAdminJson<{
         posts?: BlogPostRecord[];
@@ -507,6 +506,12 @@ export function AdminBlogWorkspace() {
       setIsLoading(false);
     }
   }, []);
+
+  const refreshAll = useCallback(() => {
+    setIsLoading(true);
+    setError("");
+    return loadAll();
+  }, [loadAll]);
 
   useEffect(() => {
     void loadAll();
@@ -542,7 +547,7 @@ export function AdminBlogWorkspace() {
 
       setMessage("Post saved.");
       setEditingDraft(null);
-      await loadAll();
+      await refreshAll();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save post.");
     } finally {
@@ -585,7 +590,7 @@ export function AdminBlogWorkspace() {
       await readAdminJson<{ error?: string }>(response, "Failed to publish post.");
 
       setMessage(`"${post.title}" is published.`);
-      await loadAll();
+      await refreshAll();
     } catch (publishError) {
       setError(publishError instanceof Error ? publishError.message : "Failed to publish post.");
     } finally {
@@ -611,7 +616,7 @@ export function AdminBlogWorkspace() {
     }
 
     setMessage("Post deleted.");
-    await loadAll();
+    await refreshAll();
   }
 
   async function saveTopic() {
@@ -628,7 +633,7 @@ export function AdminBlogWorkspace() {
 
       setTopicDraft({ name: "", slug: "" });
       setMessage("Topic saved.");
-      await loadAll();
+      await refreshAll();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save topic.");
     } finally {
@@ -650,7 +655,7 @@ export function AdminBlogWorkspace() {
 
       setCategoryDraft({ name: "", slug: "" });
       setMessage("Category saved.");
-      await loadAll();
+      await refreshAll();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save category.");
     } finally {
@@ -672,7 +677,7 @@ export function AdminBlogWorkspace() {
 
       setTagDraft({ name: "", slug: "" });
       setMessage("Tag saved.");
-      await loadAll();
+      await refreshAll();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save tag.");
     } finally {
