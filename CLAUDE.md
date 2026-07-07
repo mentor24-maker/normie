@@ -22,6 +22,14 @@ its content here or elsewhere.
 
 ## Environment
 
+⚠️ **Local dev shares the PRODUCTION Supabase database** (single project by
+deliberate budget decision, July 2026). Treat every dev-server action as
+live: no destructive SQL experiments, no bulk deletes, no schema changes
+outside reviewed migrations, and prefer read paths when exploring. Apply
+new migrations via the Supabase SQL editor only after the PR containing
+them is merged. Revisit separation (local Supabase CLI via Docker, or a
+second project) when budget or team growth justifies it.
+
 - Node 22 (`.nvmrc`), npm ≥ 10
 - Supabase env vars via `lib/env.ts` (`getSupabaseEnv` / `getPublicSupabaseEnv`) —
   never read `process.env` directly for Supabase keys
