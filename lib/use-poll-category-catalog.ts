@@ -18,12 +18,18 @@ export function usePollCategoryCatalog(): PollCategoryCatalogState {
   const [isLoading, setIsLoading] = useState(() => getCachedPollCategoryCatalog() === null);
   const [error, setError] = useState<string | null>(null);
 
+  // If another instance filled the module cache after our lazy init, adopt
+  // it during render instead of a setState-in-effect cascade.
+  const cachedNow = getCachedPollCategoryCatalog();
+
+  if (cachedNow && catalog !== cachedNow) {
+    setCatalog(cachedNow);
+    setIsLoading(false);
+    setError(null);
+  }
+
   useEffect(() => {
-    const cached = getCachedPollCategoryCatalog();
-    if (cached) {
-      setCatalog(cached);
-      setIsLoading(false);
-      setError(null);
+    if (getCachedPollCategoryCatalog()) {
       return;
     }
 

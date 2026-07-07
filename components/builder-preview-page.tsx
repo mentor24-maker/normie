@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useIsHydrated } from "@/lib/use-client-value";
 import { BuilderTemplatePreview } from "@/components/builder-template-preview";
 import {
   BUILDER_PREVIEW_DEVICE_STORAGE_KEY,
@@ -21,7 +22,14 @@ export function BuilderPreviewPage() {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile" | "email">("desktop");
   const isEmailPreview = previewDevice === "email";
 
-  useEffect(() => {
+  // Seed the preview draft and device from localStorage once hydrated
+  // (adjust-during-render instead of a setState-in-effect cascade).
+  const hydrated = useIsHydrated();
+  const [seeded, setSeeded] = useState(false);
+
+  if (hydrated && !seeded) {
+    setSeeded(true);
+
     try {
       const rawValue = window.localStorage.getItem(BUILDER_PREVIEW_STORAGE_KEY);
       const storedDevice = window.localStorage.getItem(BUILDER_PREVIEW_DEVICE_STORAGE_KEY);
@@ -30,21 +38,19 @@ export function BuilderPreviewPage() {
         setPreviewDevice(storedDevice);
       }
 
-      if (!rawValue) {
-        return;
+      if (rawValue) {
+        const parsed = JSON.parse(rawValue) as {
+          name?: unknown;
+          pageBackground?: unknown;
+          layoutSections?: unknown;
+        };
+        const document = normalizeBuilderDocument(parsed);
+        setDraft({
+          name: String(parsed.name ?? "").trim(),
+          pageBackground: document.pageBackground,
+          layoutSections: document.layoutSections
+        });
       }
-
-      const parsed = JSON.parse(rawValue) as {
-        name?: unknown;
-        pageBackground?: unknown;
-        layoutSections?: unknown;
-      };
-      const document = normalizeBuilderDocument(parsed);
-      setDraft({
-        name: String(parsed.name ?? "").trim(),
-        pageBackground: document.pageBackground,
-        layoutSections: document.layoutSections
-      });
     } catch {
       setDraft({
         name: "",
@@ -52,7 +58,7 @@ export function BuilderPreviewPage() {
         layoutSections: []
       });
     }
-  }, []);
+  }
 
   return (
     <main className="admin-page">

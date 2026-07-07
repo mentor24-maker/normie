@@ -18,7 +18,14 @@ export function AdminLoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
+  // Seed mode/email/error from the URL params during render (initial value
+  // included — the applied marker starts undefined), replacing a
+  // setState-in-effect cascade.
+  const [appliedSearchParams, setAppliedSearchParams] = useState<typeof searchParams | undefined>(undefined);
+
+  if (appliedSearchParams !== searchParams) {
+    setAppliedSearchParams(searchParams);
+
     if (searchParams?.get("expired") === "1") {
       setError("Your admin session expired. Sign in again to continue.");
     }
@@ -44,7 +51,7 @@ export function AdminLoginScreen() {
               : null
       );
     }
-  }, [searchParams]);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

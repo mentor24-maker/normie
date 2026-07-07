@@ -356,26 +356,30 @@ export function AdminUsersWorkspace({
     void loadUsers();
   }, [loadUsers]);
 
-  useEffect(() => {
+  // Apply the deep-linked user once the loaded list contains it, and re-seed
+  // the form when the selection changes — both adjusted during render
+  // instead of setState-in-effect cascades.
+  const [prevInitialSelection, setPrevInitialSelection] = useState({ initialSelectedUserId, isLoading, users });
+
+  if (
+    prevInitialSelection.initialSelectedUserId !== initialSelectedUserId ||
+    prevInitialSelection.isLoading !== isLoading ||
+    prevInitialSelection.users !== users
+  ) {
+    setPrevInitialSelection({ initialSelectedUserId, isLoading, users });
     const userId = initialSelectedUserId.trim();
 
-    if (!userId || isLoading) {
-      return;
-    }
-
-    if (users.some((user) => user.id === userId)) {
+    if (userId && !isLoading && users.some((user) => user.id === userId)) {
       setSelectedUserId(userId);
     }
-  }, [initialSelectedUserId, isLoading, users]);
+  }
 
-  useEffect(() => {
-    if (!selectedUser) {
-      setForm(createEmptyForm(directoryKind));
-      return;
-    }
+  const [prevFormSource, setPrevFormSource] = useState({ selectedUser, directoryKind });
 
-    setForm(createFormFromUser(selectedUser, directoryKind));
-  }, [directoryKind, selectedUser]);
+  if (prevFormSource.selectedUser !== selectedUser || prevFormSource.directoryKind !== directoryKind) {
+    setPrevFormSource({ selectedUser, directoryKind });
+    setForm(selectedUser ? createFormFromUser(selectedUser, directoryKind) : createEmptyForm(directoryKind));
+  }
 
   const loadTesterPollOptions = useCallback(async () => {
     setIsLoadingTesterPolls(true);

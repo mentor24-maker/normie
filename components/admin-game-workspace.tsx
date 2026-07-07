@@ -330,9 +330,10 @@ export function AdminGameWorkspace() {
     [filteredLevelEvents, levelEventSortDirection, levelEventSortKey]
   );
 
-  useEffect(() => {
-    setSelectedRewardIds((current) => current.filter((id) => rewards.some((reward) => reward.id === id)));
-  }, [rewards]);
+  // Drop selections for rewards that no longer exist (adjust-during-render).
+  if (selectedRewardIds.some((id) => !rewards.some((reward) => reward.id === id))) {
+    setSelectedRewardIds(selectedRewardIds.filter((id) => rewards.some((reward) => reward.id === id)));
+  }
 
   const hasGameLevelFilters = Boolean(gameLevelNameFilter || gameLevelOrderFilter.trim() || gameLevelQuery.trim());
   const hasRewardFilters = Boolean(
