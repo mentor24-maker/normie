@@ -44,11 +44,19 @@ export function AdminLegacyRemindersImportPanel({
   const [isImporting, setIsImporting] = useState(false);
 
   const normalizedSlug = pageSlug.trim() || "home";
+  const [prevSlug, setPrevSlug] = useState(normalizedSlug);
 
-  const refreshStatus = useCallback(async () => {
+  // Show the loading state again when the target page changes
+  // (adjust-during-render; the effect below re-fetches).
+  if (prevSlug !== normalizedSlug) {
+    setPrevSlug(normalizedSlug);
     setIsLoading(true);
     setError(null);
+  }
 
+  // Fetch worker with no synchronous setState; event handlers use
+  // refreshStatus so they still flip the loading state.
+  const loadStatus = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/admin/game/reminders/import-to-builder?slug=${encodeURIComponent(normalizedSlug)}`,
@@ -68,9 +76,15 @@ export function AdminLegacyRemindersImportPanel({
     }
   }, [normalizedSlug]);
 
+  const refreshStatus = useCallback(() => {
+    setIsLoading(true);
+    setError(null);
+    return loadStatus();
+  }, [loadStatus]);
+
   useEffect(() => {
-    void refreshStatus();
-  }, [refreshStatus]);
+    void loadStatus();
+  }, [loadStatus]);
 
   async function importLegacyReminders() {
     setIsImporting(true);

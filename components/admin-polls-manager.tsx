@@ -141,7 +141,7 @@ export function AdminPollsManager() {
   const [isPurgeOpen, setIsPurgeOpen] = useState(false);
   const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<PollFilterState>(emptyFilters);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ pollIds: string[] } | null>(null);
   const [deletePlayerRecords, setDeletePlayerRecords] = useState(true);
@@ -150,11 +150,9 @@ export function AdminPollsManager() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Fetch worker with no synchronous setState; event handlers use
+  // refreshPolls so they still flip the loading state.
   async function loadPolls() {
-    setIsLoading(true);
-    setError(null);
-    setMessage(null);
-
     try {
       const response = await fetch("/api/admin/polls?sync_gallery_links=1", {
         cache: "no-store"
@@ -183,6 +181,13 @@ export function AdminPollsManager() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function refreshPolls() {
+    setIsLoading(true);
+    setError(null);
+    setMessage(null);
+    return loadPolls();
   }
 
   useEffect(() => {
@@ -505,7 +510,7 @@ export function AdminPollsManager() {
               <CsvImportForm
                 submitLabel="Upload CSV"
                 onImported={async () => {
-                  await loadPolls();
+                  await refreshPolls();
                 }}
               />
             </AdminPollUploadPod>
@@ -513,7 +518,7 @@ export function AdminPollsManager() {
               <PersonalityCsvImportForm
                 endpoint="/api/admin/polls/import-personality-type-a"
                 onImported={async () => {
-                  await loadPolls();
+                  await refreshPolls();
                 }}
               />
             </AdminPollUploadPod>
@@ -521,7 +526,7 @@ export function AdminPollsManager() {
               <PersonalityCsvImportForm
                 endpoint="/api/admin/polls/import-personality-type-b"
                 onImported={async () => {
-                  await loadPolls();
+                  await refreshPolls();
                 }}
               />
             </AdminPollUploadPod>
@@ -529,7 +534,7 @@ export function AdminPollsManager() {
               <PersonalityCsvImportForm
                 endpoint="/api/admin/polls/import-personality-type-c"
                 onImported={async () => {
-                  await loadPolls();
+                  await refreshPolls();
                 }}
               />
             </AdminPollUploadPod>

@@ -39,12 +39,10 @@ export function BuilderReminderRuntime({ layoutSections }: BuilderReminderRuntim
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshContext = useCallback(async (options?: { silent?: boolean }) => {
-    if (!options?.silent) {
-      setIsLoading(true);
-    }
-    setFetchError(null);
-
+  // Fetch worker with no synchronous setState: isLoading starts true for the
+  // mount call, and the window-event refreshes are silent. A stale error is
+  // cleared on success instead of at call start.
+  const refreshContext = useCallback(async (_options?: { silent?: boolean }) => {
     try {
       const response = await fetch("/api/player/reminder-context", { cache: "no-store" });
       const data = (await response.json()) as ReminderContextResponse;
@@ -54,6 +52,7 @@ export function BuilderReminderRuntime({ layoutSections }: BuilderReminderRuntim
       }
 
       setContextPayload(data);
+      setFetchError(null);
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : "Failed to load reminder context.");
     } finally {

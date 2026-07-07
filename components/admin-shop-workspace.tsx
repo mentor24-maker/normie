@@ -332,7 +332,7 @@ export function AdminShopWorkspace() {
   const [products, setProducts] = useState<BuilderProductRecord[]>([]);
   const [editingProductId, setEditingProductId] = useState("");
   const [draft, setDraft] = useState<ProductDraft>(createEmptyProductDraft());
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -373,10 +373,9 @@ export function AdminShopWorkspace() {
     setSortDirection(nextKey === "updatedAt" ? "desc" : "asc");
   }
 
+  // Fetch worker with no synchronous setState; event handlers use
+  // refreshProducts so they still flip the loading state.
   async function loadProducts() {
-    setIsLoading(true);
-    setError(null);
-
     try {
       const response = await fetch("/api/admin/products", { cache: "no-store" });
       const data = await readAdminJson<{ products?: BuilderProductRecord[]; error?: string }>(response, "Failed to load products.");
@@ -387,6 +386,12 @@ export function AdminShopWorkspace() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function refreshProducts() {
+    setIsLoading(true);
+    setError(null);
+    return loadProducts();
   }
 
   useEffect(() => {
@@ -480,7 +485,7 @@ export function AdminShopWorkspace() {
             </p>
           </div>
           <div className="admin-actions">
-            <button className="secondary-button" onClick={() => void loadProducts()} type="button" disabled={isLoading}>
+            <button className="secondary-button" onClick={() => void refreshProducts()} type="button" disabled={isLoading}>
               Refresh
             </button>
             <button className="submit-button" onClick={startNewProduct} type="button" disabled={isSaving}>

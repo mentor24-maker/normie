@@ -56,10 +56,9 @@ export function AdminPollSettingsForm() {
     }));
   }
 
+  // Only called from the mount effect; isLoading starts true and error
+  // empty, so no synchronous setState is needed before the fetch.
   const loadSettings = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-
     try {
       const payload = await readAdminJson<PollSettingsLoadResponse>(
         await fetch("/api/admin/polls/settings", { cache: "no-store" }),
