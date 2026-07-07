@@ -9,6 +9,7 @@ import {
 import type { PlayerEmailConfirmationStatus } from "@/lib/player-email-confirmation";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { useClientValue } from "@/lib/use-client-value";
 
 export type PlayerPortalAuthMode = "login" | "register";
 
@@ -69,36 +70,61 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
   const [confirmationStatus, setConfirmationStatus] = useState<PlayerEmailConfirmationStatus>("unknown");
   const headingHtml = formatRichTextContent(heading);
 
+  // Mode constraints applied during render (replaces setState-in-effect):
+  // hiding registration forces login mode, and a changed configured default
+  // re-seeds the mode.
+  const [prevDefaultMode, setPrevDefaultMode] = useState(settings.defaultMode);
+
+  if (prevDefaultMode !== settings.defaultMode) {
+    setPrevDefaultMode(settings.defaultMode);
+    setMode(settings.showRegister ? settings.defaultMode : "login");
+  } else if (!settings.showRegister && mode !== "login") {
+    setMode("login");
+  }
+
+  // URL-requested mode is a browser-only read; apply it once during render
+  // and keep only the focus side effect in an effect.
+  const urlMode = useClientValue<PlayerPortalAuthMode | null>(
+    () =>
+      previewMode
+        ? null
+        : getPlayerPortalAuthModeFromLocation(window.location.search, window.location.hash) ?? null,
+    null
+  );
+  const allowedUrlMode = urlMode && !(urlMode === "register" && !settings.showRegister) ? urlMode : null;
+  const [appliedUrlMode, setAppliedUrlMode] = useState<PlayerPortalAuthMode | null>(null);
+
+  if (allowedUrlMode && appliedUrlMode !== allowedUrlMode) {
+    setAppliedUrlMode(allowedUrlMode);
+    setMode(allowedUrlMode);
+  }
+
   useEffect(() => {
-    if (!settings.showRegister) {
-      setMode("login");
-      return;
+    if (allowedUrlMode) {
+      focusPlayerPortalAuthForm(allowedUrlMode);
     }
+  }, [allowedUrlMode]);
 
-    setMode(settings.defaultMode);
-  }, [settings.defaultMode, settings.showRegister]);
+  // Reset the confirmation status during render when the email becomes
+  // invalid (or the register form deactivates); the debounced fetch below
+  // only handles valid emails.
+  const [prevStatusKey, setPrevStatusKey] = useState({ email, mode, previewMode });
 
-  useEffect(() => {
-    if (previewMode || typeof window === "undefined") {
-      return;
+  if (
+    prevStatusKey.email !== email ||
+    prevStatusKey.mode !== mode ||
+    prevStatusKey.previewMode !== previewMode
+  ) {
+    setPrevStatusKey({ email, mode, previewMode });
+
+    if (!previewMode && mode === "register") {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!normalizedEmail || !normalizedEmail.includes("@")) {
+        setConfirmationStatus("unknown");
+      }
     }
-
-    const urlMode = getPlayerPortalAuthModeFromLocation(
-      window.location.search,
-      window.location.hash
-    );
-
-    if (!urlMode) {
-      return;
-    }
-
-    if (urlMode === "register" && !settings.showRegister) {
-      return;
-    }
-
-    setMode(urlMode);
-    focusPlayerPortalAuthForm(urlMode);
-  }, [previewMode, settings.showRegister]);
+  }
 
   useEffect(() => {
     if (previewMode || mode !== "register") {
@@ -108,7 +134,6 @@ export function PlayerPortalAuthForm({ settings, heading = "", previewMode = fal
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail || !normalizedEmail.includes("@")) {
-      setConfirmationStatus("unknown");
       return;
     }
 

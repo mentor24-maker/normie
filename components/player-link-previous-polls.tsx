@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useIsHydrated } from "@/lib/use-client-value";
 import {
   markPollSessionClaimedForUser,
   readPollSessionBackup,
@@ -37,16 +38,18 @@ export function PlayerLinkPreviousPolls({ playerId, hasAnswers }: PlayerLinkPrev
   const [isLinking, setIsLinking] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  useEffect(() => {
+  // Read the backed-up anonymous poll session from localStorage once
+  // hydrated, and again if the player changes (adjust-during-render).
+  const hydrated = useIsHydrated();
+  const [seededPlayerId, setSeededPlayerId] = useState<string | null>(null);
+
+  if (hydrated && seededPlayerId !== playerId) {
+    setSeededPlayerId(playerId);
     const sessionId = readPollSessionBackup();
-
-    if (!sessionId || wasPollSessionClaimedForUser(playerId, sessionId)) {
-      setBackupSessionId(null);
-      return;
-    }
-
-    setBackupSessionId(sessionId);
-  }, [playerId]);
+    setBackupSessionId(
+      !sessionId || wasPollSessionClaimedForUser(playerId, sessionId) ? null : sessionId
+    );
+  }
 
   async function handleLinkPreviousPolls() {
     if (!backupSessionId || isLinking) {

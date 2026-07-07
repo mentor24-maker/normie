@@ -682,11 +682,15 @@ function HeadlineRotatorPreview({
     stableIndexRef.current = stableIndex;
   }, [stableIndex]);
 
+  // Reset the rotator when there is nothing to rotate (adjust-during-render;
+  // stableIndexRef follows via the ref-sync effect above).
+  if (entries.length <= 1 && (stableIndex !== 0 || transition !== null)) {
+    setStableIndex(0);
+    setTransition(null);
+  }
+
   useEffect(() => {
     if (entries.length <= 1) {
-      setStableIndex(0);
-      stableIndexRef.current = 0;
-      setTransition(null);
       return;
     }
 

@@ -272,43 +272,62 @@ export function AdminBuilderEditor() {
     setCollapsedSectionIds(page?.layoutSections.map((section) => section.id) ?? []);
   }, [builderMode, selectedPageId, pages]);
 
+  // Editor focus bookkeeping on mode/selection changes, adjusted during
+  // render instead of setState-in-effect cascades. The repository-save ref
+  // clear stays in the effect below (refs must not be written during render).
+  const [prevFocusKey, setPrevFocusKey] = useState({ builderMode, selectedPageId, selectedTemplateId });
+
+  if (
+    prevFocusKey.builderMode !== builderMode ||
+    prevFocusKey.selectedPageId !== selectedPageId ||
+    prevFocusKey.selectedTemplateId !== selectedTemplateId
+  ) {
+    const modeChanged = prevFocusKey.builderMode !== builderMode;
+    const pageSelectionChanged = prevFocusKey.selectedPageId !== selectedPageId;
+    const templateSelectionChanged = prevFocusKey.selectedTemplateId !== selectedTemplateId;
+    setPrevFocusKey({ builderMode, selectedPageId, selectedTemplateId });
+
+    if (modeChanged) {
+      if (builderMode !== "pages") {
+        setPageEditorFocused(false);
+      }
+
+      if (builderMode !== "templates") {
+        setTemplateEditorFocused(false);
+      }
+
+      if (builderMode !== "modules") {
+        setRepositorySaveFocus(null);
+        setRepositorySaveActive(false);
+      }
+    }
+
+    if ((modeChanged || pageSelectionChanged) && builderMode === "pages" && selectedPageId) {
+      setPageEditorFocused(true);
+    }
+
+    if ((modeChanged || templateSelectionChanged) && builderMode === "templates" && selectedTemplateId) {
+      setTemplateEditorFocused(true);
+    }
+  }
+
   useEffect(() => {
-    if (builderMode !== "pages") {
-      setPageEditorFocused(false);
-    }
-
-    if (builderMode !== "templates") {
-      setTemplateEditorFocused(false);
-    }
-
     if (builderMode !== "modules") {
-      setRepositorySaveFocus(null);
-      setRepositorySaveActive(false);
       repositorySaveRef.current = null;
     }
   }, [builderMode]);
 
-  useEffect(() => {
-    if (builderMode === "pages" && selectedPageId) {
-      setPageEditorFocused(true);
-    }
-  }, [builderMode, selectedPageId]);
+  // Prune collapse/expand bookkeeping when sections or modules are removed
+  // from the draft (adjust-during-render).
+  const [prevLayoutSections, setPrevLayoutSections] = useState(draft.layoutSections);
 
-  useEffect(() => {
-    if (builderMode === "templates" && selectedTemplateId) {
-      setTemplateEditorFocused(true);
-    }
-  }, [builderMode, selectedTemplateId]);
-
-  useEffect(() => {
+  if (prevLayoutSections !== draft.layoutSections) {
+    setPrevLayoutSections(draft.layoutSections);
     setCollapsedSectionIds((c) => c.filter((id) => draft.layoutSections.some((s) => s.id === id)));
-  }, [draft.layoutSections]);
-
-  useEffect(() => {
     setExpandedModuleIds((c) =>
       c.filter((id) => draft.layoutSections.some((s) => s.modules.some((m) => m.id === id)))
     );
-  }, [draft.layoutSections]);
+  }
 
   // --- Draft mutations ---
 

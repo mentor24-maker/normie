@@ -149,11 +149,11 @@ export function GalleryPollAssociateMenu({
     return () => window.clearTimeout(handle);
   }, [questionFilter]);
 
-  useEffect(() => {
-    if (selectedPollId && !polls.some((poll) => poll.id === selectedPollId)) {
-      setSelectedPollId(null);
-    }
-  }, [polls, selectedPollId]);
+  // Drop a selection that fell out of the filtered poll list
+  // (adjust-during-render).
+  if (selectedPollId && !polls.some((poll) => poll.id === selectedPollId)) {
+    setSelectedPollId(null);
+  }
 
   const selectedPoll = useMemo(
     () => polls.find((poll) => poll.id === selectedPollId) ?? null,
