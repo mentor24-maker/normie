@@ -27,3 +27,6 @@ its content here or elsewhere.
   never read `process.env` directly for Supabase keys
 - SQL schema and migrations in `supabase/migrations/` (numbered, `.sql` only —
   no data/CSV files in that directory; CSV import templates live in `polls/`)
+- When adding a migration, also update the `supabase/schema.sql` snapshot —
+  `lib/schema-drift.test.ts` fails CI if tables/columns from the migration
+  chain are missing from the snapshot
