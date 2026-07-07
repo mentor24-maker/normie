@@ -166,7 +166,7 @@ Always touch all three files in order:
 - Player Portal classes prefixed with `player-` (avoid reusing `admin-*` chrome for logged-in portal pages when building player-facing UI)
 - Admin green save gradient: `.admin-save-button.submit-button` and `.admin-blog-add-button.submit-button` in `globals.css` (same rules)
 - Builder drill-down tokens: `--builder-header-*`, `--builder-bg-*`, `--crud-*`, `--collapse-expand-color`, `--collapse-collapse-color` (see Page Builder visual hierarchy)
-- Never use `!important` unless overriding third-party styles
+- Never use `!important` unless overriding (a) third-party styles or (b) the builder's dynamic **inline** styles — module/section settings and rich text write `style=` attributes, and responsive overrides of inline layout (e.g. forcing single-column grids in mobile media queries) can only win with `!important`. Audited 2026-07: all remaining instances are category (b); do not "clean them up"
 - The `.site-nav` class controls the nav bar appearance globally
 
 ## API Routes
