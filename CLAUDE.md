@@ -22,13 +22,24 @@ its content here or elsewhere.
 
 ## Environment
 
-⚠️ **Local dev shares the PRODUCTION Supabase database** (single project by
-deliberate budget decision, July 2026). Treat every dev-server action as
-live: no destructive SQL experiments, no bulk deletes, no schema changes
-outside reviewed migrations, and prefer read paths when exploring. Apply
-new migrations via the Supabase SQL editor only after the PR containing
-them is merged. Revisit separation (local Supabase CLI via Docker, or a
-second project) when budget or team growth justifies it.
+**Local dev uses a local Supabase stack** (Docker + `supabase start`);
+production is a separate hosted project that only Vercel talks to.
+- `supabase start` / `supabase stop` manage the stack; Studio at
+  http://127.0.0.1:54323, mail catcher at http://127.0.0.1:54324
+- `supabase db reset` rebuilds the local DB from
+  `supabase/migrations/` (the `0000_local_baseline.sql` + any newer
+  migrations); re-seed polls via admin import of
+  `polls/normie_100_questions_starter.csv`
+- `supabase/migrations-history/` is the pre-baseline record of what was
+  hand-applied to production — a record, NOT a replayable chain; never
+  move it back
+- **New migration flow:** add `supabase/migrations/NNN_name.sql` → apply
+  locally (`supabase db reset` or paste in local Studio) → update
+  `supabase/schema.sql` (drift guard enforces) → PR → after merge, paste
+  the migration into the PRODUCTION SQL editor by hand
+- Local admin login: mentor24@gmail.com / local-dev-password-1
+- Production keys live commented in `.env.local` for deliberate
+  local-against-prod work only
 
 - Node 22 (`.nvmrc`), npm ≥ 10
 - Supabase env vars via `lib/env.ts` (`getSupabaseEnv` / `getPublicSupabaseEnv`) —
