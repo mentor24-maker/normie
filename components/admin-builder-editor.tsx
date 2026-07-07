@@ -3,18 +3,17 @@
 import type { DragEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdminMediaItem } from "@/lib/admin-media";
-import { BUILDER_PREVIEW_DEVICE_STORAGE_KEY, BUILDER_PREVIEW_STORAGE_KEY, getLayoutColumns, getLayoutGridTemplate, normalizeBuilderAssetUrl, type BuilderCellModuleRecord, type BuilderPageRecord, type BuilderProductRecord, type BuilderSavedSectionRecord, type BuilderTemplateLayout, type BuilderTemplateModule, type BuilderTemplateRecord, type BuilderTemplateSection } from "@/lib/builder-template";
+import { BUILDER_PREVIEW_DEVICE_STORAGE_KEY, BUILDER_PREVIEW_STORAGE_KEY, getLayoutColumns, getLayoutGridTemplate, type BuilderCellModuleRecord, type BuilderPageRecord, type BuilderProductRecord, type BuilderSavedSectionRecord, type BuilderTemplateLayout, type BuilderTemplateRecord } from "@/lib/builder-template";
 import { getDefaultEmailTemplateName } from "@/lib/builder-email-template";
-import { inferModuleClassFromBuilderModules, resolveModuleClassForBuilderModule } from "@/lib/module-class-triggers";
 
 import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
-import { appendRichTextImageToHtml } from "@/lib/rich-text-image";
+
 import type { GalleryTarget, ModulePaletteGroup } from "./builder/builder-types";
 import { layoutOptions } from "./builder/builder-types";
 import { buildClonedPageCreatePayload, createDraftFromTemplate, createDraftFromPage } from "./builder/builder-utils";
 import { BuilderTemplateList } from "./builder/builder-template-list";
 import { BuilderPageList } from "./builder/builder-page-list";
-import { BuilderModuleRepositoryList, type BuilderModuleEditorFocus, type CreatedModuleSource } from "./builder/builder-module-repository-list";
+import { BuilderModuleRepositoryList, type BuilderModuleEditorFocus } from "./builder/builder-module-repository-list";
 import { BuilderCollapseIcon } from "./builder/builder-collapse-icon";
 import { BuilderFloatingSaveRail, type BuilderFloatingSaveAction } from "./builder/builder-floating-save-rail";
 import { BuilderSaveDebugPanel } from "./builder/builder-save-debug-panel";
@@ -24,6 +23,7 @@ import { BuilderModulePaletteModal, type ModulePaletteAnchor } from "./builder/b
 import { AdminLegacyRemindersImportPanel } from "@/components/admin-legacy-reminders-import-panel";
 import { useBuilderDraftOps } from "./builder/use-builder-draft-ops";
 import { useBuilderPersistence } from "./builder/use-builder-persistence";
+import { useBuilderMediaModals } from "./builder/use-builder-media-modals";
 
 type AdminApiPayload = {
   error?: string;
@@ -295,6 +295,38 @@ export function AdminBuilderEditor() {
     promptForModuleClass
   });
 
+  const {
+    openGallery,
+    openRichTextGallery,
+    openButtonBackgroundGallery,
+    openSocialIconGallery,
+    openSectionBackgroundGallery,
+    openModulePalette,
+    closeGallery,
+    closeModulePalette,
+    selectGalleryImage,
+    uploadMedia,
+    uploadRichTextGalleryImage,
+    uploadMediaForModule,
+    uploadButtonBackgroundMedia,
+    uploadMediaForSectionBackground
+  } = useBuilderMediaModals({
+    galleryTarget,
+    setGalleryTarget,
+    setGalleryAnchor,
+    setIsGalleryOpen,
+    setIsModulePaletteOpen,
+    setModulePaletteTarget,
+    setModulePaletteAnchor,
+    setActiveModuleGroup,
+    setGalleryMedia,
+    setIsUploadingMedia,
+    setError,
+    setMessage,
+    updateModule,
+    updateSection
+  });
+
   // --- Data loading ---
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -380,188 +412,7 @@ export function AdminBuilderEditor() {
 
   // --- Gallery / palette ---
 
-  function openGallery(sectionId: string, moduleId: string) {
-    setGalleryTarget({ kind: "module", sectionId, moduleId });
-    setIsGalleryOpen(true);
-  }
-
-  function openRichTextGallery(sectionId: string, moduleId: string, anchor?: BuilderModalAnchor) {
-    setGalleryAnchor(anchor ?? null);
-    setGalleryTarget({ kind: "rich-text", sectionId, moduleId });
-    setIsGalleryOpen(true);
-  }
-
-  function openButtonBackgroundGallery(sectionId: string, moduleId: string) {
-    setGalleryTarget({ kind: "button-background", sectionId, moduleId });
-    setIsGalleryOpen(true);
-  }
-
-  function openSocialIconGallery(sectionId: string, moduleId: string, itemId: string) {
-    setGalleryTarget({ kind: "social-icon", sectionId, moduleId, itemId });
-    setIsGalleryOpen(true);
-  }
-
-  function openSectionBackgroundGallery(sectionId: string) {
-    setGalleryTarget({ kind: "section-background", sectionId });
-    setIsGalleryOpen(true);
-  }
-
-  function openModulePalette(sectionId: string, column: string, anchor?: ModulePaletteAnchor) {
-    setModulePaletteTarget({ sectionId, column });
-    setModulePaletteAnchor(anchor ?? null);
-    setActiveModuleGroup(null);
-    setIsModulePaletteOpen(true);
-  }
-
-  function closeGallery() {
-    setIsGalleryOpen(false);
-    setGalleryTarget(null);
-    setGalleryAnchor(null);
-  }
-  function closeModulePalette() {
-    setIsModulePaletteOpen(false);
-    setModulePaletteTarget(null);
-    setModulePaletteAnchor(null);
-    setActiveModuleGroup(null);
-  }
-
-  function selectGalleryImage(imagePath: string) {
-    if (!galleryTarget) return;
-    if (galleryTarget.kind === "rich-text") {
-      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (module) => ({
-        ...module,
-        text: appendRichTextImageToHtml(module.text, normalizeBuilderAssetUrl(imagePath))
-      }));
-      closeGallery();
-      return;
-    }
-    if (galleryTarget.kind === "module") {
-      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (c) => ({
-        ...c, settings: { ...c.settings, url: normalizeBuilderAssetUrl(imagePath) }
-      }));
-    } else if (galleryTarget.kind === "button-background") {
-      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (c) => ({
-        ...c,
-        settings: {
-          ...c.settings,
-          buttonBackgroundMode: "image",
-          buttonBackgroundImageUrl: normalizeBuilderAssetUrl(imagePath)
-        }
-      }));
-    } else if (galleryTarget.kind === "social-icon") {
-      updateModule(galleryTarget.sectionId, galleryTarget.moduleId, (current) => {
-        let items: Array<Record<string, unknown>> = [];
-
-        try {
-          const parsed = JSON.parse(current.settings.socialItems || "[]");
-          items = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          items = [];
-        }
-
-        return {
-          ...current,
-          settings: {
-            ...current.settings,
-            socialItems: JSON.stringify(
-              items.map((item, index) => {
-                const id = String(item.id || `social-${index + 1}`);
-                return id === galleryTarget.itemId
-                  ? { ...item, id, iconUrl: normalizeBuilderAssetUrl(imagePath) }
-                  : { ...item, id };
-              })
-            )
-          }
-        };
-      });
-    } else {
-      updateSection(galleryTarget.sectionId, (c) => ({
-        ...c, background: { ...c.background, mode: "image", imageUrl: normalizeBuilderAssetUrl(imagePath) }
-      }));
-    }
-    closeGallery();
-  }
-
   // --- Media upload ---
-
-  async function uploadMedia(onSuccess: (media: AdminMediaItem) => void, file: File | null) {
-    if (!file) return;
-    setIsUploadingMedia(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
-      const data = await readAdminJson<{ media?: AdminMediaItem; error?: string }>(response, "Failed to upload media.");
-      if (!data.media) throw new Error(data.error ?? "Failed to upload media.");
-      const uploaded = data.media;
-      setGalleryMedia((c) => [...c.filter((i) => i.path !== uploaded.path), uploaded].sort((a, b) => a.name.localeCompare(b.name)));
-      onSuccess(uploaded);
-      setMessage(`Uploaded ${uploaded.name} to gallery.`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to upload media.");
-    } finally {
-      setIsUploadingMedia(false);
-    }
-  }
-
-  async function uploadRichTextGalleryImage(file: File): Promise<string | null> {
-    if (!file) {
-      return null;
-    }
-
-    setIsUploadingMedia(true);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
-      const data = await readAdminJson<{ media?: AdminMediaItem; error?: string }>(response, "Failed to upload media.");
-      if (!data.media) {
-        throw new Error(data.error ?? "Failed to upload media.");
-      }
-
-      const uploaded = data.media;
-      setGalleryMedia((current) =>
-        [...current.filter((item) => item.path !== uploaded.path), uploaded].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
-      );
-      setMessage(`Uploaded ${uploaded.name} to gallery.`);
-      return normalizeBuilderAssetUrl(uploaded.path);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload media.");
-      return null;
-    } finally {
-      setIsUploadingMedia(false);
-    }
-  }
-
-  function uploadMediaForModule(sectionId: string, moduleId: string, file: File | null) {
-    void uploadMedia((m) => {
-      updateModule(sectionId, moduleId, (c) => ({ ...c, settings: { ...c.settings, url: normalizeBuilderAssetUrl(m.path) } }));
-    }, file);
-  }
-
-  function uploadButtonBackgroundMedia(sectionId: string, moduleId: string, file: File | null) {
-    void uploadMedia((m) => {
-      updateModule(sectionId, moduleId, (c) => ({
-        ...c,
-        settings: {
-          ...c.settings,
-          buttonBackgroundMode: "image",
-          buttonBackgroundImageUrl: normalizeBuilderAssetUrl(m.path)
-        }
-      }));
-    }, file);
-  }
-
-  function uploadMediaForSectionBackground(sectionId: string, file: File | null) {
-    void uploadMedia((m) => {
-      updateSection(sectionId, (c) => ({ ...c, background: { ...c.background, mode: "image", imageUrl: normalizeBuilderAssetUrl(m.path) } }));
-    }, file);
-  }
 
   // --- CRUD ---
 
