@@ -20,7 +20,7 @@
     "verify:full": "npm run verify && npm run build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.0",
+    "@supabase/supabase-js": "^2.110.3",
     "@tiptap/core": "^3.22.5",
     "@tiptap/extension-color": "^3.22.5",
     "@tiptap/extension-image": "^3.23.4",
@@ -41,7 +41,7 @@
     "papaparse": "^5.5.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "simple-icons": "^16.25.0",
+    "simple-icons": "^16.26.0",
     "standardwebhooks": "^1.0.0"
   },
   "devDependencies": {
