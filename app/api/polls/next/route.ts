@@ -83,6 +83,9 @@ export const GET = withObservedRoute("polls.next", async (request) => {
     .select(POLL_PUBLIC_SELECT)
     .eq("is_published", true)
     .eq("is_hidden", false)
+    // Temporary: only serve quality-reviewed (1) polls while the quality-2
+    // backlog from the mass-generation batch is still being triaged.
+    .eq("quality", 1)
     .order("order_index", { ascending: true });
 
   if (categoryParam) {
