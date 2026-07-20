@@ -46,6 +46,7 @@ type AdminPoll = {
   created_at: string;
   is_published: boolean;
   is_hidden?: boolean;
+  quality: number;
   poll_options: PollOption[];
 };
 
@@ -59,6 +60,7 @@ type PollFilterState = {
   category: string;
   question: string;
   status: "all" | "published" | "draft" | "hidden";
+  quality: "" | "1" | "2" | "3";
   not: boolean;
   requireYoutube: boolean;
   requireImage: boolean;
@@ -70,6 +72,7 @@ const emptyFilters: PollFilterState = {
   category: "",
   question: "",
   status: "all",
+  quality: "",
   not: false,
   requireYoutube: false,
   requireImage: false,
@@ -90,6 +93,7 @@ function normalizePollFilters(filters: PollFilterState): PollFilterState {
     category: filters.category ?? "",
     question: filters.question ?? "",
     status: filters.status ?? "all",
+    quality: filters.quality ?? "",
     not: filters.not === true,
     requireYoutube: filters.requireYoutube === true,
     requireImage: filters.requireImage === true,
@@ -240,6 +244,7 @@ export function AdminPollsManager() {
         (!activeFilters.category || pollCategoriesEqual(poll.category, activeFilters.category)) &&
         matchesFilter(poll.question, activeFilters.question) &&
         (activeFilters.status === "all" || statusText === activeFilters.status) &&
+        (!activeFilters.quality || String(poll.quality ?? 1) === activeFilters.quality) &&
         matchesPollAttributeFilter(activeFilters.requireYoutube, hasYoutube, activeFilters.not) &&
         matchesPollAttributeFilter(activeFilters.requireImage, hasImage, activeFilters.not) &&
         matchesPollAttributeFilter(activeFilters.requireBlogPost, hasBlogPost, activeFilters.not)
@@ -391,6 +396,31 @@ export function AdminPollsManager() {
       setError(hideError instanceof Error ? hideError.message : "Failed to hide polls.");
     } finally {
       setIsHiding(false);
+    }
+  }
+
+  async function updatePollQuality(pollId: string, quality: number) {
+    const previousPolls = polls;
+    setPolls((current) => current.map((poll) => (poll.id === pollId ? { ...poll, quality } : poll)));
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/polls/${pollId}/quality`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ quality })
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to update quality.");
+      }
+    } catch (updateError) {
+      setPolls(previousPolls);
+      setError(updateError instanceof Error ? updateError.message : "Failed to update quality.");
     }
   }
 
@@ -654,6 +684,23 @@ export function AdminPollsManager() {
               <option value="hidden">Hidden</option>
             </select>
           </label>
+          <label className="field polls-filter-field">
+            <span>Quality</span>
+            <select
+              value={activeFilters.quality}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  quality: event.target.value as PollFilterState["quality"]
+                }))
+              }
+            >
+              <option value="">All</option>
+              <option value="1">1 – Good</option>
+              <option value="2">2 – Borderline</option>
+              <option value="3">3 – Bad</option>
+            </select>
+          </label>
         </div>
 
         <div className="admin-polls-bulk-actions-bar">
@@ -687,6 +734,7 @@ export function AdminPollsManager() {
                 <th>YouTube</th>
                 <th>Blog Post</th>
                 <th>Status</th>
+                <th>Quality</th>
                 <th className="polls-actions-cell">Actions</th>
               </tr>
             </thead>
@@ -711,6 +759,18 @@ export function AdminPollsManager() {
                     {summarizeDeepDiveBlogPost(poll.deep_dive_blog_post_id ?? "", blogPosts)}
                   </td>
                   <td>{pollStatusLabel(poll)}</td>
+                  <td>
+                    <select
+                      aria-label="Poll quality"
+                      className={`polls-quality-select polls-quality-select-${poll.quality ?? 1}`}
+                      value={poll.quality ?? 1}
+                      onChange={(event) => void updatePollQuality(poll.id, Number.parseInt(event.target.value, 10))}
+                    >
+                      <option value={1}>1 – Good</option>
+                      <option value={2}>2 – Borderline</option>
+                      <option value={3}>3 – Bad</option>
+                    </select>
+                  </td>
                   <td className="polls-actions-cell">
                     <div className="polls-row-actions">
                       {poll.is_published && !poll.is_hidden ? (
@@ -747,7 +807,7 @@ export function AdminPollsManager() {
               ))}
               {filteredPolls.length === 0 ? (
                 <tr>
-                  <td className="empty-cell" colSpan={9}>
+                  <td className="empty-cell" colSpan={10}>
                     No polls found.
                   </td>
                 </tr>

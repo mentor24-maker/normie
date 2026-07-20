@@ -490,7 +490,35 @@
 .polls-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1180px;
+  min-width: 1260px;
+}
+
+.polls-quality-select {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1px solid var(--line);
+  background: #f2f4f7;
+  color: var(--ink);
+}
+
+.polls-quality-select-1 {
+  background: var(--crud-edit-bg);
+  border-color: var(--crud-edit-border);
+  color: var(--crud-edit-ink);
+}
+
+.polls-quality-select-2 {
+  background: #fff4d6;
+  border-color: #d9a441;
+  color: #8a6205;
+}
+
+.polls-quality-select-3 {
+  background: var(--crud-delete-icon-bg);
+  border-color: var(--crud-delete-icon-border);
+  color: var(--crud-delete-icon);
 }
 
 .polls-table th.polls-actions-cell,
