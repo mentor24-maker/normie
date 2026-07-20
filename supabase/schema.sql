@@ -59,6 +59,7 @@ create table if not exists public.polls (
   order_index integer not null unique,
   is_published boolean not null default true,
   is_hidden boolean not null default false,
+  quality smallint not null default 1 check (quality between 1 and 3),
   created_at timestamptz not null default now()
 );
 
@@ -476,6 +477,7 @@ create unique index if not exists blog_topics_slug_unique_idx on public.blog_top
 create unique index if not exists blog_tags_slug_unique_idx on public.blog_tags (slug);
 create unique index if not exists blog_categories_slug_unique_idx on public.blog_categories (slug);
 create index if not exists polls_category_id_idx on public.polls (category_id);
+create index if not exists polls_quality_idx on public.polls (quality);
 create unique index if not exists blog_posts_slug_unique_idx on public.blog_posts (slug);
 create index if not exists blog_posts_status_published_at_idx on public.blog_posts (status, published_at desc);
 create index if not exists blog_posts_primary_topic_id_idx on public.blog_posts (primary_topic_id);

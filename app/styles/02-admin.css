@@ -805,7 +805,8 @@
     88px
     88px
     88px
-    minmax(120px, 0.72fr);
+    minmax(120px, 0.72fr)
+    minmax(140px, 0.85fr);
 }
 
 .admin-polls-filter-bar .polls-filter-field {
