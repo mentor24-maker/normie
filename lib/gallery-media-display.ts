@@ -26,3 +26,17 @@ export function formatGalleryMediaTypeDisplay(value: string | undefined, item?: 
 export function formatGalleryMediaAspectDisplay(item: AdminMediaItem): string {
   return galleryMediaAspectLabel(normalizeGalleryMediaAspect(item.aspect));
 }
+
+export function formatGalleryMediaCreatedAtDisplay(value: string | undefined): string {
+  if (!value) {
+    return "—";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}

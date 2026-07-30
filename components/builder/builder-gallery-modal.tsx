@@ -1,14 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useIsHydrated } from "@/lib/use-client-value";
 import { GalleryMediaFilterBar } from "@/components/gallery-media-filter-bar";
+import { GalleryMediaListTable } from "@/components/gallery-media-list-table";
+import { GalleryViewToggle } from "@/components/gallery-view-toggle";
 import { getRichTextGalleryModalStyle, type BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import { buildGalleryMediaCategoryOptions } from "@/lib/gallery-media-category";
+import { nextGalleryMediaListSort, type GalleryMediaListSortKey } from "@/lib/gallery-media-list-sort";
 import { getGalleryMediaThumbnailUrl } from "@/lib/gallery-media-thumbnail";
 import { useGalleryMediaLibrary } from "@/lib/use-gallery-media-library";
+import { useGalleryViewMode } from "@/lib/gallery-view-mode";
 
 type BuilderGalleryModalProps = {
   anchor?: BuilderModalAnchor | null;
@@ -26,6 +30,7 @@ export function BuilderGalleryModal({
   onUploadImage
 }: BuilderGalleryModalProps) {
   const mounted = useIsHydrated();
+  const [viewMode, setViewMode] = useGalleryViewMode();
   const isAnchored = anchor != null;
   const anchoredModalStyle = isAnchored && mounted ? getRichTextGalleryModalStyle() : undefined;
 
@@ -46,6 +51,10 @@ export function BuilderGalleryModal({
     () => buildGalleryMediaCategoryOptions(media.map((item) => item.mediaCategory ?? "")),
     [media]
   );
+
+  function sortByColumn(key: GalleryMediaListSortKey) {
+    setFilters((current) => ({ ...current, sort: nextGalleryMediaListSort(current.sort, key) }));
+  }
 
   async function handleUpload(file: File | null) {
     if (!file || !onUploadImage) {
@@ -87,6 +96,7 @@ export function BuilderGalleryModal({
             </p>
           </div>
           <div className="builder-gallery-header-actions">
+            <GalleryViewToggle onChange={setViewMode} value={viewMode} />
             {onUploadImage ? (
               <label className="secondary-button builder-gallery-button builder-upload-button">
                 <span>{isUploading ? "Uploading..." : "Add to Gallery"}</span>
@@ -125,38 +135,64 @@ export function BuilderGalleryModal({
             onChange={setFilters}
             onClear={clearFilters}
           />
-          <div className="builder-gallery-grid">
-            {media.map((image) => (
-              <button
-                className="builder-gallery-card"
-                key={image.path}
-                onClick={() => onSelectImage(image.path)}
-                type="button"
-              >
-                <div className="builder-gallery-thumb">
-                  {image.kind === "image" ? (
-                    <Image
-                      alt={image.name}
-                      fill
-                      sizes="180px"
-                      src={getGalleryMediaThumbnailUrl(image.path)}
-                    />
-                  ) : (
-                    <video className="builder-gallery-video" controls preload="metadata" src={image.path} />
-                  )}
+          {viewMode === "list" ? (
+            <GalleryMediaListTable
+              emptyMessage={isUploading ? "Uploading..." : "No media found in the gallery."}
+              isLoading={isLoading}
+              items={media}
+              onSortColumn={sortByColumn}
+              sort={filters.sort}
+              trailingColumns={[
+                {
+                  id: "select",
+                  header: "Select",
+                  className: "gallery-media-list-action-col",
+                  render: (image) => (
+                    <button
+                      className="submit-button gallery-media-list-select-button"
+                      onClick={() => onSelectImage(image.path)}
+                      type="button"
+                    >
+                      Select
+                    </button>
+                  )
+                }
+              ]}
+            />
+          ) : (
+            <div className="builder-gallery-grid">
+              {media.map((image) => (
+                <button
+                  className="builder-gallery-card"
+                  key={image.path}
+                  onClick={() => onSelectImage(image.path)}
+                  type="button"
+                >
+                  <div className="builder-gallery-thumb">
+                    {image.kind === "image" ? (
+                      <Image
+                        alt={image.name}
+                        fill
+                        sizes="180px"
+                        src={getGalleryMediaThumbnailUrl(image.path)}
+                      />
+                    ) : (
+                      <video className="builder-gallery-video" controls preload="metadata" src={image.path} />
+                    )}
+                  </div>
+                  <span>{image.name}</span>
+                  <small className="gallery-meta">
+                    {image.directory} · {image.kind}
+                  </small>
+                </button>
+              ))}
+              {!isLoading && media.length === 0 ? (
+                <div className="builder-gallery-empty">
+                  {isUploading ? "Uploading..." : "No media found in the gallery."}
                 </div>
-                <span>{image.name}</span>
-                <small className="gallery-meta">
-                  {image.directory} · {image.kind}
-                </small>
-              </button>
-            ))}
-            {!isLoading && media.length === 0 ? (
-              <div className="builder-gallery-empty">
-                {isUploading ? "Uploading..." : "No media found in the gallery."}
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          )}
           {canLoadMore ? (
             <div className="admin-gallery-load-more">
               <button
