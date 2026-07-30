@@ -6,14 +6,52 @@ import { isGalleryMediaType } from "@/lib/gallery-media-type";
 export const GALLERY_MEDIA_PAGE_SIZE_DEFAULT = 48;
 export const GALLERY_MEDIA_PAGE_SIZE_MAX = 200;
 
-export const GALLERY_MEDIA_SORT_OPTIONS = [
+export const GALLERY_MEDIA_SORT_VALUES = [
+  "name_asc",
+  "name_desc",
+  "newest",
+  "oldest",
+  "category_asc",
+  "category_desc",
+  "type_asc",
+  "type_desc",
+  "aspect_asc",
+  "aspect_desc"
+] as const;
+
+export type GalleryMediaSort = (typeof GALLERY_MEDIA_SORT_VALUES)[number];
+
+/**
+ * Sort dropdown choices. Every value is also reachable by clicking the matching
+ * column head in the gallery List view, so the two controls stay in sync.
+ */
+export const GALLERY_MEDIA_SORT_OPTIONS: readonly { value: GalleryMediaSort; label: string }[] = [
   { value: "name_asc", label: "Name A–Z" },
   { value: "name_desc", label: "Name Z–A" },
   { value: "newest", label: "Newest" },
-  { value: "oldest", label: "Oldest" }
-] as const;
+  { value: "oldest", label: "Oldest" },
+  { value: "category_asc", label: "Category A–Z" },
+  { value: "category_desc", label: "Category Z–A" },
+  { value: "type_asc", label: "Type A–Z" },
+  { value: "type_desc", label: "Type Z–A" },
+  { value: "aspect_asc", label: "Aspect A–Z" },
+  { value: "aspect_desc", label: "Aspect Z–A" }
+];
 
-export type GalleryMediaSort = (typeof GALLERY_MEDIA_SORT_OPTIONS)[number]["value"];
+/**
+ * Metadata columns the gallery can order by, with the DB column each maps to.
+ * `name_*`/`newest`/`oldest` order by `storage_name` / `created_at` instead.
+ */
+export const GALLERY_MEDIA_METADATA_SORTS: Partial<
+  Record<GalleryMediaSort, { column: "media_category" | "media_type" | "aspect"; ascending: boolean }>
+> = {
+  category_asc: { column: "media_category", ascending: true },
+  category_desc: { column: "media_category", ascending: false },
+  type_asc: { column: "media_type", ascending: true },
+  type_desc: { column: "media_type", ascending: false },
+  aspect_asc: { column: "aspect", ascending: true },
+  aspect_desc: { column: "aspect", ascending: false }
+};
 
 export type GalleryMediaBadgeFilter = "" | "yes" | "no";
 export type GalleryMediaPollFilter = "" | "yes";
@@ -72,7 +110,7 @@ export function normalizeGalleryExtensionFilter(value: string): string {
 
 export function parseGalleryMediaQueryParams(searchParams: URLSearchParams): GalleryMediaQueryParams {
   const sortParam = searchParams.get("sort")?.trim() ?? "name_asc";
-  const sort = GALLERY_MEDIA_SORT_OPTIONS.some((option) => option.value === sortParam)
+  const sort = (GALLERY_MEDIA_SORT_VALUES as readonly string[]).includes(sortParam)
     ? (sortParam as GalleryMediaSort)
     : "name_asc";
 

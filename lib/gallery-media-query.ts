@@ -19,6 +19,7 @@ import { resolveGalleryIndexStorageNamesForPollLinks } from "@/lib/gallery-stora
 import { loadGalleryStorageNamesReferencedByPolls } from "@/lib/poll-gallery-link";
 import {
   escapeIlikePattern,
+  GALLERY_MEDIA_METADATA_SORTS,
   type GalleryMediaQueryParams,
   type GalleryMediaQueryResult
 } from "@/lib/gallery-media-query-params";
@@ -37,6 +38,7 @@ export {
   GALLERY_MEDIA_PAGE_SIZE_DEFAULT,
   GALLERY_MEDIA_PAGE_SIZE_MAX,
   GALLERY_MEDIA_SORT_OPTIONS,
+  GALLERY_MEDIA_SORT_VALUES,
   buildGalleryMediaSearchParams,
   escapeIlikePattern,
   galleryMediaQueryUsesServerFilters,
@@ -154,19 +156,32 @@ async function executeGalleryMediaQuery(
       : query.eq("aspect", params.aspect);
   }
 
-  switch (params.sort) {
-    case "name_desc":
-      query = query.order("storage_name", { ascending: false });
-      break;
-    case "newest":
-      query = query.order("created_at", { ascending: false }).order("storage_name", { ascending: true });
-      break;
-    case "oldest":
-      query = query.order("created_at", { ascending: true }).order("storage_name", { ascending: true });
-      break;
-    default:
-      query = query.order("storage_name", { ascending: true });
-      break;
+  // The legacy select runs against databases that predate the metadata columns,
+  // so ordering by them there would fail the same way the select just did.
+  const metadataSort =
+    selectColumns === GALLERY_MEDIA_RECORD_SELECT_FULL
+      ? GALLERY_MEDIA_METADATA_SORTS[params.sort]
+      : undefined;
+
+  if (metadataSort) {
+    query = query
+      .order(metadataSort.column, { ascending: metadataSort.ascending, nullsFirst: false })
+      .order("storage_name", { ascending: true });
+  } else {
+    switch (params.sort) {
+      case "name_desc":
+        query = query.order("storage_name", { ascending: false });
+        break;
+      case "newest":
+        query = query.order("created_at", { ascending: false }).order("storage_name", { ascending: true });
+        break;
+      case "oldest":
+        query = query.order("created_at", { ascending: true }).order("storage_name", { ascending: true });
+        break;
+      default:
+        query = query.order("storage_name", { ascending: true });
+        break;
+    }
   }
 
   const rangeEnd = params.offset + params.limit - 1;

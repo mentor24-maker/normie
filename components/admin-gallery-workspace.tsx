@@ -7,6 +7,8 @@ import { GalleryMediaDetailModal } from "@/components/gallery-media-detail-modal
 import { GalleryPollCreatePanel } from "@/components/gallery-poll-create-panel";
 import { GalleryPollAssociateMenu } from "@/components/gallery-poll-associate-menu";
 import { GalleryMediaFilterBar } from "@/components/gallery-media-filter-bar";
+import { GalleryMediaListTable } from "@/components/gallery-media-list-table";
+import { GalleryViewToggle } from "@/components/gallery-view-toggle";
 import { readAdminJson } from "@/lib/admin-fetch";
 import type { AdminMediaItem } from "@/lib/admin-media-shared";
 import { formatGalleryDisplayFileName } from "@/lib/gallery-display-filename";
@@ -23,8 +25,10 @@ import {
   type GalleryMediaBulkTargets
 } from "@/lib/gallery-media-bulk";
 import type { GalleryMediaFilters } from "@/lib/gallery-media-filters";
+import { nextGalleryMediaListSort, type GalleryMediaListSortKey } from "@/lib/gallery-media-list-sort";
 import { useGalleryMarqueeSelection } from "@/lib/use-gallery-marquee-selection";
 import { useGalleryMediaLibrary } from "@/lib/use-gallery-media-library";
+import { useGalleryViewMode } from "@/lib/gallery-view-mode";
 
 function mapMetadataPatch(patch: {
   media_category?: string;
@@ -49,6 +53,7 @@ function storageNameForItem(item: AdminMediaItem): string {
 }
 
 export function AdminGalleryWorkspace() {
+  const [viewMode, setViewMode] = useGalleryViewMode();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -175,7 +180,7 @@ export function AdminGalleryWorkspace() {
     isDragging: isMarqueeDragging,
     handleGridPointerDownCapture
   } = useGalleryMarqueeSelection({
-    enabled: !selectionBusy && media.length > 0,
+    enabled: viewMode === "gallery" && !selectionBusy && media.length > 0,
     selectedStorageNames,
     onSelectionBegin: () => {
       ensureBulkEditSnapshot();
@@ -309,6 +314,10 @@ export function AdminGalleryWorkspace() {
     clearFilters();
   }
 
+  function sortByColumn(key: GalleryMediaListSortKey) {
+    setFilters((current) => ({ ...current, sort: nextGalleryMediaListSort(current.sort, key) }));
+  }
+
   async function patchGalleryMetadata(
     item: AdminMediaItem,
     patch: {
@@ -420,6 +429,92 @@ export function AdminGalleryWorkspace() {
 
   const displayError = error ?? loadError;
 
+  /** Associate / Generate popups — shared by the gallery cards and the list rows. */
+  function renderMediaActions(item: AdminMediaItem) {
+    if (item.kind !== "image") {
+      return null;
+    }
+
+    const storageName = storageNameForItem(item);
+
+    return (
+      <div className="admin-gallery-card-action-buttons">
+        <div
+          className="admin-gallery-popup-wrap"
+          ref={associateStorageName === storageName ? associateWrapRef : undefined}
+        >
+          <button
+            className="secondary-button admin-gallery-action-button"
+            onClick={() => {
+              setGenerateTarget(null);
+              setBulkAssociateOpen(false);
+              setAssociateStorageName((current) => (current === storageName ? null : storageName));
+            }}
+            type="button"
+          >
+            Associate
+          </button>
+          {associateStorageName === storageName ? (
+            <GalleryPollAssociateMenu
+              onAssociated={(text) => {
+                setMessage(text);
+                setError(null);
+                setAssociateStorageName(null);
+                void loadMedia();
+              }}
+              onClose={() => setAssociateStorageName(null)}
+              onError={setError}
+              storageNames={[storageName]}
+            />
+          ) : null}
+        </div>
+        <div
+          className="admin-gallery-popup-wrap"
+          ref={generateTarget?.storageName === storageName ? generateWrapRef : undefined}
+        >
+          <button
+            className="secondary-button admin-gallery-action-button"
+            onClick={() => {
+              setAssociateStorageName(null);
+              setGenerateTarget((current) =>
+                current?.storageName === storageName
+                  ? null
+                  : {
+                      storageName,
+                      fileName: item.name,
+                      imagePath: item.path
+                    }
+              );
+            }}
+            type="button"
+          >
+            Generate
+          </button>
+          {generateTarget?.storageName === storageName ? (
+            <GalleryPollCreatePanel
+              fileName={generateTarget.fileName}
+              imagePath={generateTarget.imagePath}
+              onClose={() => setGenerateTarget(null)}
+              onCreated={(text) => {
+                setMessage(text);
+                setError(null);
+                setGenerateTarget(null);
+              }}
+              onError={setError}
+              storageName={generateTarget.storageName}
+            />
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function openDetailItem(item: AdminMediaItem) {
+    setAssociateStorageName(null);
+    setGenerateTarget(null);
+    setDetailItem(item);
+  }
+
   return (
     <section className="admin-stack">
       <section className="admin-section">
@@ -483,7 +578,9 @@ export function AdminGalleryWorkspace() {
               {bulkEditActive
                 ? isResolvingBulkSelection
                   ? "Selecting all files that match the current filters..."
-                  : `Bulk edit: ${selectedCount} file${selectedCount === 1 ? "" : "s"} selected. Drag across tiles to select more. Hold Shift to add. Then Edit or Delete.`
+                  : viewMode === "list"
+                    ? `Bulk edit: ${selectedCount} file${selectedCount === 1 ? "" : "s"} selected. Check more rows to add. Then Edit or Delete.`
+                    : `Bulk edit: ${selectedCount} file${selectedCount === 1 ? "" : "s"} selected. Drag across tiles to select more. Hold Shift to add. Then Edit or Delete.`
                 : isLoading && media.length === 0
                   ? "Loading media..."
                   : total === 0
@@ -492,6 +589,7 @@ export function AdminGalleryWorkspace() {
             </p>
           </div>
           <div className="admin-actions">
+            <GalleryViewToggle onChange={setViewMode} value={viewMode} />
             <button
               className="secondary-button"
               onClick={() => void loadMedia({ sync: true })}
@@ -550,157 +648,122 @@ export function AdminGalleryWorkspace() {
           onBulkAssociateError={setError}
         />
 
-        <div
-          className={`builder-gallery-grid admin-gallery-media-grid${isMarqueeDragging ? " is-marquee-dragging" : ""}`}
-          onPointerDownCapture={handleGridPointerDownCapture}
-          ref={gridRef}
-        >
-          {marqueeRect ? (
-            <div
-              className="admin-gallery-marquee"
-              style={{
-                left: `${marqueeRect.left}px`,
-                top: `${marqueeRect.top}px`,
-                width: `${marqueeRect.width}px`,
-                height: `${marqueeRect.height}px`
-              }}
-            />
-          ) : null}
-          {media.map((item) => {
-            const storageName = storageNameForItem(item);
-            const isSelected = selectedStorageNames.has(storageName);
-            const isPreviewSelected = previewStorageNames.has(storageName);
-            const displayName = formatGalleryDisplayFileName(item.name);
+        {viewMode === "list" ? (
+          <GalleryMediaListTable
+            emptyMessage="No media found yet."
+            getRowClassName={(item) =>
+              selectedStorageNames.has(storageNameForItem(item)) ? "is-bulk-selected" : ""
+            }
+            isLoading={isLoading}
+            items={media}
+            leadingColumns={[
+              {
+                id: "select",
+                header: <span className="sr-only">Select</span>,
+                className: "gallery-media-list-select-col",
+                render: (item) => {
+                  const storageName = storageNameForItem(item);
 
-            return (
-              <article
-                className={`builder-gallery-card builder-gallery-card-static admin-gallery-library-card${isSelected || isPreviewSelected ? " is-bulk-selected" : ""}${isPreviewSelected && !isSelected ? " is-marquee-preview" : ""}`}
-                data-gallery-storage-name={storageName}
-                key={item.path}
-              >
-                <label className="admin-gallery-card-select">
-                  <input
-                    aria-label={`Select ${item.name}`}
-                    checked={isSelected}
-                    disabled={selectionBusy}
-                    onChange={(event) => toggleCardSelection(storageName, event.target.checked)}
-                    type="checkbox"
-                  />
-                </label>
-                <div className="builder-gallery-thumb">
-                  {item.kind === "image" ? (
-                    <Image
-                      alt={item.name}
-                      draggable={false}
-                      fill
-                      sizes="(min-width: 1200px) 25vw, 50vw"
-                      src={getGalleryMediaThumbnailUrl(item.path)}
+                  return (
+                    <input
+                      aria-label={`Select ${item.name}`}
+                      checked={selectedStorageNames.has(storageName)}
+                      disabled={selectionBusy}
+                      onChange={(event) => toggleCardSelection(storageName, event.target.checked)}
+                      type="checkbox"
                     />
-                  ) : (
-                    <video className="builder-gallery-video" controls preload="metadata" src={item.path} />
-                  )}
-                </div>
-                <div className="admin-gallery-file-name-slot">
-                  <button
-                    className="admin-gallery-file-name-button"
-                    onClick={() => {
-                      setAssociateStorageName(null);
-                      setGenerateTarget(null);
-                      setDetailItem(item);
-                    }}
-                    title={item.name}
-                    type="button"
-                  >
-                    <span className="admin-gallery-file-name">{displayName}</span>
-                  </button>
-                </div>
-                <span className="gallery-meta admin-gallery-card-meta">
-                  {item.directory} · {item.kind}
-                </span>
-                <GalleryMediaCardMetadata item={item} />
-                {item.kind === "image" ? (
-                  <div className="admin-gallery-card-actions">
-                    <div className="admin-gallery-card-action-buttons">
-                      <div
-                        className="admin-gallery-popup-wrap"
-                        ref={associateStorageName === storageName ? associateWrapRef : undefined}
-                      >
-                        <button
-                          className="secondary-button admin-gallery-action-button"
-                          onClick={() => {
-                            setGenerateTarget(null);
-                            setBulkAssociateOpen(false);
-                            setAssociateStorageName((current) =>
-                              current === storageName ? null : storageName
-                            );
-                          }}
-                          type="button"
-                        >
-                          Associate
-                        </button>
-                        {associateStorageName === storageName ? (
-                          <GalleryPollAssociateMenu
-                            onAssociated={(text) => {
-                              setMessage(text);
-                              setError(null);
-                              setAssociateStorageName(null);
-                              void loadMedia();
-                            }}
-                            onClose={() => setAssociateStorageName(null)}
-                            onError={setError}
-                            storageNames={[storageName]}
-                          />
-                        ) : null}
-                      </div>
-                      <div
-                        className="admin-gallery-popup-wrap"
-                        ref={
-                          generateTarget?.storageName === storageName ? generateWrapRef : undefined
-                        }
-                      >
-                        <button
-                          className="secondary-button admin-gallery-action-button"
-                          onClick={() => {
-                            setAssociateStorageName(null);
-                            setGenerateTarget((current) =>
-                              current?.storageName === storageName
-                                ? null
-                                : {
-                                    storageName,
-                                    fileName: item.name,
-                                    imagePath: item.path
-                                  }
-                            );
-                          }}
-                          type="button"
-                        >
-                          Generate
-                        </button>
-                        {generateTarget?.storageName === storageName ? (
-                          <GalleryPollCreatePanel
-                            fileName={generateTarget.fileName}
-                            imagePath={generateTarget.imagePath}
-                            onClose={() => setGenerateTarget(null)}
-                            onCreated={(text) => {
-                              setMessage(text);
-                              setError(null);
-                              setGenerateTarget(null);
-                            }}
-                            onError={setError}
-                            storageName={generateTarget.storageName}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
+                  );
+                }
+              }
+            ]}
+            onOpenItem={openDetailItem}
+            onSortColumn={sortByColumn}
+            sort={filters.sort}
+            trailingColumns={[
+              {
+                id: "actions",
+                header: "Actions",
+                className: "gallery-media-list-action-col",
+                render: renderMediaActions
+              }
+            ]}
+          />
+        ) : (
+          <div
+            className={`builder-gallery-grid admin-gallery-media-grid${isMarqueeDragging ? " is-marquee-dragging" : ""}`}
+            onPointerDownCapture={handleGridPointerDownCapture}
+            ref={gridRef}
+          >
+            {marqueeRect ? (
+              <div
+                className="admin-gallery-marquee"
+                style={{
+                  left: `${marqueeRect.left}px`,
+                  top: `${marqueeRect.top}px`,
+                  width: `${marqueeRect.width}px`,
+                  height: `${marqueeRect.height}px`
+                }}
+              />
+            ) : null}
+            {media.map((item) => {
+              const storageName = storageNameForItem(item);
+              const isSelected = selectedStorageNames.has(storageName);
+              const isPreviewSelected = previewStorageNames.has(storageName);
+              const displayName = formatGalleryDisplayFileName(item.name);
+
+              return (
+                <article
+                  className={`builder-gallery-card builder-gallery-card-static admin-gallery-library-card${isSelected || isPreviewSelected ? " is-bulk-selected" : ""}${isPreviewSelected && !isSelected ? " is-marquee-preview" : ""}`}
+                  data-gallery-storage-name={storageName}
+                  key={item.path}
+                >
+                  <label className="admin-gallery-card-select">
+                    <input
+                      aria-label={`Select ${item.name}`}
+                      checked={isSelected}
+                      disabled={selectionBusy}
+                      onChange={(event) => toggleCardSelection(storageName, event.target.checked)}
+                      type="checkbox"
+                    />
+                  </label>
+                  <div className="builder-gallery-thumb">
+                    {item.kind === "image" ? (
+                      <Image
+                        alt={item.name}
+                        draggable={false}
+                        fill
+                        sizes="(min-width: 1200px) 25vw, 50vw"
+                        src={getGalleryMediaThumbnailUrl(item.path)}
+                      />
+                    ) : (
+                      <video className="builder-gallery-video" controls preload="metadata" src={item.path} />
+                    )}
                   </div>
-                ) : null}
-              </article>
-            );
-          })}
-          {!isLoading && media.length === 0 ? (
-            <div className="builder-gallery-empty">No media found yet.</div>
-          ) : null}
-        </div>
+                  <div className="admin-gallery-file-name-slot">
+                    <button
+                      className="admin-gallery-file-name-button"
+                      onClick={() => openDetailItem(item)}
+                      title={item.name}
+                      type="button"
+                    >
+                      <span className="admin-gallery-file-name">{displayName}</span>
+                    </button>
+                  </div>
+                  <span className="gallery-meta admin-gallery-card-meta">
+                    {item.directory} · {item.kind}
+                  </span>
+                  <GalleryMediaCardMetadata item={item} />
+                  {item.kind === "image" ? (
+                    <div className="admin-gallery-card-actions">{renderMediaActions(item)}</div>
+                  ) : null}
+                </article>
+              );
+            })}
+            {!isLoading && media.length === 0 ? (
+              <div className="builder-gallery-empty">No media found yet.</div>
+            ) : null}
+          </div>
+        )}
 
         {canLoadMore ? (
           <div className="admin-gallery-load-more">
