@@ -11,6 +11,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
 import { BlogEmbed } from "@/components/blog-embed-node";
+import { formatHtmlForCodeView } from "@/lib/format-html";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
 import { RICH_TEXT_IMAGE_CLASS, resolveRichTextImageSrc } from "@/lib/rich-text-image";
 
@@ -286,7 +287,7 @@ export function BlogRichTextEditor({
         </button>
         <button
           onClick={() => {
-            setCodeViewValue(editor.getHTML());
+            setCodeViewValue(formatHtmlForCodeView(editor.getHTML()));
             setIsCodeView(true);
           }}
           type="button"
