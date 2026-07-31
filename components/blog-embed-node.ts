@@ -1,8 +1,10 @@
 import { Node } from "@tiptap/core";
-import { BLOG_EMBED_CLASS, resolveBlogEmbedSource } from "@/lib/blog-video-embed";
-
-const IFRAME_ALLOW =
-  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+import {
+  BLOG_EMBED_CLASS,
+  BLOG_EMBED_IFRAME_ALLOW,
+  BLOG_EMBED_IFRAME_TITLE,
+  resolveBlogEmbedSource
+} from "@/lib/blog-video-embed";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -69,9 +71,9 @@ export const BlogEmbed = Node.create({
         "iframe",
         {
           src: embed.src,
-          title: "Embedded media",
+          title: BLOG_EMBED_IFRAME_TITLE,
           loading: "lazy",
-          allow: IFRAME_ALLOW,
+          allow: BLOG_EMBED_IFRAME_ALLOW,
           allowfullscreen: ""
         }
       ]

@@ -1,5 +1,5 @@
 import type DOMPurifyType from "dompurify";
-import { isAllowedBlogVideoFileSrc } from "@/lib/blog-video-embed";
+import { isAllowedBlogVideoFileSrc, reviveEscapedBlogEmbeds } from "@/lib/blog-video-embed";
 import { isAllowedRichTextImageSrc, rewriteRichTextImageSrcInHtml } from "@/lib/rich-text-image-src";
 
 const RICH_TEXT_ALLOWED_TAGS = [
@@ -252,7 +252,7 @@ function filterAllowedBlogEmbeds(html: string) {
 export function stripDangerousBlogBodyHtml(html: string) {
   return rewriteBlogImagesToPublicSrc(
     filterAllowedBlogEmbeds(
-      html
+      reviveEscapedBlogEmbeds(html)
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
         .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
         .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
@@ -265,7 +265,7 @@ export function sanitizeBlogBodyHtml(html: string) {
   try {
     ensureConfigured();
 
-    const clean = getDomPurify().sanitize(html, {
+    const clean = getDomPurify().sanitize(reviveEscapedBlogEmbeds(html), {
       ALLOWED_TAGS: [...RICH_TEXT_ALLOWED_TAGS, ...BLOG_BODY_EXTRA_TAGS],
       ALLOWED_ATTR: [...RICH_TEXT_ALLOWED_ATTR, ...BLOG_BODY_EXTRA_ATTR],
       ALLOW_DATA_ATTR: false
