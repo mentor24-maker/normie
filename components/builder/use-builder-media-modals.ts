@@ -20,7 +20,6 @@ type UseBuilderMediaModalsParams = {
   setModulePaletteAnchor: Dispatch<SetStateAction<ModulePaletteAnchor | null>>;
   setActiveModuleGroup: Dispatch<SetStateAction<ModulePaletteGroup | null>>;
   setGalleryMedia: Dispatch<SetStateAction<AdminMediaItem[]>>;
-  setIsUploadingMedia: Dispatch<SetStateAction<boolean>>;
   setError: (value: string | null) => void;
   setMessage: (value: string | null) => void;
   updateModule: (sectionId: string, moduleId: string, updater: (m: BuilderTemplateModule) => BuilderTemplateModule) => void;
@@ -42,7 +41,6 @@ export function useBuilderMediaModals({
   setModulePaletteAnchor,
   setActiveModuleGroup,
   setGalleryMedia,
-  setIsUploadingMedia,
   setError,
   setMessage,
   updateModule,
@@ -153,7 +151,6 @@ export function useBuilderMediaModals({
 
   async function uploadMedia(onSuccess: (media: AdminMediaItem) => void, file: File | null) {
     if (!file) return;
-    setIsUploadingMedia(true);
     setError(null);
     try {
       const formData = new FormData();
@@ -167,8 +164,6 @@ export function useBuilderMediaModals({
       setMessage(`Uploaded ${uploaded.name} to gallery.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to upload media.");
-    } finally {
-      setIsUploadingMedia(false);
     }
   }
 
@@ -177,7 +172,6 @@ export function useBuilderMediaModals({
       return null;
     }
 
-    setIsUploadingMedia(true);
     setError(null);
 
     try {
@@ -200,8 +194,6 @@ export function useBuilderMediaModals({
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload media.");
       return null;
-    } finally {
-      setIsUploadingMedia(false);
     }
   }
 

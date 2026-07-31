@@ -413,7 +413,6 @@ export function AdminBlogPostEditor({
 
       {galleryTarget ? (
         <BuilderGalleryModal
-          isUploading={false}
           onClose={() => setGalleryTarget(null)}
           onSelectImage={applyGalleryImage}
         />

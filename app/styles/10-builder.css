@@ -521,7 +521,12 @@
 }
 
 .builder-gallery-modal {
-  width: min(1040px, 100%);
+  /*
+   * ~75% of the viewport once that beats the old fixed 1040px, so the six-column
+   * grid below gets room for larger thumbnails. Narrow screens keep the old
+   * full-width behaviour.
+   */
+  width: min(100%, max(1040px, 75vw));
   max-height: min(85vh, calc(100dvh - 48px));
   overflow: hidden;
   border-radius: 28px;
@@ -684,6 +689,23 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
+}
+
+/* Six across in the picker; the widened modal makes each tile bigger, not smaller. */
+.builder-gallery-modal .builder-gallery-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .builder-gallery-modal .builder-gallery-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .builder-gallery-modal .builder-gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .admin-gallery-media-grid {
@@ -890,6 +912,117 @@
   border: 1px dashed rgba(9, 16, 24, 0.14);
   text-align: center;
   color: var(--muted);
+}
+
+/* Upload Image dialog — opens above the picker and inserts what it uploads */
+.builder-gallery-upload-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 16, 24, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 1200;
+}
+
+.builder-gallery-upload-modal {
+  width: min(560px, 100%);
+  max-height: min(88vh, calc(100dvh - 48px));
+  overflow-y: auto;
+  border-radius: 24px;
+  border: 1px solid rgba(9, 16, 24, 0.08);
+  background: #ffffff;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.builder-gallery-upload-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.builder-gallery-upload-header h3 {
+  margin: 0;
+}
+
+.builder-gallery-upload-summary {
+  margin: 6px 0 0;
+}
+
+.builder-gallery-upload-dropzone {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 20px;
+  border: 2px dashed rgba(9, 16, 24, 0.18);
+  background: rgba(232, 247, 252, 0.4);
+  text-align: center;
+}
+
+.builder-gallery-upload-dropzone.is-dragging {
+  border-color: var(--collapse-expand-color);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.builder-gallery-upload-dropzone-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Opened via the Choose File button, never clicked directly. */
+.builder-gallery-upload-input {
+  display: none;
+}
+
+.builder-gallery-upload-preview {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #eef4f9 0%, #e7eef5 100%);
+}
+
+.builder-gallery-upload-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.builder-gallery-upload-file-meta {
+  display: grid;
+  gap: 2px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.builder-gallery-upload-file-meta span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.builder-gallery-upload-fields {
+  display: grid;
+  gap: 4px;
+}
+
+.builder-gallery-upload-fields input[type="text"],
+.builder-gallery-upload-fields select {
+  width: 100%;
+}
+
+.builder-gallery-upload-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 /* Gallery / List view switch — admin library, builder picker, blog picker */

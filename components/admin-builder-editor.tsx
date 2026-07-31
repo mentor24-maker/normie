@@ -85,7 +85,6 @@ export function AdminBuilderEditor() {
     workspace: true
   });
   const [savedSectionSelectKey, setSavedSectionSelectKey] = useState(0);
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -276,7 +275,6 @@ export function AdminBuilderEditor() {
     setModulePaletteAnchor,
     setActiveModuleGroup,
     setGalleryMedia,
-    setIsUploadingMedia,
     setError,
     setMessage,
     updateModule,
@@ -701,7 +699,6 @@ export function AdminBuilderEditor() {
           pages={pages}
           products={products}
           galleryMedia={galleryMedia}
-          isUploadingMedia={isUploadingMedia}
           savedSections={savedSections}
           templates={pageTemplates}
           isSaving={isSaving}
@@ -777,7 +774,6 @@ export function AdminBuilderEditor() {
       {isGalleryOpen ? (
         <BuilderGalleryModal
           anchor={galleryTarget?.kind === "rich-text" ? galleryAnchor : null}
-          isUploading={isUploadingMedia}
           onSelectImage={selectGalleryImage}
           onClose={closeGallery}
         />

@@ -28,3 +28,6 @@ Thumbs.db
 **/route 2.tsx
 .vercel
 .env*.local
+
+# Nested git worktrees created by Claude Code tooling
+.claude/worktrees/

@@ -15,7 +15,6 @@ export type BuilderModuleRepositoryListProps = {
   pages: BuilderPageRecord[];
   products: BuilderProductRecord[];
   galleryMedia: AdminMediaItem[];
-  isUploadingMedia: boolean;
   savedSections: BuilderSavedSectionRecord[];
   templates: BuilderTemplateRecord[];
   isSaving: boolean;

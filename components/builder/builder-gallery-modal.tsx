@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsHydrated } from "@/lib/use-client-value";
+import { BuilderGalleryUploadModal } from "@/components/builder/builder-gallery-upload-modal";
 import { GalleryMediaFilterBar } from "@/components/gallery-media-filter-bar";
 import { GalleryMediaListTable } from "@/components/gallery-media-list-table";
 import { GalleryViewToggle } from "@/components/gallery-view-toggle";
@@ -16,21 +17,18 @@ import { useGalleryViewMode } from "@/lib/gallery-view-mode";
 
 type BuilderGalleryModalProps = {
   anchor?: BuilderModalAnchor | null;
-  isUploading: boolean;
   onSelectImage: (imagePath: string) => void;
   onClose: () => void;
-  onUploadImage?: (file: File | null) => void | Promise<void>;
 };
 
 export function BuilderGalleryModal({
   anchor = null,
-  isUploading,
   onSelectImage,
-  onClose,
-  onUploadImage
+  onClose
 }: BuilderGalleryModalProps) {
   const mounted = useIsHydrated();
   const [viewMode, setViewMode] = useGalleryViewMode();
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const isAnchored = anchor != null;
   const anchoredModalStyle = isAnchored && mounted ? getRichTextGalleryModalStyle() : undefined;
 
@@ -54,15 +52,6 @@ export function BuilderGalleryModal({
 
   function sortByColumn(key: GalleryMediaListSortKey) {
     setFilters((current) => ({ ...current, sort: nextGalleryMediaListSort(current.sort, key) }));
-  }
-
-  async function handleUpload(file: File | null) {
-    if (!file || !onUploadImage) {
-      return;
-    }
-
-    await onUploadImage(file);
-    await loadMedia();
   }
 
   if (!mounted) {
@@ -96,33 +85,14 @@ export function BuilderGalleryModal({
             </p>
           </div>
           <div className="builder-gallery-header-actions">
+            <button
+              className="secondary-button builder-gallery-upload-button"
+              onClick={() => setIsUploadOpen(true)}
+              type="button"
+            >
+              Upload Image
+            </button>
             <GalleryViewToggle onChange={setViewMode} value={viewMode} />
-            {onUploadImage ? (
-              <label className="secondary-button builder-gallery-button builder-upload-button">
-                <span>{isUploading ? "Uploading..." : "Add to Gallery"}</span>
-                <input
-                  accept="image/*,video/*"
-                  className="builder-upload-input"
-                  disabled={isUploading}
-                  multiple
-                  type="file"
-                  onChange={(event) => {
-                    const files = event.target.files;
-
-                    if (!files || files.length === 0) {
-                      return;
-                    }
-
-                    void (async () => {
-                      for (const file of Array.from(files)) {
-                        await handleUpload(file);
-                      }
-                      event.currentTarget.value = "";
-                    })();
-                  }}
-                />
-              </label>
-            ) : null}
             <button className="secondary-button" onClick={onClose} type="button">
               Close
             </button>
@@ -137,7 +107,7 @@ export function BuilderGalleryModal({
           />
           {viewMode === "list" ? (
             <GalleryMediaListTable
-              emptyMessage={isUploading ? "Uploading..." : "No media found in the gallery."}
+              emptyMessage="No media found in the gallery."
               isLoading={isLoading}
               items={media}
               onSortColumn={sortByColumn}
@@ -173,7 +143,7 @@ export function BuilderGalleryModal({
                       <Image
                         alt={image.name}
                         fill
-                        sizes="180px"
+                        sizes="(min-width: 1400px) 240px, 180px"
                         src={getGalleryMediaThumbnailUrl(image.path)}
                       />
                     ) : (
@@ -188,7 +158,7 @@ export function BuilderGalleryModal({
               ))}
               {!isLoading && media.length === 0 ? (
                 <div className="builder-gallery-empty">
-                  {isUploading ? "Uploading..." : "No media found in the gallery."}
+                  No media found in the gallery.
                 </div>
               ) : null}
             </div>
@@ -207,6 +177,16 @@ export function BuilderGalleryModal({
           ) : null}
         </div>
       </div>
+      {isUploadOpen ? (
+        <BuilderGalleryUploadModal
+          categoryOptions={categoryOptions}
+          onClose={() => setIsUploadOpen(false)}
+          onUploaded={(uploaded) => {
+            setIsUploadOpen(false);
+            onSelectImage(uploaded.path);
+          }}
+        />
+      ) : null}
     </div>,
     document.body
   );

@@ -319,7 +319,6 @@ export function AdminBlogWorkspace() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -434,42 +433,6 @@ export function AdminBlogWorkspace() {
     updateBlogSetting(galleryTarget.imageKey, imagePath as BlogSettingsSnapshot[typeof galleryTarget.imageKey]);
     setIsGalleryOpen(false);
     setGalleryTarget(null);
-  }
-
-  async function uploadMedia(file: File | null) {
-    if (!file) {
-      return;
-    }
-
-    setIsUploadingMedia(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/admin/media", { method: "POST", body: formData });
-      const payload = await readAdminJson<{ media?: AdminMediaItem; error?: string }>(
-        response,
-        "Failed to upload media."
-      );
-
-      if (!payload.media) {
-        throw new Error(payload.error ?? "Failed to upload media.");
-      }
-
-      setGalleryMedia((current) =>
-        [...current.filter((item) => item.path !== payload.media!.path), payload.media!].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
-      );
-      selectGalleryImage(payload.media.path);
-      setMessage(`Uploaded ${payload.media.name} to gallery.`);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload media.");
-    } finally {
-      setIsUploadingMedia(false);
-    }
   }
 
   // Fetch worker with no synchronous setState (isLoading starts true);
@@ -1373,13 +1336,11 @@ export function AdminBlogWorkspace() {
 
       {isGalleryOpen ? (
         <BuilderGalleryModal
-          isUploading={isUploadingMedia}
           onClose={() => {
             setIsGalleryOpen(false);
             setGalleryTarget(null);
           }}
           onSelectImage={selectGalleryImage}
-          onUploadImage={(file) => void uploadMedia(file)}
         />
       ) : null}
     </section>
