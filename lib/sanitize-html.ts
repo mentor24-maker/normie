@@ -1,4 +1,5 @@
 import type DOMPurifyType from "dompurify";
+import { isAllowedBlogVideoFileSrc } from "@/lib/blog-video-embed";
 import { isAllowedRichTextImageSrc } from "@/lib/rich-text-image-src";
 
 const RICH_TEXT_ALLOWED_TAGS = [
@@ -105,6 +106,22 @@ function configureDomPurify() {
         node.setAttribute("loading", "lazy");
       }
     }
+
+    // `video` is only ever in ALLOWED_TAGS for blog bodies, so this branch is blog-only.
+    if (node.tagName === "VIDEO") {
+      const src = node.getAttribute("src") || "";
+
+      if (!isAllowedBlogVideoFileSrc(src)) {
+        node.remove();
+        return;
+      }
+
+      node.setAttribute("controls", "");
+
+      if (!node.getAttribute("preload")) {
+        node.setAttribute("preload", "metadata");
+      }
+    }
   });
 }
 
@@ -162,6 +179,7 @@ const BLOG_BODY_EXTRA_TAGS = [
   "img",
   "hr",
   "iframe",
+  "video",
   "table",
   "thead",
   "tbody",
@@ -177,6 +195,10 @@ const BLOG_BODY_EXTRA_ATTR = [
   "height",
   "colspan",
   "rowspan",
+  "controls",
+  "preload",
+  "playsinline",
+  "poster",
   ...EMBED_EXTRA_ATTR
 ] as const;
 
@@ -185,6 +207,8 @@ const BLOG_EMBED_HOSTS = [
   "youtube.com",
   "www.youtube-nocookie.com",
   "youtube-nocookie.com",
+  "player.vimeo.com",
+  "vimeo.com",
   "platform.twitter.com",
   "twitter.com",
   "x.com"
@@ -200,10 +224,18 @@ function isAllowedBlogEmbedSrc(src: string) {
   }
 }
 
+function readSrcAttribute(tag: string) {
+  return tag.match(/\ssrc\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+}
+
 function filterAllowedBlogEmbeds(html: string) {
-  return html.replace(/<iframe\b[^>]*\ssrc=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) =>
-    isAllowedBlogEmbedSrc(src) ? match : ""
-  );
+  return html
+    .replace(/<iframe\b[^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (match) =>
+      isAllowedBlogEmbedSrc(readSrcAttribute(match)) ? match : ""
+    )
+    .replace(/<video\b[^>]*>(?:[\s\S]*?<\/video>)?/gi, (match) =>
+      isAllowedBlogVideoFileSrc(readSrcAttribute(match)) ? match : ""
+    );
 }
 
 /** Used when DOMPurify/jsdom is unavailable on the server (e.g. Vercel function crash). */

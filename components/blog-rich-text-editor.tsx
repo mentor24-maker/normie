@@ -10,6 +10,7 @@ import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
+import { BlogEmbed } from "@/components/blog-embed-node";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
 import { RICH_TEXT_IMAGE_CLASS, resolveRichTextImageSrc } from "@/lib/rich-text-image";
 
@@ -17,52 +18,28 @@ type BlogRichTextEditorProps = {
   value: string;
   onChange: (value: string) => void;
   onOpenGallery: () => void;
+  /**
+   * Enables the Video and Embed controls. Omit for callers that persist through
+   * `sanitizeRichTextHtml` (e.g. poll pods) — that allowlist has no iframe or video, so embeds
+   * would be silently dropped on save.
+   */
+  onOpenVideoGallery?: () => void;
   galleryImagePath?: string | null;
   onGalleryImageConsumed?: () => void;
+  galleryVideoPath?: string | null;
+  onGalleryVideoConsumed?: () => void;
   placeholder?: string;
 };
-
-function buildYoutubeEmbedUrl(rawUrl: string) {
-  try {
-    const url = new URL(rawUrl.trim());
-    let videoId = "";
-
-    if (url.hostname.includes("youtu.be")) {
-      videoId = url.pathname.replace("/", "");
-    } else {
-      videoId = url.searchParams.get("v") || "";
-    }
-
-    if (!videoId) {
-      return null;
-    }
-
-    return `https://www.youtube-nocookie.com/embed/${videoId}`;
-  } catch {
-    return null;
-  }
-}
-
-function buildTwitterEmbedUrl(rawUrl: string) {
-  try {
-    const url = new URL(rawUrl.trim());
-
-    if (!url.hostname.includes("twitter.com") && !url.hostname.includes("x.com")) {
-      return null;
-    }
-
-    return `https://platform.twitter.com/embed/Tweet.html?dnt=true&url=${encodeURIComponent(url.toString())}`;
-  } catch {
-    return null;
-  }
-}
 
 export function BlogRichTextEditor({
   value,
   onChange,
   onOpenGallery,
+  onOpenVideoGallery,
   galleryImagePath,
   onGalleryImageConsumed,
+  galleryVideoPath,
+  onGalleryVideoConsumed,
   placeholder = "Write your post"
 }: BlogRichTextEditorProps) {
   const [isCodeView, setIsCodeView] = useState(false);
@@ -84,7 +61,8 @@ export function BlogRichTextEditor({
       Table.configure({ resizable: false }),
       TableRow,
       TableHeader,
-      TableCell
+      TableCell,
+      BlogEmbed
     ],
     content: value || "<p></p>",
     onUpdate: ({ editor: currentEditor }) => {
@@ -109,7 +87,9 @@ export function BlogRichTextEditor({
       return;
     }
 
-    const src = resolveRichTextImageSrc(galleryImagePath, "editor");
+    // "display" (not "editor") so the stored `/gallery/...` src also resolves for public readers —
+    // `/api/admin/media-file/...` is admin-only and 401s on the live post.
+    const src = resolveRichTextImageSrc(galleryImagePath, "display");
 
     if (!src) {
       onGalleryImageConsumed?.();
@@ -119,6 +99,18 @@ export function BlogRichTextEditor({
     editor.chain().focus().setImage({ src, alt: "" }).run();
     onGalleryImageConsumed?.();
   }, [editor, galleryImagePath, onGalleryImageConsumed]);
+
+  useEffect(() => {
+    if (!editor || !galleryVideoPath) {
+      return;
+    }
+
+    if (!editor.chain().focus().setBlogEmbed(galleryVideoPath).run()) {
+      window.alert("That gallery file is not a supported video (mp4, mov, m4v, webm, ogg).");
+    }
+
+    onGalleryVideoConsumed?.();
+  }, [editor, galleryVideoPath, onGalleryVideoConsumed]);
 
   function setLink() {
     if (!editor) {
@@ -140,31 +132,20 @@ export function BlogRichTextEditor({
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }
 
-  function insertEmbed(kind: "youtube" | "twitter") {
+  function insertEmbed() {
     if (!editor) {
       return;
     }
 
-    const url = window.prompt(kind === "youtube" ? "YouTube URL" : "X / Twitter post URL");
+    const url = window.prompt("YouTube, Vimeo, or X post URL");
 
     if (!url) {
       return;
     }
 
-    const embedUrl = kind === "youtube" ? buildYoutubeEmbedUrl(url) : buildTwitterEmbedUrl(url);
-
-    if (!embedUrl) {
+    if (!editor.chain().focus().setBlogEmbed(url.trim()).run()) {
       window.alert("Could not build an embed for that URL.");
-      return;
     }
-
-    editor
-      .chain()
-      .focus()
-      .insertContent(
-        `<div class="blog-embed"><iframe src="${embedUrl}" title="${kind} embed" loading="lazy" allowfullscreen></iframe></div>`
-      )
-      .run();
   }
 
   if (!editor) {
@@ -282,12 +263,16 @@ export function BlogRichTextEditor({
         <button onClick={onOpenGallery} title="Image" type="button">
           Image
         </button>
-        <button onClick={() => insertEmbed("youtube")} type="button">
-          YouTube
-        </button>
-        <button onClick={() => insertEmbed("twitter")} type="button">
-          X
-        </button>
+        {onOpenVideoGallery ? (
+          <>
+            <button onClick={onOpenVideoGallery} title="Video from the gallery" type="button">
+              Video
+            </button>
+            <button onClick={insertEmbed} title="YouTube, Vimeo, or X post" type="button">
+              Embed
+            </button>
+          </>
+        ) : null}
         <button
           onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
           type="button"

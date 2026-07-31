@@ -1060,12 +1060,23 @@ a.blog-chip:hover {
 }
 
 .blog-post-body .blog-embed,
-.blog-post-body iframe {
+.blog-post-body iframe,
+.blog-post-body .blog-embed video {
   width: 100%;
   max-width: 100%;
   aspect-ratio: 16 / 9;
   border: 0;
   border-radius: 12px;
+}
+
+.blog-post-body .blog-embed {
+  margin: 20px 0;
+}
+
+.blog-post-body .blog-embed video {
+  display: block;
+  background: #000000;
+  object-fit: contain;
 }
 
 .blog-post-body table {

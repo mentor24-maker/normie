@@ -45,6 +45,40 @@ describe("sanitizeBlogBodyHtml", () => {
     expect(clean).toContain("<p>Hello</p>");
     expect(clean.toLowerCase()).not.toContain("<script");
   });
+
+  it("keeps trusted video embeds", () => {
+    const youtube = sanitizeBlogBodyHtml(
+      '<div class="blog-embed"><iframe src="https://www.youtube-nocookie.com/embed/abc"></iframe></div>'
+    );
+    const vimeo = sanitizeBlogBodyHtml(
+      '<div class="blog-embed"><iframe src="https://player.vimeo.com/video/123"></iframe></div>'
+    );
+
+    expect(youtube).toContain("youtube-nocookie.com/embed/abc");
+    expect(vimeo).toContain("player.vimeo.com/video/123");
+  });
+
+  it("removes iframes from untrusted origins", () => {
+    const clean = sanitizeBlogBodyHtml('<p>a</p><iframe src="https://evil.example.com/x"></iframe>');
+
+    expect(clean).toContain("<p>a</p>");
+    expect(clean.toLowerCase()).not.toContain("<iframe");
+  });
+
+  it("keeps gallery videos and forces playback controls", () => {
+    const clean = sanitizeBlogBodyHtml('<div class="blog-embed"><video src="/gallery/clips/intro.mp4"></video></div>');
+
+    expect(clean).toContain('src="/gallery/clips/intro.mp4"');
+    expect(clean).toContain("controls");
+    expect(clean).toContain('preload="metadata"');
+  });
+
+  it("removes video elements pointing outside the gallery", () => {
+    const clean = sanitizeBlogBodyHtml('<p>a</p><video src="https://evil.example.com/clip.mp4"></video>');
+
+    expect(clean).toContain("<p>a</p>");
+    expect(clean.toLowerCase()).not.toContain("<video");
+  });
 });
 
 describe("stripDangerousBlogBodyHtml", () => {
@@ -53,6 +87,19 @@ describe("stripDangerousBlogBodyHtml", () => {
     expect(clean).toContain("<p");
     expect(clean.toLowerCase()).not.toContain("<script");
     expect(clean).not.toContain("onclick");
+  });
+
+  it("applies the same embed allowlist as the DOMPurify path", () => {
+    const clean = stripDangerousBlogBodyHtml(
+      '<iframe title="ok" src="https://player.vimeo.com/video/123"></iframe>' +
+        '<iframe src="https://evil.example.com/x"></iframe>' +
+        '<video src="/gallery/clips/intro.mp4"></video>' +
+        '<video src="https://evil.example.com/clip.mp4"></video>'
+    );
+
+    expect(clean).toContain("player.vimeo.com/video/123");
+    expect(clean).toContain("/gallery/clips/intro.mp4");
+    expect(clean).not.toContain("evil.example.com");
   });
 });
 

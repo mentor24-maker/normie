@@ -409,6 +409,31 @@
   color: var(--muted);
 }
 
+.blog-rich-text-content .blog-embed {
+  width: 100%;
+  max-width: 480px;
+  margin: 12px 0;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(9, 16, 24, 0.06);
+}
+
+.blog-rich-text-content .blog-embed iframe,
+.blog-rich-text-content .blog-embed video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* The embed is an atom node — clicks must select it, not disappear into the frame. */
+  pointer-events: none;
+}
+
+.blog-rich-text-content .blog-embed.ProseMirror-selectednode {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
 @media (max-width: 900px) {
   .admin-blog-posts-filter-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
