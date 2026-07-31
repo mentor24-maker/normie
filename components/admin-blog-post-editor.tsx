@@ -21,6 +21,8 @@ type TeamAuthor = {
   fullName: string;
 };
 
+type GalleryTarget = "featured" | "og" | "body" | "bodyVideo";
+
 type AdminBlogPostEditorProps = {
   draft: BlogPostEditorInput & { id?: string };
   topics: BlogTopicRecord[];
@@ -64,8 +66,9 @@ export function AdminBlogPostEditor({
   onSave,
   onCancel
 }: AdminBlogPostEditorProps) {
-  const [galleryTarget, setGalleryTarget] = useState<"featured" | "og" | "body" | null>(null);
+  const [galleryTarget, setGalleryTarget] = useState<GalleryTarget | null>(null);
   const [pendingBodyImage, setPendingBodyImage] = useState<string | null>(null);
+  const [pendingBodyVideo, setPendingBodyVideo] = useState<string | null>(null);
 
   const statusOptions: BlogPostStatus[] = canPublish
     ? ["draft", "scheduled", "published"]
@@ -76,7 +79,7 @@ export function AdminBlogPostEditor({
     [draft.id, posts]
   );
 
-  function openGallery(target: "featured" | "og" | "body") {
+  function openGallery(target: GalleryTarget) {
     setGalleryTarget(target);
   }
 
@@ -87,6 +90,8 @@ export function AdminBlogPostEditor({
       onChange({ ...draft, ogImageUrl: imagePath });
     } else if (galleryTarget === "body") {
       setPendingBodyImage(imagePath);
+    } else if (galleryTarget === "bodyVideo") {
+      setPendingBodyVideo(imagePath);
     }
 
     setGalleryTarget(null);
@@ -190,8 +195,11 @@ export function AdminBlogPostEditor({
               value={draft.bodyHtml}
               onChange={(bodyHtml) => onChange({ ...draft, bodyHtml })}
               onOpenGallery={() => void openGallery("body")}
+              onOpenVideoGallery={() => void openGallery("bodyVideo")}
               galleryImagePath={pendingBodyImage}
               onGalleryImageConsumed={() => setPendingBodyImage(null)}
+              galleryVideoPath={pendingBodyVideo}
+              onGalleryVideoConsumed={() => setPendingBodyVideo(null)}
             />
           </div>
         </div>

@@ -1,5 +1,6 @@
 import type DOMPurifyType from "dompurify";
-import { isAllowedRichTextImageSrc } from "@/lib/rich-text-image-src";
+import { isAllowedBlogVideoFileSrc } from "@/lib/blog-video-embed";
+import { isAllowedRichTextImageSrc, rewriteRichTextImageSrcInHtml } from "@/lib/rich-text-image-src";
 
 const RICH_TEXT_ALLOWED_TAGS = [
   "p",
@@ -105,6 +106,22 @@ function configureDomPurify() {
         node.setAttribute("loading", "lazy");
       }
     }
+
+    // `video` is only ever in ALLOWED_TAGS for blog bodies, so this branch is blog-only.
+    if (node.tagName === "VIDEO") {
+      const src = node.getAttribute("src") || "";
+
+      if (!isAllowedBlogVideoFileSrc(src)) {
+        node.remove();
+        return;
+      }
+
+      node.setAttribute("controls", "");
+
+      if (!node.getAttribute("preload")) {
+        node.setAttribute("preload", "metadata");
+      }
+    }
   });
 }
 
@@ -162,6 +179,7 @@ const BLOG_BODY_EXTRA_TAGS = [
   "img",
   "hr",
   "iframe",
+  "video",
   "table",
   "thead",
   "tbody",
@@ -177,6 +195,10 @@ const BLOG_BODY_EXTRA_ATTR = [
   "height",
   "colspan",
   "rowspan",
+  "controls",
+  "preload",
+  "playsinline",
+  "poster",
   ...EMBED_EXTRA_ATTR
 ] as const;
 
@@ -185,6 +207,8 @@ const BLOG_EMBED_HOSTS = [
   "youtube.com",
   "www.youtube-nocookie.com",
   "youtube-nocookie.com",
+  "player.vimeo.com",
+  "vimeo.com",
   "platform.twitter.com",
   "twitter.com",
   "x.com"
@@ -200,20 +224,40 @@ function isAllowedBlogEmbedSrc(src: string) {
   }
 }
 
+/**
+ * Blog bodies are read by anonymous visitors, so every image has to resolve on a public route.
+ * Older posts stored the admin-only `/api/admin/media-file/...` src, which 401s for those readers;
+ * "display" rewrites those (and raw Supabase storage URLs) to the public `/gallery/...` route.
+ * Applied on both render and save, so existing posts heal without a data migration.
+ */
+function rewriteBlogImagesToPublicSrc(html: string) {
+  return rewriteRichTextImageSrcInHtml(html, "display");
+}
+
+function readSrcAttribute(tag: string) {
+  return tag.match(/\ssrc\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+}
+
 function filterAllowedBlogEmbeds(html: string) {
-  return html.replace(/<iframe\b[^>]*\ssrc=["']([^"']+)["'][^>]*><\/iframe>/gi, (match, src) =>
-    isAllowedBlogEmbedSrc(src) ? match : ""
-  );
+  return html
+    .replace(/<iframe\b[^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (match) =>
+      isAllowedBlogEmbedSrc(readSrcAttribute(match)) ? match : ""
+    )
+    .replace(/<video\b[^>]*>(?:[\s\S]*?<\/video>)?/gi, (match) =>
+      isAllowedBlogVideoFileSrc(readSrcAttribute(match)) ? match : ""
+    );
 }
 
 /** Used when DOMPurify/jsdom is unavailable on the server (e.g. Vercel function crash). */
 export function stripDangerousBlogBodyHtml(html: string) {
-  return filterAllowedBlogEmbeds(
-    html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-      .replace(/javascript:/gi, "")
+  return rewriteBlogImagesToPublicSrc(
+    filterAllowedBlogEmbeds(
+      html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+        .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+        .replace(/javascript:/gi, "")
+    )
   );
 }
 
@@ -227,7 +271,7 @@ export function sanitizeBlogBodyHtml(html: string) {
       ALLOW_DATA_ATTR: false
     });
 
-    return filterAllowedBlogEmbeds(clean);
+    return rewriteBlogImagesToPublicSrc(filterAllowedBlogEmbeds(clean));
   } catch {
     return stripDangerousBlogBodyHtml(html);
   }

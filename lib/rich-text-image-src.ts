@@ -92,6 +92,21 @@ export function isAllowedRichTextImageSrc(src: string) {
   return false;
 }
 
+export function rewriteRichTextImageSrcInHtml(html: string, mode: RichTextImageSrcMode) {
+  return html.replace(/<img\b([^>]*?)\ssrc=(["'])([^"']+)\2([^>]*)>/gi, (match, before, quote, src, after) => {
+    const nextSrc = resolveRichTextImageSrc(src, mode);
+
+    if (!nextSrc) {
+      return "";
+    }
+
+    const attrs = `${before}${after}`;
+    const classAttr = /\bclass=(["'])/i.test(attrs) ? "" : ` class="${RICH_TEXT_IMAGE_CLASS}"`;
+
+    return `<img${before}${classAttr} src=${quote}${nextSrc}${quote}${after}>`;
+  });
+}
+
 export function resolveRichTextImageSrc(src: string, mode: RichTextImageSrcMode) {
   const normalized = normalizeRichTextImagePath(src);
 
