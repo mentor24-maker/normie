@@ -25,7 +25,6 @@ export function BuilderModuleRepositoryList({
   pages,
   products,
   galleryMedia,
-  isUploadingMedia,
   savedSections,
   templates,
   isSaving,
@@ -927,7 +926,6 @@ export function BuilderModuleRepositoryList({
               ? editingGalleryAnchor
               : null
           }
-          isUploading={isUploadingMedia}
           onSelectImage={selectEditingGalleryImage}
           onClose={() => {
             setEditingGalleryTarget(null);
@@ -938,7 +936,6 @@ export function BuilderModuleRepositoryList({
       {editingSectionGalleryTarget ? (
         <BuilderGalleryModal
           anchor={editingSectionGalleryTarget.kind === "rich-text" ? editingGalleryAnchor : null}
-          isUploading={isUploadingMedia}
           onSelectImage={selectEditingSectionGalleryImage}
           onClose={() => {
             setEditingSectionGalleryTarget(null);
