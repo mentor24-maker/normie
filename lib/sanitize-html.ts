@@ -1,6 +1,6 @@
 import type DOMPurifyType from "dompurify";
 import { isAllowedBlogVideoFileSrc } from "@/lib/blog-video-embed";
-import { isAllowedRichTextImageSrc } from "@/lib/rich-text-image-src";
+import { isAllowedRichTextImageSrc, rewriteRichTextImageSrcInHtml } from "@/lib/rich-text-image-src";
 
 const RICH_TEXT_ALLOWED_TAGS = [
   "p",
@@ -224,6 +224,16 @@ function isAllowedBlogEmbedSrc(src: string) {
   }
 }
 
+/**
+ * Blog bodies are read by anonymous visitors, so every image has to resolve on a public route.
+ * Older posts stored the admin-only `/api/admin/media-file/...` src, which 401s for those readers;
+ * "display" rewrites those (and raw Supabase storage URLs) to the public `/gallery/...` route.
+ * Applied on both render and save, so existing posts heal without a data migration.
+ */
+function rewriteBlogImagesToPublicSrc(html: string) {
+  return rewriteRichTextImageSrcInHtml(html, "display");
+}
+
 function readSrcAttribute(tag: string) {
   return tag.match(/\ssrc\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
 }
@@ -240,12 +250,14 @@ function filterAllowedBlogEmbeds(html: string) {
 
 /** Used when DOMPurify/jsdom is unavailable on the server (e.g. Vercel function crash). */
 export function stripDangerousBlogBodyHtml(html: string) {
-  return filterAllowedBlogEmbeds(
-    html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-      .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-      .replace(/javascript:/gi, "")
+  return rewriteBlogImagesToPublicSrc(
+    filterAllowedBlogEmbeds(
+      html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+        .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+        .replace(/javascript:/gi, "")
+    )
   );
 }
 
@@ -259,7 +271,7 @@ export function sanitizeBlogBodyHtml(html: string) {
       ALLOW_DATA_ATTR: false
     });
 
-    return filterAllowedBlogEmbeds(clean);
+    return rewriteBlogImagesToPublicSrc(filterAllowedBlogEmbeds(clean));
   } catch {
     return stripDangerousBlogBodyHtml(html);
   }

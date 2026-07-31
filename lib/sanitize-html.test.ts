@@ -73,6 +73,22 @@ describe("sanitizeBlogBodyHtml", () => {
     expect(clean).toContain('preload="metadata"');
   });
 
+  it("rewrites admin-only image sources to the public gallery route", () => {
+    const clean = sanitizeBlogBodyHtml(
+      '<p><img src="/api/admin/media-file/gallery/photos/hero.png" alt="Hero" class="rich-text-editor-image" /></p>'
+    );
+
+    expect(clean).toContain('src="/gallery/photos/hero.png"');
+    expect(clean).not.toContain("/api/admin/media-file/");
+    expect(clean).toContain('alt="Hero"');
+  });
+
+  it("leaves already-public image sources untouched", () => {
+    const clean = sanitizeBlogBodyHtml('<p><img src="/gallery/photos/hero.png" alt="" class="rich-text-editor-image" /></p>');
+
+    expect(clean).toContain('src="/gallery/photos/hero.png"');
+  });
+
   it("removes video elements pointing outside the gallery", () => {
     const clean = sanitizeBlogBodyHtml('<p>a</p><video src="https://evil.example.com/clip.mp4"></video>');
 
@@ -100,6 +116,15 @@ describe("stripDangerousBlogBodyHtml", () => {
     expect(clean).toContain("player.vimeo.com/video/123");
     expect(clean).toContain("/gallery/clips/intro.mp4");
     expect(clean).not.toContain("evil.example.com");
+  });
+
+  it("also rewrites admin-only image sources on the fallback path", () => {
+    const clean = stripDangerousBlogBodyHtml(
+      '<img src="/api/admin/media-file/gallery/photos/hero.png" class="rich-text-editor-image" />'
+    );
+
+    expect(clean).toContain('src="/gallery/photos/hero.png"');
+    expect(clean).not.toContain("/api/admin/media-file/");
   });
 });
 
