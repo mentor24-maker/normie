@@ -57,7 +57,14 @@ const EMBED_EXTRA_ATTR = [
   "width",
   "height",
   "loading",
-  "referrerpolicy"
+  "referrerpolicy",
+  // Both are stamped on by the afterSanitizeAttributes hook below. Allowing them
+  // through keeps sanitizing twice byte-identical to sanitizing once: otherwise
+  // DOMPurify strips them and the hook re-appends them in a different order, and
+  // the blog editor's value-sync guard compares sanitized output.
+  // `sandbox` is overwritten unconditionally, so an author-supplied value cannot survive.
+  "sandbox",
+  "tabindex"
 ] as const;
 
 let domPurifyInstance: typeof DOMPurifyType | null = null;

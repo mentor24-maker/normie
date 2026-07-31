@@ -77,7 +77,12 @@ export function BlogRichTextEditor({
 
     const normalized = sanitizeBlogBodyHtml(value) || "<p></p>";
 
-    if (editor.getHTML() !== normalized) {
+    // Compare sanitized-to-sanitized. The sanitizer stamps loading="lazy" onto
+    // every image and Tiptap's Image node does not model that attribute, so a
+    // raw getHTML() comparison is permanently unequal once the body holds an
+    // image — and the setContent it then fires on every edit replaces the doc
+    // and throws the caret to the end, so the next insert lands at the bottom.
+    if (sanitizeBlogBodyHtml(editor.getHTML()) !== normalized) {
       editor.commands.setContent(normalized, { emitUpdate: false });
     }
   }, [editor, value]);
