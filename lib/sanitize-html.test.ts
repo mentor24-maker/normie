@@ -95,6 +95,42 @@ describe("sanitizeBlogBodyHtml", () => {
     expect(clean).toContain("<p>a</p>");
     expect(clean.toLowerCase()).not.toContain("<video");
   });
+
+  it("overwrites an author-supplied iframe sandbox", () => {
+    const clean = sanitizeBlogBodyHtml(
+      '<div class="blog-embed"><iframe src="https://player.vimeo.com/video/123" sandbox="allow-top-navigation"></iframe></div>'
+    );
+
+    expect(clean).toContain('sandbox="allow-scripts allow-same-origin allow-popups allow-forms"');
+    expect(clean).not.toContain("allow-top-navigation");
+  });
+
+  it("adds loading=lazy to images, which Tiptap never emits", () => {
+    const tiptapHtml = '<p>Hi</p><img class="rich-text-image" src="/gallery/test.png" alt="">';
+    const clean = sanitizeBlogBodyHtml(tiptapHtml);
+
+    expect(clean).toContain('loading="lazy"');
+    // The gap that makes a raw getHTML() comparison in the editor's value-sync
+    // effect permanently unequal once a body holds an image.
+    expect(clean).not.toBe(tiptapHtml);
+  });
+
+  it("is idempotent, so the editor can compare sanitized-to-sanitized", () => {
+    const samples = [
+      '<p>Hi</p><img class="rich-text-image" src="/gallery/test.png" alt="">',
+      '<p><a href="https://example.com">Link</a></p>',
+      '<p>Before</p><img src="/gallery/a.png" alt="" loading="lazy"><p>After</p>',
+      '<p><img src="/api/admin/media-file/gallery/photos/hero.png" alt="Hero" /></p>',
+      '<div class="blog-embed"><iframe src="https://www.youtube-nocookie.com/embed/abc"></iframe></div>',
+      '<div class="blog-embed"><video src="/gallery/clips/intro.mp4"></video></div>',
+      "<p></p>"
+    ];
+
+    for (const sample of samples) {
+      const once = sanitizeBlogBodyHtml(sample);
+      expect(sanitizeBlogBodyHtml(once)).toBe(once);
+    }
+  });
 });
 
 describe("stripDangerousBlogBodyHtml", () => {
