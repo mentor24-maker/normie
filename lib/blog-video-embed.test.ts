@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedBlogVideoFileSrc, resolveBlogEmbedSource } from "@/lib/blog-video-embed";
+import {
+  isAllowedBlogVideoFileSrc,
+  resolveBlogEmbedSource,
+  reviveEscapedBlogEmbeds
+} from "@/lib/blog-video-embed";
+
+/** Exactly what the old broken toolbar button left behind in saved posts. */
+const LEGACY_TEXT =
+  '&lt;div class="blog-embed"&gt;&lt;iframe src="https://www.youtube-nocookie.com/embed/JXZum_n5Uss" ' +
+  'title="youtube embed" loading="lazy" allowfullscreen&gt;&lt;/iframe&gt;&lt;/div&gt;';
 
 describe("resolveBlogEmbedSource", () => {
   it("resolves every YouTube URL shape to a nocookie embed", () => {
@@ -64,6 +73,45 @@ describe("resolveBlogEmbedSource", () => {
     expect(resolveBlogEmbedSource("https://www.youtube.com/watch")).toBeNull();
     expect(resolveBlogEmbedSource("https://x.com/normie")).toBeNull();
     expect(resolveBlogEmbedSource("")).toBeNull();
+  });
+});
+
+describe("reviveEscapedBlogEmbeds", () => {
+  it("turns a legacy escaped snippet back into real embed markup", () => {
+    const html = reviveEscapedBlogEmbeds(`<p>before</p><p>${LEGACY_TEXT}</p><p>after</p>`);
+
+    expect(html).toContain('<div class="blog-embed"><iframe');
+    expect(html).toContain('src="https://www.youtube-nocookie.com/embed/JXZum_n5Uss"');
+    expect(html).not.toContain("&lt;iframe");
+    expect(html).toContain("<p>before</p>");
+    expect(html).toContain("<p>after</p>");
+  });
+
+  it("revives an escaped gallery video snippet", () => {
+    const html = reviveEscapedBlogEmbeds(
+      '<p>&lt;video src="/gallery/clips/intro.mp4" controls&gt;&lt;/video&gt;</p>'
+    );
+
+    expect(html).toContain('<video src="/gallery/clips/intro.mp4"');
+    expect(html).toContain("controls");
+  });
+
+  it("leaves untrusted snippets as the author typed them", () => {
+    const untrusted = '<p>&lt;iframe src="https://evil.example.com/x"&gt;&lt;/iframe&gt;</p>';
+
+    expect(reviveEscapedBlogEmbeds(untrusted)).toBe(untrusted);
+  });
+
+  it("does not touch markup shown deliberately inside code samples", () => {
+    const sample = `<pre><code>${LEGACY_TEXT}</code></pre>`;
+
+    expect(reviveEscapedBlogEmbeds(sample)).toBe(sample);
+  });
+
+  it("leaves already-canonical markup alone", () => {
+    const canonical = '<div class="blog-embed"><iframe src="https://player.vimeo.com/video/123"></iframe></div>';
+
+    expect(reviveEscapedBlogEmbeds(canonical)).toBe(canonical);
   });
 });
 

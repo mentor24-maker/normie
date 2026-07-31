@@ -3,6 +3,11 @@ import { resolveRichTextImageSrc } from "@/lib/rich-text-image-src";
 /** Wrapper class shared by the editor node, the sanitizer allowlist, and the blog body CSS. */
 export const BLOG_EMBED_CLASS = "blog-embed";
 
+export const BLOG_EMBED_IFRAME_TITLE = "Embedded media";
+
+export const BLOG_EMBED_IFRAME_ALLOW =
+  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+
 const VIDEO_FILE_PATTERN = /\.(mp4|mov|m4v|webm|ogg)(\?.*)?$/i;
 
 export type BlogEmbedSource =
@@ -113,4 +118,63 @@ export function resolveBlogEmbedSource(value: string | undefined): BlogEmbedSour
 /** Guard for `<video src>` in sanitized blog HTML — gallery-hosted video files only. */
 export function isAllowedBlogVideoFileSrc(src: string) {
   return resolveGalleryVideoSrc(src) !== null;
+}
+
+/** Canonical stored markup for an embed. Kept in step with `BlogEmbed.renderHTML`. */
+export function renderBlogEmbedHtml(embed: BlogEmbedSource) {
+  const src = embed.src.replace(/"/g, "%22");
+
+  if (embed.kind === "video") {
+    return `<div class="${BLOG_EMBED_CLASS}"><video src="${src}" controls preload="metadata" playsinline></video></div>`;
+  }
+
+  return (
+    `<div class="${BLOG_EMBED_CLASS}"><iframe src="${src}" title="${BLOG_EMBED_IFRAME_TITLE}" ` +
+    `loading="lazy" allow="${BLOG_EMBED_IFRAME_ALLOW}" allowfullscreen></iframe></div>`
+  );
+}
+
+/** Matches an embed snippet that was stored as escaped text rather than real markup. */
+const ESCAPED_EMBED_PATTERN =
+  /(?:&lt;div\b[\s\S]*?&gt;)?\s*&lt;(iframe|video)\b[\s\S]*?&gt;\s*&lt;\/\1&gt;\s*(?:&lt;\/div&gt;)?/gi;
+
+/** Literal `<pre>` / `<code>` samples must keep showing their markup as text. */
+const CODE_SEGMENT_PATTERN = /(<(?:pre|code)\b[\s\S]*?<\/(?:pre|code)>)/gi;
+
+function decodeBasicEntities(value: string) {
+  return value
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&amp;/gi, "&");
+}
+
+function reviveEscapedEmbedSegment(segment: string) {
+  return segment.replace(ESCAPED_EMBED_PATTERN, (match) => {
+    const rawSrc = match.match(/\ssrc\s*=\s*(?:&quot;|["'])([\s\S]*?)(?:&quot;|["'])/i)?.[1] ?? "";
+    const embed = resolveBlogEmbedSource(decodeBasicEntities(rawSrc));
+
+    // Leave anything we cannot vouch for exactly as the author typed it.
+    return embed ? renderBlogEmbedHtml(embed) : match;
+  });
+}
+
+/**
+ * The blog editor used to insert embeds by handing raw HTML to `insertContent`. Nothing in the
+ * ProseMirror schema matched it, so Tiptap fell back to inserting it as plain text and posts ended
+ * up with visible embed markup that can never become a video on its own. Recover those by reading
+ * the src, validating it against the same provider allowlist as a fresh insert, and re-emitting
+ * canonical markup. Only the src is reused — the author's text is never unescaped wholesale.
+ */
+export function reviveEscapedBlogEmbeds(html: string) {
+  if (!html.includes("&lt;")) {
+    return html;
+  }
+
+  return html
+    .split(CODE_SEGMENT_PATTERN)
+    .map((segment, index) => (index % 2 === 1 ? segment : reviveEscapedEmbedSegment(segment)))
+    .join("");
 }

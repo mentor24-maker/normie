@@ -11,6 +11,7 @@ import { DOMParser as ProseMirrorDOMParser, DOMSerializer, type Schema } from "@
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vitest";
 import { BlogEmbed } from "@/components/blog-embed-node";
+import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
 
 /** Mirrors the extension set in `components/blog-rich-text-editor.tsx`. */
 function buildBlogSchema(): Schema {
@@ -74,6 +75,22 @@ describe("BlogEmbed node", () => {
 
     expect(html).not.toContain("blog-embed");
     expect(html).not.toContain("evil.example.com");
+  });
+
+  it("recovers a post that the old button filled with visible embed text", () => {
+    const schema = buildBlogSchema();
+    const stored =
+      '<p>Their questions are different:</p><p>&lt;div class="blog-embed"&gt;&lt;iframe ' +
+      'src="https://www.youtube-nocookie.com/embed/JXZum_n5Uss" title="youtube embed" loading="lazy" ' +
+      'allowfullscreen&gt;&lt;/iframe&gt;&lt;/div&gt;</p><h2>The Wisdom of the Quiet Strategist</h2>';
+
+    const html = roundTrip(schema, sanitizeBlogBodyHtml(stored));
+
+    expect(html).toContain('<div class="blog-embed"><iframe');
+    expect(html).toContain('src="https://www.youtube-nocookie.com/embed/JXZum_n5Uss"');
+    expect(html).not.toContain("&lt;iframe");
+    expect(html).toContain("<p>Their questions are different:</p>");
+    expect(html).toContain("<h2>The Wisdom of the Quiet Strategist</h2>");
   });
 
   it("normalizes a watch URL to the nocookie embed on insert", () => {
