@@ -14,6 +14,7 @@ import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import type { RichTextGalleryBinding } from "@/components/builder/builder-types";
 import { prepareRichTextHtmlForEditor, prepareRichTextHtmlForStorage } from "@/lib/builder-template";
 import { readAdminJson } from "@/lib/admin-fetch";
+import { formatHtmlForCodeView } from "@/lib/format-html";
 import {
   appendRichTextImageToHtml,
   RICH_TEXT_IMAGE_CLASS,
@@ -367,28 +368,13 @@ export function BuilderRichTextEditor({
     chain.setMark("textStyle", { lineHeight: nextValue }).run();
   }
 
-  function formatHTML(html: string): string {
-    let indent = 0;
-    return html
-      .replace(/></g, ">\n<")
-      .split("\n")
-      .map((line) => {
-        const trimmed = line.trim();
-        if (/^<\//.test(trimmed)) indent = Math.max(0, indent - 1);
-        const result = "  ".repeat(indent) + trimmed;
-        if (/^<[^/!][^>]*[^/]>$/.test(trimmed) && !/^<(br|hr|img|input|link|meta)/.test(trimmed)) indent++;
-        return result;
-      })
-      .join("\n");
-  }
-
   function toggleCodeView() {
     if (!editor) {
       return;
     }
 
     if (!isCodeView) {
-      setCodeViewValue(formatHTML(editor.getHTML()));
+      setCodeViewValue(formatHtmlForCodeView(editor.getHTML()));
       setIsCodeView(true);
     } else {
       editor.commands.setContent(prepareRichTextHtmlForStorage(codeViewValue), { emitUpdate: true });
