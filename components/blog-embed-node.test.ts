@@ -1,31 +1,12 @@
 // @vitest-environment jsdom
 import { getSchema } from "@tiptap/core";
-import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
-import { Table } from "@tiptap/extension-table";
-import TableCell from "@tiptap/extension-table-cell";
-import TableHeader from "@tiptap/extension-table-header";
-import TableRow from "@tiptap/extension-table-row";
-import Underline from "@tiptap/extension-underline";
 import { DOMParser as ProseMirrorDOMParser, DOMSerializer, type Schema } from "@tiptap/pm/model";
-import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vitest";
-import { BlogEmbed } from "@/components/blog-embed-node";
+import { createBlogEditorExtensions } from "@/components/blog-editor-extensions";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
 
-/** Mirrors the extension set in `components/blog-rich-text-editor.tsx`. */
 function buildBlogSchema(): Schema {
-  return getSchema([
-    StarterKit.configure({ heading: { levels: [2, 3, 4] }, link: false }),
-    Underline,
-    Link.configure({ openOnClick: false }),
-    Image.configure({}),
-    Table.configure({ resizable: false }),
-    TableRow,
-    TableHeader,
-    TableCell,
-    BlogEmbed
-  ]);
+  return getSchema(createBlogEditorExtensions());
 }
 
 /** Parse HTML into the schema and serialize it back, exactly as `setContent` + `getHTML()` do. */

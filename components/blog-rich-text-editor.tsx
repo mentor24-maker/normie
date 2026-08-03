@@ -1,18 +1,11 @@
 "use client";
 
-import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
-import { Table } from "@tiptap/extension-table";
-import TableCell from "@tiptap/extension-table-cell";
-import TableHeader from "@tiptap/extension-table-header";
-import TableRow from "@tiptap/extension-table-row";
-import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
-import { BlogEmbed } from "@/components/blog-embed-node";
+import { createBlogEditorExtensions } from "@/components/blog-editor-extensions";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
-import { RICH_TEXT_IMAGE_CLASS, resolveRichTextImageSrc } from "@/lib/rich-text-image";
+import { normalizeRichTextLinkUrl } from "@/lib/rich-text-link-url";
+import { resolveRichTextImageSrc } from "@/lib/rich-text-image";
 
 type BlogRichTextEditorProps = {
   value: string;
@@ -47,23 +40,7 @@ export function BlogRichTextEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [2, 3, 4] },
-        link: false
-      }),
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" }
-      }),
-      Image.configure({ HTMLAttributes: { class: `${RICH_TEXT_IMAGE_CLASS} blog-editor-image` } }),
-      Table.configure({ resizable: false }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      BlogEmbed
-    ],
+    extensions: createBlogEditorExtensions(),
     content: value || "<p></p>",
     onUpdate: ({ editor: currentEditor }) => {
       onChange(sanitizeBlogBodyHtml(currentEditor.getHTML()));
@@ -123,14 +100,31 @@ export function BlogRichTextEditor({
     }
 
     const previousUrl = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Link URL", previousUrl || "https://");
+    const input = window.prompt("Link URL", previousUrl || "https://");
 
-    if (url === null) {
+    if (input === null) {
       return;
     }
 
-    if (url === "") {
+    if (input.trim() === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    const url = normalizeRichTextLinkUrl(input);
+
+    if (!url) {
+      return;
+    }
+
+    if (editor.state.selection.empty && !editor.isActive("link")) {
+      // Nothing selected and no link under the caret: linking zero characters
+      // is a silent no-op, so insert the URL itself as the linked text.
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "text", text: url, marks: [{ type: "link", attrs: { href: url } }] })
+        .run();
       return;
     }
 
