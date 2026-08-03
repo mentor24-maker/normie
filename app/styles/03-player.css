@@ -443,9 +443,17 @@
   color: #44627e;
 }
 
+/* Editor chrome only: authors need to see where a link landed. Live builder
+   pages keep the site-wide unstyled inline links (see Style Guide). */
 .builder-rich-text-content .ProseMirror a {
   color: inherit;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.builder-rich-text-content .ProseMirror a img {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .builder-rich-text-image-input {
