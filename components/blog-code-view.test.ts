@@ -1,33 +1,14 @@
 // @vitest-environment jsdom
 import { Editor } from "@tiptap/core";
-import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
-import { Table } from "@tiptap/extension-table";
-import TableCell from "@tiptap/extension-table-cell";
-import TableHeader from "@tiptap/extension-table-header";
-import TableRow from "@tiptap/extension-table-row";
-import Underline from "@tiptap/extension-underline";
-import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vitest";
-import { BlogEmbed } from "@/components/blog-embed-node";
+import { createBlogEditorExtensions } from "@/components/blog-editor-extensions";
 import { formatHtmlForCodeView } from "@/lib/format-html";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
 
-/** Mirrors the extension set in `components/blog-rich-text-editor.tsx`. */
 function parseToHtml(content: string) {
   const editor = new Editor({
     element: document.createElement("div"),
-    extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3, 4] }, link: false }),
-      Underline,
-      Link.configure({ openOnClick: false }),
-      Image.configure({ HTMLAttributes: { class: "rich-text-editor-image blog-editor-image" } }),
-      Table.configure({ resizable: false }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      BlogEmbed
-    ],
+    extensions: createBlogEditorExtensions(),
     content
   });
 

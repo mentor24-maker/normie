@@ -1,25 +1,15 @@
 "use client";
 
-import { Extension } from "@tiptap/core";
-import Color from "@tiptap/extension-color";
-import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";
-import TextAlign from "@tiptap/extension-text-align";
-import { TextStyle } from "@tiptap/extension-text-style";
-import Underline from "@tiptap/extension-underline";
-import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
 import type { BuilderModalAnchor } from "@/lib/builder-anchored-modal";
 import type { RichTextGalleryBinding } from "@/components/builder/builder-types";
+import { createBuilderEditorExtensions } from "@/components/builder-editor-extensions";
 import { prepareRichTextHtmlForEditor, prepareRichTextHtmlForStorage } from "@/lib/builder-template";
 import { readAdminJson } from "@/lib/admin-fetch";
 import { formatHtmlForCodeView } from "@/lib/format-html";
-import {
-  appendRichTextImageToHtml,
-  RICH_TEXT_IMAGE_CLASS,
-  resolveRichTextImageSrc
-} from "@/lib/rich-text-image";
+import { normalizeRichTextLinkUrl } from "@/lib/rich-text-link-url";
+import { appendRichTextImageToHtml, resolveRichTextImageSrc } from "@/lib/rich-text-image";
 import { RichTextEmojiPicker } from "@/components/builder/rich-text-emoji-picker";
 import {
   RichTextAlignCenterIcon,
@@ -42,118 +32,6 @@ type BuilderRichTextEditorProps = RichTextGalleryBinding & {
   placeholder?: string;
   enableEmojiPicker?: boolean;
 };
-
-const FontSizeStyle = Extension.create({
-  name: "fontSizeStyle",
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["textStyle"],
-        attributes: {
-          fontSize: {
-            default: null,
-            parseHTML: (element) => element.style.fontSize || null,
-            renderHTML: (attributes) =>
-              attributes.fontSize ? { style: `font-size: ${attributes.fontSize}` } : {}
-          }
-        }
-      }
-    ];
-  }
-});
-
-const BlockStyle = Extension.create({
-  name: "blockStyle",
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["paragraph", "heading"],
-        attributes: {
-          fontSize: {
-            default: null,
-            parseHTML: (element) => element.style.fontSize || null,
-            renderHTML: (attributes) =>
-              attributes.fontSize ? { style: `font-size: ${attributes.fontSize}` } : {}
-          },
-          lineHeight: {
-            default: null,
-            parseHTML: (element) => element.style.lineHeight || null,
-            renderHTML: (attributes) =>
-              attributes.lineHeight ? { style: `line-height: ${attributes.lineHeight}` } : {}
-          },
-          color: {
-            default: null,
-            parseHTML: (element) => element.style.color || null,
-            renderHTML: (attributes) =>
-              attributes.color ? { style: `color: ${attributes.color}` } : {}
-          }
-        }
-      }
-    ];
-  }
-});
-
-const TextShadowStyle = Extension.create({
-  name: "textShadowStyle",
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["textStyle"],
-        attributes: {
-          textShadow: {
-            default: null,
-            parseHTML: (element) => element.style.textShadow || null,
-            renderHTML: (attributes) =>
-              attributes.textShadow ? { style: `text-shadow: ${attributes.textShadow}` } : {}
-          }
-        }
-      }
-    ];
-  }
-});
-
-const TextOutlineStyle = Extension.create({
-  name: "textOutlineStyle",
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["textStyle"],
-        attributes: {
-          textOutline: {
-            default: null,
-            parseHTML: (element) =>
-              element.style.getPropertyValue("-webkit-text-stroke") ||
-              element.style.webkitTextStroke ||
-              null,
-            renderHTML: (attributes) =>
-              attributes.textOutline
-                ? { style: `-webkit-text-stroke: ${attributes.textOutline}` }
-                : {}
-          }
-        }
-      }
-    ];
-  }
-});
-
-const LineHeightStyle = Extension.create({
-  name: "lineHeightStyle",
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["textStyle"],
-        attributes: {
-          lineHeight: {
-            default: null,
-            parseHTML: (element) => element.style.lineHeight || null,
-            renderHTML: (attributes) =>
-              attributes.lineHeight ? { style: `line-height: ${attributes.lineHeight}` } : {}
-          }
-        }
-      }
-    ];
-  }
-});
 
 export function BuilderRichTextEditor({
   value,
@@ -196,33 +74,7 @@ export function BuilderRichTextEditor({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3]
-        },
-        link: false
-      }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" }
-      }),
-      TextStyle,
-      FontSizeStyle,
-      BlockStyle,
-      TextShadowStyle,
-      TextOutlineStyle,
-      LineHeightStyle,
-      Color,
-      Underline,
-      Image.configure({
-        inline: false,
-        HTMLAttributes: { class: RICH_TEXT_IMAGE_CLASS }
-      }),
-      TextAlign.configure({
-        types: ["heading", "paragraph"]
-      })
-    ],
+    extensions: createBuilderEditorExtensions(),
     content: prepareRichTextHtmlForEditor(value) || "<p></p>",
     onUpdate: ({ editor: currentEditor }) => {
       const storageHtml = prepareRichTextHtmlForStorage(currentEditor.getHTML());
@@ -422,9 +274,9 @@ export function BuilderRichTextEditor({
     }
 
     const previousUrl = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Link URL", previousUrl || "https://");
+    const input = window.prompt("Link URL", previousUrl || "https://");
 
-    if (url === null) {
+    if (input === null) {
       return;
     }
 
@@ -434,8 +286,25 @@ export function BuilderRichTextEditor({
       return;
     }
 
-    if (url === "") {
+    if (input.trim() === "") {
       chain.extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    const url = normalizeRichTextLinkUrl(input);
+
+    if (!url) {
+      return;
+    }
+
+    const selection = lastSelectionRef.current ?? editor.state.selection;
+
+    if (selection.from === selection.to && !editor.isActive("link")) {
+      // Nothing selected and no link under the caret: linking zero characters
+      // is a silent no-op, so insert the URL itself as the linked text.
+      chain
+        .insertContent({ type: "text", text: url, marks: [{ type: "link", attrs: { href: url } }] })
+        .run();
       return;
     }
 
