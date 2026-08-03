@@ -3,6 +3,7 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useEffect, useState } from "react";
 import { createBlogEditorExtensions } from "@/components/blog-editor-extensions";
+import { formatHtmlForCodeView } from "@/lib/format-html";
 import { sanitizeBlogBodyHtml } from "@/lib/sanitize-html";
 import { normalizeRichTextLinkUrl } from "@/lib/rich-text-link-url";
 import { resolveRichTextImageSrc } from "@/lib/rich-text-image";
@@ -280,7 +281,7 @@ export function BlogRichTextEditor({
         </button>
         <button
           onClick={() => {
-            setCodeViewValue(editor.getHTML());
+            setCodeViewValue(formatHtmlForCodeView(editor.getHTML()));
             setIsCodeView(true);
           }}
           type="button"
