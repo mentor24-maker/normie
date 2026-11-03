@@ -138,7 +138,7 @@ npm run verify:full   # verify + production build
 Optional git hook (runs `verify` before each commit):
 
 ```bash
-chmod +x .githooks/pre-commit scripts/verify.sh
+chmod +x .githooks/pre-commit
 git config core.hooksPath .githooks
 ```
 
