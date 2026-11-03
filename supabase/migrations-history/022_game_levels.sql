@@ -1,0 +1,40 @@
+-- Game level systems: configurable progression names and nested level labels.
+
+create table if not exists public.game_levels (
+  id uuid primary key default gen_random_uuid(),
+  level_name text not null check (level_name in ('Levels', 'Grades', 'Classes', 'Stage', 'Phase', 'Degrees', 'Plane', 'Echelons', 'Tiers')),
+  level_order integer not null check (level_order between 1 and 10),
+  game_level_levels jsonb not null default '[]'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists game_levels_level_name_idx
+on public.game_levels (level_name);
+
+create index if not exists game_levels_updated_at_idx
+on public.game_levels (updated_at desc);
+
+alter table public.game_levels enable row level security;
+
+drop policy if exists "game levels are readable" on public.game_levels;
+create policy "game levels are readable"
+on public.game_levels
+for select
+to anon, authenticated
+using (true);
+
+grant select on public.game_levels to anon, authenticated, service_role;
+grant insert, update, delete on public.game_levels to service_role;
+
+-- Seed only when empty (on conflict (level_order) relied on a unique
+-- constraint that migration 023 later drops; harmless on prod, breaks replay).
+insert into public.game_levels (level_name, level_order, game_level_levels)
+select
+  'Levels',
+  1,
+  '[{"name":"Apprentice","order":1},{"name":"Acolyte","order":2},{"name":"Wizard","order":3}]'::jsonb
+where not exists (select 1 from public.game_levels);
+
+notify pgrst, 'reload schema';

@@ -1,0 +1,310 @@
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import {
+  buildPollsNextRequestUrl,
+  stripStartPollFromBrowserUrl
+} from "@/lib/poll-categories";
+import logoBanner from "@/images/logo_normie_3_1600x500.png";
+import { CurrentPollPanel } from "@/src/site/home/partials/current-poll-panel";
+import { PreviousResultsPanel } from "@/src/site/home/partials/previous-results-panel";
+import { SurveyInterstitialPanel } from "@/src/site/home/partials/survey-interstitial-panel";
+import { runPollAnswerSideEffects } from "@/lib/poll-answer-effects";
+import type { PollAnswerClientPayload } from "@/lib/poll-answer-client";
+import { getPollDoneMessage } from "@/lib/poll-done-copy";
+import { getPollGridStyle } from "@/lib/poll-pod-config";
+import { rememberPollSessionFromPayload } from "@/lib/poll-session-backup-client";
+import { POLL_TEST_MODE_CHANGED_EVENT } from "@/lib/poll-answer-client";
+import { POLL_LIKE_DISLIKE_FEATURE_KEY } from "@/lib/player-unlocked-features";
+import type { PollReactionKind } from "@/lib/poll-reaction";
+import type { PollPayload } from "@/src/site/home/types";
+
+export function PollExperience({ bare = false }: { bare?: boolean } = {}) {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams?.get("category")?.trim() ?? "";
+  const startPollParam = searchParams?.get("startPoll")?.trim() ?? "";
+  const [payload, setPayload] = useState<PollPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false);
+  const [isReacting, setIsReacting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Synchronous pre-load state flip, shared by event-handler reloads and the
+  // param-change render adjustment below. Kept out of the fetch worker so the
+  // mount effect performs no synchronous setState.
+  function beginPollLoad() {
+    setError(null);
+    setPayload((current) => {
+      if ((!current?.currentPoll && !current?.surveyInterstitial) || current.done) {
+        return null;
+      }
+      return current;
+    });
+    setIsLoading(true);
+  }
+
+  const loadPolls = useCallback(
+    async (options?: { category?: string; startPoll?: string }) => {
+      const category = (options?.category ?? categoryParam).trim();
+      const startPoll = (options?.startPoll ?? startPollParam).trim();
+
+      try {
+        const response = await fetch(
+          buildPollsNextRequestUrl(category || null, startPoll || null),
+          { cache: "no-store" }
+        );
+        const data = (await response.json()) as PollPayload;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Failed to load the poll.");
+        }
+
+        rememberPollSessionFromPayload(data.pollSessionId);
+        setPayload(data);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load the poll.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [categoryParam, startPollParam]
+  );
+
+  function reloadPolls(options?: { category?: string; startPoll?: string }) {
+    beginPollLoad();
+    return loadPolls(options);
+  }
+
+  const [prevParams, setPrevParams] = useState({ categoryParam, startPollParam });
+
+  // Re-enter the loading state when the URL params change (the loadPolls
+  // effect below re-fetches); adjust-during-render replaces the old
+  // synchronous setState inside the effect.
+  if (prevParams.categoryParam !== categoryParam || prevParams.startPollParam !== startPollParam) {
+    setPrevParams({ categoryParam, startPollParam });
+    beginPollLoad();
+  }
+
+  useEffect(() => {
+    void loadPolls();
+  }, [loadPolls]);
+
+  useEffect(() => {
+    const reloadForTestMode = () => {
+      void reloadPolls({ startPoll: "" });
+    };
+
+    window.addEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    return () => window.removeEventListener(POLL_TEST_MODE_CHANGED_EVENT, reloadForTestMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadPolls]);
+
+  async function submitAnswer(optionId: string) {
+    if (!payload?.currentPoll) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pollId: payload.currentPoll.id, optionId })
+      });
+
+      const data = (await response.json()) as PollAnswerClientPayload & { error?: string };
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+            (response.status === 429 ? "Too many answers in a short time. Please wait and try again." : "Failed to save your answer.")
+        );
+      }
+
+      await runPollAnswerSideEffects(data);
+
+      stripStartPollFromBrowserUrl();
+      await reloadPolls({ startPoll: "" });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to save your answer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function submitSurveyInterstitial(answers: Record<string, string>) {
+    if (!payload?.surveyInterstitial) {
+      return;
+    }
+
+    setIsSubmittingSurvey(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/interstitial-survey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interstitialId: payload.surveyInterstitial.id,
+          answers
+        })
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save your survey responses.");
+      }
+
+      await reloadPolls({ startPoll: "" });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to save your survey responses.");
+    } finally {
+      setIsSubmittingSurvey(false);
+    }
+  }
+
+  async function submitPollReaction(reaction: PollReactionKind) {
+    if (!payload?.previousPoll || payload.previousPoll.playerReaction) {
+      return;
+    }
+
+    setIsReacting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/polls/reaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pollId: payload.previousPoll.id,
+          reaction
+        })
+      });
+
+      const data = (await response.json()) as PollAnswerClientPayload & {
+        error?: string;
+        reaction?: PollReactionKind;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save your reaction.");
+      }
+
+      setPayload((current) => {
+        if (!current?.previousPoll) {
+          return current;
+        }
+
+        return {
+          ...current,
+          previousPoll: {
+            ...current.previousPoll,
+            playerReaction: data.reaction ?? reaction
+          }
+        };
+      });
+    } catch (reactError) {
+      setError(reactError instanceof Error ? reactError.message : "Failed to save your reaction.");
+    } finally {
+      setIsReacting(false);
+    }
+  }
+
+  const showPollReactions = Boolean(payload?.unlockedFeatures?.includes(POLL_LIKE_DISLIKE_FEATURE_KEY));
+
+  const pollBody = (
+    <>
+      {error ? <div className="notice error">{error}</div> : null}
+
+      {isLoading && !payload?.currentPoll && !payload?.surveyInterstitial && (!payload || payload.done) ? (
+        <div className="notice">Loading polls...</div>
+      ) : payload?.done ? (
+        <div className="notice success">{getPollDoneMessage(payload.doneReason)}</div>
+      ) : payload?.surveyInterstitial ? (
+        <SurveyInterstitialPanel
+          isSubmitting={isSubmittingSurvey}
+          onSubmit={submitSurveyInterstitial}
+          settings={payload.settings}
+          survey={payload.surveyInterstitial}
+        />
+      ) : payload?.currentPoll ? (
+        <>
+          <section className="poll-grid" style={getPollGridStyle(payload.settings)}>
+            <CurrentPollPanel
+              currentPoll={payload.currentPoll}
+              isAwaitingNextPoll={isLoading}
+              isSubmitting={isSubmitting}
+              onSubmit={submitAnswer}
+              settings={payload.settings}
+            />
+
+            <PreviousResultsPanel
+              isReacting={isReacting}
+              onReact={submitPollReaction}
+              playerReaction={payload.previousPoll?.playerReaction ?? null}
+              previousPoll={payload.previousPoll}
+              settings={payload.settings}
+              showPollReactions={showPollReactions}
+            />
+          </section>
+        </>
+      ) : (
+        <div className="notice">No published polls are available yet.</div>
+      )}
+    </>
+  );
+
+  if (bare) {
+    return pollBody;
+  }
+
+  return (
+    <main className="page-shell">
+      <section className="hero hero-card">
+        <div className="hero-top-row">
+          <div className="hero-logo-group">
+            <div className="hero-logo-shell hero-banner-shell">
+              <div className="hero-logo-card hero-banner-card">
+                <Image src={logoBanner} alt="Normie banner" className="hero-logo hero-banner" priority />
+              </div>
+            </div>
+            <div className="page-eyebrow hero-logo-caption">Personality Polls</div>
+          </div>
+          <div className="hero-copy hero-copy-compact">
+            <p className="page-copy">
+              Explore what people believe. Discover where you align. And keep answering questions
+              designed to spark awareness and perspective.
+            </p>
+            <div className="hero-chip-row">
+              <span className="hero-chip chip-sky">Knowledge</span>
+              <span className="hero-chip chip-gold">Awareness</span>
+              <span className="hero-chip chip-cloud">Growth</span>
+            </div>
+          </div>
+        </div>
+        <div className="hero-headline-row">
+          <h1>Curiosity with a pulse.</h1>
+        </div>
+      </section>
+
+      {pollBody}
+
+      <section className="solo-info-row">
+        <article className="intro-panel intro-panel-yellow solo-info-panel">
+          <div className="panel-label">Why It Feels Different</div>
+          <p className="panel-copy">
+            Instead of isolated polls, the experience becomes a guided sequence that builds
+            curiosity and reflection one question at a time.
+          </p>
+          <div className="orb-row">
+            <span className="orb orb-blue" />
+            <span className="orb orb-yellow" />
+            <span className="orb orb-white" />
+          </div>
+        </article>
+      </section>
+    </main>
+  );
+}
