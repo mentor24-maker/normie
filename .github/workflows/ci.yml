@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
+  verify:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,17 +26,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm test
-
-      - name: Dependency audit (production tree)
-        run: npm run audit:ci
-
-      - name: Production build
-        run: npm run build
+      # One name for the definition of done: typecheck, lint, test, the
+      # dependency audit and the production build (package.json).
+      - name: Verify
+        run: npm run verify:full
