@@ -3,7 +3,7 @@ import nextTypescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
   {
-    ignores: [".next/**", "node_modules/**", ".claude/**", "next-env.d.ts", "scripts/**", "gemini-code-*.txt"]
+    ignores: [".next/**", "node_modules/**", ".claude/**", "next-env.d.ts", "scripts/**", "loop/**", "gemini-code-*.txt"]
   },
   ...nextCoreWebVitals,
   ...nextTypescript,
