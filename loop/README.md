@@ -6,7 +6,7 @@ repository (`npm run doctor`).
 
 Every file here except this README is copied byte for byte from
 [Spirality](https://github.com/mentor24-maker/spirality)'s `main` at commit
-`87540a7`, keeping Spirality's layout (`scripts/` beside `lib/`) so no import
+`c9bd141`, keeping Spirality's layout (`scripts/` beside `lib/`) so no import
 changes. The project settings it reads are Normie's own
 `spirality.project.json` at the repository root.
 
