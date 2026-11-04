@@ -14,8 +14,9 @@ passed an independent check.
 ## Before anything: one reviewer
 
 Two review passes verifying the same ticket overwrite each other's verdict.
-Normie has no scheduled runner yet (NO-6 installs its lanes on the Mini), so:
-**do not start this loop if another session is already running it.**
+On the Mini the review lane (`com.normie.loop-review`) runs this skill every
+30 minutes, so: **do not start this loop by hand while that lane is loaded**
+(`scripts/install_loop_runner.sh --status`).
 
 ## Ticket access: the direct script, not the connector
 
@@ -133,9 +134,7 @@ look at; this is a check that runs in CI"*).
      > list is `mergePhrases` in `spirality.project.json`). The relay
      > (`com.normie.relay`, every 10 minutes) re-checks every gate, merges
      > PR #N and moves this ticket. "merge PR #N" is *not* a phrase and does
-     > nothing. Until NO-6 installs Normie's relay on the Mini, nothing acts on
-     > the phrase by itself: after replying, tell a session **"run Normie's
-     > relay"**.
+     > nothing.
 
      (Write it into the card as plain lines, not a blockquote — the script
      refuses `> ` lines.) Then end `@@NEEDED` with **`Your move: Merge — PR #N`**: the

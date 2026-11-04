@@ -156,27 +156,32 @@ three reasons listed and named options (respec / split / drop).
 
 ## How to run it
 
-**Today, by hand.** Normie's loop lanes are not installed on the Mini yet;
-NO-6 installs them, as launchd jobs named from `launchdPrefix` in
-`spirality.project.json` (`com.normie.loop-build`, `com.normie.loop-review`,
-`com.normie.loop-intake`, `com.normie.relay`), run by Spirality's runner
-scripts. Until then a loop runs only when a session starts one, in
-`~/WebApps/normie`, signed in as `hand-run`:
+**On the Mini, on a timer.** Four launchd jobs, named from `launchdPrefix` in
+`spirality.project.json`, run from the main checkout at `~/WebApps/normie`:
 
+| Job | What it runs | How often |
+|---|---|---|
+| `com.normie.loop-build` | a Claude pass of `loop-build` | every 30 minutes |
+| `com.normie.loop-review` | a Claude pass of `loop-review` | every 30 minutes |
+| `com.normie.loop-intake` | a Claude pass of `loop-intake` | every 30 minutes |
+| `com.normie.relay` | `npm run clickup -- relay`, no Claude | every 10 minutes |
+
+Each lane pulls a clean `main` before every pass and signs in to the tracker
+as itself (`loop-build`, `loop-review`, `loop-intake`, `relay`). The scripts
+are in `scripts/` (`install_loop_runner.sh`, `loop_runner.sh`, `run_relay.sh`
+and their helpers), copied from Spirality (`loop/README.md`).
+
+```bash
+~/WebApps/normie/scripts/install_loop_runner.sh --status     # loaded? running? last pass?
+~/WebApps/normie/scripts/install_loop_runner.sh              # install, or reinstall after a change
+~/WebApps/normie/scripts/install_loop_runner.sh --uninstall  # remove all four
 ```
-/loop 30m loop-build
-/loop 30m loop-review
-```
 
-Each in **its own session**, and **only one session per loop**: claiming a
-ticket is check-then-act, and a second claimant makes it unsound. Nothing acts
-on your merge phrase or your "go" by itself yet either: after you reply, tell
-a session **"run Normie's relay"**, and it runs `npm run clickup -- relay`
-(after a `--dry-run` showing what it will do).
-
-Once the lanes run, the question is never "shall I start one", it is "what is
-it doing": each lane writes its log to `~/loop-logs/normie-<lane>.log` on the
-Mini, and nobody starts a loop by hand while they are loaded.
+The question is never "shall I start one", it is "what is it doing": each
+lane writes its log to `~/loop-logs/normie-<lane>.log` on the Mini, and
+nobody starts a loop by hand while they are loaded. Install from an agent
+session, never from inside one of the lanes: the installer reloads the job it
+would be running in.
 
 Your day:
 
