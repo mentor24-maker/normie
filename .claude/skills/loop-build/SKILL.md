@@ -14,13 +14,11 @@ draining the queue one clean PR at a time.
 ## Before anything: one claimant
 
 Claiming a ticket is check-then-act (a read, a comparison, a write), which is
-only sound with exactly one build pass running. Normie has no scheduled runner
-yet (NO-6 installs its lanes on the Mini), so a loop runs only when a session
-starts one by hand: **do not start this loop if another session is already
-running it.** Once the lanes run, the build lane's runner (Spirality's
-[`scripts/loop_runner.sh`](https://github.com/mentor24-maker/spirality/blob/main/scripts/loop_runner.sh))
-holds a lock, `$LOG_DIR/$SLUG-loop-build.lock`, so only one runner runs and
-its passes run one after another. A hand-run session holds no lock: **do not
+only sound with exactly one build pass running. On the Mini the build lane
+(`com.normie.loop-build`, installed by `scripts/install_loop_runner.sh`) runs
+this skill every 30 minutes. Its runner, `scripts/loop_runner.sh`, holds a
+lock, `~/loop-logs/normie-loop-build.lock`, so only one runner runs and its
+passes run one after another. A hand-run session holds no lock: **do not
 start this loop by hand while the runner's lane is running.**
 
 A ticket in `Building` is not proof that a pass is building it. A pass that
@@ -32,8 +30,10 @@ building).
 
 **`pass-reconcile` is not in Normie's ticket door yet.** `loop/` was copied
 from a Spirality version older than SP-101, so the command arrives with the
-next copy of `loop/`. Until then, skip it: no runner runs, and a hand-run
-claim never writes a marker, so there is nothing for it to find.
+next copy of `loop/`. Until then, skip it: the copied `claim` writes no
+marker, even under the runner, so there is nothing for it to find. That also
+means a pass that dies leaves its ticket in `Building` until a person hands
+it back.
 
 ```bash
 npm run clickup -- pass-reconcile

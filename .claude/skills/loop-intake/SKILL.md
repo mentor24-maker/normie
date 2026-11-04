@@ -1,6 +1,6 @@
 ---
 name: loop-intake
-description: Take the oldest "Requested" ticket (a request Dane filed from the tracker page), write it up as a proper spec (or several, one per pull request) with his words kept verbatim, and hand every resulting ticket to him in "Needs your input" to approve with "go". Runs unattended on the Mini as its own launchd lane once NO-6 installs Normie's lanes; until then a session runs it by hand. Never writes code, never queues anything itself.
+description: Take the oldest "Requested" ticket (a request Dane filed from the tracker page), write it up as a proper spec (or several, one per pull request) with his words kept verbatim, and hand every resulting ticket to him in "Needs your input" to approve with "go". Runs unattended on the Mini as its own launchd lane (com.normie.loop-intake). Never writes code, never queues anything itself.
 ---
 
 # Loop: Intake
@@ -18,8 +18,8 @@ do NOT write code, open a worktree, or touch a pull request.
 ## Ticket access
 
 Every touch goes through **`npm run clickup -- <command>`**, a full standalone
-command each time. Doppler supplies the token; on the Mini the runner (once
-NO-6 installs it) names this lane's own sign-in (`TRACKER_TOKEN_LOOP_INTAKE`).
+command each time. Doppler supplies the token; on the Mini the runner names
+this lane's own sign-in (`TRACKER_TOKEN_LOOP_INTAKE`).
 A session run by hand signs in as `hand-run`. The moves this pass
 makes:
 
