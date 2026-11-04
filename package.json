@@ -16,8 +16,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "audit:ci": "npm audit --audit-level=high --omit=dev",
-    "verify": "npm run typecheck && npm run lint && npm test && npm run audit:ci",
-    "verify:full": "npm run verify && npm run build"
+    "test:loop": "node --test \"loop/**/*.test.js\" \"loop/**/*.test.mjs\"",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run test:loop && npm run audit:ci",
+    "verify:full": "npm run verify && npm run build",
+    "clickup": "node loop/scripts/with_doppler.mjs node loop/scripts/clickup.mjs",
+    "doctor": "node loop/scripts/doctor.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
