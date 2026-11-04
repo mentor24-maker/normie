@@ -21,6 +21,19 @@ lock, `~/loop-logs/normie-loop-build.lock`, so only one runner runs and its
 passes run one after another. A hand-run session holds no lock: **do not
 start this loop by hand while the runner's lane is running.**
 
+First tell which one you are. The runner exports `LOOP_RUNNER_PID` to every
+pass it starts:
+
+```bash
+echo "${LOOP_RUNNER_PID:-}"
+```
+
+- **Set** (a number): you ARE the build lane's own pass, under its lock.
+  Carry on. A loaded lane is you, not a second claimant.
+- **Empty**: you were started by hand. Run
+  `scripts/install_loop_runner.sh --status`; if `loop-build` shows
+  `loaded:   yes`, stop and report that the lane is running. Otherwise carry on.
+
 A ticket in `Building` is not proof that a pass is building it. A pass that
 dies (killed, out of time, out of session) leaves its ticket there, and
 nothing claims from `Building` (Spirality's SP-101: its SP-92 sat a day that
