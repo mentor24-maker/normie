@@ -15,8 +15,21 @@ passed an independent check.
 
 Two review passes verifying the same ticket overwrite each other's verdict.
 On the Mini the review lane (`com.normie.loop-review`) runs this skill every
-30 minutes, so: **do not start this loop by hand while that lane is loaded**
-(`scripts/install_loop_runner.sh --status`).
+30 minutes, so: **do not start this loop by hand while that lane is loaded**.
+
+First tell which one you are. The lane's runner, `scripts/loop_runner.sh`,
+exports `LOOP_RUNNER_PID` to every pass it starts:
+
+```bash
+echo "${LOOP_RUNNER_PID:-}"
+```
+
+- **Set** (a number): you ARE the review lane's own pass, and the runner's
+  lock (`~/loop-logs/normie-loop-review.lock`) makes you the only one.
+  Carry on. A loaded lane is you, not a second reviewer.
+- **Empty**: you were started by hand. Run
+  `scripts/install_loop_runner.sh --status`; if `loop-review` shows
+  `loaded:   yes`, stop and report that the lane is running. Otherwise carry on.
 
 ## Ticket access: the direct script, not the connector
 
